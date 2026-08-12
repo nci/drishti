@@ -1,6 +1,24 @@
 #include <QtGui>
 #include "common.h"
 #include "tomplugin.h"
+#include "../rawfileutils.h"
+
+#include <cmath>
+#include <cstring>
+#include <memory>
+#include <new>
+
+namespace
+{
+template<std::size_t Size>
+QString fixedTomString(const char (&text)[Size])
+{
+  int length = 0;
+  while (length < static_cast<int>(Size) && text[length] != '\0')
+    ++length;
+  return QString::fromLocal8Bit(text, length).trimmed();
+}
+}
 
 QStringList
 TomPlugin::registerPlugin()
@@ -22,10 +40,12 @@ TomPlugin::init()
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
@@ -38,10 +58,12 @@ TomPlugin::clear()
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
@@ -78,6 +100,7 @@ TomPlugin::setMinMax(float rmin, float rmax)
 float TomPlugin::rawMin() { return m_rawMin; }
 float TomPlugin::rawMax() { return m_rawMax; }
 QList<uint> TomPlugin::histogram() { return m_histogram; }
+QString TomPlugin::lastError() const { return m_lastError; }
 
 void
 TomPlugin::gridSize(int& d, int& w, int& h)
@@ -90,51 +113,124 @@ TomPlugin::gridSize(int& d, int& w, int& h)
 void
 TomPlugin::replaceFile(QString flnm)
 {
-  m_fileName.clear();
-  m_fileName << flnm;
+  m_lastError.clear();
+  const QString candidateFile = QFileInfo(flnm).absoluteFilePath();
+  QFile input(candidateFile);
+  if (!input.open(QFile::ReadOnly))
+    {
+      m_lastError = QString("Cannot open replacement TOM volume %1: %2")
+                      .arg(candidateFile, input.errorString());
+      return;
+    }
+  thead candidateHeader;
+  std::memset(&candidateHeader, 0, sizeof(candidateHeader));
+  QString error;
+  if (!RawFileUtils::readExact(input, &candidateHeader, 512, error))
+    {
+      m_lastError = error;
+      return;
+    }
+  input.close();
+  if (candidateHeader.zsize != m_depth || candidateHeader.ysize != m_width ||
+      candidateHeader.xsize != m_height)
+    {
+      m_lastError = QString("Replacement TOM volume is %1 x %2 x %3; "
+                            "expected %4 x %5 x %6.")
+                      .arg(candidateHeader.zsize).arg(candidateHeader.ysize)
+                      .arg(candidateHeader.xsize).arg(m_depth).arg(m_width)
+                      .arg(m_height);
+      return;
+    }
+  RawFileUtils::Layout layout;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error) ||
+      !RawFileUtils::validateFileSize(candidateFile, layout.requiredFileBytes,
+                                      error))
+    {
+      m_lastError = error;
+      return;
+    }
+  m_fileName = QStringList() << candidateFile;
+  m_tHead = candidateHeader;
 }
 
 bool
 TomPlugin::setFile(QStringList files)
 {
-  m_fileName = files;
+  m_lastError.clear();
+  if (files.isEmpty() || files.first().trimmed().isEmpty())
+    {
+      m_lastError = "No TOM volume file was selected.";
+      return false;
+    }
 
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.read((char*)&m_tHead, 512);
+  const QString candidateFile = QFileInfo(files.first()).absoluteFilePath();
+
+  QFile fin(candidateFile);
+  if (!fin.open(QFile::ReadOnly))
+    {
+      m_lastError = QString("Cannot open TOM volume %1: %2")
+                      .arg(candidateFile, fin.errorString());
+      return false;
+    }
+  thead candidateHeader;
+  std::memset(&candidateHeader, 0, sizeof(candidateHeader));
+  QString readError;
+  if (!RawFileUtils::readExact(fin, &candidateHeader, 512, readError))
+    {
+      m_lastError = readError;
+      return false;
+    }
   fin.close();
   
 
   m_description = QString("%1 %2 %3 %4 %5 %6 %7").	\
-    arg(m_tHead.owner).					\
-    arg(m_tHead.user).					\
-    arg(m_tHead.specimen).				\
-    arg(m_tHead.scan).					\
-    arg(m_tHead.comment).				\
-    arg(m_tHead.time).					\
-    arg(m_tHead.duration);
+    arg(fixedTomString(candidateHeader.owner)).		\
+    arg(fixedTomString(candidateHeader.user)).		\
+    arg(fixedTomString(candidateHeader.specimen)).	\
+    arg(fixedTomString(candidateHeader.scan)).		\
+    arg(fixedTomString(candidateHeader.comment)).	\
+    arg(fixedTomString(candidateHeader.time)).		\
+    arg(fixedTomString(candidateHeader.duration));
 
-  m_voxelSizeX = m_tHead.pixel_size;
-  m_voxelSizeY = m_tHead.pixel_size;
-  m_voxelSizeZ = m_tHead.pixel_size;
+  const float pixelSize = std::isfinite(candidateHeader.pixel_size) &&
+                          candidateHeader.pixel_size > 0 ?
+                            candidateHeader.pixel_size : 1.0f;
+  m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = pixelSize;
   m_voxelType = _UChar;
   m_bytesPerVoxel = 1;
   m_skipBytes = 512;
   m_headerBytes = m_skipBytes;
-  m_depth = m_tHead.zsize;
-  m_width = m_tHead.ysize;
-  m_height = m_tHead.xsize;
+  m_depth = candidateHeader.zsize;
+  m_width = candidateHeader.ysize;
+  m_height = candidateHeader.xsize;
+
+  RawFileUtils::Layout layout;
+  QString layoutError;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height,
+                                m_voxelType, m_skipBytes,
+                                layout, layoutError) ||
+      !RawFileUtils::validateFileSize(candidateFile,
+                                      layout.requiredFileBytes,
+                                      layoutError))
+    {
+      m_lastError = layoutError;
+      return false;
+    }
+
+  m_fileName = QStringList() << candidateFile;
+  m_tHead = candidateHeader;
 
   m_rawMin = 0;
   m_rawMax = 255;
   generateHistogram();
 
-  return true;
+  return m_lastError.isEmpty() && !m_histogram.isEmpty();
 }
 
 #define GENHISTOGRAM()					\
   {							\
-    for(uint j=0; j<nY*nZ; j++)				\
+    for(qint64 j=0; j<layout.sliceVoxels; j++)		\
       {							\
 	float fidx = (ptr[j]-m_rawMin)/rSize;		\
 	fidx = qBound(0.0f, fidx, 1.0f);		\
@@ -173,66 +269,75 @@ TomPlugin::generateHistogram()
   progress.setMinimumDuration(0);
 
 
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes);
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
+    {
+      m_lastError = error;
+      m_histogram.clear();
+      return;
+    }
+  std::unique_ptr<uchar[]> tmp(new (std::nothrow)
+                                uchar[static_cast<std::size_t>(layout.sliceBytes)]);
+  if (!tmp)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for a TOM slice.")
+                      .arg(layout.sliceBytes);
+      m_histogram.clear();
+      return;
+    }
 
   m_histogram.clear();
   for(uint i=0; i<rSize+1; i++)
     m_histogram.append(0);
 
   int histogramSize = m_histogram.size()-1;
-  for(uint i=0; i<nX; i++)
+  for(int i=0; i<m_depth; i++)
     {
-      progress.setValue((int)(100.0*(float)i/(float)nX));
+      progress.setValue((int)(100.0*(float)i/(float)m_depth));
       qApp->processEvents();
 
-
-      fin.read((char*)tmp, nbytes);
+      if (!RawFileUtils::readAt(m_fileName.first(),
+                                m_skipBytes+layout.sliceBytes*i, tmp.get(),
+                                layout.sliceBytes, error))
+        {
+          m_lastError = error;
+          m_histogram.clear();
+          return;
+        }
 
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
+	  uchar *ptr = tmp.get();
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
+	  char *ptr = reinterpret_cast<char*>(tmp.get());
 	  GENHISTOGRAM();
 	}
       if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
+	  ushort *ptr = reinterpret_cast<ushort*>(tmp.get());
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
+	  short *ptr = reinterpret_cast<short*>(tmp.get());
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Int)
 	{
-	  int *ptr = (int*) tmp;
+	  int *ptr = reinterpret_cast<int*>(tmp.get());
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Float)
 	{
-	  float *ptr = (float*) tmp;
+	  float *ptr = reinterpret_cast<float*>(tmp.get());
 	  GENHISTOGRAM();
 	}
     }
-  fin.close();
-
-  delete [] tmp;
-
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
 //  while(m_histogram.first() == 0)
@@ -246,12 +351,34 @@ void
 TomPlugin::getDepthSlice(int slc,
 			      uchar *slice)
 {
-  qint64 nbytes = m_width*m_height*m_bytesPerVoxel;
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek((qint64)(m_skipBytes + nbytes*slc));
-  fin.read((char*)slice, (qint64)nbytes);
-  fin.close();
+  m_lastError.clear();
+  if (!slice)
+    {
+      m_lastError = "TOM depth-slice output buffer is null.";
+      return;
+    }
+
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height,
+                                m_voxelType, m_skipBytes, layout, error))
+    {
+      m_lastError = error;
+      return;
+    }
+  if (slc < 0 || slc >= m_depth)
+    {
+      std::memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      m_lastError = QString("Invalid TOM depth slice %1.").arg(slc);
+      return;
+    }
+  if (!RawFileUtils::readAt(m_fileName[0],
+                            m_skipBytes+layout.sliceBytes*slc,
+                            slice, layout.sliceBytes, error))
+    {
+      std::memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      m_lastError = error;
+    }
 }
 
 //void
@@ -304,29 +431,27 @@ TomPlugin::getDepthSlice(int slc,
 QVariant
 TomPlugin::rawValue(int d, int w, int h)
 {
-  QVariant v;
-
   if (d < 0 || d >= m_depth ||
       w < 0 || w >= m_width ||
       h < 0 || h >= m_height)
+    return QVariant("OutOfBounds");
+
+  const qint64 voxelIndex = static_cast<qint64>(d)*m_width*m_height+
+                            static_cast<qint64>(w)*m_height+h;
+  qint64 byteOffset = 0;
+  if (!RawFileUtils::checkedMultiply(voxelIndex, m_bytesPerVoxel,
+                                     byteOffset) ||
+      !RawFileUtils::checkedAdd(byteOffset, m_skipBytes, byteOffset))
+    return QVariant("ReadError");
+
+  uchar value = 0;
+  QString error;
+  if (!RawFileUtils::readAt(m_fileName[0], byteOffset, &value, 1, error))
     {
-      v = QVariant("OutOfBounds");
-      return v;
+      m_lastError = error;
+      return QVariant("ReadError");
     }
-
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek((qint64)(m_skipBytes +
-	   m_bytesPerVoxel*(d*m_width*m_height +
-			    w*m_height +
-			    h)));
-
-  unsigned char val;
-  fin.read((char*)&val, (qint64)m_bytesPerVoxel);
-  v = QVariant((uint)val);
-  fin.close();
-
-  return v;
+  return QVariant(static_cast<uint>(value));
 }
 
 //void

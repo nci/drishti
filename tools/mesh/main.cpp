@@ -4,14 +4,14 @@
 #include "mainwindow.h"
 
 #include <QTranslator>
+#include "../../portableqtruntime.h"
 
 int main(int argc, char** argv)
 {
 #if defined(Q_OS_WIN32)
-  //QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-  int MYargc = 3;
-  char *MYargv[] = {(char*)"Appname", (char*)"--platform", (char*)"windows:dpiawareness=0"};
-  QApplication application(MYargc, MYargv);
+  QApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
+  configurePortableQtRuntime();
+  QApplication application(argc, argv);
 #else
   QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
   QApplication application(argc, argv);   
@@ -24,7 +24,11 @@ int main(int argc, char** argv)
   //QApplication application(argc,argv);
   
   QGLFormat glFormat;
-  glFormat.setSampleBuffers(true);
+#if defined(Q_OS_WIN32) || defined(Q_OS_LINUX)
+  glFormat.setVersion(4, 2);
+  glFormat.setProfile(QGLFormat::CompatibilityProfile);
+#endif
+  glFormat.setSampleBuffers(false);
   glFormat.setDoubleBuffer(true);
   glFormat.setRgba(true);
   glFormat.setAlpha(true);

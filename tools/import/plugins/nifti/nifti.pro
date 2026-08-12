@@ -13,5 +13,7 @@ include(../plugins.itk)
 
 
 # Input
-HEADERS = niftiplugin.h
-SOURCES = niftiplugin.cpp
+HEADERS = niftiplugin.h \
+          ../../importmemoryadmission.h
+SOURCES = niftiplugin.cpp \
+          ../../importmemoryadmission.cpp

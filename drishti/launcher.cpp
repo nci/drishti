@@ -1,9 +1,41 @@
 #include "launcher.h"
 #include <QDir>
+#include <QFileInfo>
+#include <QMessageBox>
 
 #ifdef Q_OS_WIN
     #include <windows.h>
     #include <shellapi.h>
+
+namespace
+{
+bool launchExecutable(const QString &exeFileName)
+{
+  const QString workingDirectory = QFileInfo(exeFileName).absolutePath();
+  const LPCWSTR nativePath =
+    reinterpret_cast<LPCWSTR>(exeFileName.utf16());
+  const LPCWSTR nativeDirectory =
+    reinterpret_cast<LPCWSTR>(workingDirectory.utf16());
+  INT_PTR result = reinterpret_cast<INT_PTR>(
+    ::ShellExecuteW(0, L"open", nativePath, 0, nativeDirectory, SW_SHOWNORMAL));
+  if (result == SE_ERR_ACCESSDENIED)
+    result = reinterpret_cast<INT_PTR>(
+      ::ShellExecuteW(0, L"runas", nativePath, 0, nativeDirectory, SW_SHOWNORMAL));
+
+  if (result <= 32)
+    {
+      QMessageBox::critical(
+        0,
+        "Launch Error",
+        QString("Cannot start %1.\n\nShellExecute error code: %2")
+          .arg(QDir::toNativeSeparators(exeFileName))
+          .arg(result));
+      return false;
+    }
+
+  return true;
+}
+}
 #endif
 
 
@@ -77,16 +109,8 @@ Launcher::drishtiImport(bool b)
 {
 #if defined(Q_OS_WIN32)
   QString exeFileName = qApp->applicationDirPath() + QDir::separator() + "drishtiimport.exe";
-  int result = (int)::ShellExecuteA(0, "open", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
-  if (SE_ERR_ACCESSDENIED == result)
-    {
-      // Requesting elevation
-      result = (int)::ShellExecuteA(0, "runas", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
-    }
-  if (result <= 32)
-    {
-      // error handling
-    }  
+  if (!launchExecutable(exeFileName))
+    return;
 #else
   QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtiimport");
 #endif
@@ -98,16 +122,8 @@ Launcher::drishtiPaint(bool b)
 {
 #if defined(Q_OS_WIN32)
   QString exeFileName = qApp->applicationDirPath() + QDir::separator() + "drishtipaint.exe";
-  int result = (int)::ShellExecuteA(0, "open", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
-  if (SE_ERR_ACCESSDENIED == result)
-    {
-      // Requesting elevation
-      result = (int)::ShellExecuteA(0, "runas", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
-    }
-  if (result <= 32)
-    {
-      // error handling
-    }  
+  if (!launchExecutable(exeFileName))
+    return;
 #else
   QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtipaint");
 #endif
@@ -119,16 +135,8 @@ Launcher::drishtiMesh(bool b)
 {
 #if defined(Q_OS_WIN32)
   QString exeFileName = qApp->applicationDirPath() + QDir::separator() + "drishtimesh.exe";
-  int result = (int)::ShellExecuteA(0, "open", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
-  if (SE_ERR_ACCESSDENIED == result)
-    {
-      // Requesting elevation
-      result = (int)::ShellExecuteA(0, "runas", exeFileName.toUtf8().constData(), 0, 0, SW_SHOWNORMAL);
-    }
-  if (result <= 32)
-    {
-      // error handling
-    }  
+  if (!launchExecutable(exeFileName))
+    return;
 #else
   QProcess::startDetached(qApp->applicationDirPath() + QDir::separator() + "drishtimesh");
 #endif

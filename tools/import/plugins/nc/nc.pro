@@ -18,7 +18,7 @@ include(../plugins.pri)
 win32 {
   INCLUDEPATH += ../../
 
-  LIBS += netcdfcpp.lib
+  LIBS += $$DRISHTI_LEGACY_NETCDF_LIB
 }
 
 unix {

@@ -1,13 +1,21 @@
 import os
 import sys
+
 import numpy
 
-print('---- raw_reader.py ----')
 
-class Volume :
-    def __init__(self) :
-        self.flnms = ""
-        self.description = "RAW volume"
+CHUNK_ELEMENTS = 1024 * 1024
+HEADER_BYTES = 13
+SUPPORTED_TYPES = {
+    0: numpy.dtype("uint8"),
+    2: numpy.dtype("<u2"),
+}
+
+
+class Volume:
+    def __init__(self):
+        self.flnms = []
+        self.description = "RAW volume (memory mapped)"
         self.voxelUnit = "micron"
         self.voxelSize = (1.0, 1.0, 1.0)
         self.voxelType = 0
@@ -16,128 +24,170 @@ class Volume :
         self.width = 0
         self.height = 0
         self.dim = (0, 0, 0)
-        self.headerBytes = 0
+        self.headerBytes = HEADER_BYTES
         self.data = None
         self.dataMin = 0
         self.dataMax = 0
         self.rawMin = 0
         self.rawMax = 0
         self.histogram = None
-        print('\nvol Initialized\n')
-    #--------------------
 
-    #--------------------
-    def setFiles(self, flnms) :
+    def setFiles(self, flnms):
+        self.close()
+        if len(flnms) != 1:
+            raise ValueError("Select exactly one Drishti RAW file")
+
         self.flnms = flnms
-        # open the first file and read the header
-        fin = open(self.flnms[0], 'rb')    
-        (self.voxelType) = numpy.fromfile(fin, dtype=numpy.int8, count=1)[0]
-        (self.depth, self.width, self.height) = numpy.fromfile(fin, dtype=numpy.int32, count=3)
-        self.dim = (self.height, self.width, self.depth)
-        self.headerBytes = 13
-        fin.close()
-    #--------------------
-
-    #--------------------
-    def load_entire_data(self) :
         flnm = self.flnms[0]
-        fin = open(flnm, 'rb')
+        with open(flnm, "rb") as fin:
+            header = fin.read(HEADER_BYTES)
 
-        # skip the header bytes
-        fin.seek(self.headerBytes)
-        
-        self.data=0
-        
-        if self.voxelType == 0 : # UCHAR
-            self.bytesPerVoxel = 1
-            self.data = numpy.fromfile(fin, dtype=numpy.uint8, count=self.depth*self.width*self.height)
-            self.rawMin = 0
-            self.rawMax = 255
-            
-        if self.voxelType == 2 : # USHORT
-            self.bytesPerVoxel = 2
-            self.data = numpy.fromfile(fin, dtype=numpy.uint16, count=self.depth*self.width*self.height)
-            self.rawMin = 0
-            self.rawMax = 65535            
+        if len(header) != HEADER_BYTES:
+            raise ValueError("The RAW header is truncated")
 
-        fin.close()
-        print('data in memory')
-    #--------------------
+        self.voxelType = header[0]
+        if self.voxelType not in SUPPORTED_TYPES:
+            raise ValueError(
+                "The RAW script supports only unsigned 8-bit and 16-bit volumes"
+            )
 
-        
-    #--------------------
-    def calculate_min_max(self) :
-        self.dataMin = numpy.min(self.data)
-        self.dataMax = numpy.max(self.data)
-    #--------------------
+        dimensions = numpy.frombuffer(header, dtype="<i4", count=3, offset=1)
+        self.depth, self.width, self.height = (int(value) for value in dimensions)
+        if self.depth <= 0 or self.width <= 0 or self.height <= 0:
+            raise ValueError("The RAW header contains invalid volume dimensions")
 
+        voxel_count = self.depth * self.width * self.height
+        dtype = SUPPORTED_TYPES[self.voxelType]
+        expected_bytes = HEADER_BYTES + voxel_count * dtype.itemsize
+        actual_bytes = os.path.getsize(flnm)
+        if actual_bytes < expected_bytes:
+            raise ValueError(
+                "The RAW payload is truncated: expected at least "
+                f"{expected_bytes} bytes, found {actual_bytes}"
+            )
 
-    #--------------------
-    def gen_histogram(self):
-        bins = list(range(self.rawMin, self.rawMax+2))
-        self.histogram, b = numpy.histogram(self.data, bins)
-        self.histogram.astype(numpy.int64)
-    #--------------------
+        self.bytesPerVoxel = dtype.itemsize
+        self.dim = (self.height, self.width, self.depth)
+        self.data = numpy.memmap(
+            flnm,
+            dtype=dtype,
+            mode="r",
+            offset=HEADER_BYTES,
+            shape=(voxel_count,),
+        )
 
-    #--------------------
-    def get_depth_slice(self, d):
+        info = numpy.iinfo(dtype)
+        self.rawMin = int(info.min)
+        self.rawMax = int(info.max)
+
+    def close(self):
+        data = self.data
+        self.data = None
+        self.histogram = None
+        if isinstance(data, numpy.memmap):
+            mapping = getattr(data, "_mmap", None)
+            if mapping is not None:
+                mapping.close()
+
+    def calculate_statistics(self):
+        if self.data is None or self.data.size == 0:
+            raise ValueError("The RAW volume contains no voxels")
+
+        bin_count = 256 if self.voxelType == 0 else 65536
+        histogram = numpy.zeros(bin_count, dtype=numpy.uint64)
+        data_min = None
+        data_max = None
+
+        for start in range(0, self.data.size, CHUNK_ELEMENTS):
+            chunk = self.data[start : start + CHUNK_ELEMENTS]
+            chunk_min = int(chunk.min())
+            chunk_max = int(chunk.max())
+            data_min = chunk_min if data_min is None else min(data_min, chunk_min)
+            data_max = chunk_max if data_max is None else max(data_max, chunk_max)
+            counts = numpy.bincount(chunk, minlength=bin_count)
+            histogram += counts[:bin_count].astype(numpy.uint64, copy=False)
+
+        self.dataMin = data_min
+        self.dataMax = data_max
+        self.rawMin = data_min
+        self.rawMax = data_max
+        self.histogram = histogram
+
+    def get_depth_slice(self, depth):
         slice_size = self.width * self.height
-        dstart = d * slice_size
-        depth_slice = self.data[dstart:dstart+slice_size]                  
-        return depth_slice
-    #--------------------
+        start = depth * slice_size
+        return self.data[start : start + slice_size]
 
-    #--------------------
-    def get_rawvalue(self, d, w, h):
-        pos = d*self.width*self.height + w*self.height + h
-        val = self.data[pos:pos+1]
-        return val
-    #--------------------
-#------------------------------------------------------------------
-#------------------------------------------------------------------
+    def get_rawvalue(self, depth, width, height):
+        position = depth * self.width * self.height + width * self.height + height
+        return self.data[position].item()
 
 
 vol = Volume()
+SET_FILES_TRANSACTIONAL = True
 
-def init() :
-    print('\nInit from raw.py\n')
 
-def set_files(flnms) :
-    print(flnms)
-    vol.setFiles(flnms)    
-    vol.load_entire_data()
-    vol.calculate_min_max()
-    vol.gen_histogram()
+def init():
+    pass
 
-def get_description() :
+
+def set_files(flnms):
+    global vol
+    candidate = Volume()
+    try:
+        candidate.setFiles(flnms)
+        candidate.calculate_statistics()
+    except Exception:
+        candidate.close()
+        raise
+
+    previous = vol
+    vol = candidate
+    previous.close()
+
+
+def get_description():
     return vol.description
 
-def get_voxel_unit() :
+
+def get_voxel_unit():
     return vol.voxelUnit
 
-def get_voxel_size() :
+
+def get_voxel_size():
     return vol.voxelSize
 
-def get_voxel_type() :
+
+def get_voxel_type():
     return vol.voxelType
 
-def get_header_bytes() :
+
+def get_header_bytes():
     return vol.headerBytes
 
-def get_grid_size() :
+
+def get_grid_size():
     return vol.dim
 
-def get_raw_min_max() :
+
+def get_raw_min_max():
     return (vol.rawMin, vol.rawMax)
 
-def get_histogram(hist : numpy.ndarray) :
-    ln = len(vol.histogram)
-    hist[:ln] = vol.histogram[:]
 
-def get_depth_slice(slc, slice : numpy.ndarray) :
-    depth_slice = vol.get_depth_slice(slc)
-    slice[:] = depth_slice[:]
+def get_histogram(hist: numpy.ndarray):
+    maximum = numpy.iinfo(numpy.uint32).max
+    hist[: len(vol.histogram)] = numpy.minimum(vol.histogram, maximum).astype(
+        numpy.uint32, copy=False
+    )
 
-def get_rawvalue(d, w, h) :
-    val = vol.get_rawvalue(d, w, h)
-    return val[0]
+
+def get_depth_slice(slc, slice: numpy.ndarray):
+    numpy.copyto(slice, vol.get_depth_slice(slc), casting="no")
+
+
+def get_rawvalue(d, w, h):
+    return vol.get_rawvalue(d, w, h)
+
+
+def close():
+    vol.close()

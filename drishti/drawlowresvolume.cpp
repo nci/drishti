@@ -7,6 +7,7 @@
 #include "global.h"
 #include "mainwindowui.h"
 
+#include <QDebug>
 #include <QDomDocument>
 
 void DrawLowresVolume::activateBounds() {m_boundingBox.activateBounds();}
@@ -79,6 +80,7 @@ DrawLowresVolume::DrawLowresVolume(Viewer *viewer,
   QObject()
 {
   m_progObj = 0;
+  m_shaderUnavailable = false;
   showing = true;
 
   m_currentVolume = 0;
@@ -108,6 +110,10 @@ DrawLowresVolume::~DrawLowresVolume()
   if (m_dataTex)
     glDeleteTextures(1, &m_dataTex);
   m_dataTex = 0;
+
+  if (m_progObj)
+    glDeleteObjectARB(m_progObj);
+  m_progObj = 0;
 }
 
 void DrawLowresVolume::init() {}
@@ -293,10 +299,29 @@ DrawLowresVolume::createShaders()
 							 false,
 							 nvol);
 
-  m_progObj = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_progObj,
-				  shaderString))
-    exit(0);
+  GLhandleARB program = glCreateProgramObjectARB();
+  if (!program || !ShaderFactory::loadShader(program, shaderString))
+    {
+      const GLenum error = glGetError();
+      if (program)
+	glDeleteObjectARB(program);
+      if (m_progObj)
+	glDeleteObjectARB(m_progObj);
+      m_progObj = 0;
+      m_shaderUnavailable = true;
+
+      const QString message = QStringLiteral(
+	"volume/lowres shader is unavailable (OpenGL error 0x%1); low-resolution volume drawing is disabled.")
+	.arg(QString::number(static_cast<qulonglong>(error), 16));
+      qWarning().noquote() << message;
+      MainWindowUI::mainWindowUI()->statusBar->showMessage(message);
+      return;
+    }
+
+  if (m_progObj)
+    glDeleteObjectARB(m_progObj);
+  m_progObj = program;
+  m_shaderUnavailable = false;
   m_parm[0] = glGetUniformLocationARB(m_progObj, "lutTex");
   m_parm[1] = glGetUniformLocationARB(m_progObj, "dataTex");
 
@@ -367,10 +392,10 @@ DrawLowresVolume::draw(float stepsize,
   glLineWidth(1);
 
 
-  if (!m_progObj)
+  if (!m_progObj && !m_shaderUnavailable)
     createShaders();
 
-  //if (m_progObj > 0)
+  if (m_progObj)
     {
       glUseProgramObjectARB(m_progObj);
 

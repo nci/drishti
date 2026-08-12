@@ -45,6 +45,9 @@ class RawSlicesPlugin : public QObject, VolInterface
 
   QVariant rawValue(int, int, int);
 
+  Q_INVOKABLE QString lastError() const;
+  Q_INVOKABLE bool wasCanceled() const;
+
   //void saveTrimmed(QString, int, int, int, int, int, int);
 
   void generateHistogram();
@@ -62,13 +65,16 @@ class RawSlicesPlugin : public QObject, VolInterface
   
   float m_rawMin, m_rawMax;
   QList<uint> m_histogram;
+  QString m_lastError;
+  bool m_lastOperationCanceled;
 
   int m_bytesPerVoxel;
 
   QList<QString> m_imageList;
 
-  void findMinMax();
-  void findMinMaxandGenerateHistogram();
+  bool findMinMax();
+  bool findMinMaxandGenerateHistogram();
+  bool setError(const QString&, bool showDialog=false);
 };
 
 #endif

@@ -27,7 +27,7 @@ class ScriptsPlugin
     void set4DVolume(bool);
     
     bool setFile(QStringList);
-    void replaceFile(QString);
+    bool replaceFile(QString);
     
     void gridSize(int&, int&, int&);
     void voxelSize(float&, float&, float&);
@@ -42,7 +42,8 @@ class ScriptsPlugin
     float rawMin();
     float rawMax();
      
-    void getDepthSlice(int, uchar*);
+    bool getDepthSlice(int, uchar*);
+    QString lastError() const;
     
     QVariant rawValue(int, int, int);
     
@@ -67,6 +68,7 @@ class ScriptsPlugin
     
     int m_skipBytes;
     int m_bytesPerVoxel;
+    QString m_lastError;
 
     py::object m_pyModule;
 };

@@ -7,6 +7,10 @@
 #include <QFileDialog>
 #include <QInputDialog>
 
+#include <limits>
+#include <memory>
+#include <new>
+
 QString RawVolume::m_rawFileName = "";
 int RawVolume::m_depth=0;
 int RawVolume::m_width=0;
@@ -408,14 +412,50 @@ RawVolume::maskRawVolume(int minx, int maxx,
   else if (vtype == VolumeInformation::_Int) bpv = 4;
   else if (vtype == VolumeInformation::_Float) bpv = 4;
 
-  int nbytes = width*height*bpv;
-  uchar *raw = new uchar[nbytes];
-  uchar *maskraw = new uchar[ny*nx*bpv];
+  const qint64 sourceVoxelCount = static_cast<qint64>(width)*height;
+  const qint64 maskVoxelCount = static_cast<qint64>(nx)*ny;
+  const qint64 sourceSliceBytes = sourceVoxelCount*bpv;
+  const qint64 maskSliceBytes = maskVoxelCount*bpv;
+
+  if (width <= 0 || height <= 0 ||
+      nx <= 0 || ny <= 0 || nz <= 0 ||
+      minx < 0 || maxx >= height ||
+      miny < 0 || maxy >= width ||
+      minz < 0 || maxz >= m_rawFileManager.depth() ||
+      sourceVoxelCount <= 0 || maskVoxelCount <= 0 ||
+      sourceSliceBytes <= 0 || maskSliceBytes <= 0 ||
+      static_cast<quint64>(sourceSliceBytes) > std::numeric_limits<size_t>::max() ||
+      static_cast<quint64>(maskSliceBytes) > std::numeric_limits<size_t>::max() ||
+      maskVoxelCount > std::numeric_limits<int>::max())
+    {
+      QMessageBox::critical(0, "Save masked raw volume",
+                            "Invalid or unsupported mask volume dimensions.");
+      return;
+    }
+
+  const qint64 maskVolumeVoxels = maskVoxelCount*nz;
+  if (maskVolumeVoxels <= 0 ||
+      maskVolumeVoxels > std::numeric_limits<int>::max() ||
+      bitmask.size() < maskVolumeVoxels)
+    {
+      QMessageBox::critical(0, "Save masked raw volume",
+                            "The mask does not match the requested output volume.");
+      return;
+    }
+
+  std::unique_ptr<uchar[]> maskraw(
+      new (std::nothrow) uchar[static_cast<size_t>(maskSliceBytes)]);
+  if (!maskraw)
+    {
+      QMessageBox::critical(0, "Save masked raw volume",
+                            "Insufficient memory for the masked output slice.");
+      return;
+    }
 
   
   //---- max 1Gb per slab
-  int slabSize;
-  slabSize = (1024*1024*1024)/(ny*nx*bpv);
+  const qint64 oneGiB = 1024LL*1024LL*1024LL;
+  const int slabSize = static_cast<int>(qMax<qint64>(1, oneGiB/maskSliceBytes));
   //----
   VolumeFileManager maskRawFileManager;
   maskRawFileManager.setBaseFilename(maskrawFile);
@@ -425,7 +465,15 @@ RawVolume::maskRawVolume(int minx, int maxx,
   maskRawFileManager.setVoxelType(vtype);  
   maskRawFileManager.setHeaderSize(13);
   maskRawFileManager.setSlabSize(slabSize);
-  maskRawFileManager.createFile(true);
+  if (!maskRawFileManager.createFile(true))
+    {
+      const QString detail = maskRawFileManager.lastError();
+      maskRawFileManager.removeFile();
+      QMessageBox::critical(0, "Save masked raw volume",
+                            QString("Cannot create the masked raw volume.\n%1")
+                            .arg(detail));
+      return;
+    }
 
   float maskval = 0;
   maskval = (float) QInputDialog::getDouble(0, "Voxel value in transparent region",
@@ -443,75 +491,90 @@ RawVolume::maskRawVolume(int minx, int maxx,
       progress.setValue((int)(100.0*(float)(k-minz)/(float)nz));
       qApp->processEvents();
 
-      uchar *slice = m_rawFileManager.getSlice(k);
-      memcpy(raw, slice, nbytes);
+      const uchar *raw = m_rawFileManager.getSlice(k);
+      if (!raw)
+        {
+          const QString detail = m_rawFileManager.lastError();
+          maskRawFileManager.removeFile();
+          progress.setValue(100);
+          QMessageBox::critical(0, "Save masked raw volume",
+                                QString("Cannot read source slice %1.\n%2")
+                                .arg(k).arg(detail));
+          return;
+        }
 
-      memset(maskraw, 0, ny*nx*bpv);
+      memset(maskraw.get(), 0, static_cast<size_t>(maskSliceBytes));
       if (fabs(maskval) > 0)
 	{
 	  if (vtype == VolumeInformation::_UChar)
 	    {
-	      uchar *mr = maskraw;
-	      for(int i=0; i<ny*nx; i++) mr[i] = maskval;
+	      uchar *mr = maskraw.get();
+	      for(qint64 i=0; i<maskVoxelCount; i++) mr[i] = maskval;
 	    }
 	  else if (vtype == VolumeInformation::_Char)
 	    {
-	      char *mr = (char*)maskraw;
-	      for(int i=0; i<ny*nx; i++) mr[i] = maskval;
+	      char *mr = reinterpret_cast<char*>(maskraw.get());
+	      for(qint64 i=0; i<maskVoxelCount; i++) mr[i] = maskval;
 	    }
 	  else if (vtype == VolumeInformation::_UShort)
 	    {
-	      ushort *mr = (ushort*)maskraw;
-	      for(int i=0; i<ny*nx; i++) mr[i] = maskval;
+	      ushort *mr = reinterpret_cast<ushort*>(maskraw.get());
+	      for(qint64 i=0; i<maskVoxelCount; i++) mr[i] = maskval;
 	    }
 	  else if (vtype == VolumeInformation::_Short)
 	    {
-	      short *mr = (short*)maskraw;
-	      for(int i=0; i<ny*nx; i++) mr[i] = maskval;
+	      short *mr = reinterpret_cast<short*>(maskraw.get());
+	      for(qint64 i=0; i<maskVoxelCount; i++) mr[i] = maskval;
 	    }
 	  else if (vtype == VolumeInformation::_Int)
 	    {
-	      int *mr = (int*)maskraw;
-	      for(int i=0; i<ny*nx; i++) mr[i] = maskval;
+	      int *mr = reinterpret_cast<int*>(maskraw.get());
+	      for(qint64 i=0; i<maskVoxelCount; i++) mr[i] = maskval;
 	    }
 	  else if (vtype == VolumeInformation::_Float)
 	    {
-	      float *mr = (float*)maskraw;
-	      for(int i=0; i<ny*nx; i++) mr[i] = maskval;
+	      float *mr = reinterpret_cast<float*>(maskraw.get());
+	      for(qint64 i=0; i<maskVoxelCount; i++) mr[i] = maskval;
 	    }
 	}
 	
-      int idx=0;
+      qint64 idx=0;
       for(int y=miny; y<=maxy; y++)
 	for(int x=minx; x<=maxx; x++)
 	  {
 	    if (bitmask.testBit(bidx))
 	      {
-		int ryx = y*height+x;
+		const qint64 ryx = static_cast<qint64>(y)*height+x;
 
 		if(bpv == 1)
-		  *(maskraw + idx) = *(raw + ryx);
+		  maskraw[idx] = raw[ryx];
 		else if(bpv == 2)
 		  {
-		    *(maskraw + 2*idx+0) = *(raw + 2*ryx);
-		    *(maskraw + 2*idx+1) = *(raw + 2*ryx+1);
+		    maskraw[2*idx+0] = raw[2*ryx];
+		    maskraw[2*idx+1] = raw[2*ryx+1];
 		  }
 		else if(bpv == 4)
 		  {
-		    *(maskraw + 4*idx+0) = *(raw + 4*ryx);
-		    *(maskraw + 4*idx+1) = *(raw + 4*ryx+1);
-		    *(maskraw + 4*idx+2) = *(raw + 4*ryx+2);
-		    *(maskraw + 4*idx+3) = *(raw + 4*ryx+3);
+		    maskraw[4*idx+0] = raw[4*ryx];
+		    maskraw[4*idx+1] = raw[4*ryx+1];
+		    maskraw[4*idx+2] = raw[4*ryx+2];
+		    maskraw[4*idx+3] = raw[4*ryx+3];
 		  }
 	      }
 	    idx++;
 	    bidx++;
 	  }      
-      maskRawFileManager.setSlice(k-minz, maskraw);
+      if (!maskRawFileManager.setSlice(k-minz, maskraw.get()))
+        {
+          const QString detail = maskRawFileManager.lastError();
+          maskRawFileManager.removeFile();
+          progress.setValue(100);
+          QMessageBox::critical(0, "Save masked raw volume",
+                                QString("Cannot write output slice %1.\n%2")
+                                .arg(k-minz).arg(detail));
+          return;
+        }
     }
-
-  delete [] raw;
-  delete [] maskraw;
 
   progress.setValue(100);
 

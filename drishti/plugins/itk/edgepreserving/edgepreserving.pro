@@ -14,7 +14,7 @@ FORMS += ../../../propertyeditor.ui
 include(../plugin.itk)
 
 win32 {
-  DESTDIR = ../../../../bin/renderplugins/ITK/Smoothing
+  DESTDIR = $$clean_path($$DRISHTI_RENDER_PLUGIN_DIR/ITK/Smoothing)
 }
 unix {
  !macx {
@@ -33,3 +33,8 @@ HEADERS = smoothing.h \
 
 SOURCES = smoothing.cpp \
 	filter.cpp
+
+HEADERS += ../itkmemoryadmission.h \
+	../../../../tools/paint/getmemorysize.h
+
+SOURCES += ../../../../tools/paint/getmemorysize.cpp

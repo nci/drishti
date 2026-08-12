@@ -10,7 +10,8 @@ INCLUDEPATH += ../../
 FORMS += loadrawdialog.ui
 
 HEADERS = rawslicesplugin.h \
-	  loadrawdialog.h
+	  loadrawdialog.h \
+	  ../rawfileutils.h
 
 SOURCES = rawslicesplugin.cpp \
 	  loadrawdialog.cpp

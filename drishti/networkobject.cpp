@@ -582,7 +582,7 @@ NetworkObject::loadNetCDF(QString flnm)
     {
       NcVar var = ncfFile.getVar(varNames[i].toStdString());      
       QString attname = varNames[i];
-      attname.toLower();
+      attname = attname.toLower();
 
       if (attname.contains("vertex_") &&
 	  attname != "vertex_center" &&
@@ -1826,7 +1826,7 @@ NetworkObject::loadGraphML(QString flnm)
   m_fileName = flnm;
 
   QDomDocument doc;
-  QFile f(flnm.toLatin1().data());
+  QFile f(flnm);
   if (f.open(QIODevice::ReadOnly))
     {
       doc.setContent(&f);

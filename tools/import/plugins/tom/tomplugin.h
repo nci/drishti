@@ -45,6 +45,7 @@ class TomPlugin : public QObject, VolInterface
 
   void generateHistogram();
   void set4DVolume(bool);
+  Q_INVOKABLE QString lastError() const;
  private :
   thead m_tHead;
 
@@ -64,6 +65,7 @@ class TomPlugin : public QObject, VolInterface
 
   qint64 m_skipBytes;
   qint64 m_bytesPerVoxel;
+  QString m_lastError;
 };
 
 #endif

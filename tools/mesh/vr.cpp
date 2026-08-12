@@ -20,6 +20,13 @@ VR::VR() : QObject()
   m_eyeHeight = 0;
   m_leftBuffer = 0;
   m_rightBuffer = 0;
+  m_resolveBuffer = 0;
+  m_pRenderModels = 0;
+
+  m_pshader = 0;
+  m_boxVID = 0;
+  m_boxV = 0;
+  m_boxIB = 0;
 
   m_gripActiveRight = false;
   m_gripActiveLeft = false;
@@ -216,20 +223,51 @@ void
 VR::shutdown()
 {
   delete m_leftBuffer;
+  m_leftBuffer = 0;
   delete m_rightBuffer;
+  m_rightBuffer = 0;
   delete m_resolveBuffer;
-  
-  if (m_hmd)
-    {
-      vr::VR_Shutdown();
-        m_hmd = 0;
-    }
+  m_resolveBuffer = 0;
 
+  if (m_pshader)
+    glDeleteProgram(m_pshader);
+  m_pshader = 0;
 
-  for( int i=0; i<m_vecRenderModels.count(); i++)
+  if (m_boxIB)
+    glDeleteBuffers(1, &m_boxIB);
+  m_boxIB = 0;
+
+  if (m_boxV)
+    glDeleteBuffers(1, &m_boxV);
+  m_boxV = 0;
+
+  if (m_boxVID)
+    glDeleteVertexArrays(1, &m_boxVID);
+  m_boxVID = 0;
+
+  m_leftRenderModels.clear();
+  m_rightRenderModels.clear();
+  m_leftComponentNames.clear();
+  m_rightComponentNames.clear();
+  m_leftControllerName.clear();
+  m_rightControllerName.clear();
+
+  for (int i=0; i<m_vecRenderModels.count(); ++i)
     delete m_vecRenderModels[i];
   m_vecRenderModels.clear();
-	
+
+  if (m_hmd)
+    vr::VR_Shutdown();
+
+  m_hmd = 0;
+  m_pRenderModels = 0;
+  m_eyeWidth = 0;
+  m_eyeHeight = 0;
+  m_leftController = vr::k_unTrackedDeviceIndexInvalid;
+  m_rightController = vr::k_unTrackedDeviceIndexInvalid;
+  memset(m_rTrackedDeviceToRenderModel,
+	 0,
+	 sizeof(m_rTrackedDeviceToRenderModel));
 }
 
 void
@@ -321,23 +359,33 @@ VR::modelViewFromCamera()
 void
 VR::initVR()
 {
+  shutdown();
+
   vr::EVRInitError error = vr::VRInitError_None;
 
   //-----------------------------
   m_hmd = vr::VR_Init(&error, vr::VRApplication_Scene);
   if (error != vr::VRInitError_None)
     {
-      m_hmd = 0;
-      
       QString message = vr::VR_GetVRInitErrorAsEnglishDescription(error);
+      shutdown();
       qCritical() << message;
       QMessageBox::critical(0, "Unable to init VR", message);
-      //exit(0);
       return;
     }
   //-----------------------------
     
   m_pRenderModels = (vr::IVRRenderModels *)vr::VR_GetGenericInterface( vr::IVRRenderModels_Version, &error );
+  if (!m_pRenderModels || error != vr::VRInitError_None)
+    {
+      QString message = "Render-model interface initialization failed";
+      if (error != vr::VRInitError_None)
+	message += QString(": %1").arg(vr::VR_GetVRInitErrorAsEnglishDescription(error));
+      qCritical() << message;
+      QMessageBox::critical(0, "Unable to init VR", message);
+      shutdown();
+      return;
+    }
 
 
   genEyeMatrices();
@@ -359,30 +407,47 @@ VR::initVR()
   resolveFormat.setInternalTextureFormat(GL_RGBA);
   buffFormat.setSamples(0);
   m_resolveBuffer = new QOpenGLFramebufferObject(m_eyeWidth*2, m_eyeHeight, resolveFormat);
+
+  if (!m_leftBuffer->isValid() ||
+      !m_rightBuffer->isValid() ||
+      !m_resolveBuffer->isValid())
+    {
+      QString message = "Unable to create VR frame buffers";
+      qCritical() << message;
+      QMessageBox::critical(0, "Unable to init VR", message);
+      shutdown();
+      return;
+    }
   //-----------------------------
   
 
   //-----------------------------
   // turn on compositor
-  if (!vr::VRCompositor())
+  vr::IVRCompositor *compositor = vr::VRCompositor();
+  if (!compositor)
     {
       QString message = "Compositor initialization failed. See log file for details";
       qCritical() << message;
       QMessageBox::critical(0, "Unable to init VR", message);
-      exit(0);
+      shutdown();
+      return;
     }
   //-----------------------------
   
   //#ifdef QT_DEBUG
-  vr::VRCompositor()->ShowMirrorWindow();
+  compositor->ShowMirrorWindow();
   //#endif
 
-  createShaders();
+  if (!createShaders())
+    {
+      shutdown();
+      return;
+    }
 
   if (!getControllers())
     {
       QMessageBox::information(0, "", "Please switch on both the controllers");
-      m_hmd = 0;      
+      shutdown();
       return;
     }
 
@@ -1959,30 +2024,47 @@ VR::renderAxes(vr::Hmd_Eye eye)
   glUseProgram(0);
 }
 
-void
+bool
 VR::createShaders()
 {
   //------------------------
-  m_pshader = glCreateProgram();
-  if (!ShaderFactory::loadShadersFromFile(m_pshader,
+  GLuint candidate = glCreateProgram();
+  if (!candidate)
+    {
+      QMessageBox::information(0, "", "Cannot create shader program");
+      return false;
+    }
+
+  if (!ShaderFactory::loadShadersFromFile(candidate,
 					  qApp->applicationDirPath() + QDir::separator() + "assets/shaders/punlit.vert",
 					  qApp->applicationDirPath() + QDir::separator() + "assets/shaders/punlit.frag"))
     {
       QMessageBox::information(0, "", "Cannot load shaders");
+      if (candidate)
+	glDeleteProgram(candidate);
+      return false;
     }
 
-  m_pshaderParm[0] = glGetUniformLocation(m_pshader, "MVP");
-  m_pshaderParm[1] = glGetUniformLocation(m_pshader, "pointSize");
-  m_pshaderParm[2] = glGetUniformLocation(m_pshader, "hmdPos");
-  m_pshaderParm[3] = glGetUniformLocation(m_pshader, "leftController");
-  m_pshaderParm[4] = glGetUniformLocation(m_pshader, "rightController");
-  m_pshaderParm[5] = glGetUniformLocation(m_pshader, "gltype");
+  GLint shaderParm[6];
+  shaderParm[0] = glGetUniformLocation(candidate, "MVP");
+  shaderParm[1] = glGetUniformLocation(candidate, "pointSize");
+  shaderParm[2] = glGetUniformLocation(candidate, "hmdPos");
+  shaderParm[3] = glGetUniformLocation(candidate, "leftController");
+  shaderParm[4] = glGetUniformLocation(candidate, "rightController");
+  shaderParm[5] = glGetUniformLocation(candidate, "gltype");
+
+  if (m_pshader)
+    glDeleteProgram(m_pshader);
+  m_pshader = candidate;
+  for (int i=0; i<6; ++i)
+    m_pshaderParm[i] = shaderParm[i];
   //------------------------
 
 
   //ShaderFactory::createTextureShader();
   
   //ShaderFactory::createCubeMapShader();
+  return true;
 }
 
 

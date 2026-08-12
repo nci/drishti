@@ -282,7 +282,7 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
 
   shader += "uniform float gamma;\n";
   
-  shader += "out vec4 gl_FragColor;\n";
+  shader += "out vec4 fragmentColor;\n";
 
   shader += ShaderFactory::genTextureCoordinate();
 
@@ -472,6 +472,9 @@ ShaderFactoryRGB::genDefaultSliceShaderString(bool lighting,
 
   shader += "\n";
   shader += "}\n";
+
+  // Shared RGB snippets use the legacy output name for the GLSL 1.x path.
+  shader.replace("gl_FragColor", "fragmentColor");
 
   return shader;
 }

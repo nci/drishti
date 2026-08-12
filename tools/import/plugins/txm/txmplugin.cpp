@@ -1,6 +1,90 @@
 #include <QtGui>
 #include "common.h"
+#include "importmemoryadmission.h"
 #include "txmplugin.h"
+
+#include <QCollator>
+
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <memory>
+
+namespace
+{
+const std::uint64_t kTxmDecodeSafetyBytes = 32ULL*1024ULL*1024ULL;
+
+bool admitTxmDecode(std::uint64_t sliceBytes, QString *error)
+{
+  std::uint64_t decodedBytes = 0;
+  std::uint64_t requiredBytes = 0;
+  if (!checkedImportMultiply(sliceBytes, 2, decodedBytes) ||
+      !checkedImportAdd(decodedBytes, kTxmDecodeSafetyBytes, requiredBytes))
+    {
+      *error = "TXM decode working-set calculation overflowed.";
+      return false;
+    }
+  const ImportMemoryAdmission admission =
+    evaluateImportMemoryAdmission(requiredBytes);
+  if (admission.approved)
+    return true;
+  *error = QString("TXM decoding was stopped before pixel allocation. "
+                   "Required peak increment: %1 MiB; usable physical "
+                   "budget: %2 MiB.")
+             .arg(requiredBytes/(1024.0*1024.0), 0, 'f', 1)
+             .arg(admission.availablePhysicalBudgetBytes/(1024.0*1024.0),
+                  0, 'f', 1);
+  return false;
+}
+
+template <class T>
+bool readTxmValue(POLE::Storage *storage, const char *name, T *value)
+{
+  POLE::Stream stream(storage, name);
+  return stream.size() >= sizeof(T) &&
+         stream.read(reinterpret_cast<uchar*>(value), sizeof(T)) == sizeof(T);
+}
+
+void collectTxmImages(POLE::Storage *storage, const std::string &path,
+                      QStringList *images, int nesting=0)
+{
+  if (nesting > 64)
+    return;
+  const std::list<std::string> entries = storage->entries(path);
+  for (std::list<std::string>::const_iterator it=entries.begin();
+       it != entries.end(); ++it)
+    {
+      const std::string fullName = path+*it;
+      if (storage->isDirectory(fullName))
+        {
+          const QString name = QString::fromUtf8(it->c_str());
+          if (name.startsWith("ImageData", Qt::CaseInsensitive))
+            collectTxmImages(storage, fullName+"/", images, nesting+1);
+        }
+      else
+        {
+          const QString name = QString::fromUtf8(it->c_str());
+          const QString suffix = name.mid(5);
+          bool numericSuffix = name.startsWith("Image", Qt::CaseInsensitive) &&
+                               !suffix.isEmpty();
+          for (const QChar character : suffix)
+            if (character < QLatin1Char('0') ||
+                character > QLatin1Char('9'))
+              {
+                numericSuffix = false;
+                break;
+              }
+          if (numericSuffix)
+            images->append(QString::fromUtf8(fullName.c_str()));
+        }
+    }
+}
+}
+
+TxmPlugin::~TxmPlugin()
+{
+  clear();
+}
 
 QStringList
 TxmPlugin::registerPlugin()
@@ -28,6 +112,9 @@ TxmPlugin::init()
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_headerBytes = 0;
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 
   m_imageData.clear();
 }
@@ -53,6 +140,9 @@ TxmPlugin::clear()
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_headerBytes = 0;
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 
   m_imageData.clear();
 }
@@ -74,12 +164,35 @@ QString TxmPlugin::description() { return m_description; }
 int TxmPlugin::voxelType() { return m_voxelType; }
 int TxmPlugin::voxelUnit() { return m_voxelUnit; }
 int TxmPlugin::headerBytes() { return m_headerBytes; }
+QString TxmPlugin::lastError() const { return m_lastError; }
+bool TxmPlugin::wasCanceled() const { return m_lastOperationCanceled; }
 
 void
 TxmPlugin::setMinMax(float rmin, float rmax)
 {
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
+  if (!std::isfinite(rmin) || !std::isfinite(rmax) || rmin > rmax)
+    {
+      m_lastError = "The TXM histogram range is invalid.";
+      return;
+    }
+
+  const float previousRawMin = m_rawMin;
+  const float previousRawMax = m_rawMax;
+  const QList<uint> previousHistogram = m_histogram;
   m_rawMin = rmin;
   m_rawMax = rmax;
+  if (m_voxelType == _Float)
+    {
+      generateHistogram();
+      if (!m_lastError.isEmpty())
+        {
+          m_rawMin = previousRawMin;
+          m_rawMax = previousRawMax;
+          m_histogram = previousHistogram;
+        }
+    }
 }
 float TxmPlugin::rawMin() { return m_rawMin; }
 float TxmPlugin::rawMax() { return m_rawMax; }
@@ -96,127 +209,230 @@ TxmPlugin::gridSize(int& d, int& w, int& h)
 void
 TxmPlugin::replaceFile(QString flnm)
 {
-  m_fileName.clear();
-  m_fileName << flnm;
+  loadFile(flnm, false, true);
 }
 
 bool
 TxmPlugin::setFile(QStringList files)
 {
-  if (files.size() == 0)
-    return false;
-
-  m_fileName = files;
-
-  if (m_storage)
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
+  if (files.isEmpty())
     {
-      m_storage->close();
-      delete m_storage;
+      m_lastError = "No TXM file was selected.";
+      return false;
     }
 
-  m_fileName = files;
-
-
-  m_storage = new POLE::Storage(m_fileName[0].toUtf8().data() );
-  m_storage->open();
-
-  if(m_storage->result() != POLE::Storage::Ok )
-  {
-    QString msg = QString( tr("Unable to open file %1\n") ).arg(m_fileName[0]);
-    QMessageBox::critical( 0, tr("Error"), msg );
-    m_storage->close();
-    delete m_storage;
-    return false;
-  }
-  
-  int vt;
-  POLE::Stream(m_storage, "/ImageInfo/DataType").read((uchar*)&vt, 4);
-//  QMessageBox::information(0, "", QString("data type : %1").arg(vt));
-
-  m_bytesPerVoxel = 1;
-  if (vt == 3)
-    {
-      m_voxelType = _UChar;
-      m_bytesPerVoxel = 1;
-    }
-  else if (vt == 5)
-    {
-      m_voxelType = _UShort;
-      m_bytesPerVoxel = 2;
-    }
-  else if (vt == 10)
-    {
-      m_voxelType = _Float;
-      m_bytesPerVoxel = 4;
-    }
-
-  m_headerBytes = 0;
-
-//  float ps;
-//  POLE::Stream(m_storage, "/ImageInfo/PixelSize").read((uchar*)&ps, 4);
-//  QMessageBox::information(0, "", QString("pixel size : %1").arg(ps));
-  POLE::Stream(m_storage, "/ImageInfo/NoOfImages").read((uchar*)&m_depth, 4);
-  POLE::Stream(m_storage, "/ImageInfo/ImageWidth").read((uchar*)&m_width, 4);
-  POLE::Stream(m_storage, "/ImageInfo/ImageHeight").read((uchar*)&m_height, 4);
-
-//  QMessageBox::information(0, "", QString("%1 %2 %3").\
-//			   arg(m_depth).arg(m_width).arg(m_height));
-
-
-  m_imageData.clear();
-  enumerateImages(m_storage, "/");
-
-//  QMessageBox::information(0, "", QString("Number of Images %1\n%2").\
-//		           arg(m_imageData.count()).arg(m_imageData[0]));
-
-  if (m_voxelType == _UChar ||
-      m_voxelType == _Char ||
-      m_voxelType == _UShort ||
-      m_voxelType == _Short)
-    {
-      findMinMaxandGenerateHistogram();
-    }
-  else
-    {
-      findMinMax();
-      generateHistogram();
-    }
-
-  return true;
+  return loadFile(files[0], true, false);
 }
 
-void
-TxmPlugin::enumerateImages(POLE::Storage *storage, std::string path)
+bool
+TxmPlugin::loadFile(const QString &fileName, bool scanStatistics,
+                    bool requireCompatibleLayout)
 {
-  std::list<std::string> entries;
-  entries = storage->entries(path);
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 
-  std::list<std::string>::iterator it;
-  for(it = entries.begin(); it != entries.end(); ++it)
-  {
-    std::string name = *it;
-    std::string fullname = path + name;
-    
-    if(storage->isDirectory(fullname))
-      {
-	QString str = name.c_str();
-	str.truncate(9);
-	if (str == "ImageData")
-	  enumerateImages(storage, fullname + "/" );
-      }
-    else
-      {
-	QString str = name.c_str();
-	str.truncate(5);
-	if (str == "Image")
-	  m_imageData << fullname.c_str();
-      }
-  }
+  const QFileInfo inputFile(fileName);
+  if (!inputFile.exists() || !inputFile.isFile() || !inputFile.isReadable())
+    {
+      m_lastError = QString("The TXM file is missing or unreadable: %1")
+                      .arg(inputFile.absoluteFilePath());
+      return false;
+    }
+
+  std::unique_ptr<POLE::Storage> candidate(
+    new POLE::Storage(inputFile.absoluteFilePath().toUtf8().constData()));
+  candidate->open();
+  if (candidate->result() != POLE::Storage::Ok)
+    {
+      m_lastError = QString("Unable to open TXM file %1")
+                      .arg(inputFile.absoluteFilePath());
+      return false;
+    }
+
+  int dataType = 0;
+  int depth = 0;
+  int width = 0;
+  int height = 0;
+  if (!readTxmValue(candidate.get(), "/ImageInfo/DataType", &dataType) ||
+      !readTxmValue(candidate.get(), "/ImageInfo/NoOfImages", &depth) ||
+      !readTxmValue(candidate.get(), "/ImageInfo/ImageWidth", &width) ||
+      !readTxmValue(candidate.get(), "/ImageInfo/ImageHeight", &height))
+    {
+      m_lastError = "The TXM header is incomplete.";
+      return false;
+    }
+
+  int voxelType = -1;
+  int bytesPerVoxel = 0;
+  if (dataType == 3)
+    { voxelType = _UChar; bytesPerVoxel = 1; }
+  else if (dataType == 5)
+    { voxelType = _UShort; bytesPerVoxel = 2; }
+  else if (dataType == 10)
+    { voxelType = _Float; bytesPerVoxel = 4; }
+  else
+    {
+      m_lastError = QString("Unsupported TXM data type %1.").arg(dataType);
+      return false;
+    }
+
+  if (depth <= 0 || width <= 0 || height <= 0 ||
+      static_cast<quint64>(width) >
+        std::numeric_limits<quint64>::max()/height ||
+      static_cast<quint64>(width)*height >
+        std::numeric_limits<quint64>::max()/bytesPerVoxel)
+    {
+      m_lastError = "The TXM dimensions or slice byte count are invalid.";
+      return false;
+    }
+  const quint64 sliceBytes =
+    static_cast<quint64>(width)*height*bytesPerVoxel;
+  if (sliceBytes > static_cast<quint64>(std::numeric_limits<int>::max()))
+    {
+      m_lastError = "A TXM slice is too large for this importer.";
+      return false;
+    }
+  if (!admitTxmDecode(sliceBytes, &m_lastError))
+    return false;
+
+  QStringList imageData;
+  collectTxmImages(candidate.get(), "/", &imageData);
+  QCollator collator;
+  collator.setCaseSensitivity(Qt::CaseInsensitive);
+  collator.setNumericMode(true);
+  std::sort(imageData.begin(), imageData.end(),
+            [&collator](const QString &left, const QString &right)
+            { return collator.compare(left, right) < 0; });
+  if (imageData.size() != depth)
+    {
+      m_lastError = QString("TXM declares %1 images but contains %2 image streams.")
+                      .arg(depth).arg(imageData.size());
+      return false;
+    }
+  QProgressDialog validationProgress("Validating TXM images", "Cancel",
+                                     0, imageData.size(), 0);
+  validationProgress.setMinimumDuration(0);
+  const bool validatePixels = !scanStatistics || m_4dvol;
+  QByteArray validationPixels;
+  if (validatePixels)
+    validationPixels.resize(static_cast<int>(sliceBytes));
+  for (int index=0; index<imageData.size(); ++index)
+    {
+      validationProgress.setValue(index);
+      qApp->processEvents();
+      if (validationProgress.wasCanceled())
+        {
+          m_lastOperationCanceled = true;
+          m_lastError = "TXM import canceled.";
+          return false;
+        }
+      POLE::Stream image(candidate.get(), imageData[index].toUtf8().constData());
+      if (image.size() < sliceBytes)
+        {
+          m_lastError = QString("TXM image stream %1 is truncated.")
+                          .arg(imageData[index]);
+          return false;
+        }
+      if (validatePixels &&
+          image.read(reinterpret_cast<uchar*>(validationPixels.data()),
+                     sliceBytes) != sliceBytes)
+        {
+          m_lastError = QString("TXM image stream %1 is unreadable.")
+                          .arg(imageData[index]);
+          return false;
+        }
+    }
+  validationProgress.setValue(imageData.size());
+  qApp->processEvents();
+
+  if (requireCompatibleLayout && m_storage &&
+      (depth != m_depth || width != m_width || height != m_height ||
+       voxelType != m_voxelType || bytesPerVoxel != m_bytesPerVoxel))
+    {
+      m_lastError = "Cannot replace TXM input: volume layout differs from the original.";
+      return false;
+    }
+
+  POLE::Storage *previousStorage = m_storage;
+  const QStringList previousFileName = m_fileName;
+  const QStringList previousImageData = m_imageData;
+  const int previousDepth = m_depth;
+  const int previousWidth = m_width;
+  const int previousHeight = m_height;
+  const int previousVoxelType = m_voxelType;
+  const int previousBytesPerVoxel = m_bytesPerVoxel;
+  const int previousHeaderBytes = m_headerBytes;
+  const float previousRawMin = m_rawMin;
+  const float previousRawMax = m_rawMax;
+  const QList<uint> previousHistogram = m_histogram;
+
+  m_storage = candidate.release();
+  m_fileName = QStringList() << inputFile.absoluteFilePath();
+  m_imageData = imageData;
+  m_depth = depth;
+  m_width = width;
+  m_height = height;
+  m_voxelType = voxelType;
+  m_bytesPerVoxel = bytesPerVoxel;
+  m_headerBytes = 0;
+
+  try
+    {
+      if (scanStatistics && !m_4dvol)
+        {
+          if (m_voxelType == _UChar || m_voxelType == _UShort)
+            findMinMaxandGenerateHistogram();
+          else
+            {
+              findMinMax();
+              if (m_lastError.isEmpty())
+                generateHistogram();
+            }
+        }
+    }
+  catch (const std::exception &error)
+    {
+      m_lastError = QString("Cannot scan TXM data: %1")
+                      .arg(QString::fromLocal8Bit(error.what()));
+    }
+  catch (...)
+    {
+      m_lastError = "Cannot scan TXM data because an unknown error occurred.";
+    }
+
+  if (!m_lastError.isEmpty())
+    {
+      POLE::Storage *failedStorage = m_storage;
+      m_storage = previousStorage;
+      m_fileName = previousFileName;
+      m_imageData = previousImageData;
+      m_depth = previousDepth;
+      m_width = previousWidth;
+      m_height = previousHeight;
+      m_voxelType = previousVoxelType;
+      m_bytesPerVoxel = previousBytesPerVoxel;
+      m_headerBytes = previousHeaderBytes;
+      m_rawMin = previousRawMin;
+      m_rawMax = previousRawMax;
+      m_histogram = previousHistogram;
+      failedStorage->close();
+      delete failedStorage;
+      return false;
+    }
+
+  if (previousStorage)
+    {
+      previousStorage->close();
+      delete previousStorage;
+    }
+  return true;
 }
 
 #define MINMAXANDHISTOGRAM()				\
   {							\
-    for(uint j=0; j<m_width*m_height; j++)		\
+    for(int j=0; j<m_width*m_height; j++)		\
       {							\
 	int val = ptr[j];				\
 	m_rawMin = qMin(m_rawMin, (float)val);		\
@@ -227,18 +443,33 @@ TxmPlugin::enumerateImages(POLE::Storage *storage, std::string path)
       }							\
   }
 
-void
+bool
 TxmPlugin::loadTxmImage(int i, uchar* tmp)
 {
+  if (!m_storage || !tmp || i < 0 || i >= m_depth ||
+      i >= m_imageData.size())
+    {
+      m_lastError = QString("TXM slice %1 is invalid.").arg(i);
+      return false;
+    }
+
   int nbytes = m_width*m_height*m_bytesPerVoxel;
-  POLE::Stream(m_storage, m_imageData[i].toUtf8().data()).read(tmp, nbytes);
+  POLE::Stream image(m_storage, m_imageData[i].toUtf8().constData());
+  if (image.size() < static_cast<POLE::uint64>(nbytes) ||
+      image.read(tmp, nbytes) != static_cast<POLE::uint64>(nbytes))
+    {
+      m_lastError = QString("TXM image stream %1 is truncated or unreadable.")
+                      .arg(m_imageData[i]);
+      return false;
+    }
+  return true;
 }
 
 void
 TxmPlugin::findMinMaxandGenerateHistogram()
 {
   QProgressDialog progress("Generating Histogram",
-			   0,
+			   "Cancel",
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -266,57 +497,62 @@ TxmPlugin::findMinMaxandGenerateHistogram()
     }
   else
     {
-      QMessageBox::information(0, "Error", "Why am i here ???");
+      m_lastError = "Cannot generate a TXM histogram for this voxel type.";
       return;
     }
 
   int nbytes = m_width*m_height*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  QByteArray tmp(nbytes, 0);
 
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
 
-  for(uint i=0; i<m_depth; i++)
+  for(int i=0; i<m_depth; i++)
     {
       progress.setValue((int)(100.0*(float)i/(float)m_depth));
       progress.setLabelText(QString("%1 of %2").arg(i).arg(m_depth-1));
       qApp->processEvents();
+      if (progress.wasCanceled())
+        {
+          m_lastOperationCanceled = true;
+          m_lastError = "TXM import canceled.";
+          return;
+        }
 
-      loadTxmImage(i, tmp);
+      if (!loadTxmImage(i, reinterpret_cast<uchar*>(tmp.data())))
+        return;
 
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
+	  uchar *ptr = reinterpret_cast<uchar*>(tmp.data());
 	  MINMAXANDHISTOGRAM();
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
+	  char *ptr = reinterpret_cast<char*>(tmp.data());
 	  MINMAXANDHISTOGRAM();
 	}
       if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
+	  ushort *ptr = reinterpret_cast<ushort*>(tmp.data());
 	  MINMAXANDHISTOGRAM();
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
+	  short *ptr = reinterpret_cast<short*>(tmp.data());
 	  MINMAXANDHISTOGRAM();
 	}
       else if (m_voxelType == _Int)
 	{
-	  int *ptr = (int*) tmp;
+	  int *ptr = reinterpret_cast<int*>(tmp.data());
 	  MINMAXANDHISTOGRAM();
 	}
       else if (m_voxelType == _Float)
 	{
-	  float *ptr = (float*) tmp;
+	  float *ptr = reinterpret_cast<float*>(tmp.data());
 	  MINMAXANDHISTOGRAM();
 	}
     }
-
-  delete [] tmp;
 
   if (m_voxelType != _Float)
     {
@@ -349,9 +585,13 @@ TxmPlugin::findMinMaxandGenerateHistogram()
   {							\
     for(int j=0; j<nY*nZ; j++)				\
       {							\
-	float val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, val);			\
-	m_rawMax = qMax(m_rawMax, val);			\
+	const double val = static_cast<double>(ptr[j]);	\
+	if (std::isfinite(val))				\
+	  {						\
+	    m_rawMin = qMin(m_rawMin, static_cast<float>(val)); \
+	    m_rawMax = qMax(m_rawMax, static_cast<float>(val)); \
+	    ++finiteValueCount;				\
+	  }						\
       }							\
   }
 
@@ -359,7 +599,7 @@ void
 TxmPlugin::findMinMax()
 {
   QProgressDialog progress("Finding Min and Max",
-			   QString(),
+			   "Cancel",
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
@@ -371,50 +611,59 @@ TxmPlugin::findMinMax()
   nZ = m_height;
 
   int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  QByteArray tmp(nbytes, 0);
 
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
+  quint64 finiteValueCount = 0;
   for(int i=0; i<nX; i++)
     {
       progress.setValue((int)(100.0*(float)i/(float)nX));
       qApp->processEvents();
+      if (progress.wasCanceled())
+        {
+          m_lastOperationCanceled = true;
+          m_lastError = "TXM import canceled.";
+          return;
+        }
 
-      loadTxmImage(i, tmp);
+      if (!loadTxmImage(i, reinterpret_cast<uchar*>(tmp.data())))
+        return;
 
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
+	  uchar *ptr = reinterpret_cast<uchar*>(tmp.data());
 	  FINDMINMAX();
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
+	  char *ptr = reinterpret_cast<char*>(tmp.data());
 	  FINDMINMAX();
 	}
       if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
+	  ushort *ptr = reinterpret_cast<ushort*>(tmp.data());
 	  FINDMINMAX();
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
+	  short *ptr = reinterpret_cast<short*>(tmp.data());
 	  FINDMINMAX();
 	}
       else if (m_voxelType == _Int)
 	{
-	  int *ptr = (int*) tmp;
+	  int *ptr = reinterpret_cast<int*>(tmp.data());
 	  FINDMINMAX();
 	}
       else if (m_voxelType == _Float)
 	{
-	  float *ptr = (float*) tmp;
+	  float *ptr = reinterpret_cast<float*>(tmp.data());
 	  FINDMINMAX();
 	}
     }
 
-  delete [] tmp;
+  if (finiteValueCount == 0)
+    m_rawMin = m_rawMax = 0;
 
   progress.setValue(100);
   qApp->processEvents();
@@ -424,9 +673,17 @@ TxmPlugin::findMinMax()
   {							\
     for(int j=0; j<nY*nZ; j++)				\
       {							\
-	float fidx = (ptr[j]-m_rawMin)/rSize;		\
-	fidx = qBound(0.0f, fidx, 1.0f);		\
-	int idx = fidx*histogramSize;			\
+	const double value = static_cast<double>(ptr[j]);	\
+	int idx = 0;					\
+	if (std::isfinite(value))			\
+	  {						\
+	    const double fraction = rSize > 0 ?		\
+	      (value-static_cast<double>(m_rawMin))/rSize : 0; \
+	    const double bounded = qBound(0.0, fraction, 1.0); \
+	    idx = static_cast<int>(bounded*histogramSize); \
+	  }						\
+	else if (value > 0)				\
+	  idx = histogramSize;				\
 	m_histogram[idx]+=1;				\
       }							\
   }
@@ -435,20 +692,20 @@ void
 TxmPlugin::generateHistogram()
 {
   QProgressDialog progress("Generating Histogram",
-			   QString(),
+			   "Cancel",
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
 
 
-  float rSize = m_rawMax-m_rawMin;
+  const double rSize = static_cast<double>(m_rawMax)-m_rawMin;
   int nX, nY, nZ;
   nX = m_depth;
   nY = m_width;
   nZ = m_height;
 
   int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  QByteArray tmp(nbytes, 0);
 
   m_histogram.clear();
   if (m_voxelType == _UChar ||
@@ -470,42 +727,47 @@ TxmPlugin::generateHistogram()
     {
       progress.setValue((int)(100.0*(float)i/(float)nX));
       qApp->processEvents();
+      if (progress.wasCanceled())
+        {
+          m_lastOperationCanceled = true;
+          m_lastError = "TXM import canceled.";
+          return;
+        }
 
-      loadTxmImage(i, tmp);
+      if (!loadTxmImage(i, reinterpret_cast<uchar*>(tmp.data())))
+        return;
 
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
+	  uchar *ptr = reinterpret_cast<uchar*>(tmp.data());
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
+	  char *ptr = reinterpret_cast<char*>(tmp.data());
 	  GENHISTOGRAM();
 	}
       if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
+	  ushort *ptr = reinterpret_cast<ushort*>(tmp.data());
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
+	  short *ptr = reinterpret_cast<short*>(tmp.data());
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Int)
 	{
-	  int *ptr = (int*) tmp;
+	  int *ptr = reinterpret_cast<int*>(tmp.data());
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Float)
 	{
-	  float *ptr = (float*) tmp;
+	  float *ptr = reinterpret_cast<float*>(tmp.data());
 	  GENHISTOGRAM();
 	}
     }
-
-  delete [] tmp;
 
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
@@ -524,34 +786,47 @@ TxmPlugin::getDepthSlice(int slc,
 			  uchar *slice)
 {
   int nbytes = m_width*m_height*m_bytesPerVoxel;
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
+  if (!slice || slc < 0 || slc >= m_depth)
+    {
+      if (slice && nbytes > 0)
+        memset(slice, 0, nbytes);
+      m_lastError = QString("TXM slice %1 is invalid.").arg(slc);
+      return;
+    }
 
-  uchar *tmp1 = new uchar[nbytes];
+  QByteArray tmp1(nbytes, 0);
 
-  loadTxmImage(slc, tmp1);
+  if (!loadTxmImage(slc, reinterpret_cast<uchar*>(tmp1.data())))
+    {
+      memset(slice, 0, nbytes);
+      return;
+    }
 
   if (m_voxelType == _UChar)
     {
-      for(uint j=0; j<m_width; j++)
-	for(uint k=0; k<m_height; k++)
-	  slice[j*m_height+k] = tmp1[k*m_width+j];
+      for(int j=0; j<m_width; j++)
+	for(int k=0; k<m_height; k++)
+	  slice[j*m_height+k] =
+	    reinterpret_cast<const uchar*>(tmp1.constData())[k*m_width+j];
     }
   else if (m_voxelType == _UShort)
     {
       ushort *p0 = (ushort*)slice;
-      ushort *p1 = (ushort*)tmp1;
-      for(uint j=0; j<m_width; j++)
-	for(uint k=0; k<m_height; k++)
+      const ushort *p1 = reinterpret_cast<const ushort*>(tmp1.constData());
+      for(int j=0; j<m_width; j++)
+	for(int k=0; k<m_height; k++)
 	  p0[j*m_height+k] = p1[k*m_width+j];
     }
   else if (m_voxelType == _Float)
     {
       float *p0 = (float*)slice;
-      float *p1 = (float*)tmp1;
-      for(uint j=0; j<m_width; j++)
-	for(uint k=0; k<m_height; k++)
+      const float *p1 = reinterpret_cast<const float*>(tmp1.constData());
+      for(int j=0; j<m_width; j++)
+	for(int k=0; k<m_height; k++)
 	  p0[j*m_height+k] = p1[k*m_width+j];
     }
-  delete [] tmp1;
 }
 
 //void
@@ -642,6 +917,8 @@ QVariant
 TxmPlugin::rawValue(int d, int w, int h)
 {
   QVariant v;
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 
   if (d < 0 || d >= m_depth ||
       w < 0 || w >= m_width ||
@@ -651,40 +928,24 @@ TxmPlugin::rawValue(int d, int w, int h)
       return v;
     }
 
-  uchar *tmp = new uchar[10];
-  uchar *imgSlice = new uchar[m_width*m_height*m_bytesPerVoxel];
+  QByteArray imgSlice(m_width*m_height*m_bytesPerVoxel, 0);
 
-  loadTxmImage(d, imgSlice);
+  if (!loadTxmImage(d, reinterpret_cast<uchar*>(imgSlice.data())))
+    return QVariant("ReadError");
 
   if (m_voxelType == _UChar)
-    tmp[0] = imgSlice[w*m_height+h];
+    v = QVariant((uint)reinterpret_cast<const uchar*>(imgSlice.constData())
+                         [h*m_width+w]);
   else if (m_voxelType == _UShort)
     {
-      ushort *p0 = (ushort*)tmp;
-      ushort *p1 = (ushort*)imgSlice;
-      p0[0] = p1[w*m_height+h];
+      const ushort *values =
+	reinterpret_cast<const ushort*>(imgSlice.constData());
+      v = QVariant((uint)values[h*m_width+w]);
     }
   else if (m_voxelType == _Float)
     {
-      float *p0 = (float*)tmp;
-      float *p1 = (float*)imgSlice;
-      p0[0] = p1[w*m_height+h];
-    }
-  
-  if (m_voxelType == _UChar)
-    {
-      uchar a = *tmp;
-      v = QVariant((uint)a);
-    }
-  else if (m_voxelType == _UShort)
-    {
-      ushort a = *(ushort*)tmp;
-      v = QVariant((uint)a);
-    }
-  else if (m_voxelType == _Float)
-    {
-      float a = *(float*)tmp;
-      v = QVariant((double)a);
+      const float *values = reinterpret_cast<const float*>(imgSlice.constData());
+      v = QVariant((double)values[h*m_width+w]);
     }
 
   return v;

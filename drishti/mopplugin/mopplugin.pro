@@ -14,9 +14,11 @@ FORMS += ../propertyeditor.ui
 RESOURCES = mopplugin.qrc
 
 win32 {
-DESTDIR = ../../bin/mopplugins
+DESTDIR = $$DRISHTI_MOP_PLUGIN_DIR
 
-QMAKE_LIBDIR += ../plugins/common
+isEmpty(DRISHTI_PLUGIN_COMMON_LIB_DIR): DRISHTI_PLUGIN_COMMON_LIB_DIR = $$clean_path($$PWD/../plugins/common)
+QMAKE_LIBDIR += $$DRISHTI_PLUGIN_COMMON_LIB_DIR
+PRE_TARGETDEPS += $$clean_path($$DRISHTI_PLUGIN_COMMON_LIB_DIR/$$DRISHTI_COMMON_LIB)
 
   INCLUDEPATH += ../ \
 	$$InsightToolkit\Modules\Segmentation\Watersheds\include \
@@ -204,11 +206,10 @@ QMAKE_LIBDIR += ../plugins/common
 	$$InsightToolkit\Modules\ThirdParty\Eigen3\src\itkeigen\.. \
 	$$ITK\Modules\ThirdParty\Eigen3\src\itkeigen\..
 
-LIBS += common.lib \
-        QGLViewer2.lib \
-        opengl32.lib \
-        glew32.lib \
-        glu32.lib \
+LIBS += $$DRISHTI_COMMON_LIB \
+        $$DRISHTI_QGLVIEWER_LIB \
+        $$DRISHTI_GLEW_LIB \
+        $$DRISHTI_OPENGL_LIBS \
         crypt32.lib \
 	rpcrt4.lib \
 	comctl32.lib \
@@ -225,96 +226,96 @@ LIBS += common.lib \
 	uuid.lib \
 	comdlg32.lib \
 	advapi32.lib \
-	$$ITK\lib\Release\itkdouble-conversion-5.0.lib \
-	$$ITK\lib\Release\itksys-5.0.lib \
-	$$ITK\lib\Release\itkvnl_algo-5.0.lib \
-	$$ITK\lib\Release\itkvnl-5.0.lib \
-	$$ITK\lib\Release\itkv3p_netlib-5.0.lib \
-	$$ITK\lib\Release\itknetlib-5.0.lib \
-	$$ITK\lib\Release\itkvcl-5.0.lib \
-	$$ITK\lib\Release\ITKCommon-5.0.lib \
-	$$ITK\lib\Release\itkNetlibSlatec-5.0.lib \
-	$$ITK\lib\Release\ITKStatistics-5.0.lib \
-	$$ITK\lib\Release\ITKTransform-5.0.lib \
-	$$ITK\lib\Release\ITKMesh-5.0.lib \
-	$$ITK\lib\Release\itkzlib-5.0.lib \
-	$$ITK\lib\Release\ITKMetaIO-5.0.lib \
-	$$ITK\lib\Release\ITKSpatialObjects-5.0.lib \
-	$$ITK\lib\Release\ITKPath-5.0.lib \
-	$$ITK\lib\Release\ITKLabelMap-5.0.lib \
-	$$ITK\lib\Release\ITKQuadEdgeMesh-5.0.lib \
-	$$ITK\lib\Release\ITKIOImageBase-5.0.lib \
-	$$ITK\lib\Release\ITKOptimizers-5.0.lib \
-	$$ITK\lib\Release\ITKPolynomials-5.0.lib \
-	$$ITK\lib\Release\ITKBiasCorrection-5.0.lib \
-	$$ITK\lib\Release\ITKDICOMParser-5.0.lib \
-	$$ITK\lib\Release\ITKEXPAT-5.0.lib \
-	$$ITK\lib\Release\itkgdcmDICT-5.0.lib \
-	$$ITK\lib\Release\itkgdcmMSFF-5.0.lib \
-	$$ITK\lib\Release\ITKznz-5.0.lib \
-	$$ITK\lib\Release\ITKniftiio-5.0.lib \
-	$$ITK\lib\Release\ITKgiftiio-5.0.lib \
+	$$ITK\lib\Release\itkdouble-conversion-$${ITKVer}.lib \
+	$$ITK\lib\Release\itksys-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkvnl_algo-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkvnl-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkv3p_netlib-$${ITKVer}.lib \
+	$$ITK\lib\Release\itknetlib-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkvcl-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKCommon-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkNetlibSlatec-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKStatistics-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKTransform-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKMesh-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkzlib-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKMetaIO-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKSpatialObjects-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKPath-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKLabelMap-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKQuadEdgeMesh-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOImageBase-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKOptimizers-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKPolynomials-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKBiasCorrection-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKDICOMParser-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKEXPAT-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkgdcmDICT-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkgdcmMSFF-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKznz-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKniftiio-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKgiftiio-$${ITKVer}.lib \
 	$$ITK\lib\Release\libitkhdf5_cpp.lib \
 	$$ITK\lib\Release\libitkhdf5.lib \
-	$$ITK\lib\Release\ITKIOBMP-5.0.lib \
-	$$ITK\lib\Release\ITKIOBioRad-5.0.lib \
-	$$ITK\lib\Release\ITKIOBruker-5.0.lib \
-	$$ITK\lib\Release\ITKIOCSV-5.0.lib \
-	$$ITK\lib\Release\ITKIOGDCM-5.0.lib \
-	$$ITK\lib\Release\ITKIOIPL-5.0.lib \
-	$$ITK\lib\Release\ITKIOGE-5.0.lib \
-	$$ITK\lib\Release\ITKIOGIPL-5.0.lib \
-	$$ITK\lib\Release\ITKIOHDF5-5.0.lib \
-	$$ITK\lib\Release\itkjpeg-5.0.lib \
-	$$ITK\lib\Release\ITKIOJPEG-5.0.lib \
-	$$ITK\lib\Release\itkopenjpeg-5.0.lib \
-	$$ITK\lib\Release\ITKIOJPEG2000-5.0.lib \
-	$$ITK\lib\Release\itktiff-5.0.lib \
-	$$ITK\lib\Release\ITKIOTIFF-5.0.lib \
-	$$ITK\lib\Release\ITKIOLSM-5.0.lib \
-	$$ITK\lib\Release\itkminc2-5.0.lib \
-	$$ITK\lib\Release\ITKIOMINC-5.0.lib \
-	$$ITK\lib\Release\ITKIOMRC-5.0.lib \
-	$$ITK\lib\Release\ITKIOMeshBase-5.0.lib \
-	$$ITK\lib\Release\ITKIOMeshBYU-5.0.lib \
-	$$ITK\lib\Release\ITKIOMeshFreeSurfer-5.0.lib \
-	$$ITK\lib\Release\ITKIOMeshGifti-5.0.lib \
-	$$ITK\lib\Release\ITKIOMeshOBJ-5.0.lib \
-	$$ITK\lib\Release\ITKIOMeshOFF-5.0.lib \
-	$$ITK\lib\Release\ITKIOMeshVTK-5.0.lib \
-	$$ITK\lib\Release\ITKIOMeta-5.0.lib \
-	$$ITK\lib\Release\ITKIONIFTI-5.0.lib \
-	$$ITK\lib\Release\ITKNrrdIO-5.0.lib \
-	$$ITK\lib\Release\ITKIONRRD-5.0.lib \
-	$$ITK\lib\Release\itkpng-5.0.lib \
-	$$ITK\lib\Release\ITKIOPNG-5.0.lib \
-	$$ITK\lib\Release\ITKIOSiemens-5.0.lib \
-	$$ITK\lib\Release\ITKIOXML-5.0.lib \
-	$$ITK\lib\Release\ITKIOSpatialObjects-5.0.lib \
-	$$ITK\lib\Release\ITKIOStimulate-5.0.lib \
-	$$ITK\lib\Release\ITKTransformFactory-5.0.lib \
-	$$ITK\lib\Release\ITKIOTransformBase-5.0.lib \
-	$$ITK\lib\Release\ITKIOTransformHDF5-5.0.lib \
-	$$ITK\lib\Release\ITKIOTransformInsightLegacy-5.0.lib \
-	$$ITK\lib\Release\ITKIOTransformMatlab-5.0.lib \
-	$$ITK\lib\Release\ITKIOVTK-5.0.lib \
-	$$ITK\lib\Release\ITKKLMRegionGrowing-5.0.lib \
-	$$ITK\lib\Release\itklbfgs-5.0.lib \
-	$$ITK\lib\Release\ITKOptimizersv4-5.0.lib \
-	$$ITK\lib\Release\ITKTestKernel-5.0.lib \
-	$$ITK\lib\Release\ITKVTK-5.0.lib \
-	$$ITK\lib\Release\ITKVideoCore-5.0.lib \
-	$$ITK\lib\Release\ITKVideoIO-5.0.lib \
-	$$ITK\lib\Release\ITKWatersheds-5.0.lib \
-	$$ITK\lib\Release\itkgdcmIOD-5.0.lib \
-	$$ITK\lib\Release\itkgdcmDSED-5.0.lib \
-	$$ITK\lib\Release\itkgdcmCommon-5.0.lib \
-	$$ITK\lib\Release\itkgdcmjpeg8-5.0.lib \
-	$$ITK\lib\Release\itkgdcmjpeg12-5.0.lib \
-	$$ITK\lib\Release\itkgdcmjpeg16-5.0.lib \
-	$$ITK\lib\Release\itkgdcmopenjp2-5.0.lib \
-	$$ITK\lib\Release\itkgdcmcharls-5.0.lib \
-	$$ITK\lib\Release\ITKVNLInstantiation-5.0.lib
+	$$ITK\lib\Release\ITKIOBMP-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOBioRad-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOBruker-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOCSV-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOGDCM-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOIPL-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOGE-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOGIPL-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOHDF5-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkjpeg-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOJPEG-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkopenjpeg-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOJPEG2000-$${ITKVer}.lib \
+	$$ITK\lib\Release\itktiff-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOTIFF-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOLSM-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkminc2-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOMINC-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOMRC-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOMeshBase-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOMeshBYU-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOMeshFreeSurfer-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOMeshGifti-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOMeshOBJ-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOMeshOFF-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOMeshVTK-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOMeta-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIONIFTI-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKNrrdIO-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIONRRD-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkpng-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOPNG-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOSiemens-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOXML-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOSpatialObjects-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOStimulate-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKTransformFactory-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOTransformBase-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOTransformHDF5-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOTransformInsightLegacy-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOTransformMatlab-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKIOVTK-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKKLMRegionGrowing-$${ITKVer}.lib \
+	$$ITK\lib\Release\itklbfgs-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKOptimizersv4-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKTestKernel-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKVTK-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKVideoCore-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKVideoIO-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKWatersheds-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkgdcmIOD-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkgdcmDSED-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkgdcmCommon-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkgdcmjpeg8-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkgdcmjpeg12-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkgdcmjpeg16-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkgdcmopenjp2-$${ITKVer}.lib \
+	$$ITK\lib\Release\itkgdcmcharls-$${ITKVer}.lib \
+	$$ITK\lib\Release\ITKVNLInstantiation-$${ITKVer}.lib
 
 }
 

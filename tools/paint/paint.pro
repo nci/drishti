@@ -15,8 +15,7 @@ CONFIG += release
 DESTDIR = ../../bin
 
 TARGET = drishtipaint
-
-PRE_TARGETDEPS = ../../common/lib/vdb.lib
+VERSION = 4.0.4.9
 
 INCLUDEPATH += graphcut
 
@@ -32,6 +31,10 @@ FORMS += drishtipaint.ui viewermenu.ui \
 # Windows setup for 64-bit system
 #contains(Windows_Setup, Win64) {
   win32 {
+         DESTDIR = $$DRISHTI_BIN_DIR
+         QMAKE_LFLAGS += /MANIFESTINPUT:$$shell_path($$PWD/../../windows_long_path.manifest)
+         isEmpty(DRISHTI_COMMON_LIB_DIR): DRISHTI_COMMON_LIB_DIR = $$clean_path($$PWD/../../common/lib)
+
          RC_ICONS += images/drishtipaint.ico
 
          INCLUDEPATH += ../../common/src/vdb \
@@ -41,21 +44,23 @@ FORMS += drishtipaint.ui viewermenu.ui \
 
          INCLUDEPATH += $$VCPKG_INCLUDE_PATH
 
-         QMAKE_LIBDIR += ..\..\common\lib     
+         QMAKE_LIBDIR += $$DRISHTI_COMMON_LIB_DIR
 	
          QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
+         PRE_TARGETDEPS += $$clean_path($$DRISHTI_COMMON_LIB_DIR/$$DRISHTI_VDB_LIB)
 
-         LIBS += QGLViewer2.lib glew32.lib blosc.lib opengl32.lib glu32.lib
-         LIBS += Imath-3_2.lib openvdb.lib vdb.lib
-         LIBS += gmsh.dll.lib
+         LIBS += $$DRISHTI_QGLVIEWER_LIB \
+                 $$DRISHTI_GLEW_LIB \
+                 $$DRISHTI_BLOSC_LIB \
+                 $$DRISHTI_OPENGL_LIBS
+         LIBS += $$DRISHTI_IMATH_LIB \
+                 $$DRISHTI_OPENVDB_LIB \
+                 $$DRISHTI_VDB_LIB \
+                 $$DRISHTI_GMSH_LIB
 
          # Set list of required FFmpeg libraries
-         LIBS += -lavutil \
-                 -lavcodec \
-                 -lavformat \
-                 -lswresample \
-                 -lswscale 
+         LIBS += $$DRISHTI_FFMPEG_LIBS
          
 
          ## /std:c++17 added because openvdb requires this
@@ -141,11 +146,15 @@ HEADERS += connectviewer.h \
 	coloreditor.h \
 	opacityeditor.h \
 	viewer.h \
+	../../framebufferbudget.h \
 	viewer3d.h \
 	volume.h \
 	volumefilemanager.h \
-	volumeinformation.h \
-	volumemask.h \
+	slabsavetransaction.h \
+        sliceorderutils.h \
+        volumeinformation.h \
+        maskimportutils.h \
+        volumemask.h \
         volumemeasure.h \
         volumeoperations.h \
         geometryobjects.h \
@@ -171,7 +180,6 @@ HEADERS += connectviewer.h \
 	../../common/src/widgets/gradienteditor.h \
         ../../common/src/widgets/gradienteditorwidget.h \
         ../../common/src/mesh/meshtools.h \
-        ../../common/src/mesh/ply.h \
         ../../common/src/videoencoder/videoencoder.h
         
 SOURCES += drishtipaint.cpp \
@@ -215,8 +223,11 @@ SOURCES += drishtipaint.cpp \
 	viewer3d.cpp \
 	volume.cpp \
 	volumefilemanager.cpp \
-	volumeinformation.cpp \
-	volumemask.cpp \
+	slabsavetransaction.cpp \
+        sliceorderutils.cpp \
+        volumeinformation.cpp \
+        maskimportutils.cpp \
+        volumemask.cpp \
         volumemeasure.cpp \
 	volumeoperations.cpp \
         geometryobjects.cpp \
@@ -239,5 +250,4 @@ SOURCES += drishtipaint.cpp \
 	../../common/src/widgets/gradienteditor.cpp \
 	../../common/src/widgets/gradienteditorwidget.cpp \
         ../../common/src/mesh/meshtools.cpp \
-        ../../common/src/mesh/ply.c \
         ../../common/src/videoencoder/videoencoder.cpp

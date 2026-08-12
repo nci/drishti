@@ -7,6 +7,8 @@
 #include <QStringList>
 #include <QFile>
 
+#include <cstddef>
+
 class VolumeFileManager
 {
  public :
@@ -44,7 +46,9 @@ class VolumeFileManager
   void setDepth(int);
   void setWidth(int);
   void setHeight(int);
-  void createFile(bool, bool writeData=false);
+  bool createFile(bool, bool writeData=false);
+
+  QString lastError() const;
 
   QStringList filenameList();
   QString baseFilename();
@@ -65,9 +69,9 @@ class VolumeFileManager
   uchar* getWidthSlice(int);
   uchar* getHeightSlice(int);
 
-  void setSlice(int, uchar*);
-  void setWidthSlice(int, uchar*);
-  void setHeightSlice(int, uchar*);
+  bool setSlice(int, uchar*);
+  bool setWidthSlice(int, uchar*);
+  bool setHeightSlice(int, uchar*);
 
   uchar* rawValue(int, int, int);
   uchar* interpolatedRawValue(float, float, float);
@@ -76,14 +80,14 @@ class VolumeFileManager
   void endBlockInterpolation();
   uchar* blockInterpolatedRawValue(float, float, float);
 
-  void loadMemFile();
-  void saveMemFile();
+  bool loadMemFile();
+  bool saveMemFile();
   uchar* getSliceMem(int);
-  void setSliceMem(int, uchar*);
+  bool setSliceMem(int, uchar*);
   uchar* getWidthSliceMem(int);
-  void setWidthSliceMem(int, uchar*);
+  bool setWidthSliceMem(int, uchar*);
   uchar* getHeightSliceMem(int);
-  void setHeightSliceMem(int, uchar*);
+  bool setHeightSliceMem(int, uchar*);
   uchar* rawValueMem(int, int, int);
 
   bool setValueMem(int, int, int, int);
@@ -104,7 +108,9 @@ class VolumeFileManager
   int m_voxelType;
   qint64 m_bytesPerVoxel;
   uchar *m_slice;
+  size_t m_sliceCapacity;
   uchar *m_block;
+  size_t m_blockCapacity;
   int m_blockSlices, m_startBlock, m_endBlock;
 
   QFile m_qfile;
@@ -112,10 +118,30 @@ class VolumeFileManager
   int m_slabno, m_prevslabno;  
 
   uchar *m_volData;
+  size_t m_volDataCapacity;
+  QString m_lastError;
 
-  void readBlocks(int);
+  bool readBlocks(int);
 
-  void createMemFile();  
+  bool createMemFile();
+
+  static bool checkedMultiply(qint64, qint64, qint64&);
+  static bool checkedAdd(qint64, qint64, qint64&);
+  bool validateGeometry(const QString&);
+  bool sliceByteCount(qint64&, const QString&);
+  bool volumeByteCount(qint64&, const QString&);
+  bool slabFileSize(int, qint64, qint64&, const QString&);
+  bool ensureSliceCapacity(qint64, const QString&);
+  bool ensureBlockCapacity(qint64, const QString&);
+  bool setError(const QString&);
+  void clearError();
+  QString slabFilename(int) const;
+  bool openSlab(int, QIODevice::OpenMode, const QString&);
+  bool seekFile(QFile&, qint64, const QString&);
+  bool readExact(QFile&, uchar*, qint64, const QString&);
+  bool writeExact(QFile&, const uchar*, qint64, const QString&);
+  bool flushAndCheckSize(QFile&, qint64, const QString&);
+  void cleanupPartialFiles(const QStringList&);
 };
 
 #endif

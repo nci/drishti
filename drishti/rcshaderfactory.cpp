@@ -7,142 +7,314 @@
 #include <QTextEdit>
 #include <QVBoxLayout>
 #include <QMessageBox>
+#include <QDebug>
+#include <QDialog>
+#include <QRegularExpression>
+#include <QSet>
+
+namespace
+{
+QString sourceWithoutComments(const QString &source)
+{
+  QString code;
+  code.reserve(source.size());
+  bool lineComment = false;
+  bool blockComment = false;
+
+  for (int i=0; i<source.size(); ++i)
+    {
+      const QChar c = source.at(i);
+      const QChar next = (i+1 < source.size() ? source.at(i+1) : QChar());
+      if (lineComment)
+        {
+          if (c == '\n')
+            {
+              lineComment = false;
+              code += c;
+            }
+          else
+            code += ' ';
+          continue;
+        }
+      if (blockComment)
+        {
+          if (c == '*' && next == '/')
+            {
+              blockComment = false;
+              code += "  ";
+              ++i;
+            }
+          else
+            code += (c == '\n' ? '\n' : ' ');
+          continue;
+        }
+      if (c == '/' && next == '/')
+        {
+          lineComment = true;
+          code += "  ";
+          ++i;
+        }
+      else if (c == '/' && next == '*')
+        {
+          blockComment = true;
+          code += "  ";
+          ++i;
+        }
+      else
+        code += c;
+    }
+
+  return code;
+}
+
+bool usesLegacyBuiltins(const QString &source)
+{
+  QSet<QString> legacy;
+  legacy << "attribute" << "varying" << "ftransform"
+         << "gl_Vertex" << "gl_Normal" << "gl_Color"
+         << "gl_SecondaryColor" << "gl_FogCoord"
+         << "gl_MultiTexCoord0" << "gl_MultiTexCoord1"
+         << "gl_MultiTexCoord2" << "gl_MultiTexCoord3"
+         << "gl_MultiTexCoord4" << "gl_MultiTexCoord5"
+         << "gl_MultiTexCoord6" << "gl_MultiTexCoord7"
+         << "gl_ModelViewMatrix" << "gl_ModelViewMatrixInverse"
+         << "gl_ModelViewMatrixTranspose" << "gl_ModelViewMatrixInverseTranspose"
+         << "gl_ProjectionMatrix" << "gl_ProjectionMatrixInverse"
+         << "gl_ProjectionMatrixTranspose" << "gl_ProjectionMatrixInverseTranspose"
+         << "gl_ModelViewProjectionMatrix" << "gl_ModelViewProjectionMatrixInverse"
+         << "gl_ModelViewProjectionMatrixTranspose"
+         << "gl_ModelViewProjectionMatrixInverseTranspose"
+         << "gl_TextureMatrix" << "gl_TextureMatrixInverse"
+         << "gl_TextureMatrixTranspose" << "gl_TextureMatrixInverseTranspose"
+         << "gl_NormalMatrix" << "gl_NormalScale" << "gl_ClipPlane"
+         << "gl_Point" << "gl_FrontMaterial" << "gl_BackMaterial"
+         << "gl_LightSource" << "gl_LightModel"
+         << "gl_FrontLightModelProduct" << "gl_BackLightModelProduct"
+         << "gl_FrontLightProduct" << "gl_BackLightProduct"
+         << "gl_TextureEnvColor" << "gl_EyePlaneS" << "gl_EyePlaneT"
+         << "gl_EyePlaneR" << "gl_EyePlaneQ" << "gl_ObjectPlaneS"
+         << "gl_ObjectPlaneT" << "gl_ObjectPlaneR" << "gl_ObjectPlaneQ"
+         << "gl_Fog" << "gl_FrontColor" << "gl_BackColor"
+         << "gl_FrontSecondaryColor" << "gl_BackSecondaryColor"
+         << "gl_TexCoord" << "gl_FogFragCoord" << "gl_ClipVertex"
+         << "gl_FragColor" << "gl_FragData"
+         << "texture1D" << "texture1DProj" << "texture1DLod"
+         << "texture1DProjLod" << "texture2D" << "texture2DProj"
+         << "texture2DLod" << "texture2DProjLod" << "texture3D"
+         << "texture3DProj" << "texture3DLod" << "texture3DProjLod"
+         << "textureCube" << "textureCubeLod" << "texture2DRect"
+         << "texture2DRectProj" << "shadow1D" << "shadow1DProj"
+         << "shadow1DLod" << "shadow1DProjLod" << "shadow2D"
+         << "shadow2DProj" << "shadow2DLod" << "shadow2DProjLod"
+         << "shadow2DRect" << "shadow2DRectProj";
+
+  const QString code = sourceWithoutComments(source);
+  for (int i=0; i<code.size(); )
+    {
+      if (!(code.at(i).isLetter() || code.at(i) == '_'))
+        {
+          ++i;
+          continue;
+        }
+      const int start = i++;
+      while (i<code.size() && (code.at(i).isLetterOrNumber() || code.at(i) == '_'))
+        ++i;
+      if (legacy.contains(code.mid(start, i-start)))
+        return true;
+    }
+  return false;
+}
+
+QString normalizedShaderSource(QString source)
+{
+  if (!usesLegacyBuiltins(source))
+    return source;
+
+  const QRegularExpression versionCore(
+    "(^|\\n)([ \\t\\x{FEFF}]*#[ \\t]*version[ \\t]+[0-9]+)[ \\t]+core\\b");
+  const QRegularExpressionMatch match = versionCore.match(sourceWithoutComments(source));
+  if (match.hasMatch())
+    source.replace(match.capturedStart(), match.capturedLength(),
+                   match.captured(1) + match.captured(2) + " compatibility");
+  return source;
+}
+
+QString shaderLabel(const QString &stage, const QString &source)
+{
+  QString canonicalSource = source;
+  canonicalSource.replace("\r\n", "\n");
+  canonicalSource.replace('\r', '\n');
+  const QByteArray bytes = canonicalSource.toUtf8();
+  quint32 hash = 2166136261u;
+  for (int i=0; i<bytes.size(); ++i)
+    {
+      hash ^= static_cast<unsigned char>(bytes.at(i));
+      hash *= 16777619u;
+    }
+  return QString("drishti-raycast/%1-%2").arg(stage).arg(hash, 8, 16,
+                                                         QLatin1Char('0'));
+}
+
+QString numberedSource(const QString &source)
+{
+  QString numbered;
+  const QStringList lines = source.split('\n');
+  for (int i=0; i<lines.size(); ++i)
+    numbered += QString("%1 : %2\n").arg(i+1).arg(lines.at(i));
+  return numbered;
+}
+
+QString objectInfoLog(GLhandleARB object)
+{
+  GLint size = 0;
+  glGetObjectParameterivARB(object, GL_OBJECT_INFO_LOG_LENGTH_ARB, &size);
+  if (size <= 1)
+    return "(driver returned no shader info log)";
+
+  QByteArray buffer(size, '\0');
+  GLsizei written = 0;
+  glGetInfoLogARB(object, size, &written, buffer.data());
+  buffer.resize(qMax(0, static_cast<int>(written)));
+  return QString::fromLatin1(buffer.constData(), buffer.size());
+}
+
+void showShaderDiagnostic(const QString &title,
+                          const QString &label,
+                          const QString &log,
+                          const QString &source = QString())
+{
+  QString diagnostic = QString("Shader: %1\n\nDriver log:\n%2").arg(label, log);
+  if (!source.isEmpty())
+    diagnostic += "\n\nSource:\n" + numberedSource(source);
+  qCritical().noquote() << diagnostic;
+
+  QDialog dialog;
+  dialog.setWindowTitle(title);
+  dialog.resize(900, 600);
+  QVBoxLayout *layout = new QVBoxLayout(&dialog);
+  QTextEdit *editor = new QTextEdit(&dialog);
+  editor->setReadOnly(true);
+  editor->setPlainText(diagnostic);
+  layout->addWidget(editor);
+  dialog.exec();
+}
+
+void discardProgram(GLhandleARB &program,
+                    GLhandleARB vertexShader,
+                    GLhandleARB fragmentShader,
+                    bool attached)
+{
+  if (attached && program)
+    {
+      if (vertexShader) glDetachObjectARB(program, vertexShader);
+      if (fragmentShader) glDetachObjectARB(program, fragmentShader);
+    }
+  if (vertexShader) glDeleteObjectARB(vertexShader);
+  if (fragmentShader) glDeleteObjectARB(fragmentShader);
+  if (program) glDeleteObjectARB(program);
+  program = 0;
+}
+
+bool compileShader(GLhandleARB shader,
+                   const QString &label,
+                   const QString &source)
+{
+  const QByteArray sourceBytes = source.toLatin1();
+  const char *sourceData = sourceBytes.constData();
+  const GLint sourceLength = sourceBytes.size();
+  glShaderSourceARB(shader, 1, &sourceData, &sourceLength);
+  glCompileShaderARB(shader);
+
+  GLint compiled = GL_FALSE;
+  glGetObjectParameterivARB(shader, GL_OBJECT_COMPILE_STATUS_ARB, &compiled);
+  if (compiled == GL_TRUE)
+    return true;
+
+  showShaderDiagnostic("Shader compilation failed", label,
+                       objectInfoLog(shader), source);
+  return false;
+}
+
+bool loadProgram(GLhandleARB &program,
+                 QString vertexSource,
+                 QString fragmentSource)
+{
+  vertexSource = normalizedShaderSource(vertexSource);
+  fragmentSource = normalizedShaderSource(fragmentSource);
+  const QString vertexLabel = shaderLabel("vertex", vertexSource);
+  const QString fragmentLabel = shaderLabel("fragment", fragmentSource);
+  const QString programLabel = shaderLabel("program",
+                                            vertexSource + "\n--fragment--\n" +
+                                            fragmentSource);
+
+  if (!program)
+    {
+      showShaderDiagnostic("Shader creation failed", programLabel,
+                           "Cannot attach shaders to program 0.");
+      return false;
+    }
+
+  const GLhandleARB vertexShader = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);
+  const GLhandleARB fragmentShader = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);
+  if (!vertexShader || !fragmentShader)
+    {
+      showShaderDiagnostic("Shader creation failed", programLabel,
+                           "glCreateShaderObjectARB returned 0.");
+      discardProgram(program, vertexShader, fragmentShader, false);
+      return false;
+    }
+
+  if (!compileShader(vertexShader, vertexLabel, vertexSource) ||
+      !compileShader(fragmentShader, fragmentLabel, fragmentSource))
+    {
+      discardProgram(program, vertexShader, fragmentShader, false);
+      return false;
+    }
+
+  glAttachObjectARB(program, vertexShader);
+  glAttachObjectARB(program, fragmentShader);
+  glLinkProgramARB(program);
+
+  GLint linked = GL_FALSE;
+  glGetObjectParameterivARB(program, GL_OBJECT_LINK_STATUS_ARB, &linked);
+  if (linked != GL_TRUE)
+    {
+      const QString sources = "// " + vertexLabel + "\n" + vertexSource +
+                              "\n// " + fragmentLabel + "\n" + fragmentSource;
+      showShaderDiagnostic("Shader link failed", programLabel,
+                           objectInfoLog(program), sources);
+      discardProgram(program, vertexShader, fragmentShader, true);
+      return false;
+    }
+
+  glDetachObjectARB(program, vertexShader);
+  glDetachObjectARB(program, fragmentShader);
+  glDeleteObjectARB(vertexShader);
+  glDeleteObjectARB(fragmentShader);
+  return true;
+}
+}
 
 
 bool
 RcShaderFactory::loadShader(GLhandleARB &progObj,
 			  QString shaderString)
 {
-  GLhandleARB fragObj = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);  
-  glAttachObjectARB(progObj, fragObj);
+  QString vertexSource;
+  vertexSource = "varying vec3 pointpos;\n";
+  vertexSource += "void main(void)\n";
+  vertexSource += "{\n";
+  vertexSource += "  gl_FrontColor = gl_Color;\n";
+  vertexSource += "  gl_BackColor = gl_Color;\n";
+  vertexSource += "  gl_Position = ftransform();\n";
+  vertexSource += "  gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;\n";
+  vertexSource += "  gl_TexCoord[1] = gl_TextureMatrix[1] * gl_MultiTexCoord1;\n";
+  vertexSource += "  gl_TexCoord[2] = gl_TextureMatrix[2] * gl_MultiTexCoord2;\n";
+  vertexSource += "  gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
+  vertexSource += "  pointpos = gl_Vertex.xyz;\n";
+  vertexSource += "}\n";
 
-  GLhandleARB vertObj = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);  
-  glAttachObjectARB(progObj, vertObj);
-
-  {  // vertObj
-    QString qstr;
-    qstr = "varying vec3 pointpos;\n";
-    qstr += "void main(void)\n";
-    qstr += "{\n";
-    qstr += "  // Transform vertex position into homogenous clip-space.\n";
-    qstr += "  gl_FrontColor = gl_Color;\n";
-    qstr += "  gl_BackColor = gl_Color;\n";
-    qstr += "  gl_Position = ftransform();\n";
-    qstr += "  gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;\n";
-    qstr += "  gl_TexCoord[1] = gl_TextureMatrix[1] * gl_MultiTexCoord1;\n";
-    qstr += "  gl_TexCoord[2] = gl_TextureMatrix[2] * gl_MultiTexCoord2;\n";
-    qstr += "  gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n";
-    qstr += "  pointpos = gl_Vertex.xyz;\n";
-    qstr += "}\n";
-    
-    int len = qstr.length();
-    char *tbuffer = new char[len+1];
-    sprintf(tbuffer, qstr.toLatin1().data());
-    const char *sstr = tbuffer;
-    glShaderSourceARB(vertObj, 1, &sstr, NULL);
-    delete [] tbuffer;
-
-    GLint compiled = -1;
-    glCompileShaderARB(vertObj);
-    glGetObjectParameterivARB(vertObj,
-			      GL_OBJECT_COMPILE_STATUS_ARB,
-			      &compiled);
-    if (!compiled)
-      {
-	GLcharARB str[1000];
-	GLsizei len;
-	glGetInfoLogARB(vertObj,
-			(GLsizei) 1000,
-			&len,
-			str);
-	
-	QMessageBox::information(0,
-				 "Error : Vertex Shader",
-				 str);
-	return false;
-    }
-  }
-    
-    
-  { // fragObj
-    int len = shaderString.length();
-    char *tbuffer = new char[len+1];
-    sprintf(tbuffer, shaderString.toLatin1().data());
-    const char *sstr = tbuffer;
-    glShaderSourceARB(fragObj, 1, &sstr, NULL);
-    delete [] tbuffer;
-  
-    GLint compiled = -1;
-    glCompileShaderARB(fragObj);
-    glGetObjectParameterivARB(fragObj,
-			    GL_OBJECT_COMPILE_STATUS_ARB,
-			      &compiled);
-    if (!compiled)
-      {
-	GLcharARB str[1000];
-	GLsizei len;
-	glGetInfoLogARB(fragObj,
-			(GLsizei) 1000,
-			&len,
-			str);
-	
-	//-----------------------------------
-	// display error
-	
-	//qApp->beep();
-	
-	QString estr;
-	QStringList slist = shaderString.split("\n");
-	for(int i=0; i<slist.count(); i++)
-	  estr += QString("%1 : %2\n").arg(i+1).arg(slist[i]);
-	
-	QTextEdit *tedit = new QTextEdit();
-	tedit->insertPlainText("-------------Error----------------\n\n");
-	tedit->insertPlainText(str);
-	tedit->insertPlainText("\n-----------Shader---------------\n\n");
-	tedit->insertPlainText(estr);
-	
-	QVBoxLayout *layout = new QVBoxLayout();
-	layout->addWidget(tedit);
-	
-	QDialog *showError = new QDialog();
-	showError->setWindowTitle("Error in Fragment Shader");
-	showError->setSizeGripEnabled(true);
-	showError->setModal(true);
-	showError->setLayout(layout);
-	showError->exec();
-	//-----------------------------------
-	
-	return false;
-      }
-  }
-
-  
-  //----------- link program shader ----------------------
-  GLint linked = -1;
-  glLinkProgramARB(progObj);
-  glGetObjectParameterivARB(progObj, GL_OBJECT_LINK_STATUS_ARB, &linked);
-  if (!linked)
-    {
-      GLcharARB str[1000];
-      GLsizei len;
-      QMessageBox::information(0,
-			       "ProgObj",
-			       "error linking texProgObj");
-      glGetInfoLogARB(progObj,
-		      (GLsizei) 1000,
-		      &len,
-		      str);
-      QMessageBox::information(0,
-			       "Error",
-			       QString("%1\n%2").arg(len).arg(str));
-      return false;
-    }
-
-  glDeleteObjectARB(fragObj);
-  glDeleteObjectARB(vertObj);
-
-  return true;
+  return loadProgram(progObj, vertexSource, shaderString);
 }
 
 QString
@@ -1141,138 +1313,6 @@ RcShaderFactory::loadShader(GLhandleARB &progObj,
 			    QString vertShaderString,
 			    QString fragShaderString)
 {
-  GLhandleARB fragObj = glCreateShaderObjectARB(GL_FRAGMENT_SHADER_ARB);  
-  glAttachObjectARB(progObj, fragObj);
-
-  GLhandleARB vertObj = glCreateShaderObjectARB(GL_VERTEX_SHADER_ARB);  
-  glAttachObjectARB(progObj, vertObj);
-
-  {  // vertObj   
-    int len = vertShaderString.length();
-    char *tbuffer = new char[len+1];
-    sprintf(tbuffer, vertShaderString.toLatin1().data());
-    const char *sstr = tbuffer;
-    glShaderSourceARB(vertObj, 1, &sstr, NULL);
-    delete [] tbuffer;
-
-    GLint compiled = -1;
-    glCompileShaderARB(vertObj);
-    glGetObjectParameterivARB(vertObj,
-			      GL_OBJECT_COMPILE_STATUS_ARB,
-			      &compiled);
-    if (!compiled)
-      {
-	GLcharARB str[1000];
-	GLsizei len;
-	glGetInfoLogARB(vertObj,
-			(GLsizei) 1000,
-			&len,
-			str);
-	
-	QString estr;
-	QStringList slist = vertShaderString.split("\n");
-	for(int i=0; i<slist.count(); i++)
-	  estr += QString("%1 : %2\n").arg(i+1).arg(slist[i]);
-	
-	QTextEdit *tedit = new QTextEdit();
-	tedit->insertPlainText("-------------Error----------------\n\n");
-	tedit->insertPlainText(str);
-	tedit->insertPlainText("\n-----------Shader---------------\n\n");
-	tedit->insertPlainText(estr);
-	
-	QVBoxLayout *layout = new QVBoxLayout();
-	layout->addWidget(tedit);
-	
-	QDialog *showError = new QDialog();
-	showError->setWindowTitle("Error in Vertex Shader");
-	showError->setSizeGripEnabled(true);
-	showError->setModal(true);
-	showError->setLayout(layout);
-	showError->exec();
-	return false;
-    }
-  }
-    
-    
-  { // fragObj
-    int len = fragShaderString.length();
-    char *tbuffer = new char[len+1];
-    sprintf(tbuffer, fragShaderString.toLatin1().data());
-    const char *sstr = tbuffer;
-    glShaderSourceARB(fragObj, 1, &sstr, NULL);
-    delete [] tbuffer;
-  
-    GLint compiled = -1;
-    glCompileShaderARB(fragObj);
-    glGetObjectParameterivARB(fragObj,
-			      GL_OBJECT_COMPILE_STATUS_ARB,
-			      &compiled);
-	
-    if (!compiled)
-      {
-	GLcharARB str[1000];
-	GLsizei len;
-	glGetInfoLogARB(fragObj,
-			(GLsizei) 1000,
-			&len,
-			str);
-	
-	//-----------------------------------
-	// display error
-	
-	//qApp->beep();
-	
-	QString estr;
-	QStringList slist = fragShaderString.split("\n");
-	for(int i=0; i<slist.count(); i++)
-	  estr += QString("%1 : %2\n").arg(i+1).arg(slist[i]);
-	
-	QTextEdit *tedit = new QTextEdit();
-	tedit->insertPlainText("-------------Error----------------\n\n");
-	tedit->insertPlainText(str);
-	tedit->insertPlainText("\n-----------Shader---------------\n\n");
-	tedit->insertPlainText(estr);
-	
-	QVBoxLayout *layout = new QVBoxLayout();
-	layout->addWidget(tedit);
-	
-	QDialog *showError = new QDialog();
-	showError->setWindowTitle("Error in Fragment Shader");
-	showError->setSizeGripEnabled(true);
-	showError->setModal(true);
-	showError->setLayout(layout);
-	showError->exec();
-	//-----------------------------------
-	
-	return false;
-      }
-  }
-
-  
-  //----------- link program shader ----------------------
-  GLint linked = -1;
-  glLinkProgramARB(progObj);
-  glGetObjectParameterivARB(progObj, GL_OBJECT_LINK_STATUS_ARB, &linked);
-  if (!linked)
-    {
-      GLcharARB str[1000];
-      GLsizei len;
-      QMessageBox::information(0,
-			       "ProgObj",
-			       "error linking texProgObj");
-      glGetInfoLogARB(progObj,
-		      (GLsizei) 1000,
-		      &len,
-		      str);
-      QMessageBox::information(0,
-			       "Error",
-			       QString("%1\n%2").arg(len).arg(str));
-      return false;
-    }
-
-  glDeleteObjectARB(fragObj);
-  glDeleteObjectARB(vertObj);
-
-  return true;
+  return loadProgram(progObj, vertShaderString, fragShaderString);
 }
 //---------------

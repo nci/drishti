@@ -14,42 +14,49 @@ class VolumeMask : public QObject
   void saveTagNames(QStringList);
   QStringList loadTagNames();  
   
-  void undo() { m_maskFileManager.undo(); }
+  bool createUndo() { return m_maskFileManager.createUndo(); }
+  bool undo() { return m_maskFileManager.undo(); }
 
-  void exiting();
-  void reset();
-  void setFile(QString, bool);
-  void setGridSize(int, int, int, int);
+  bool exiting();
+  bool reset();
+  bool setFile(QString, bool);
+  bool setGridSize(int, int, int, int);
   void setVoxelType(int vt) { m_maskFileManager.setVoxelType(vt); }
   
-  void exportMask();
+  bool exportMask();
   void checkPoint();
   bool loadCheckPoint();
   bool loadCheckPoint(QString);
   bool deleteCheckPoint();
   
-  void offloadMemFile();
-  void loadMemFile();
-  void loadRawFile(QString);
+  bool offloadMemFile();
+  bool loadMemFile();
+  bool loadRawFile(QString);
   
   void setSaveFrequency(int t) { m_maskFileManager.setSaveFrequency(t); }
 
-  void checkFileSave();
-  void saveIntermediateResults(bool forceSave=false);
-  void saveMaskBlock(int, int, int, int);
-  void saveMaskBlock(QList< QList<int> >);
+  bool checkFileSave();
+  bool saveIntermediateResults(bool forceSave=false);
+  bool saveMaskBlock(int, int, int, int);
+  bool saveMaskBlock(QList< QList<int> >);
 
   uchar* getMaskDepthSliceImage(int);
   uchar* getMaskWidthSliceImage(int);
   uchar* getMaskHeightSliceImage(int);
 
-  void setMaskDepthSlice(int, uchar*);
+  bool setMaskDepthSlice(int, uchar*);
 
   ushort maskValue(int, int, int);
 
-  void tagDSlice(int, uchar*);
-  void tagWSlice(int, uchar*);
-  void tagHSlice(int, uchar*);
+  bool tagDSlice(int, uchar*);
+  bool tagWSlice(int, uchar*);
+  bool tagHSlice(int, uchar*);
+
+  QString lastError() const
+  {
+    const QString fileError = m_maskFileManager.lastError();
+    return fileError.isEmpty() ? m_lastError : fileError;
+  }
 
   uchar* memMaskDataPtr() {return m_maskFileManager.memVolDataPtr();};
   ushort* memMaskDataPtrUS() {return m_maskFileManager.memVolDataPtrUS();};
@@ -57,12 +64,13 @@ class VolumeMask : public QObject
  private:
   VolumeFileManager m_maskFileManager;
   QString m_maskfile;
+  QString m_lastError;
   int m_depth, m_width, m_height;
 
   uchar* m_maskslice;
 
-  void checkMaskFile();
-  void createPvlNc(QString);
+  bool checkMaskFile();
+  bool createPvlNc(QString, QString=QString());
 };
 
 #endif

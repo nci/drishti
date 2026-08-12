@@ -10,7 +10,8 @@ TARGET = jp2plugin
 include(../plugins.pri)
 
 win32 {
-  SOURCES = jp2plugin.cpp
+  SOURCES = jp2plugin.cpp \
+            ../../importmemoryadmission.cpp
 
   INCLUDEPATH += ./ ../../
 
@@ -31,10 +32,12 @@ unix {
   QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../ITK\'"
   QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../sharedlibs\'"
 
-  SOURCES = jp2plugin.cpp
+  SOURCES = jp2plugin.cpp \
+            ../../importmemoryadmission.cpp
  }
 }
 
 
-HEADERS = jp2plugin.h
+HEADERS = jp2plugin.h \
+          ../../importmemoryadmission.h
 

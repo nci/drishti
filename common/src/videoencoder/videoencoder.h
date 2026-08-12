@@ -5,6 +5,7 @@
 #include <QIODevice>
 #include <QFile>
 #include <QImage>
+#include <QString>
 
 #include "ffmpeg.h"
 
@@ -36,21 +37,25 @@ public:
   
   void init();
 
-  bool isOk() { return m_frameRate > 0; }
+  bool isOk() const { return m_ready; }
+  QString lastError() const { return m_lastError; }
   
   bool createFile(QString filename,
 		  unsigned width, unsigned height,
 		  unsigned bitrate, unsigned gop, unsigned fps=25);
   bool close();
   
-  void encodeImage(const QImage &);
-  void encodeImage(uchar*, int, int, int, int);
+  bool encodeImage(const QImage &);
+  bool encodeImage(uchar*, int, int, int, int);
 
 private:
   int m_frameRate;
   unsigned m_width,m_height;
   unsigned m_bitrate;
   unsigned m_gop;
+  bool m_ready;
+  bool m_headerWritten;
+  QString m_lastError;
   
   AVFormatContext *m_avFormatCtx;
   const AVOutputFormat *m_avOutputFormat;
@@ -64,15 +69,17 @@ private:
   bool convertImage(OutputStream*,
 		    uchar*, int, int, int, int);
 
-  void close_stream(AVFormatContext*, OutputStream*);
-  void add_stream(OutputStream*, AVFormatContext*,
+  void close_stream(OutputStream*);
+  bool add_stream(OutputStream*, AVFormatContext*,
 		  const AVCodec**, enum AVCodecID);
 
-  void open_video(AVFormatContext *, const AVCodec *,
+  bool open_video(AVFormatContext *, const AVCodec *,
 		  OutputStream *, AVDictionary *);
   AVFrame* alloc_frame(enum AVPixelFormat, int, int);
-  int write_frame(AVFormatContext*, AVCodecContext*,
-		  AVStream*, AVFrame*, AVPacket*);
+  bool write_frame(AVFormatContext*, AVCodecContext*,
+		   AVStream*, AVFrame*, AVPacket*);
+  bool release(bool finalize);
+  bool setError(const QString&);
 };
 
 

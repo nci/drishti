@@ -68,12 +68,10 @@ class ShaderFactory
   static QString noise2d();
   static QString noise3d();
 
-  static bool addShader(GLuint, GLenum, QString);
-  static bool finalize(GLuint);
+  static bool addShader(GLuint&, GLenum, QString);
+  static bool finalize(GLuint&);
 
  private :
-  static QList<GLuint> m_shaderList;
-  
   static GLuint m_meshShader;
   static GLint m_meshShaderParm[40];
 

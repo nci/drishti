@@ -481,8 +481,16 @@ template <typename captype, typename tcaptype, typename flowtype>
 	}
 
 	changed_list = _changed_list;
-	if (maxflow_iteration == 0 && reuse_trees) { if (error_function) (*error_function)((char*)"reuse_trees cannot be used in the first call to maxflow()!"); exit(1); }
-	if (changed_list && !reuse_trees) { if (error_function) (*error_function)((char*)"changed_list cannot be used without reuse_trees!"); exit(1); }
+	if (maxflow_iteration == 0 && reuse_trees)
+	{
+		if (error_function) (*error_function)(const_cast<char *>("reuse_trees cannot be used in the first call to maxflow()!"));
+		throw std::logic_error("reuse_trees cannot be used in the first call to maxflow()");
+	}
+	if (changed_list && !reuse_trees)
+	{
+		if (error_function) (*error_function)(const_cast<char *>("changed_list cannot be used without reuse_trees!"));
+		throw std::logic_error("changed_list cannot be used without reuse_trees");
+	}
 
 	if (reuse_trees) maxflow_reuse_trees_init();
 	else             maxflow_init();

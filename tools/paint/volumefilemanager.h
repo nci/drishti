@@ -6,7 +6,10 @@
 #include <QProgressDialog>
 #include <QStringList>
 #include <QFile>
+#include <QTimer>
 #include <QThread>
+
+#include <cstddef>
 
 #include "filehandler.h"
 
@@ -31,12 +34,12 @@ class VolumeFileManager : public QObject
     _Float
   };
 
-  void reset();
+  bool reset();
 
   QString fileName();
   bool exists();
 
-  void exiting();
+  bool exiting();
   
   QString exportMask();
   void checkPoint();
@@ -44,7 +47,7 @@ class VolumeFileManager : public QObject
   bool loadCheckPoint(QString);
   bool deleteCheckPoint();
   
-  void setMemMapped(bool);
+  bool setMemMapped(bool);
   bool isMemMapped();
 
   void setSaveFrequency(int o) { m_saveFreq = o; };
@@ -60,7 +63,7 @@ class VolumeFileManager : public QObject
   void setDepth(int);
   void setWidth(int);
   void setHeight(int);
-  void createFile(bool, bool writeData=false);
+  bool createFile(bool, bool writeData=false);
 
   QStringList filenameList();
   QString baseFilename();
@@ -84,16 +87,18 @@ class VolumeFileManager : public QObject
   void endBlockInterpolation();
   uchar* blockInterpolatedRawValue(float, float, float);
 
-  void loadMemFile();
-  void saveMemFile();
-  void loadRawFile(QString);
+  bool loadMemFile();
+  bool saveMemFile();
+  bool requestSave();
+  bool flushPendingChanges();
+  bool loadRawFile(QString);
 
   uchar* getSlice(int);
-  void setSlice(int, uchar*);
+  bool setSlice(int, uchar*);
 
-  void setDepthSliceMem(int, uchar*);
-  void setWidthSliceMem(int, uchar*);
-  void setHeightSliceMem(int, uchar*);
+  bool setDepthSliceMem(int, uchar*);
+  bool setWidthSliceMem(int, uchar*);
+  bool setHeightSliceMem(int, uchar*);
 
   uchar* getDepthSliceMem(int);
   uchar* getWidthSliceMem(int);
@@ -105,28 +110,38 @@ class VolumeFileManager : public QObject
   uchar* memVolDataPtr() { return m_volData; }
   ushort* memVolDataPtrUS() { return (ushort*)m_volData; }
 
-  void saveBlock();
+  bool saveBlock();
 
-  void saveSlicesToFile();
-  void checkFileSave();
+  bool saveSlicesToFile();
+  bool checkFileSave();
   
-  void startFileHandlerThread();
+  bool startFileHandlerThread();
 
-  void undo();
+  bool undo();
+  bool createUndo();
+
+  QString lastError() const;
 
  signals :
-  void saveFile();
+  void saveSnapshot(QString, quint64);
+  void saveCycleFinished();
+  void saveCycleProgressed();
   void saveDepthSlices(IntList);
   void saveWidthSlices(IntList);
   void saveHeightSlices(IntList);
   void saveDataBlock(int,int,int,int,int,int);
 					     
  public slots :
-  void doneFileSave();
+  void doneFileSave(quint64, bool, QString);
+  void beginBackgroundSave();
+  void fileSaveProgress(quint64);
+  void fileHandlerThreadFinished();
   
  private :
   bool m_fileHandlerBusy;
   bool m_waitingOnFileHandler;
+  bool m_saveRequested;
+  bool m_backgroundSaveFailed;
   
   bool m_memmapped;
   bool m_memChanged;
@@ -138,7 +153,9 @@ class VolumeFileManager : public QObject
   int m_voxelType;
   qint64 m_bytesPerVoxel;
   uchar *m_slice;
+  size_t m_sliceCapacity;
   uchar *m_block;
+  size_t m_blockCapacity;
   int m_blockSlices, m_startBlock, m_endBlock;
 
   QFile m_qfile;
@@ -146,23 +163,56 @@ class VolumeFileManager : public QObject
   int m_slabno, m_prevslabno;  
 
   uchar *m_volData;
+  size_t m_volDataCapacity;
+  QString m_lastError;
+  quint64 m_changeGeneration;
+  quint64 m_saveGeneration;
+  QString m_snapshotPath;
 
   QList<int> m_saveDSlices;
   QList<int> m_saveWSlices;
   QList<int> m_saveHSlices;
     
-  void readBlocks(int);
+  bool readBlocks(int);
 
-  void createMemFile();
+  bool createMemFile();
 
   uchar* getWidthSlice(int);
   uchar* getHeightSlice(int);
 
-  void setWidthSlice(int, uchar*);
-  void setHeightSlice(int, uchar*);
+  bool setWidthSlice(int, uchar*);
+  bool setHeightSlice(int, uchar*);
+
+  static bool checkedMultiply(qint64, qint64, qint64&);
+  static bool checkedAdd(qint64, qint64, qint64&);
+  bool validateGeometry(const QString&, bool requireFilename=true);
+  bool sliceByteCount(qint64&, const QString&);
+  bool volumeByteCount(qint64&, const QString&);
+  bool planeByteCount(int, int, qint64&, const QString&);
+  bool ensureSliceCapacity(qint64, const QString&);
+  bool ensureBlockCapacity(qint64, const QString&);
+  bool setError(const QString&);
+  void clearError();
+  QString slabFilename(int) const;
+  bool openSlab(int, QIODevice::OpenMode, const QString&);
+  bool seekFile(QFile&, qint64, const QString&);
+  bool readExact(QFile&, uchar*, qint64, const QString&);
+  bool writeExact(QFile&, const uchar*, qint64, const QString&);
+  bool flushFile(QFile&, const QString&);
+  bool expectedSlabSize(int, qint64, qint64&, const QString&);
+  void cleanupPartialFiles(const QStringList&);
+  void configureFileHandler(FileHandler&);
+  bool loadCompressedMask(uchar*, qint64);
+  bool saveCompressedMask(uchar*, qint64);
+  bool stopFileHandlerThread(bool);
+  bool queueFileSave();
+  bool createSaveSnapshot(QString&, quint64&);
+  bool waitForBackgroundSave();
+  void markChanged();
 
   QThread* m_thread;
   FileHandler *m_handler;
+  QTimer *m_saveDebounceTimer;
 };
 
 #endif

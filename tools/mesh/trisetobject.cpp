@@ -6,6 +6,8 @@
 #include "ply.h"
 #include "matrix.h"
 #include "mainwindowui.h"
+#include "../../cpumeshpaint.h"
+#include "../../meshvertexbuffer.h"
 
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
@@ -14,6 +16,34 @@
 #include <QFileDialog>
 #include <QTime>
 #include <QInputDialog>
+
+namespace
+{
+class ScopedArrayBufferBinding
+{
+public:
+  ScopedArrayBufferBinding()
+    : m_binding(0)
+  {
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &m_binding);
+  }
+
+  ~ScopedArrayBufferBinding()
+  {
+    glBindBuffer(GL_ARRAY_BUFFER, static_cast<GLuint>(m_binding));
+  }
+
+private:
+  GLint m_binding;
+};
+
+void clearPendingOpenGLErrors()
+{
+  for (int i=0; i<16; ++i)
+    if (glGetError() == GL_NO_ERROR)
+      return;
+}
+}
 
 
 void
@@ -61,7 +91,6 @@ TrisetObject::TrisetObject()
   m_glVertBuffer = 0;
   m_glIndexBuffer = 0;
   m_glVertArray = 0;
-  m_origColorBuffer = 0;
   
   m_diffuseMat.clear();
   m_normalMat.clear();
@@ -165,6 +194,7 @@ TrisetObject::clear()
   m_vcolor.clear();
   m_OrigVcolor.clear();
   m_uv.clear();
+  m_tangents.clear();
   m_samplePoints.clear();
   
   if(m_glVertArray)
@@ -206,12 +236,6 @@ TrisetObject::clear()
   
   Matrix::identity(m_localXform);
 
-  // used during painting
-  if (m_origColorBuffer)
-    {
-      glDeleteBuffers(1, &m_origColorBuffer);
-      m_origColorBuffer = 0;
-    }
 }
 
 void
@@ -255,23 +279,7 @@ TrisetObject::haveBlack()
 void
 TrisetObject::bakeColors()
 {
-  // if the mesh has been painted
-  // get colors back from gpu
-  if (m_origColorBuffer)
-    {
-      int nvert = m_vertices.count()/3;
-      int nv = 9*nvert;
-      glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
-      float *ptr = (float*)(glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY));
-
-      for(int i=0; i<nvert; i++)
-	{
-	  m_vcolor[3*i+0] = ptr[9*i+6];
-	  m_vcolor[3*i+1] = ptr[9*i+7];
-	  m_vcolor[3*i+2] = ptr[9*i+8];	  
-	}
-      glUnmapBuffer(GL_ARRAY_BUFFER);
-    }
+  // CPU painting updates m_vcolor directly, so there is nothing to read back.
 }
 
 
@@ -315,75 +323,36 @@ TrisetObject::load(QString flnm)
   if (loaded)
     {
       copyToOrigVcolor();
-      loadVertexBufferData();
-      return true;
+      return loadVertexBufferData();
     }
   return false;
 }
 
-void
+bool
 TrisetObject::loadVertexBufferData()
 {  
-  int stride = 3;
-  if (m_normals.count()) stride += 3; // vertex normal
-  if (m_uv.count() > 0 ||
-      m_vcolor.count()) stride += 3; // vertex color or texture uv
-
-  if (m_tangents.count() > 0)
-    stride += 3;
-      
-  int nvert = m_vertices.count()/3;
-  int nv = stride*nvert;
-  int ni = m_triangles.count();
-
-  //---------------------
-  float *vertData;
-  vertData = new float[nv];  
-  for(int i=0; i<nvert; i++)
+  if (!MeshVertexBuffer::ensureRequiredAttributes(m_vertices,
+					   m_normals,
+					   m_vcolor,
+					   m_color.x,
+					   m_color.y,
+					   m_color.z))
     {
-      vertData[stride*i + 0] = m_vertices[3*i+0];
-      vertData[stride*i + 1] = m_vertices[3*i+1];
-      vertData[stride*i + 2] = m_vertices[3*i+2];
-      vertData[stride*i + 3] =  m_normals[3*i+0];
-      vertData[stride*i + 4] =  m_normals[3*i+1];
-      vertData[stride*i + 5] =  m_normals[3*i+2];
+      qWarning("Cannot upload mesh: required vertex arrays are inconsistent.");
+      return false;
     }
 
-  if (m_uv.count() > 0)
+  MeshVertexBuffer::Layout layout;
+  QVector<float> vertexData;
+  if (!MeshVertexBuffer::pack(m_vertices, m_normals, m_vcolor, m_uv,
+			      &m_tangents, vertexData, layout))
     {
-      for(int i=0; i<nvert; i++)
-	{
-	  vertData[stride*i + 6] = m_uv[3*i+0];
-	  vertData[stride*i + 7] = m_uv[3*i+1];
-	  vertData[stride*i + 8] = m_uv[3*i+2];
-	}
-    }
-  else
-    {
-      for(int i=0; i<nvert; i++)
-	{
-	  vertData[stride*i + 6] = m_vcolor[3*i+0];
-	  vertData[stride*i + 7] = m_vcolor[3*i+1];
-	  vertData[stride*i + 8] = m_vcolor[3*i+2];
-	}
+      qWarning("Cannot upload mesh: vertex attribute arrays are inconsistent.");
+      return false;
     }
 
-  if (m_tangents.count() > 0)
-    {
-      for(int i=0; i<nvert; i++)
-	{
-	  vertData[stride*i + 9]  = m_tangents[3*i+0];
-	  vertData[stride*i + 10] = m_tangents[3*i+1];
-	  vertData[stride*i + 11] = m_tangents[3*i+2];
-	}
-    }
-
-
-  unsigned int *indexData;
-  indexData = new unsigned int[ni];
-  for(int i=0; i<ni; i++)
-    indexData[i] = m_triangles[i];
-  //---------------------
+  const int stride = layout.stride;
+  const int ni = m_triangles.count();
 
 
   //--------------------
@@ -473,29 +442,37 @@ TrisetObject::loadVertexBufferData()
   // Populate a vertex buffer
   if (!m_glVertBuffer)
     glGenBuffers(1, &m_glVertBuffer);
-  glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
-  glBufferData(GL_ARRAY_BUFFER,
-	       sizeof(float)*nv,
-	       vertData,
-	       GL_STATIC_DRAW);
-
-  int vpSz = 3;
-  if (m_tangents.count() > 0)
-    vpSz = 4;
-
-  // Identify the components in the vertex buffer
-  for (int vp=0; vp<vpSz; vp++)
+  if (!m_glVertArray || !m_glVertBuffer)
     {
-      glEnableVertexAttribArray(vp);
-      if (vp > 0)
-	glVertexAttribPointer(vp, vpSz, GL_FLOAT, GL_FALSE,
-			      sizeof(float)*stride, // stride
-			      (void *)(0 + (sizeof(float)*(3*vp)))); // starting offset
-      else
-	glVertexAttribPointer(vp, vpSz, GL_FLOAT, GL_FALSE,
-			      sizeof(float)*stride, // stride
-			      (void *)NULL); // starting offset
+      glBindVertexArray(0);
+      qWarning("Cannot upload mesh: OpenGL object allocation failed.");
+      return false;
     }
+
+  glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
+  clearPendingOpenGLErrors();
+  glBufferData(GL_ARRAY_BUFFER,
+	       static_cast<GLsizeiptr>(sizeof(float))*vertexData.count(),
+	       vertexData.constData(),
+	       GL_DYNAMIC_DRAW);
+  if (glGetError() != GL_NO_ERROR)
+    {
+      glBindVertexArray(0);
+      qWarning("Cannot upload mesh: vertex buffer allocation failed.");
+      return false;
+    }
+
+  const int attributeCount = layout.hasTangents ? 4 : 3;
+  for (int attribute=0; attribute<attributeCount; ++attribute)
+    {
+      glEnableVertexAttribArray(attribute);
+      glVertexAttribPointer(attribute, 3, GL_FLOAT, GL_FALSE,
+			    sizeof(float)*stride,
+			    reinterpret_cast<void*>(
+			      static_cast<quintptr>(sizeof(float)*3*attribute)));
+    }
+  if (!layout.hasTangents)
+    glDisableVertexAttribArray(3);
   
 //  // Identify the components in the vertex buffer
 //  glEnableVertexAttribArray(0);
@@ -530,19 +507,30 @@ TrisetObject::loadVertexBufferData()
   // Create and populate the index buffer
   if (!m_glIndexBuffer)
     glGenBuffers(1, &m_glIndexBuffer);
+  if (!m_glIndexBuffer)
+    {
+      glBindVertexArray(0);
+      qWarning("Cannot upload mesh: index buffer allocation failed.");
+      return false;
+    }
+
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_glIndexBuffer);
+  clearPendingOpenGLErrors();
   glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-	       sizeof(unsigned int)*ni,
-	       indexData,
+	       static_cast<GLsizeiptr>(sizeof(uint))*ni,
+	       m_triangles.constData(),
 	       GL_STATIC_DRAW);
+  if (glGetError() != GL_NO_ERROR)
+    {
+      glBindVertexArray(0);
+      qWarning("Cannot upload mesh: index buffer allocation failed.");
+      return false;
+    }
   
   glBindVertexArray(0);
 
-  delete [] vertData;
-  delete [] indexData;
-
   // create shader  
-  ShaderFactory::meshShader();
+  return ShaderFactory::meshShader() != 0;
 }
 
 void
@@ -1378,37 +1366,148 @@ TrisetObject::copyToOrigVcolor()
 void
 TrisetObject::makeReadyForPainting()
 {
-  if (!m_origColorBuffer)
-    glGenBuffers(1, &m_origColorBuffer);
-
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_origColorBuffer);
-  glBufferData(GL_SHADER_STORAGE_BUFFER,
-	       m_OrigVcolor.count()*sizeof(float),
-	       m_OrigVcolor.data(),
-	       GL_STATIC_DRAW);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_origColorBuffer);
+  if (m_OrigVcolor.count() != m_vcolor.count())
+    m_OrigVcolor = m_vcolor;
 }
 
 bool
-TrisetObject::paint(Vec hitPt)
+TrisetObject::updateVertexColorBuffer(const QVector<int> &changedVertices)
 {
-  if (!m_show)
+  if (changedVertices.isEmpty())
+    return true;
+
+  if (!m_glVertBuffer ||
+      m_vertices.isEmpty() || m_vertices.count()%3 != 0 ||
+      m_vcolor.count() != m_vertices.count() ||
+      (!m_normals.isEmpty() && m_normals.count() != m_vertices.count()) ||
+      !m_uv.isEmpty() ||
+      (!m_tangents.isEmpty() && m_tangents.count() != m_vertices.count()))
     return false;
 
-  Vec bmin = m_enclosingBox[0];
-  Vec bmax = m_enclosingBox[6];
+  const int vertexCount = m_vertices.count()/3;
+  for (int i=0; i<changedVertices.count(); ++i)
+    if (changedVertices[i] < 0 || changedVertices[i] >= vertexCount)
+      return false;
 
-  if (hitPt.x <= bmin.x || hitPt.y <= bmin.y || hitPt.z <= bmin.z ||
-      hitPt.x >= bmax.x || hitPt.y >= bmax.y || hitPt.z >= bmax.z)
+  const bool hasTangents = !m_tangents.isEmpty();
+  const int stride = hasTangents ? MeshVertexBuffer::TangentStride :
+				   MeshVertexBuffer::BaseStride;
+  const GLint64 expectedBytes = static_cast<GLint64>(sizeof(float))*
+				vertexCount*stride;
+
+  ScopedArrayBufferBinding bindingGuard;
+  glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
+  clearPendingOpenGLErrors();
+
+  GLint64 bufferBytes = 0;
+  glGetBufferParameteri64v(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, &bufferBytes);
+  if (glGetError() == GL_NO_ERROR && bufferBytes == expectedBytes)
+    {
+      float *buffer = static_cast<float*>(
+	glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
+      if (buffer)
+	{
+	  for (int i=0; i<changedVertices.count(); ++i)
+	    {
+	      const int vertex = changedVertices[i];
+	      const int destination = stride*vertex+MeshVertexBuffer::ColorOffset;
+	      buffer[destination+0] = m_vcolor[3*vertex+0];
+	      buffer[destination+1] = m_vcolor[3*vertex+1];
+	      buffer[destination+2] = m_vcolor[3*vertex+2];
+	    }
+
+	  if (glUnmapBuffer(GL_ARRAY_BUFFER) == GL_TRUE &&
+	      glGetError() == GL_NO_ERROR)
+	    return true;
+	}
+    }
+
+  MeshVertexBuffer::Layout layout;
+  QVector<float> vertexData;
+  if (!MeshVertexBuffer::pack(m_vertices, m_normals, m_vcolor, m_uv,
+			      &m_tangents, vertexData, layout))
     return false;
 
+  clearPendingOpenGLErrors();
+  glBufferData(GL_ARRAY_BUFFER,
+	       static_cast<GLsizeiptr>(sizeof(float))*vertexData.count(),
+	       vertexData.constData(),
+	       GL_DYNAMIC_DRAW);
+  return glGetError() == GL_NO_ERROR;
+}
 
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_glVertBuffer);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, m_origColorBuffer);
-  
-  glDispatchCompute((m_vcolor.count()/3)/128, 1, 1);
-  
-  return true;
+bool
+TrisetObject::paint(Vec hitPt, float radius, Vec hitColor,
+		    int blendType, float blendFraction,
+		    int blendOctave, int roughnessType,
+		    Vec bmin, float blen)
+{
+  if (!m_show || !(radius > 0.0f) || !m_uv.isEmpty() ||
+      m_vertices.isEmpty() || m_vertices.count()%3 != 0 ||
+      m_vcolor.count() != m_vertices.count())
+    return false;
+
+  Vec localMin = m_enclosingBox[0];
+  Vec localMax = m_enclosingBox[6];
+
+  if (hitPt.x+radius <= localMin.x ||
+      hitPt.y+radius <= localMin.y ||
+      hitPt.z+radius <= localMin.z ||
+      hitPt.x-radius >= localMax.x ||
+      hitPt.y-radius >= localMax.y ||
+      hitPt.z-radius >= localMax.z)
+    return false;
+
+  if (m_OrigVcolor.count() != m_vcolor.count())
+    m_OrigVcolor = m_vcolor;
+
+  QVector<int> changedVertices;
+  QVector<float> previousColors;
+  const int vertexCount = m_vertices.count()/3;
+  changedVertices.reserve(qMin(vertexCount, 4096));
+  previousColors.reserve(3*qMin(vertexCount, 4096));
+  for (int i=0; i<vertexCount; ++i)
+    {
+      float &red = m_vcolor[3*i+0];
+      float &green = m_vcolor[3*i+1];
+      float &blue = m_vcolor[3*i+2];
+      const float previousRed = red;
+      const float previousGreen = green;
+      const float previousBlue = blue;
+      if (CpuMeshPaint::apply(m_vertices[3*i+0],
+			      m_vertices[3*i+1],
+			      m_vertices[3*i+2],
+			      hitPt.x, hitPt.y, hitPt.z,
+			      radius,
+			      hitColor.x, hitColor.y, hitColor.z,
+			      blendType, blendFraction,
+			      blendOctave, roughnessType,
+			      bmin.x, bmin.y, bmin.z, blen,
+			      m_OrigVcolor[3*i+0],
+			      m_OrigVcolor[3*i+1],
+			      m_OrigVcolor[3*i+2],
+			      red, green, blue))
+	{
+	  changedVertices.append(i);
+	  previousColors << previousRed << previousGreen << previousBlue;
+	}
+    }
+
+  if (changedVertices.isEmpty())
+    return false;
+
+  if (updateVertexColorBuffer(changedVertices))
+    return true;
+
+  for (int i=0; i<changedVertices.count(); ++i)
+    {
+      const int vertex = changedVertices[i];
+      m_vcolor[3*vertex+0] = previousColors[3*i+0];
+      m_vcolor[3*vertex+1] = previousColors[3*i+1];
+      m_vcolor[3*vertex+2] = previousColors[3*i+2];
+    }
+  qWarning("Mesh paint failed while updating the vertex buffer.");
+  return false;
 }
 
 
@@ -2077,24 +2176,6 @@ TrisetObject::captionOffset(int cpid)
 void
 TrisetObject::save(int nclip, float *cpos, float *cnormal)
 {
-  // if the mesh has been painted
-  // get colors back from gpu
-  if (m_origColorBuffer)
-    {
-      int nvert = m_vertices.count()/3;
-      int nv = 9*nvert;
-      glBindBuffer(GL_ARRAY_BUFFER, m_glVertBuffer);
-      float *ptr = (float*)(glMapBuffer(GL_ARRAY_BUFFER, GL_READ_ONLY));
-
-      for(int i=0; i<nvert; i++)
-	{
-	  m_vcolor[3*i+0] = ptr[9*i+6];
-	  m_vcolor[3*i+1] = ptr[9*i+7];
-	  m_vcolor[3*i+2] = ptr[9*i+8];	  
-	}
-      glUnmapBuffer(GL_ARRAY_BUFFER);
-    }
-
   // regenerate local transfromation so we don't have scaling due to surface being selected(active)
   genLocalXform();    
   // use the transpose for transformation
@@ -2461,7 +2542,15 @@ TrisetObject::loadAssimpModel(QString flnm)
 
   //----------------------
   bool possibleNormalMap = false;
-  scene = importer.ReadFile( flnm.toLatin1().data(), aiProcess_SortByPType);
+  scene = importer.ReadFile( flnm.toUtf8().constData(), aiProcess_SortByPType);
+
+  if(!scene)
+    {
+      QMessageBox::information(0, "Error Importing Asset",
+			       QString("Couldn't load model %1").arg(flnm));
+      MainWindowUI::mainWindowUI()->statusBar->showMessage("");
+      return false;
+    }
 
   if (scene->mNumMaterials > 0)
     {
@@ -2473,30 +2562,60 @@ TrisetObject::loadAssimpModel(QString flnm)
 	    possibleNormalMap = true;
 	}
     }
-  
-  if(!scene)
-    {
-      QMessageBox::information(0, "Error Importing Asset",
-			       QString("Couldn't load model %1").arg(flnm));
-      MainWindowUI::mainWindowUI()->statusBar->showMessage("");
-      return false;
-    }  
   //----------------------
 
 
   if (possibleNormalMap)
-    scene = importer.ReadFile( flnm.toLatin1().data(), 
+    scene = importer.ReadFile( flnm.toUtf8().constData(),
 			       aiProcess_Triangulate            |
 			       aiProcess_GenSmoothNormals       |
 			       aiProcess_JoinIdenticalVertices  |
 			       aiProcess_CalcTangentSpace |
 			       aiProcess_SortByPType);
   else // don't calculate tangents and bitangents
-    scene = importer.ReadFile( flnm.toLatin1().data(), 
+	 scene = importer.ReadFile( flnm.toUtf8().constData(),
 			       aiProcess_Triangulate            |
 			       aiProcess_GenSmoothNormals       |
 			       aiProcess_JoinIdenticalVertices  |
 			       aiProcess_SortByPType);
+
+  if(!scene || scene->mNumMeshes == 0)
+    {
+      QMessageBox::information(0, "Error Importing Asset",
+			       QString("Couldn't load any mesh data from %1").arg(flnm));
+      MainWindowUI::mainWindowUI()->statusBar->showMessage("");
+      return false;
+    }
+
+  bool useVertexColors = false;
+  bool useUV = false;
+  bool useTangents = false;
+  quint64 totalVertices = 0;
+  for (unsigned int i=0; i<scene->mNumMeshes; ++i)
+    {
+      const aiMesh *mesh = scene->mMeshes[i];
+      if (!mesh || !mesh->HasPositions())
+	{
+	  QMessageBox::information(0, "Error Importing Asset",
+				   QString("Model %1 contains a mesh without vertices.").arg(flnm));
+	  MainWindowUI::mainWindowUI()->statusBar->showMessage("");
+	  return false;
+	}
+
+      totalVertices += mesh->mNumVertices;
+      useVertexColors = useVertexColors || mesh->HasVertexColors(0);
+      useUV = useUV || mesh->HasTextureCoords(0);
+      useTangents = useTangents || mesh->HasTangentsAndBitangents();
+    }
+
+  if (totalVertices == 0 ||
+      totalVertices > static_cast<quint64>(std::numeric_limits<int>::max()/3))
+    {
+      QMessageBox::information(0, "Error Importing Asset",
+			       QString("Model %1 has an unsupported vertex count.").arg(flnm));
+      MainWindowUI::mainWindowUI()->statusBar->showMessage("");
+      return false;
+    }
 
   m_vertices.clear();
   m_vcolor.clear();
@@ -2521,6 +2640,7 @@ TrisetObject::loadAssimpModel(QString flnm)
       int iStart = m_triangles.count();
       
       aiMesh* mesh = scene->mMeshes[i];
+      bool hasNormals = mesh->HasNormals();
       bool hasVertexColors = mesh->HasVertexColors(0);
       bool hasUV = mesh->HasTextureCoords(0);
       bool hasTangents = mesh->HasTangentsAndBitangents();
@@ -2530,27 +2650,40 @@ TrisetObject::loadAssimpModel(QString flnm)
 	  aiVector3D pos = mesh->mVertices[j];
 	  m_vertices << pos.x << pos.y << pos.z;
       
-	  aiVector3D normal = mesh->mNormals[j];
+	  aiVector3D normal = hasNormals ? mesh->mNormals[j] : aiVector3D(0,0,1);
 	  Vec vn = Vec(normal.x, normal.y, normal.z).unit();
 	  m_normals << vn.x << vn.y << vn.z;
 	  
-	  if (hasVertexColors)
-	    m_vcolor << mesh->mColors[0][j].r
-		     << mesh->mColors[0][j].g
-		     << mesh->mColors[0][j].b;
-
-	  if (hasUV)
+	  if (useVertexColors)
 	    {
-	      m_uv << mesh->mTextureCoords[0][j].x
-		   << mesh->mTextureCoords[0][j].y
-		   << mesh->mTextureCoords[0][j].z;
+	      if (hasVertexColors)
+		m_vcolor << mesh->mColors[0][j].r
+			 << mesh->mColors[0][j].g
+			 << mesh->mColors[0][j].b;
+	      else
+		m_vcolor << 0.9f << 0.9f << 0.9f;
 	    }
 
-	  if (hasTangents)
+	  if (useUV)
 	    {
-	      aiVector3D tangent = mesh->mTangents[j];
-	      Vec vn = Vec(tangent.x, tangent.y, tangent.z).unit();
-	      m_tangents << vn.x << vn.y << vn.z;
+	      if (hasUV)
+		m_uv << mesh->mTextureCoords[0][j].x
+		     << mesh->mTextureCoords[0][j].y
+		     << mesh->mTextureCoords[0][j].z;
+	      else
+		m_uv << 0.0f << 0.0f << 0.0f;
+	    }
+
+	  if (useTangents)
+	    {
+	      if (hasTangents)
+		{
+		  aiVector3D tangent = mesh->mTangents[j];
+		  Vec tangentVector = Vec(tangent.x, tangent.y, tangent.z).unit();
+		  m_tangents << tangentVector.x << tangentVector.y << tangentVector.z;
+		}
+	      else
+		m_tangents << 1.0f << 0.0f << 0.0f;
 	    }
 	  
 	} // verticeas

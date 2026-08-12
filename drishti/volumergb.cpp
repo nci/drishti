@@ -4,7 +4,33 @@
 #include "mainwindowui.h"
 #include "xmlheaderfunctions.h"
 
+#include <QEventLoop>
+#include <QFile>
 #include <QFileDialog>
+
+#include <limits>
+#include <memory>
+#include <new>
+
+namespace
+{
+  bool
+  checkedSizeFactor(qint64 factor, qint64 &size)
+  {
+    if (factor <= 0 || size > std::numeric_limits<qint64>::max()/factor)
+      return false;
+    size *= factor;
+    return true;
+  }
+
+  bool
+  validAllocationSize(qint64 size)
+  {
+    return (size > 0 &&
+            static_cast<quint64>(size) <=
+            static_cast<quint64>(std::numeric_limits<size_t>::max()));
+  }
+}
 
 Vec VolumeRGB::getSubvolumeMin() { return m_dataMin; }
 Vec VolumeRGB::getSubvolumeMax() { return m_dataMax; }
@@ -96,72 +122,83 @@ VolumeRGB::VolumeRGB() :
 
   m_dragSubvolumeTexture = 0;
   m_subvolumeTexture = 0;
+  m_slabLayerCapacity = 0;
 
-  m_subvolume1dHistogramR = new int[256];
-  m_subvolume2dHistogramR = new int[256*256];
+  m_subvolume1dHistogram = m_subvolume2dHistogram = 0;
+  m_drag1dHistogram = m_drag2dHistogram = 0;
 
-  m_subvolume1dHistogramG = new int[256];
-  m_subvolume2dHistogramG = new int[256*256];
+  m_subvolume1dHistogramR = m_subvolume2dHistogramR = 0;
+  m_subvolume1dHistogramG = m_subvolume2dHistogramG = 0;
+  m_subvolume1dHistogramB = m_subvolume2dHistogramB = 0;
+  m_subvolume1dHistogramA = m_subvolume2dHistogramA = 0;
 
-  m_subvolume1dHistogramB = new int[256];
-  m_subvolume2dHistogramB = new int[256*256];
+  m_drag1dHistogramR = m_drag2dHistogramR = 0;
+  m_drag1dHistogramG = m_drag2dHistogramG = 0;
+  m_drag1dHistogramB = m_drag2dHistogramB = 0;
+  m_drag1dHistogramA = m_drag2dHistogramA = 0;
 
-  m_subvolume1dHistogramA = new int[256];
-  m_subvolume2dHistogramA = new int[256*256];
-
-  memset(m_subvolume1dHistogramR, 0, 256*4);
-  memset(m_subvolume2dHistogramR, 0, 256*256*4);
-
-  memset(m_subvolume1dHistogramG, 0, 256*4);
-  memset(m_subvolume2dHistogramG, 0, 256*256*4);
-
-  memset(m_subvolume1dHistogramB, 0, 256*4);
-  memset(m_subvolume2dHistogramB, 0, 256*256*4);
-
-  memset(m_subvolume1dHistogramA, 0, 256*4);
-  memset(m_subvolume2dHistogramA, 0, 256*256*4);
-
-
-
-  m_drag1dHistogramR = new int[256];
-  m_drag2dHistogramR = new int[256*256];
-
-  m_drag1dHistogramG = new int[256];
-  m_drag2dHistogramG = new int[256*256];
-
-  m_drag1dHistogramB = new int[256];
-  m_drag2dHistogramB = new int[256*256];
-
-  m_drag1dHistogramA = new int[256];
-  m_drag2dHistogramA = new int[256*256];
-
-  memset(m_drag1dHistogramR, 0, 256*4);
-  memset(m_drag2dHistogramR, 0, 256*256*4);
-
-  memset(m_drag1dHistogramG, 0, 256*4);
-  memset(m_drag2dHistogramG, 0, 256*256*4);
-
-  memset(m_drag1dHistogramB, 0, 256*4);
-  memset(m_drag2dHistogramB, 0, 256*256*4);
-
-  memset(m_drag1dHistogramA, 0, 256*4);
-  memset(m_drag2dHistogramA, 0, 256*256*4);
-
-
-
-  m_flhist1DR = new float[256];     
-  m_flhist2DR = new float[256*256]; 
-  m_flhist1DG = new float[256];     
-  m_flhist2DG = new float[256*256]; 
-  m_flhist1DB = new float[256];     
-  m_flhist2DB = new float[256*256]; 
-  m_flhist1DA = new float[256];     
-  m_flhist2DA = new float[256*256]; 
+  m_flhist1DR = m_flhist2DR = 0;
+  m_flhist1DG = m_flhist2DG = 0;
+  m_flhist1DB = m_flhist2DB = 0;
+  m_flhist1DA = m_flhist2DA = 0;
 
   m_sliceTemp = 0;
 
   m_texColumns = 0;
   m_texRows = 0;
+  m_texWidth = m_texHeight = 0;
+  m_dragTexWidth = m_dragTexHeight = 0;
+  m_dragTextureInfo = Vec(1,1,1);
+}
+
+bool
+VolumeRGB::ensureWorkingBuffers()
+{
+  int **oneDimensional[] = {
+    &m_subvolume1dHistogramR, &m_subvolume1dHistogramG,
+    &m_subvolume1dHistogramB, &m_subvolume1dHistogramA,
+    &m_drag1dHistogramR, &m_drag1dHistogramG,
+    &m_drag1dHistogramB, &m_drag1dHistogramA
+  };
+  int **twoDimensional[] = {
+    &m_subvolume2dHistogramR, &m_subvolume2dHistogramG,
+    &m_subvolume2dHistogramB, &m_subvolume2dHistogramA,
+    &m_drag2dHistogramR, &m_drag2dHistogramG,
+    &m_drag2dHistogramB, &m_drag2dHistogramA
+  };
+  float **floatOneDimensional[] = {
+    &m_flhist1DR, &m_flhist1DG, &m_flhist1DB, &m_flhist1DA
+  };
+  float **floatTwoDimensional[] = {
+    &m_flhist2DR, &m_flhist2DG, &m_flhist2DB, &m_flhist2DA
+  };
+
+  for (int i=0; i<8; i++)
+    {
+      if (!*oneDimensional[i])
+        *oneDimensional[i] = new (std::nothrow) int[256];
+      if (!*twoDimensional[i])
+        *twoDimensional[i] = new (std::nothrow) int[256*256];
+      if (!*oneDimensional[i] || !*twoDimensional[i])
+        return false;
+      memset(*oneDimensional[i], 0, 256*sizeof(int));
+      memset(*twoDimensional[i], 0, 256*256*sizeof(int));
+    }
+
+  for (int i=0; i<4; i++)
+    {
+      if (!*floatOneDimensional[i])
+        *floatOneDimensional[i] = new (std::nothrow) float[256];
+      if (!*floatTwoDimensional[i])
+        *floatTwoDimensional[i] =
+          new (std::nothrow) float[256*256];
+      if (!*floatOneDimensional[i] || !*floatTwoDimensional[i])
+        return false;
+      memset(*floatOneDimensional[i], 0, 256*sizeof(float));
+      memset(*floatTwoDimensional[i], 0, 256*256*sizeof(float));
+    }
+
+  return true;
 }
 
 VolumeRGB::~VolumeRGB()
@@ -234,6 +271,9 @@ VolumeRGB::~VolumeRGB()
 bool
 VolumeRGB::loadVolume(const char *flnm, bool redo)
 {
+  if (!flnm || !*flnm || !ensureWorkingBuffers())
+    return false;
+
   m_volnum = 0;
   m_dataMin = Vec(0,0,0);
   m_dataMax = Vec(0,0,0);
@@ -245,13 +285,14 @@ VolumeRGB::loadVolume(const char *flnm, bool redo)
   VolumeInformation::setVolumeInformation(vInfo);
 
   bool ok = VolumeRGBBase::loadVolume(flnm, redo);
+  if (!ok)
+    return false;
 
-  int nRGB = 3;
-  if (Global::volumeType() == Global::RGBAVolume)
-    nRGB = 4;
-  m_sliceTemp = new unsigned char [nRGB*m_width*m_height];
+  if (m_sliceTemp)
+    delete [] m_sliceTemp;
+  m_sliceTemp = 0;
 
-  return ok;
+  return true;
 }
 
 bool
@@ -259,8 +300,7 @@ VolumeRGB::setSubvolume(Vec boxMin, Vec boxMax,
 			int volnum,
 			bool force)
 {  
-  if (Global::volumeType() != Global::DummyVolume &&
-      volnum >= m_volumeFiles.count())
+  if (volnum < 0 || volnum >= m_volumeFiles.count())
     {
       QMessageBox::information(0, "SubVolume Update",
 			       QString("%1 greater than %2 volumes").\
@@ -283,7 +323,6 @@ VolumeRGB::setSubvolume(Vec boxMin, Vec boxMax,
   int slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFiles[volnum]);
   QString rgbfile = m_volumeFiles[volnum];
   rgbfile.chop(6);
-  VolumeFileManager rgbaFileManager[4];
   QString rFilename = rgbfile + QString("red");
   QString gFilename = rgbfile + QString("green");
   QString bFilename = rgbfile + QString("blue");
@@ -300,6 +339,13 @@ VolumeRGB::setSubvolume(Vec boxMin, Vec boxMax,
       m_rgbaFileManager[a].setHeight(n_height);
       m_rgbaFileManager[a].setHeaderSize(13);
       m_rgbaFileManager[a].setSlabSize(slabSize);
+      if (!m_rgbaFileManager[a].exists())
+        {
+          QMessageBox::warning(0, "SubVolume Update",
+                               QString("Cannot read colour channel %1").
+                               arg(m_rgbaFileManager[a].fileName()));
+          return false;
+        }
     }
   //----------------
 
@@ -330,22 +376,19 @@ VolumeRGB::setSubvolume(Vec boxMin, Vec boxMax,
   m_subvolumeSubsamplingLevel = StaticFunctions::getSubsamplingLevel(availMem,
 								     Global::maxArrayTextureLayers(),
 								     nRGB, boxMin, boxMax);
+  m_subvolumeSubsamplingLevel = qMax(1, m_subvolumeSubsamplingLevel);
 
   //-------------
   int lenx = m_subvolumeSize.x;
   int leny = m_subvolumeSize.y;
   int lenz = m_subvolumeSize.z;
-  int lenx2 = lenx/m_subvolumeSubsamplingLevel;
-  int leny2 = leny/m_subvolumeSubsamplingLevel;
-  int lenz2 = lenz/m_subvolumeSubsamplingLevel;
+  int lenx2 = qMax(1, lenx/m_subvolumeSubsamplingLevel);
+  int leny2 = qMax(1, leny/m_subvolumeSubsamplingLevel);
+  int lenz2 = qMax(1, lenz/m_subvolumeSubsamplingLevel);
   m_subvolumeTextureSize = Vec(lenx2, leny2, lenz2);
   //-------------
 
-  if (m_subvolumeTexture) delete [] m_subvolumeTexture;
-  m_subvolumeTexture = 0;
-
-  if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
-  m_dragSubvolumeTexture = 0;
+  deleteTextureSlab();
 
   return true;
 }
@@ -428,16 +471,16 @@ VolumeRGB::getSliceTextureSizeSlabs()
   if (slabinfo.count() > 1)
     {
       m_dragTextureInfo = slabinfo[0];
-      int dlenx2 = int(m_subvolumeSize.x)/int(m_dragTextureInfo.z);
-      int dleny2 = int(m_subvolumeSize.y)/int(m_dragTextureInfo.z);
+      int dlenx2 = qMax(1, int(m_subvolumeSize.x)/int(m_dragTextureInfo.z));
+      int dleny2 = qMax(1, int(m_subvolumeSize.y)/int(m_dragTextureInfo.z));
       m_dragTexWidth = int(m_dragTextureInfo.x)*dlenx2;
       m_dragTexHeight = int(m_dragTextureInfo.y)*dleny2;
     }
   else
     {
       m_dragTextureInfo = Vec(ncols, nrows, m_subvolumeSubsamplingLevel);
-      int dlenx2 = int(m_subvolumeSize.x)/m_subvolumeSubsamplingLevel;
-      int dleny2 = int(m_subvolumeSize.y)/m_subvolumeSubsamplingLevel;
+      int dlenx2 = qMax(1, int(m_subvolumeSize.x)/m_subvolumeSubsamplingLevel);
+      int dleny2 = qMax(1, int(m_subvolumeSize.y)/m_subvolumeSubsamplingLevel);
       m_dragTexWidth = ncols*dlenx2;
       m_dragTexHeight = nrows*dleny2;
     }
@@ -449,8 +492,8 @@ VolumeRGB::getSliceTextureSizeSlabs()
 
   int lenx = m_subvolumeSize.x;
   int leny = m_subvolumeSize.y;
-  int lenx2 = lenx/m_subvolumeSubsamplingLevel;
-  int leny2 = leny/m_subvolumeSubsamplingLevel;
+  int lenx2 = qMax(1, lenx/m_subvolumeSubsamplingLevel);
+  int leny2 = qMax(1, leny/m_subvolumeSubsamplingLevel);
 
   m_texWidth = ncols*lenx2;
   m_texHeight = nrows*leny2;
@@ -466,6 +509,75 @@ VolumeRGB::getSliceTextureSizeSlabs()
 //----------------------------
 // for array texture
 //----------------------------
+void
+VolumeRGB::deleteTextureSlab()
+{
+  if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
+  m_dragSubvolumeTexture = 0;
+
+  if (m_subvolumeTexture) delete [] m_subvolumeTexture;
+  m_subvolumeTexture = 0;
+  m_slabLayerCapacity = 0;
+}
+
+bool
+VolumeRGB::allocSlabs(int layerCapacity)
+{
+  deleteTextureSlab();
+
+  const int channels =
+    Global::volumeType() == Global::RGBAVolume ? 4 : 3;
+  const qint64 width = static_cast<qint64>(m_subvolumeTextureSize.x);
+  const qint64 height = static_cast<qint64>(m_subvolumeTextureSize.y);
+  const int lenx = static_cast<int>(m_subvolumeSize.x);
+  const int leny = static_cast<int>(m_subvolumeSize.y);
+  const int lenz = static_cast<int>(m_subvolumeSize.z);
+  const int dragLod = qMax(1, static_cast<int>(m_dragTextureInfo.z));
+  const int dragWidth = qMax(1, lenx/dragLod);
+  const int dragHeight = qMax(1, leny/dragLod);
+  const int dragDepth = qMax(1, lenz/dragLod);
+
+  if (layerCapacity <= 0 || width <= 0 || height <= 0 ||
+      lenx <= 0 || leny <= 0 || lenz <= 0)
+    return false;
+
+  qint64 slabBytes = 1;
+  if (!checkedSizeFactor(channels, slabBytes) ||
+      !checkedSizeFactor(width, slabBytes) ||
+      !checkedSizeFactor(height, slabBytes) ||
+      !checkedSizeFactor(layerCapacity, slabBytes) ||
+      !validAllocationSize(slabBytes))
+    return false;
+
+  qint64 dragBytes = 1;
+  if (!checkedSizeFactor(channels, dragBytes) ||
+      !checkedSizeFactor(dragWidth, dragBytes) ||
+      !checkedSizeFactor(dragHeight, dragBytes) ||
+      !checkedSizeFactor(dragDepth, dragBytes) ||
+      !validAllocationSize(dragBytes))
+    return false;
+
+  uchar *slab =
+    new (std::nothrow) uchar[static_cast<size_t>(slabBytes)];
+  uchar *drag =
+    new (std::nothrow) uchar[static_cast<size_t>(dragBytes)];
+  if (!slab || !drag)
+    {
+      delete [] slab;
+      delete [] drag;
+      return false;
+    }
+
+  memset(slab, 0, static_cast<size_t>(slabBytes));
+  memset(drag, 0, static_cast<size_t>(dragBytes));
+  m_subvolumeTexture = slab;
+  m_dragSubvolumeTexture = drag;
+  m_slabLayerCapacity = layerCapacity;
+  m_dragSubvolumeSubsamplingLevel = dragLod;
+  m_dragSubvolumeTextureSize = Vec(dragWidth, dragHeight, dragDepth);
+  return true;
+}
+
 uchar*
 VolumeRGB::getSubvolume()
 {
@@ -475,14 +587,12 @@ VolumeRGB::getSubvolume()
     nRGB = 4;
   //---------------
 
-  int lod = m_subvolumeSubsamplingLevel;
+  int lod = qMax(1, m_subvolumeSubsamplingLevel);
 
   int minx = m_dataMin.x;
   int miny = m_dataMin.y;
   int minz = m_dataMin.z;
   
-  int maxx = m_dataMax.x;
-  int maxy = m_dataMax.y;
   int maxz = m_dataMax.z;
 
   int lenx = m_subvolumeSize.x;
@@ -493,12 +603,16 @@ VolumeRGB::getSubvolume()
   int leny2 = m_subvolumeTextureSize.y;
   int lenz2 = m_subvolumeTextureSize.z;
 
+  if (lenx2 <= 0 || leny2 <= 0 || lenz2 <= 0 ||
+      m_width <= 0 || m_height <= 0)
+    return 0;
+
   //-------- for dragTexure ---------------
-  int dtlod = m_dragTextureInfo.z;
-  int dtlenx2 = lenx/dtlod;
-  int dtleny2 = leny/dtlod;
-  int dtlenz2 = lenz/dtlod;
-  float stp = (float)dtlod/(float)m_subvolumeSubsamplingLevel;
+  int dtlod = qMax(1, static_cast<int>(m_dragTextureInfo.z));
+  int dtlenx2 = qMax(1, lenx/dtlod);
+  int dtleny2 = qMax(1, leny/dtlod);
+  int dtlenz2 = qMax(1, lenz/dtlod);
+  float stp = (float)dtlod/(float)lod;
   //---------------------------------------
 
 
@@ -507,61 +621,173 @@ VolumeRGB::getSubvolume()
   
   if (m_subvolumeTexture) delete [] m_subvolumeTexture;
   if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
+  m_subvolumeTexture = 0;
+  m_dragSubvolumeTexture = 0;
+  m_slabLayerCapacity = 0;
 
-  m_subvolumeTexture = new uchar[nRGB*lenx2*leny2*lenz2];
-  m_dragSubvolumeTexture = new uchar[nRGB*dtlenx2*dtleny2*dtlenz2];
+  qint64 subvolumeBytes = 1;
+  if (!checkedSizeFactor(nRGB, subvolumeBytes) ||
+      !checkedSizeFactor(lenx2, subvolumeBytes) ||
+      !checkedSizeFactor(leny2, subvolumeBytes) ||
+      !checkedSizeFactor(lenz2, subvolumeBytes) ||
+      !validAllocationSize(subvolumeBytes))
+    return 0;
+
+  qint64 dragBytes = 1;
+  if (!checkedSizeFactor(nRGB, dragBytes) ||
+      !checkedSizeFactor(dtlenx2, dragBytes) ||
+      !checkedSizeFactor(dtleny2, dragBytes) ||
+      !checkedSizeFactor(dtlenz2, dragBytes) ||
+      !validAllocationSize(dragBytes))
+    return 0;
+
+  qint64 dragSliceBytes = 1;
+  if (!checkedSizeFactor(nRGB, dragSliceBytes) ||
+      !checkedSizeFactor(dtlenx2, dragSliceBytes) ||
+      !checkedSizeFactor(dtleny2, dragSliceBytes) ||
+      !validAllocationSize(dragSliceBytes))
+    return 0;
+
+  qint64 sourceVoxelCount = 1;
+  if (!checkedSizeFactor(m_width, sourceVoxelCount) ||
+      !checkedSizeFactor(m_height, sourceVoxelCount))
+    return 0;
+
+  qint64 sourceBytes = sourceVoxelCount;
+  if (!checkedSizeFactor(nRGB, sourceBytes) ||
+      !validAllocationSize(sourceBytes))
+    return 0;
+
+  if (!m_sliceTemp)
+    {
+      m_sliceTemp =
+        new (std::nothrow) uchar[static_cast<size_t>(sourceBytes)];
+      if (!m_sliceTemp)
+        return 0;
+    }
+
+  qint64 filterSliceBytes = 1;
+  if (!checkedSizeFactor(nRGB, filterSliceBytes) ||
+      !checkedSizeFactor(lenx2, filterSliceBytes) ||
+      !checkedSizeFactor(leny2, filterSliceBytes) ||
+      !validAllocationSize(filterSliceBytes))
+    return 0;
+
+  const qint64 windowCount64 = 2*static_cast<qint64>(lod)-1;
+  if (windowCount64 <= 0 ||
+      windowCount64 > std::numeric_limits<int>::max())
+    return 0;
+  const int totcount = static_cast<int>(windowCount64);
+
+  m_subvolumeTexture =
+    new (std::nothrow) uchar[static_cast<size_t>(subvolumeBytes)];
+  if (!m_subvolumeTexture)
+    return 0;
+
+  m_dragSubvolumeTexture =
+    new (std::nothrow) uchar[static_cast<size_t>(dragBytes)];
+  if (!m_dragSubvolumeTexture)
+    {
+      delete [] m_subvolumeTexture;
+      m_subvolumeTexture = 0;
+      return 0;
+    }
+
+  const qint64 scratchBytes =
+    qMax(sourceBytes, qMax(filterSliceBytes, dragSliceBytes));
+  uchar *tmp = new (std::nothrow) uchar[static_cast<size_t>(scratchBytes)];
+  if (!tmp)
+    {
+      delete [] m_subvolumeTexture;
+      delete [] m_dragSubvolumeTexture;
+      m_subvolumeTexture = 0;
+      m_dragSubvolumeTexture = 0;
+      return 0;
+    }
+
+  unsigned char **volX = 0;
+  if (lod > 1)
+    {
+      qint64 filterPointerBytes = sizeof(unsigned char*);
+      if (!checkedSizeFactor(totcount, filterPointerBytes) ||
+          !validAllocationSize(filterPointerBytes))
+        {
+          delete [] tmp;
+          delete [] m_subvolumeTexture;
+          delete [] m_dragSubvolumeTexture;
+          m_subvolumeTexture = 0;
+          m_dragSubvolumeTexture = 0;
+          return 0;
+        }
+
+      volX = new (std::nothrow) unsigned char*[totcount];
+      if (volX)
+        {
+          for(int i=0; i<totcount; i++) volX[i] = 0;
+          for(int i=0; i<totcount; i++)
+            {
+              volX[i] = new (std::nothrow)
+                unsigned char[static_cast<size_t>(filterSliceBytes)];
+              if (!volX[i]) break;
+            }
+        }
+
+      bool filterAllocationFailed = !volX;
+      for(int i=0; volX && i<totcount; i++)
+        filterAllocationFailed = filterAllocationFailed || !volX[i];
+      if (filterAllocationFailed)
+        {
+          if (volX)
+            {
+              for(int i=0; i<totcount; i++) delete [] volX[i];
+              delete [] volX;
+            }
+          delete [] tmp;
+          delete [] m_subvolumeTexture;
+          delete [] m_dragSubvolumeTexture;
+          m_subvolumeTexture = 0;
+          m_dragSubvolumeTexture = 0;
+          return 0;
+        }
+    }
+
+  memset(m_subvolumeTexture, 0, static_cast<size_t>(subvolumeBytes));
+  memset(m_dragSubvolumeTexture, 0, static_cast<size_t>(dragBytes));
 
   Global::progressBar()->show();
 
-  int totcount = 2*lod-1;
   int count=0;
-  unsigned char **volX;
-  volX = 0;
-  if (lod > 1)
-    {
-      volX = new unsigned char*[totcount];
-      for(int i=0; i<totcount; i++)
-	volX[i] = new unsigned char[nRGB*leny2*lenx2];
-    }  
-
-  int nbytes = m_width*m_height;
-  uchar *tmp = new uchar[nRGB*nbytes];
-
-  int kmin = minz/m_subvolumeSubsamplingLevel;
-  int kmax = maxz/m_subvolumeSubsamplingLevel;
-
-  int imin = minx/m_subvolumeSubsamplingLevel;
-  int jmin = miny/m_subvolumeSubsamplingLevel;
   
-  int kslc = 0;
+  int outputSlice = 0;
+  bool filterWindowFilled = false;
 
   // additional slice at the top and bottom
   for(int k=minz; k<=maxz; k++)
     {
-      Global::progressBar()->setValue((int)(100.0*(float)(kslc)/(float)(lenz2)));
-      if (kslc%100==0) qApp->processEvents();
+      Global::progressBar()->setValue((int)(100.0*(float)(k-minz)/(float)qMax(1, lenz)));
+      if ((k-minz)%100==0) qApp->processEvents();
 
       if (k >= 0 && k < m_depth)
 	{
 	  for (int a=0; a<nRGB; a++)
 	    {
 	      uchar *vslice = m_rgbaFileManager[a].getSlice(k);
-	      memcpy(tmp, vslice, nbytes);
+	      if (vslice)
+		memcpy(tmp, vslice, static_cast<size_t>(sourceVoxelCount));
 
-	      for (int ij=0; ij<m_width*m_height; ij++)
-		m_sliceTemp[nRGB*ij+a] = tmp[ij];
+	      for (qint64 ij=0; ij<sourceVoxelCount; ij++)
+		m_sliceTemp[nRGB*ij+a] = vslice ? tmp[ij] : 0;
 	    }
 	}
       else
 	{
-	  memset(m_sliceTemp, 0, nRGB*m_width*m_height);
+	  memset(m_sliceTemp, 0, static_cast<size_t>(sourceBytes));
 	}
 
-      bool doHist = false;
       //------------------------
       if (lod > 1)
 	{
-	  int ji=0;
+	  qint64 ji=0;
 	  for(int j=0; j<leny2; j++)
 	    { 
 	      int y = miny + j*lod;
@@ -577,7 +803,7 @@ VolumeRGB::getSubvolume()
 		    {
 		      for(int ix=lox; ix<=hix; ix++) 
 			{
-			  int idx = jy*m_height+ix;
+		      const qint64 idx = static_cast<qint64>(jy)*m_height+ix;
 			  for(int a=0; a<nRGB; a++)
 			    sumv[a] += m_sliceTemp[nRGB*idx+a];
 			}
@@ -589,7 +815,7 @@ VolumeRGB::getSubvolume()
 		  ji++;
 		}
 	    }
-	  memcpy(m_sliceTemp, tmp, nRGB*leny2*lenx2);
+	  memcpy(m_sliceTemp, tmp, static_cast<size_t>(filterSliceBytes));
 
 	  unsigned char *vptr;
 	  vptr = volX[0];
@@ -597,30 +823,40 @@ VolumeRGB::getSubvolume()
 	    volX[c] = volX[c+1];
 	  volX[totcount-1] = vptr;
 	  
-	  memcpy(volX[totcount-1], m_sliceTemp, nRGB*leny2*lenx2);
+	  memcpy(volX[totcount-1], m_sliceTemp,
+		 static_cast<size_t>(filterSliceBytes));
       
 	  count ++;
-	  if (count == totcount)
+	  const bool completeWindow = (count == totcount);
+	  const bool finalPartialWindow =
+	    (k == maxz && outputSlice < lenz2);
+	  if ((completeWindow || finalPartialWindow) && outputSlice < lenz2)
 	    {
-	      for(int j=0; j<nRGB*leny2*lenx2; j++)
+	      const int validWindowSize = filterWindowFilled ? totcount : count;
+	      const int firstValidWindow = totcount-validWindowSize;
+	      for(qint64 j=0; j<filterSliceBytes; j++)
 		{
 		  float sum=0;
-		  for(int x=0; x<totcount; x++)
+		  for(int x=firstValidWindow; x<totcount; x++)
 		    sum += volX[x][j];
-		  m_sliceTemp[j] = sum/totcount;
+		  m_sliceTemp[j] = sum/qMax(1, validWindowSize);
 		}
 	      
-	      count = totcount/2;
+	      if (completeWindow)
+		{
+		  filterWindowFilled = true;
+		  count = totcount/2;
+		}
 
 	      
 	      // copy into array texture
-	      memcpy(m_subvolumeTexture + nRGB*kslc*lenx2*leny2,
+	      memcpy(m_subvolumeTexture + filterSliceBytes*outputSlice,
 		     m_sliceTemp,
-		     nRGB*lenx2*leny2);
+		     static_cast<size_t>(filterSliceBytes));
 	      //---
 
 	      //---
-	      int ji=0;
+	      qint64 ji=0;
 	      for(int j=0; j<dtleny2; j++)
 		{ 
 		  int y = j*stp;
@@ -633,32 +869,36 @@ VolumeRGB::getSubvolume()
 		    }
 		}
 	      // copy into drag array texture
-	      int dtkslc = qBound(0, (int)(kslc/stp), dtlenz2-1);
-	      memcpy(m_dragSubvolumeTexture + nRGB*dtkslc*dtlenx2*dtleny2,
+	      int dtkslc = qBound(0, (int)(outputSlice/stp), dtlenz2-1);
+	      memcpy(m_dragSubvolumeTexture + dragSliceBytes*dtkslc,
 		     tmp,
-		     nRGB*dtlenx2*dtleny2);
+		     static_cast<size_t>(dragSliceBytes));
+	      outputSlice++;
 	      //---
 
 	      
-	      doHist = true;
 	    }
 	} // lod > 1
       //------------------------
       else
 	{
 	  for(int j=0; j<leny2; j++)
-	    memcpy(m_sliceTemp + nRGB*j*lenx2,
-		   m_sliceTemp + nRGB*((j+miny)*m_height + minx),
-		   nRGB*lenx2);
+	    memmove(m_sliceTemp + static_cast<qint64>(nRGB)*j*lenx2,
+		    m_sliceTemp + static_cast<qint64>(nRGB)*
+		      (static_cast<qint64>(j+miny)*m_height + minx),
+		    nRGB*lenx2);
 
 	  // copy into array texture
-	  memcpy(m_subvolumeTexture + nRGB*kslc*lenx2*leny2,
+	  if (outputSlice >= lenz2)
+	    continue;
+
+	  memcpy(m_subvolumeTexture + filterSliceBytes*outputSlice,
 		 m_sliceTemp,
-		 nRGB*lenx2*leny2);
+		 static_cast<size_t>(filterSliceBytes));
 	  //---
 
 	  //---
-	  int ji=0;
+	  qint64 ji=0;
 	  for(int j=0; j<dtleny2; j++)
 	    { 
 	      int y = j*stp;
@@ -671,17 +911,17 @@ VolumeRGB::getSubvolume()
 		}
 	    }
 	  // copy into drag array texture
-	  int dtkslc = qBound(0, (int)(kslc/stp), dtlenz2-1);
-	  memcpy(m_dragSubvolumeTexture + nRGB*dtkslc*dtlenx2*dtleny2,
+	  int dtkslc = qBound(0, (int)(outputSlice/stp), dtlenz2-1);
+	  memcpy(m_dragSubvolumeTexture + dragSliceBytes*dtkslc,
 		 tmp,
-		 nRGB*dtlenx2*dtleny2);
+		 static_cast<size_t>(dragSliceBytes));
+	  outputSlice++;
 	  //---
 
 	  
-	  doHist = true;
 	}
       //---------------------
-      for(int ji=0; ji<leny2*lenx2; ji++)
+      for(qint64 ji=0; ji<static_cast<qint64>(leny2)*lenx2; ji++)
 	{
 	  uchar r = m_sliceTemp[nRGB*ji];
 	  uchar g = m_sliceTemp[nRGB*ji+1];
@@ -700,7 +940,6 @@ VolumeRGB::getSubvolume()
 	}
       //---------------------
 
-      kslc ++;
     } // look over k
   
   delete [] tmp;
@@ -712,6 +951,270 @@ VolumeRGB::getSubvolume()
       delete [] volX;
     }
 
+  Global::progressBar()->setValue(100);
+  MainWindowUI::mainWindowUI()->statusBar->showMessage("Ready");
+
+  return m_subvolumeTexture;
+}
+
+uchar*
+VolumeRGB::getSlab(int startZSlice, int endZSlice, int layerCount)
+{
+  const int lod = qMax(1, m_subvolumeSubsamplingLevel);
+  const int channels =
+    Global::volumeType() == Global::RGBAVolume ? 4 : 3;
+  const qint64 width = static_cast<qint64>(m_subvolumeTextureSize.x);
+  const qint64 height = static_cast<qint64>(m_subvolumeTextureSize.y);
+  const qint64 depth = static_cast<qint64>(m_subvolumeTextureSize.z);
+  const int minx = static_cast<int>(m_dataMin.x);
+  const int miny = static_cast<int>(m_dataMin.y);
+  const int minz = static_cast<int>(m_dataMin.z);
+  const int maxz = static_cast<int>(m_dataMax.z);
+  const int lenx = static_cast<int>(m_subvolumeSize.x);
+  const int leny = static_cast<int>(m_subvolumeSize.y);
+
+  const qint64 firstSourceOffset =
+    static_cast<qint64>(startZSlice)-minz;
+  const qint64 firstLayer =
+    firstSourceOffset/lod;
+  const qint64 lastLayer = firstLayer+static_cast<qint64>(layerCount)-1;
+  const qint64 lastSourceCenter =
+    static_cast<qint64>(minz)+lastLayer*lod;
+
+  if (!m_subvolumeTexture || !m_dragSubvolumeTexture ||
+      layerCount <= 0 || layerCount > m_slabLayerCapacity ||
+      width <= 0 || height <= 0 || depth <= 0 ||
+      lenx <= 0 || leny <= 0 || m_width <= 0 || m_height <= 0 ||
+      minx < 0 || miny < 0 ||
+      static_cast<qint64>(minx)+lenx > m_height ||
+      static_cast<qint64>(miny)+leny > m_width ||
+      firstSourceOffset < 0 ||
+      firstSourceOffset%lod != 0 || firstLayer < 0 ||
+      lastLayer >= depth || endZSlice < lastSourceCenter ||
+      endZSlice > maxz)
+    return 0;
+
+  qint64 voxelCount = 1;
+  if (!checkedSizeFactor(width, voxelCount) ||
+      !checkedSizeFactor(height, voxelCount) ||
+      voxelCount > std::numeric_limits<int>::max())
+    return 0;
+
+  qint64 layerBytes = voxelCount;
+  if (!checkedSizeFactor(channels, layerBytes) ||
+      !validAllocationSize(layerBytes) ||
+      layerBytes > std::numeric_limits<qint64>::max()/layerCount)
+    return 0;
+
+  quint32 *zSums = 0;
+  quint64 *rowPrefix = 0;
+  quint64 *rowAccum = 0;
+  if (lod > 1)
+    {
+      qint64 zSumBytes = voxelCount;
+      qint64 prefixBytes = static_cast<qint64>(lenx)+1;
+      qint64 rowAccumBytes = width;
+      if (!checkedSizeFactor(sizeof(quint32), zSumBytes) ||
+          !checkedSizeFactor(sizeof(quint64), prefixBytes) ||
+          !checkedSizeFactor(sizeof(quint64), rowAccumBytes) ||
+          !validAllocationSize(zSumBytes) ||
+          !validAllocationSize(prefixBytes) ||
+          !validAllocationSize(rowAccumBytes))
+        return 0;
+
+      zSums = new (std::nothrow) quint32[static_cast<size_t>(voxelCount)];
+      rowPrefix = new (std::nothrow) quint64[static_cast<size_t>(lenx)+1];
+      rowAccum = new (std::nothrow) quint64[static_cast<size_t>(width)];
+      if (!zSums || !rowPrefix || !rowAccum)
+        {
+          delete [] zSums;
+          delete [] rowPrefix;
+          delete [] rowAccum;
+          return 0;
+        }
+    }
+
+  MainWindowUI::mainWindowUI()->statusBar->showMessage(
+    QString("Loading %1 to %2").arg(startZSlice).arg(endZSlice));
+  Global::progressBar()->show();
+
+  const int dragLod = qMax(1, m_dragSubvolumeSubsamplingLevel);
+  const int dragWidth = static_cast<int>(m_dragSubvolumeTextureSize.x);
+  const int dragHeight = static_cast<int>(m_dragSubvolumeTextureSize.y);
+  const int dragDepth = static_cast<int>(m_dragSubvolumeTextureSize.z);
+  const double dragStep = qMax(1.0, static_cast<double>(dragLod)/lod);
+
+  for (int outputLayer=0; outputLayer<layerCount; outputLayer++)
+    {
+      Global::progressBar()->setValue(
+        static_cast<int>(100.0*outputLayer/qMax(1, layerCount)));
+      if (outputLayer%16 == 0)
+        qApp->processEvents();
+
+      uchar *target = m_subvolumeTexture+
+                      static_cast<qint64>(outputLayer)*layerBytes;
+      const qint64 globalLayer = firstLayer+outputLayer;
+      const int sourceCenter =
+        static_cast<int>(static_cast<qint64>(minz)+globalLayer*lod);
+
+      if (lod == 1)
+        {
+          for (int channel=0; channel<channels; channel++)
+            {
+              uchar *source = m_rgbaFileManager[channel].getSlice(sourceCenter);
+              if (!source)
+                {
+                  delete [] zSums;
+                  delete [] rowPrefix;
+                  delete [] rowAccum;
+                  return 0;
+                }
+
+              for (qint64 y=0; y<height; y++)
+                {
+                  const qint64 sourceRow =
+                    (static_cast<qint64>(miny)+y)*m_height+minx;
+                  const qint64 targetRow = y*width;
+                  for (qint64 x=0; x<width; x++)
+                    target[channels*(targetRow+x)+channel] =
+                      source[sourceRow+x];
+                }
+            }
+        }
+      else
+        {
+          const int zmin = qMax(minz, sourceCenter-lod+1);
+          const int zmax = qMin(maxz, sourceCenter+lod-1);
+          const qint64 zCount = static_cast<qint64>(zmax)-zmin+1;
+          if (zCount <= 0 ||
+              zCount > std::numeric_limits<quint32>::max()/255U)
+            {
+              delete [] zSums;
+              delete [] rowPrefix;
+              delete [] rowAccum;
+              return 0;
+            }
+
+          for (int channel=0; channel<channels; channel++)
+            {
+              memset(zSums, 0,
+                     static_cast<size_t>(voxelCount)*sizeof(quint32));
+
+              for (int z=zmin; z<=zmax; z++)
+                {
+                  uchar *source = m_rgbaFileManager[channel].getSlice(z);
+                  if (!source)
+                    {
+                      delete [] zSums;
+                      delete [] rowPrefix;
+                      delete [] rowAccum;
+                      return 0;
+                    }
+
+                  for (qint64 outputY=0; outputY<height; outputY++)
+                    {
+                      memset(rowAccum, 0,
+                             static_cast<size_t>(width)*sizeof(quint64));
+                      const int centerY = miny+static_cast<int>(outputY)*lod;
+                      const int sourceYMin = qMax(miny, centerY-lod+1);
+                      const int sourceYMax =
+                        qMin(miny+leny-1, centerY+lod-1);
+
+                      for (int sourceY=sourceYMin;
+                           sourceY<=sourceYMax; sourceY++)
+                        {
+                          const uchar *row = source+
+                            static_cast<qint64>(sourceY)*m_height+minx;
+                          rowPrefix[0] = 0;
+                          for (int sourceX=0; sourceX<lenx; sourceX++)
+                            rowPrefix[sourceX+1] =
+                              rowPrefix[sourceX]+row[sourceX];
+
+                          for (qint64 outputX=0; outputX<width; outputX++)
+                            {
+                              const int centerX =
+                                static_cast<int>(outputX)*lod;
+                              const int sourceXMin =
+                                qMax(0, centerX-lod+1);
+                              const int sourceXMax =
+                                qMin(lenx-1, centerX+lod-1);
+                              rowAccum[outputX] +=
+                                rowPrefix[sourceXMax+1]-
+                                rowPrefix[sourceXMin];
+                            }
+                        }
+
+                      const qint64 sourceRows =
+                        static_cast<qint64>(sourceYMax)-sourceYMin+1;
+                      for (qint64 outputX=0; outputX<width; outputX++)
+                        {
+                          const int centerX =
+                            static_cast<int>(outputX)*lod;
+                          const int sourceXMin =
+                            qMax(0, centerX-lod+1);
+                          const int sourceXMax =
+                            qMin(lenx-1, centerX+lod-1);
+                          const qint64 area = sourceRows*
+                            (static_cast<qint64>(sourceXMax)-
+                             sourceXMin+1);
+                          const qint64 index = outputY*width+outputX;
+                          zSums[index] += static_cast<quint32>(
+                            rowAccum[outputX]/qMax<qint64>(1, area));
+                        }
+                    }
+                }
+
+              for (qint64 index=0; index<voxelCount; index++)
+                target[channels*index+channel] =
+                  static_cast<uchar>(zSums[index]/zCount);
+            }
+        }
+
+      if (!Global::histogramDisabled())
+        for (qint64 index=0; index<voxelCount; index++)
+          {
+            const uchar r = target[channels*index];
+            const uchar g = target[channels*index+1];
+            const uchar b = target[channels*index+2];
+            m_flhist1DR[r]++;  m_flhist2DR[g*256+r]++;
+            m_flhist1DG[g]++;  m_flhist2DG[b*256+g]++;
+            m_flhist1DB[b]++;  m_flhist2DB[r*256+b]++;
+            if (channels == 4)
+              {
+                const uchar a = target[channels*index+3];
+                const uchar rgb = qMax(r, qMax(g, b));
+                m_flhist1DA[a]++;  m_flhist2DA[rgb*256+a]++;
+              }
+          }
+
+      if (dragWidth > 0 && dragHeight > 0 && dragDepth > 0)
+        {
+          const qint64 dragLayer = qBound<qint64>(
+            0, static_cast<qint64>(globalLayer/dragStep), dragDepth-1);
+          uchar *dragTarget = m_dragSubvolumeTexture+
+            static_cast<qint64>(channels)*dragLayer*dragWidth*dragHeight;
+          for (int y=0; y<dragHeight; y++)
+            {
+              const qint64 sourceY = qBound<qint64>(
+                0, static_cast<qint64>(y*dragStep), height-1);
+              for (int x=0; x<dragWidth; x++)
+                {
+                  const qint64 sourceX = qBound<qint64>(
+                    0, static_cast<qint64>(x*dragStep), width-1);
+                  memcpy(dragTarget+
+                           static_cast<qint64>(channels)*(y*dragWidth+x),
+                         target+
+                           static_cast<qint64>(channels)*
+                           (sourceY*width+sourceX),
+                         static_cast<size_t>(channels));
+                }
+            }
+        }
+    }
+
+  delete [] zSums;
+  delete [] rowPrefix;
+  delete [] rowAccum;
   Global::progressBar()->setValue(100);
   MainWindowUI::mainWindowUI()->statusBar->showMessage("Ready");
 
@@ -757,6 +1260,13 @@ VolumeRGB::maskRawVolume(unsigned char *lut,
 			 QList<Vec> clipNormal,
 			 QList<CropObject> crops)
 {
+  if (!lut)
+    {
+      QMessageBox::warning(0, "Save Image Stack",
+			   "The colour lookup table is unavailable");
+      return;
+    }
+
   QString imgflnm;
   imgflnm = QFileDialog::getSaveFileName(0,
 			 "Save images with basename as",
@@ -792,33 +1302,82 @@ VolumeRGB::maskRawVolume(unsigned char *lut,
 
   Vec voxelScaling = Global::voxelScaling();
 
-  uchar *vol;
-  vol = new uchar[4*leny*lenx];
+  qint64 pixelCount = 1;
+  if (lenz <= 0 ||
+      !checkedSizeFactor(lenx, pixelCount) ||
+      !checkedSizeFactor(leny, pixelCount))
+    {
+      MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+	setWindowTitle(QString("Drishti"));
+      Global::hideProgressBar();
+      QMessageBox::warning(0, "Save Image Stack",
+			   "The image dimensions exceed the supported range");
+      return;
+    }
 
-  uchar *rgb;
-  rgb = new uchar[4*leny*lenx];
+  qint64 imageBytes = pixelCount;
+  if (!checkedSizeFactor(4, imageBytes) ||
+      !validAllocationSize(imageBytes) ||
+      lenx > std::numeric_limits<int>::max()/4)
+    {
+      MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+	setWindowTitle(QString("Drishti"));
+      Global::hideProgressBar();
+      QMessageBox::warning(0, "Save Image Stack",
+			   "The image buffer size exceeds the supported range");
+      return;
+    }
+
+  std::unique_ptr<uchar[]> vol(
+    new (std::nothrow) uchar[static_cast<size_t>(imageBytes)]);
+  std::unique_ptr<uchar[]> rgb(
+    new (std::nothrow) uchar[static_cast<size_t>(imageBytes)]);
+  if (!vol || !rgb)
+    {
+      MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+	setWindowTitle(QString("Drishti"));
+      Global::hideProgressBar();
+      QMessageBox::warning(0, "Save Image Stack",
+			   "Not enough memory for the image export buffers");
+      return;
+    }
 
 
-  QImage img = QImage(rgb,
+  QImage img = QImage(rgb.get(),
 		      lenx, leny,
 		      QImage::Format_ARGB32);      
 
   int lsize = 4*256*256;
 
+  QStringList writtenFiles;
   for(int z=minz; z<=maxz; z++)
     {
-      memset(vol, 255, 4*leny*lenx);
-      memset(rgb, 0, 4*leny*lenx);
+      memset(vol.get(), 255, static_cast<size_t>(imageBytes));
+      memset(rgb.get(), 0, static_cast<size_t>(imageBytes));
 
       for (int q=0; q<nRGB; q++)
 	{
 	  uchar *vslice = m_rgbaFileManager[q].getSlice(z);
+	  if (!vslice)
+	    {
+	      const QString error = m_rgbaFileManager[q].lastError();
+	      for (int i=0; i<writtenFiles.count(); ++i)
+		QFile::remove(writtenFiles[i]);
+	      MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+		setWindowTitle(QString("Drishti"));
+	      Global::hideProgressBar();
+	      QMessageBox::warning(0, "Save Image Stack",
+		QString("Cannot read colour slice %1: %2")
+		.arg(z).arg(error));
+	      return;
+	    }
 	  
 	  for(int y=miny; y<=maxy; y++)
 	    for(int x=minx; x<=maxx; x++)
 	      {
-		int ij = y*m_height + x;
-		int idx = (y-miny)*lenx + (x-minx);
+		const qint64 ij = static_cast<qint64>(y)*m_height+x;
+		const qint64 idx =
+		  static_cast<qint64>(y-miny)*lenx+(x-minx);
 		vol[4*idx+q] = vslice[ij];
 	      }
 	}
@@ -827,7 +1386,8 @@ VolumeRGB::maskRawVolume(unsigned char *lut,
       for(int y=miny; y<=maxy; y++)
 	for(int x=minx; x<=maxx; x++)
 	  {
-	    int idx = (y-miny)*lenx + (x-minx);
+	    const qint64 idx =
+	      static_cast<qint64>(y-miny)*lenx+(x-minx);
 
 	    Vec po = Vec(x, y, z);
 	    po = VECPRODUCT(po, voxelScaling);
@@ -850,7 +1410,7 @@ VolumeRGB::maskRawVolume(unsigned char *lut,
 		opac *= (lut[2*lsize + 4*(256*r + b)+3]/255.0f);
 		if (nRGB == 4)
 		  {
-		    uchar a = vol[4+idx + 3];
+		    a = vol[4*idx+3];
 		    uchar rgb = qMax(r, qMax(g, b));
 		    opac *= (lut[3*lsize + 4*(256*rgb + a)+3]/255.0f);
 		  }
@@ -871,16 +1431,27 @@ VolumeRGB::maskRawVolume(unsigned char *lut,
       flname += ".";
       flname += f.completeSuffix();
 
-      img.save(flname);
+      if (!img.save(flname))
+	{
+	  for (int i=0; i<writtenFiles.count(); ++i)
+	    QFile::remove(writtenFiles[i]);
+	  QFile::remove(flname);
+	  MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+	    setWindowTitle(QString("Drishti"));
+	  Global::hideProgressBar();
+	  QMessageBox::warning(0, "Save Image Stack",
+			       QString("Cannot write image %1").arg(flname));
+	  return;
+	}
+      writtenFiles.append(flname);
       Global::progressBar()->setValue((int)(100*(float)(z-minz)/(float)lenz));
-      qApp->processEvents();
+      qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
     }
-
-  delete [] vol;
-  delete [] rgb;
 
   Global::progressBar()->setValue(100);
   Global::hideProgressBar();
+  MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+    setWindowTitle(QString("Drishti"));
 }
 
 void
@@ -889,6 +1460,13 @@ VolumeRGB::saveOpacityVolume(unsigned char *lut,
 			     QList<Vec> clipNormal,
 			     QList<CropObject> crops)
 {
+  if (!lut)
+    {
+      QMessageBox::warning(0, "Save Opacity Volume",
+			   "The colour lookup table is unavailable");
+      return;
+    }
+
   QString opFile;
 
   opFile= QFileDialog::getSaveFileName(0,
@@ -926,9 +1504,37 @@ VolumeRGB::saveOpacityVolume(unsigned char *lut,
   Vec voxelScaling = Global::voxelScaling();
 
 
-  //*** max 1Gb per slab
-  int opslabSize;
-  opslabSize = (1024*1024*1024)/(leny*lenx);
+  qint64 pixelCount = 1;
+  if (lenz <= 0 ||
+      !checkedSizeFactor(lenx, pixelCount) ||
+      !checkedSizeFactor(leny, pixelCount) ||
+      !validAllocationSize(pixelCount))
+    {
+      MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+	setWindowTitle(QString("Drishti"));
+      Global::hideProgressBar();
+      QMessageBox::warning(0, "Save Opacity Volume",
+			   "The opacity volume dimensions exceed the supported range");
+      return;
+    }
+
+  qint64 colourBytes = pixelCount;
+  if (!checkedSizeFactor(4, colourBytes) ||
+      !validAllocationSize(colourBytes))
+    {
+      MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+	setWindowTitle(QString("Drishti"));
+      Global::hideProgressBar();
+      QMessageBox::warning(0, "Save Opacity Volume",
+			   "The colour slice buffer exceeds the supported range");
+      return;
+    }
+
+  // Keep each output slab below one GiB without overflowing int arithmetic.
+  const qint64 maxSlabBytes = 1024LL*1024LL*1024LL;
+  const int opslabSize = static_cast<int>(qMax<qint64>(
+    1, qMin<qint64>(std::numeric_limits<int>::max(),
+		    maxSlabBytes/pixelCount)));
   VolumeFileManager opFileManager;
   opFileManager.setBaseFilename(opFile);
   opFileManager.setDepth(lenz);
@@ -936,29 +1542,62 @@ VolumeRGB::saveOpacityVolume(unsigned char *lut,
   opFileManager.setHeight(lenx);
   opFileManager.setHeaderSize(13);
   opFileManager.setSlabSize(opslabSize);
-  opFileManager.createFile(true);
+  if (!opFileManager.createFile(true))
+    {
+      const QString error = opFileManager.lastError();
+      MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+	setWindowTitle(QString("Drishti"));
+      Global::hideProgressBar();
+      QMessageBox::warning(0, "Save Opacity Volume",
+			   QString("Cannot create output volume: %1").arg(error));
+      return;
+    }
 
-  uchar *opacity = new uchar [leny*lenx];
-
-  uchar *vol;
-  vol = new uchar[4*leny*lenx];
+  std::unique_ptr<uchar[]> opacity(
+    new (std::nothrow) uchar[static_cast<size_t>(pixelCount)]);
+  std::unique_ptr<uchar[]> vol(
+    new (std::nothrow) uchar[static_cast<size_t>(colourBytes)]);
+  if (!opacity || !vol)
+    {
+      opFileManager.removeFile();
+      MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+	setWindowTitle(QString("Drishti"));
+      Global::hideProgressBar();
+      QMessageBox::warning(0, "Save Opacity Volume",
+			   "Not enough memory for the opacity export buffers");
+      return;
+    }
 
 
   int lsize = 4*256*256;
 
   for(int z=minz; z<=maxz; z++)
     {
-      memset(vol, 255, 4*leny*lenx);
+      memset(vol.get(), 255, static_cast<size_t>(colourBytes));
+      memset(opacity.get(), 0, static_cast<size_t>(pixelCount));
 
       for (int q=0; q<nRGB; q++)
 	{
 	  uchar *vslice = m_rgbaFileManager[q].getSlice(z);
+	  if (!vslice)
+	    {
+	      const QString error = m_rgbaFileManager[q].lastError();
+	      opFileManager.removeFile();
+	      MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+		setWindowTitle(QString("Drishti"));
+	      Global::hideProgressBar();
+	      QMessageBox::warning(0, "Save Opacity Volume",
+		QString("Cannot read colour slice %1: %2")
+		.arg(z).arg(error));
+	      return;
+	    }
 	  
 	  for(int y=miny; y<=maxy; y++)
 	    for(int x=minx; x<=maxx; x++)
 	      {
-		int ij = y*m_height + x;
-		int idx = (y-miny)*lenx + (x-minx);
+		const qint64 ij = static_cast<qint64>(y)*m_height+x;
+		const qint64 idx =
+		  static_cast<qint64>(y-miny)*lenx+(x-minx);
 		vol[4*idx+q] = vslice[ij];
 	      }
 	}
@@ -967,7 +1606,8 @@ VolumeRGB::saveOpacityVolume(unsigned char *lut,
       for(int y=miny; y<=maxy; y++)
 	for(int x=minx; x<=maxx; x++)
 	  {
-	    int idx = (y-miny)*lenx + (x-minx);
+	    const qint64 idx =
+	      static_cast<qint64>(y-miny)*lenx+(x-minx);
 
 	    Vec po = Vec(x, y, z);
 	    po = VECPRODUCT(po, voxelScaling);
@@ -990,7 +1630,7 @@ VolumeRGB::saveOpacityVolume(unsigned char *lut,
 		opac *= (lut[2*lsize + 4*(256*r + b)+3]/255.0f);
 		if (nRGB == 4)
 		  {
-		    uchar a = vol[4+idx + 3];
+		    a = vol[4*idx+3];
 		    uchar rgb = qMax(r, qMax(g, b));
 		    opac *= (lut[3*lsize + 4*(256*rgb + a)+3]/255.0f);
 		  }
@@ -999,13 +1639,21 @@ VolumeRGB::saveOpacityVolume(unsigned char *lut,
 	      }
 	  }
 
-      opFileManager.setSlice(z-minz, opacity);
+      if (!opFileManager.setSlice(z-minz, opacity.get()))
+	{
+	  const QString error = opFileManager.lastError();
+	  opFileManager.removeFile();
+	  MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+	    setWindowTitle(QString("Drishti"));
+	  Global::hideProgressBar();
+	  QMessageBox::warning(0, "Save Opacity Volume",
+		QString("Cannot write opacity slice %1: %2")
+		.arg(z-minz).arg(error));
+	  return;
+	}
       Global::progressBar()->setValue((int)(100*(float)(z-minz)/(float)lenz));
-      qApp->processEvents();
+      qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
     }
-
-  delete [] vol;
-  delete [] opacity;
 
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\

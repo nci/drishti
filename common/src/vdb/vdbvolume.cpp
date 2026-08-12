@@ -10,6 +10,13 @@
 #include <openvdb/tools/TopologyToLevelSet.h>
 #include <openvdb/tools/FastSweeping.h>
 #include <openvdb/math/Mat3.h>
+#include <openvdb/io/Stream.h>
+
+#include <fstream>
+#ifdef Q_OS_WIN
+#include <filesystem>
+#endif
+#include <stdexcept>
 
 #include <QMessageBox>
 #include <QProgressDialog>
@@ -351,19 +358,34 @@ VdbVolume::generateMesh(int ivType, float isovalue, float adaptivity,
 
 void
 VdbVolume::save(QString vdbFileName)
-{  
-  // create a vdb file
-  openvdb::io::File vdbFile(vdbFileName.toStdString());
-  
+{
   m_vdbGrid->setSaveFloatAsHalf(true);
 
-  // add the grid pointer to a container
   openvdb::GridPtrVec grids;
   grids.push_back(m_vdbGrid);
-  
-  // write out the contents of the container
-  vdbFile.write(grids);
-  vdbFile.close();
+
+  std::ofstream output;
+#ifdef Q_OS_WIN
+  const std::filesystem::path outputPath(vdbFileName.toStdWString());
+  output.open(outputPath,
+              std::ios::out | std::ios::binary | std::ios::trunc);
+#else
+  output.open(vdbFileName.toStdString(),
+              std::ios::out | std::ios::binary | std::ios::trunc);
+#endif
+  if (!output.is_open())
+    throw std::runtime_error("Cannot open the VDB output stream.");
+
+  {
+    openvdb::io::Stream archive(output);
+    archive.write(grids);
+  }
+  output.flush();
+  if (!output.good())
+    throw std::runtime_error("Cannot flush the VDB output stream.");
+  output.close();
+  if (output.fail())
+    throw std::runtime_error("Cannot close the VDB output stream.");
 }
 
 

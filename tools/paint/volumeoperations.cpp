@@ -1,4 +1,3 @@
-#include <GL/glew.h>
 #include "volumeoperations.h"
 #include "volumeinformation.h"
 #include "global.h"
@@ -11,12 +10,375 @@
 #include "binarydistancetransform.h"
 
 #include <QInputDialog>
+#include <QEventLoop>
 #include <QtConcurrentMap>
 #include <QStack>
 
+#include <algorithm>
+#include <exception>
+#include <memory>
+#include <new>
 #include <queue>
+#include <utility>
+#include <vector>
 
 #include "cc3d.h"
+
+namespace
+{
+const int kMaximumComponentMessageRows = 1000;
+
+QString paintMemoryAmount(std::uint64_t bytes)
+{
+  return QStringLiteral("%1 MiB")
+    .arg(static_cast<double>(bytes)/(1024.0*1024.0), 0, 'f', 1);
+}
+
+QString paintMemoryBudget(bool checked, std::uint64_t bytes)
+{
+  return checked ? paintMemoryAmount(bytes) : QStringLiteral("unavailable");
+}
+
+QString paintVolumeMemoryAdmissionReason(
+  PaintAlgorithmMemoryAdmissionReason reason)
+{
+  switch (reason)
+    {
+    case PaintAlgorithmMemoryAdmissionReason::InsufficientPhysicalMemory:
+      return QStringLiteral("There is not enough physical-memory headroom.");
+    case PaintAlgorithmMemoryAdmissionReason::InsufficientCommit:
+      return QStringLiteral("There is not enough Windows Commit headroom.");
+    case PaintAlgorithmMemoryAdmissionReason::MemoryStatusUnavailable:
+      return QStringLiteral("Current system-memory status is unavailable.");
+    case PaintAlgorithmMemoryAdmissionReason::AddressSpaceLimit:
+      return QStringLiteral("The request exceeds the process address space.");
+    case PaintAlgorithmMemoryAdmissionReason::InvalidRequest:
+      return QStringLiteral("The selected 3D region is empty or invalid.");
+    case PaintAlgorithmMemoryAdmissionReason::ArithmeticOverflow:
+      return QStringLiteral("The working-memory request cannot be represented safely.");
+    case PaintAlgorithmMemoryAdmissionReason::Approved:
+      break;
+    }
+
+  return QString();
+}
+
+bool admitPaintVolumeAlgorithm(
+  const QString& operation,
+  PaintVolumeAlgorithm algorithm,
+  qint64 depth, qint64 width, qint64 height,
+  PaintAlgorithmMemoryAdmission& admission)
+{
+  admission = PaintAlgorithmMemoryAdmission();
+  if (depth > 0 && width > 0 && height > 0)
+    admission = evaluatePaintVolumeAlgorithmMemoryAdmission(
+      algorithm,
+      static_cast<std::uint64_t>(depth),
+      static_cast<std::uint64_t>(width),
+      static_cast<std::uint64_t>(height));
+
+  if (admission.approved)
+    return true;
+
+  QMessageBox::warning(
+    0, operation,
+    QStringLiteral("%1 memory admission was rejected. "
+                   "Required: %2; physical budget: %3; Commit budget: %4. "
+                   "%5 Reduce the 3D box or close other applications and try again.")
+      .arg(operation)
+      .arg(paintMemoryAmount(admission.requiredBytes))
+      .arg(paintMemoryBudget(admission.physicalMemoryChecked,
+                             admission.availablePhysicalBudgetBytes))
+      .arg(paintMemoryBudget(admission.commitMemoryChecked,
+                             admission.availableCommitBudgetBytes))
+      .arg(paintVolumeMemoryAdmissionReason(admission.reason)));
+  return false;
+}
+
+void reportPaintVolumeAlgorithmFailure(const QString& operation,
+                                       const QString& detail)
+{
+  QMessageBox::critical(
+    0, operation,
+    QStringLiteral("%1 could not create its working data. %2 "
+                   "The operation was stopped; reduce the 3D box and try again.")
+      .arg(operation).arg(detail));
+}
+
+void reportRolledBackPaintVolumeAllocationFailure(const QString& operation)
+{
+  QMessageBox::critical(
+    0, operation,
+    QStringLiteral("%1 failed while processing temporary data. "
+                   "The selected mask region was restored and no result was committed.")
+      .arg(operation));
+}
+
+void reportPaintVolumeLabelCapacityFailure(
+  const QString& operation,
+  std::uint32_t startingLabel,
+  std::uint64_t maximumSourceLabel)
+{
+  QMessageBox::warning(
+    0, operation,
+    QStringLiteral("%1 needs a label span of %2 above starting label %3, "
+                   "but mask labels are limited to %4. "
+                   "The operation was stopped before changing mask data.")
+      .arg(operation)
+      .arg(maximumSourceLabel)
+      .arg(startingLabel)
+      .arg(paintVolumeMaximumMaskLabel()));
+}
+
+bool admitPaintVolumeLabelRange(
+  const QString& operation,
+  std::uint32_t startingLabel,
+  std::uint64_t maximumSourceLabel)
+{
+  if (paintVolumeOffsetLabelRangeFits(startingLabel, maximumSourceLabel))
+    return true;
+
+  reportPaintVolumeLabelCapacityFailure(
+    operation, startingLabel, maximumSourceLabel);
+  return false;
+}
+
+bool summarizeConnectedComponentLabels(
+  const QString& operation,
+  const std::uint32_t *labels,
+  std::uint64_t voxelCount,
+  std::uint32_t startingLabel,
+  std::uint32_t reservedSequentialLabels,
+  PaintVolumeUniqueLabelTracker& summary)
+{
+  for (std::uint64_t index=0; index<voxelCount; ++index)
+    {
+      const std::uint32_t label = labels[index];
+      if (!summary.add(label))
+        {
+          reportPaintVolumeLabelCapacityFailure(
+            operation, startingLabel, label);
+          return false;
+        }
+    }
+
+  const std::uint64_t sequentialMaximum =
+    static_cast<std::uint64_t>(summary.uniqueLabelCount())+
+    reservedSequentialLabels;
+  const std::uint64_t maximumSourceLabel = std::max(
+    static_cast<std::uint64_t>(summary.maximumLabel()),
+    sequentialMaximum);
+  return admitPaintVolumeLabelRange(
+    operation, startingLabel, maximumSourceLabel);
+}
+
+void processTransactionalPaintEvents()
+{
+  qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
+}
+
+class MaskRegionTransaction
+{
+ public:
+  MaskRegionTransaction(ushort *mask,
+                        qint64 fullWidth, qint64 fullHeight,
+                        int ds, int ws, int hs,
+                        int de, int we, int he,
+                        std::uint64_t voxelCount)
+    : m_mask(mask),
+      m_fullWidth(fullWidth),
+      m_fullHeight(fullHeight),
+      m_ds(ds), m_ws(ws), m_hs(hs),
+      m_de(de), m_we(we), m_he(he),
+      m_active(false)
+  {
+    if (!m_mask || fullWidth <= 0 || fullHeight <= 0 ||
+        ds < 0 || ws < 0 || hs < 0 ||
+        de < ds || we < ws || he < hs ||
+        voxelCount == 0 ||
+        voxelCount > static_cast<std::uint64_t>(
+          std::numeric_limits<std::size_t>::max()))
+      return;
+
+    m_original.reset(new (std::nothrow) ushort[
+      static_cast<std::size_t>(voxelCount)]);
+    if (!m_original)
+      return;
+
+    std::uint64_t outputIndex = 0;
+    for(int d=ds; d<=de; ++d)
+      for(int w=ws; w<=we; ++w)
+        for(int h=hs; h<=he; ++h)
+          {
+            if (outputIndex >= voxelCount)
+              {
+                m_original.reset();
+                return;
+              }
+            const qint64 inputIndex =
+              static_cast<qint64>(d)*m_fullWidth*m_fullHeight +
+              static_cast<qint64>(w)*m_fullHeight + h;
+            m_original[static_cast<std::size_t>(outputIndex++)] =
+              m_mask[inputIndex];
+          }
+
+    if (outputIndex != voxelCount)
+      {
+        m_original.reset();
+        return;
+      }
+    m_active = true;
+  }
+
+  ~MaskRegionTransaction()
+  {
+    if (!m_active || !m_original || !m_mask)
+      return;
+
+    std::size_t inputIndex = 0;
+    for(int d=m_ds; d<=m_de; ++d)
+      for(int w=m_ws; w<=m_we; ++w)
+        for(int h=m_hs; h<=m_he; ++h)
+          {
+            const qint64 outputIndex =
+              static_cast<qint64>(d)*m_fullWidth*m_fullHeight +
+              static_cast<qint64>(w)*m_fullHeight + h;
+            m_mask[outputIndex] = m_original[inputIndex++];
+          }
+  }
+
+  bool valid() const { return m_active && m_original.get(); }
+
+  void commit()
+  {
+    m_active = false;
+    m_original.reset();
+  }
+
+ private:
+  ushort *m_mask;
+  qint64 m_fullWidth;
+  qint64 m_fullHeight;
+  int m_ds, m_ws, m_hs;
+  int m_de, m_we, m_he;
+  bool m_active;
+  std::unique_ptr<ushort[]> m_original;
+};
+
+bool createConnectedComponentLabels(
+  const QString& operation,
+  MyBitArray& bitmask,
+  qint64 width, qint64 height, qint64 depth,
+  std::uint64_t voxelCount,
+  int connectivity,
+  std::unique_ptr<std::uint32_t[]>& labels)
+{
+  labels.reset(new (std::nothrow) std::uint32_t[
+    static_cast<std::size_t>(voxelCount)]());
+  if (!labels)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        operation, QStringLiteral("The label-volume allocation failed."));
+      return false;
+    }
+
+  try
+    {
+      const std::size_t voxels = static_cast<std::size_t>(voxelCount);
+      const std::size_t maxLabels = std::min(
+        cc3d::estimate_provisional_label_count(bitmask, width, voxelCount),
+        voxels);
+      std::size_t componentCount = 0;
+      std::uint32_t *result = cc3d::connected_components3d(
+        bitmask, width, height, depth,
+        maxLabels, connectivity, labels.get(), componentCount);
+      if (result != labels.get())
+        {
+          std::unique_ptr<std::uint32_t[]> unexpectedResult(result);
+          reportPaintVolumeAlgorithmFailure(
+            operation,
+            QStringLiteral("Connected-component labeling returned an invalid result."));
+          return false;
+        }
+    }
+  catch (const std::bad_alloc&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        operation, QStringLiteral("Connected-component labeling ran out of memory."));
+      return false;
+    }
+  catch (const std::exception& error)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        operation,
+        QStringLiteral("Connected-component labeling failed: %1")
+          .arg(QString::fromLocal8Bit(error.what())));
+      return false;
+    }
+  catch (...)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        operation, QStringLiteral("Connected-component labeling failed."));
+      return false;
+    }
+
+  return true;
+}
+
+bool createDistanceTransform(
+  const QString& operation,
+  MyBitArray& bitmask,
+  qint64 width, qint64 height, qint64 depth,
+  std::uint64_t voxelCount,
+  bool blackBorder,
+  std::unique_ptr<float[]>& distance)
+{
+  distance.reset(new (std::nothrow) float[
+    static_cast<std::size_t>(voxelCount)]());
+  if (!distance)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        operation, QStringLiteral("The distance-volume allocation failed."));
+      return false;
+    }
+
+  try
+    {
+      float *result = BinaryDistanceTransform::binaryEDTsq(
+        bitmask, width, height, depth, blackBorder, distance.get());
+      if (result != distance.get())
+        {
+          std::unique_ptr<float[]> unexpectedResult(result);
+          reportPaintVolumeAlgorithmFailure(
+            operation,
+            QStringLiteral("Distance transform returned an invalid result."));
+          return false;
+        }
+    }
+  catch (const std::bad_alloc&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        operation, QStringLiteral("Distance-transform allocation failed."));
+      return false;
+    }
+  catch (const std::exception& error)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        operation,
+        QStringLiteral("Distance transform failed: %1")
+          .arg(QString::fromLocal8Bit(error.what())));
+      return false;
+    }
+  catch (...)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        operation, QStringLiteral("Distance transform failed."));
+      return false;
+    }
+
+  return true;
+}
+}
 
 
 
@@ -3899,7 +4261,7 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
 					  int& minD, int& maxD,
 					  int& minW, int& maxW,
 					  int& minH, int& maxH,
-					  int gradType, float minGrad, float maxGrad)
+					  int gradType, float minGrad, float maxGrad) try
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
@@ -3911,20 +4273,38 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
 
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
+  qint64 mx = static_cast<qint64>(he)-hs+1;
+  qint64 my = static_cast<qint64>(we)-ws+1;
+  qint64 mz = static_cast<qint64>(de)-ds+1;
+
+  PaintAlgorithmMemoryAdmission memoryAdmission;
+  if (!admitPaintVolumeAlgorithm(
+        QStringLiteral("Remove Smaller Components"),
+        PaintVolumeAlgorithm::ConnectedComponents,
+        mz, my, mx, memoryAdmission))
+    return;
+
+  const qint64 voxelCount =
+    static_cast<qint64>(memoryAdmission.voxelCount);
 
   MyBitArray bitmask;
-  bitmask.resize(mx*my*mz);
-  bitmask.fill(false);
-
-
-  getVisibleRegion(ds, ws, hs,
-		   de, we, he,
-		   tag, false,
-		   gradType, minGrad, maxGrad,
-		   bitmask);
+  try
+    {
+      bitmask.resize(voxelCount);
+      bitmask.fill(false);
+      getVisibleRegion(ds, ws, hs,
+		       de, we, he,
+		       tag, false,
+		       gradType, minGrad, maxGrad,
+		       bitmask);
+    }
+  catch (const std::bad_alloc&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Remove Smaller Components"),
+        QStringLiteral("The visibility mask allocation failed."));
+      return;
+    }
 
   
 
@@ -3942,9 +4322,23 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
   //------------------
   // find connected components
   int connectivity = 6;
-  uint32_t* labels = cc3d::connected_components3d(bitmask,
-						  mx, my, mz,
-						  connectivity);
+  std::unique_ptr<std::uint32_t[]> labels;
+  if (!createConnectedComponentLabels(
+        QStringLiteral("Remove Smaller Components"),
+        bitmask, mx, my, mz, memoryAdmission.voxelCount,
+        connectivity, labels))
+    return;
+
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, memoryAdmission.voxelCount);
+  if (!maskTransaction.valid())
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Remove Smaller Components"),
+        QStringLiteral("The rollback snapshot allocation failed."));
+      return;
+    }
 
   //------------------
 
@@ -3955,7 +4349,7 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
-  qApp->processEvents();
+  processTransactionalPaintEvents();
  
   //------------------
   // calculate volume (no. of voxels) per component
@@ -3963,7 +4357,7 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
   for(qint64 d=ds; d<=de; d++)
     {
       progress.setValue(100*(float)(d-ds)/(float)(de-ds+1));
-      qApp->processEvents();
+      processTransactionalPaintEvents();
       for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
@@ -3981,7 +4375,7 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
   for(qint64 d=ds; d<=de; d++)
     {
       progress.setValue(100*(float)(d-ds)/(float)(de-ds+1));
-      qApp->processEvents();
+      processTransactionalPaintEvents();
       for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
@@ -3992,9 +4386,7 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
 	}
     }
   //------------------
-  
-  delete [] labels;
-  
+
   minD = ds;
   minW = ws;
   minH = hs;
@@ -4003,6 +4395,25 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
   maxH = he;
 
   QMessageBox::information(0, "", "Done");
+  maskTransaction.commit();
+}
+catch (const std::bad_alloc&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Remove Smaller Components"));
+}
+catch (const std::exception&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Remove Smaller Components"));
+}
+catch (...)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Remove Smaller Components"));
 }
 
 void
@@ -4011,7 +4422,7 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
 					  int& minD, int& maxD,
 					  int& minW, int& maxW,
 					  int& minH, int& maxH,
-					  int gradType, float minGrad, float maxGrad)
+					  int gradType, float minGrad, float maxGrad) try
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
@@ -4023,20 +4434,38 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
 
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
+  qint64 mx = static_cast<qint64>(he)-hs+1;
+  qint64 my = static_cast<qint64>(we)-ws+1;
+  qint64 mz = static_cast<qint64>(de)-ds+1;
+
+  PaintAlgorithmMemoryAdmission memoryAdmission;
+  if (!admitPaintVolumeAlgorithm(
+        QStringLiteral("Remove Largest Components"),
+        PaintVolumeAlgorithm::ConnectedComponents,
+        mz, my, mx, memoryAdmission))
+    return;
+
+  const qint64 voxelCount =
+    static_cast<qint64>(memoryAdmission.voxelCount);
 
   MyBitArray bitmask;
-  bitmask.resize(mx*my*mz);
-  bitmask.fill(false);
-
-
-  getVisibleRegion(ds, ws, hs,
-		   de, we, he,
-		   tag, false,
-		   gradType, minGrad, maxGrad,
-		   bitmask);
+  try
+    {
+      bitmask.resize(voxelCount);
+      bitmask.fill(false);
+      getVisibleRegion(ds, ws, hs,
+		       de, we, he,
+		       tag, false,
+		       gradType, minGrad, maxGrad,
+		       bitmask);
+    }
+  catch (const std::bad_alloc&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Remove Largest Components"),
+        QStringLiteral("The visibility mask allocation failed."));
+      return;
+    }
   
 
   //------------------
@@ -4055,9 +4484,23 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
   //------------------
   // find connected components
   int connectivity = 6;
-  uint32_t* labels = cc3d::connected_components3d(bitmask,
-						  mx, my, mz,
-						  connectivity);
+  std::unique_ptr<std::uint32_t[]> labels;
+  if (!createConnectedComponentLabels(
+        QStringLiteral("Remove Largest Components"),
+        bitmask, mx, my, mz, memoryAdmission.voxelCount,
+        connectivity, labels))
+    return;
+
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, memoryAdmission.voxelCount);
+  if (!maskTransaction.valid())
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Remove Largest Components"),
+        QStringLiteral("The rollback snapshot allocation failed."));
+      return;
+    }
 
   //------------------
 
@@ -4070,7 +4513,7 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
- 	  if (bitmask.testBit(bidx) > 0)
+	  if (bitmask.testBit(bidx))
 	    labelMap[labels[bidx]] = labelMap[labels[bidx]] + 1;
 	}
   //------------------
@@ -4091,7 +4534,8 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
 
   QList<int> largest = remapLabel.values();
   QList<int> removeComponents;
-  for(int i=0; i<largestComponents; i++)
+  const int removeCount = qMin(largestComponents, nLabels);
+  for(int i=0; i<removeCount; i++)
     removeComponents << largest[nLabels-1-i];
   
   //------------------
@@ -4106,9 +4550,7 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
 	    m_maskDataUS[idx] = 0;
 	}
   //------------------
-  
-  delete [] labels;
-  
+
   minD = ds;
   minW = ws;
   minH = hs;
@@ -4117,6 +4559,25 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
   maxH = he;
 
   QMessageBox::information(0, "", "Done");
+  maskTransaction.commit();
+}
+catch (const std::bad_alloc&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Remove Largest Components"));
+}
+catch (const std::exception&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Remove Largest Components"));
+}
+catch (...)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Remove Largest Components"));
 }
 
 
@@ -4126,7 +4587,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 				      int& minD, int& maxD,
 				      int& minW, int& maxW,
 				      int& minH, int& maxH,
-				      int gradType, float minGrad, float maxGrad)
+				      int gradType, float minGrad, float maxGrad) try
 {
   minD = maxD = minW = maxW = minH = maxH = -1;
 
@@ -4138,20 +4599,38 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
 
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
+  qint64 mx = static_cast<qint64>(he)-hs+1;
+  qint64 my = static_cast<qint64>(we)-ws+1;
+  qint64 mz = static_cast<qint64>(de)-ds+1;
+
+  PaintAlgorithmMemoryAdmission memoryAdmission;
+  if (!admitPaintVolumeAlgorithm(
+        QStringLiteral("Connected Components"),
+        PaintVolumeAlgorithm::ConnectedComponents,
+        mz, my, mx, memoryAdmission))
+    return;
+
+  const qint64 voxelCount =
+    static_cast<qint64>(memoryAdmission.voxelCount);
 
   MyBitArray bitmask;
-  bitmask.resize(mx*my*mz);
-  bitmask.fill(false);
-
-
-  getVisibleRegion(ds, ws, hs,
-		   de, we, he,
-		   tag, false,
-		   gradType, minGrad, maxGrad,
-		   bitmask);
+  try
+    {
+      bitmask.resize(voxelCount);
+      bitmask.fill(false);
+      getVisibleRegion(ds, ws, hs,
+		       de, we, he,
+		       tag, false,
+		       gradType, minGrad, maxGrad,
+		       bitmask);
+    }
+  catch (const std::bad_alloc&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Connected Components"),
+        QStringLiteral("The visibility mask allocation failed."));
+      return;
+    }
 
 
 
@@ -4231,9 +4710,12 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 
   //------------------
   // find connected components
-  uint32_t* labels = cc3d::connected_components3d(bitmask,
-						  mx, my, mz,
-						  connectivity);
+  std::unique_ptr<std::uint32_t[]> labels;
+  if (!createConnectedComponentLabels(
+        QStringLiteral("Connected Components"),
+        bitmask, mx, my, mz, memoryAdmission.voxelCount,
+        connectivity, labels))
+    return;
   
   //------------------
 
@@ -4281,6 +4763,13 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	labelMap.remove(keys[i]);
   }
   //------------------
+
+  const int componentCount = labelMap.count();
+  if (!admitPaintVolumeLabelRange(
+        QStringLiteral("Connected Components"),
+        static_cast<std::uint32_t>(startLabel),
+        static_cast<std::uint64_t>(componentCount)))
+    return;
    
 
   //QMessageBox::information(0, "", QString("%1").arg(labelMap.keys().count()));
@@ -4315,7 +4804,9 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	for(int i=0; i<nLabels; i++)
 	  {
 	    labelMap[newLabel[i]] = i+1 + startLabel;
-	    mesg += QString("  %1 : %2\n").arg(labelMap[newLabel[i]], 6).arg(sortedVol[i]);
+	    if (i < kMaximumComponentMessageRows)
+	      mesg += QString("  %1 : %2\n")
+	                .arg(labelMap[newLabel[i]], 6).arg(sortedVol[i]);
 	  }
       }
     else  // highest volume first
@@ -4325,9 +4816,14 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	  {
 	    l++;
 	    labelMap[newLabel[i]] = l + startLabel;
-	    mesg += QString("  %1 : %2\n").arg(labelMap[newLabel[i]], 6).arg(sortedVol[i]);
+	    if (l <= kMaximumComponentMessageRows)
+	      mesg += QString("  %1 : %2\n")
+	                .arg(labelMap[newLabel[i]], 6).arg(sortedVol[i]);
 	  }
       }
+    if (nLabels > kMaximumComponentMessageRows)
+      mesg += QString("  ... %1 additional components omitted ...\n")
+                .arg(nLabels-kMaximumComponentMessageRows);
   }
   //------------------
 
@@ -4336,6 +4832,18 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   // displace labels and respective volumes
   StaticFunctions::showMessage("Labeled Component Volumes", mesg);
   //-------
+
+
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, memoryAdmission.voxelCount);
+  if (!maskTransaction.valid())
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Connected Components"),
+        QStringLiteral("The rollback snapshot allocation failed."));
+      return;
+    }
 
 
   //------------------
@@ -4351,10 +4859,8 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	      m_maskDataUS[idx] = labelMap[labels[bidx]];
 	    }
 	}
-  delete [] labels;
   //------------------
-  
-  
+
   minD = ds;
   minW = ws;
   minH = hs;
@@ -4363,6 +4869,25 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   maxH = he;
 
   QMessageBox::information(0, "", "Done");
+  maskTransaction.commit();
+}
+catch (const std::bad_alloc&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Connected Components"));
+}
+catch (const std::exception&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Connected Components"));
+}
+catch (...)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Connected Components"));
 }
 
 
@@ -4491,7 +5016,7 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
 				    int& minD, int& maxD,
 				    int& minW, int& maxW,
 				    int& minH, int& maxH,
-				    int gradType, float minGrad, float maxGrad)
+				    int gradType, float minGrad, float maxGrad) try
 {
   QProgressDialog progress("Distance Transform",
 			   QString(),
@@ -4514,31 +5039,65 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
 
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
+  qint64 mx = static_cast<qint64>(he)-hs+1;
+  qint64 my = static_cast<qint64>(we)-ws+1;
+  qint64 mz = static_cast<qint64>(de)-ds+1;
+
+  PaintAlgorithmMemoryAdmission memoryAdmission;
+  if (!admitPaintVolumeAlgorithm(
+        QStringLiteral("Distance Transform"),
+        PaintVolumeAlgorithm::DistanceTransform,
+        mz, my, mx, memoryAdmission))
+    return;
+
+  const qint64 voxelCount =
+    static_cast<qint64>(memoryAdmission.voxelCount);
 
   MyBitArray visibleMask;
-  visibleMask.resize(mx*my*mz);
-  visibleMask.fill(false);
-
-  getVisibleRegion(ds, ws, hs,
-		   de, we, he,
-		   tag, false,
-		   gradType, minGrad, maxGrad,
-		   visibleMask);
+  try
+    {
+      visibleMask.resize(voxelCount);
+      visibleMask.fill(false);
+      getVisibleRegion(ds, ws, hs,
+		       de, we, he,
+		       tag, false,
+		       gradType, minGrad, maxGrad,
+		       visibleMask);
+    }
+  catch (const std::bad_alloc&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Distance Transform"),
+        QStringLiteral("The visibility mask allocation failed."));
+      return;
+    }
 
   
   progress.setValue(50);
   qApp->processEvents();
 
   // generate squared distance transform
-  float *dt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
-						   mx, my, mz,
-						   true);
+  std::unique_ptr<float[]> dt;
+  if (!createDistanceTransform(
+        QStringLiteral("Distance Transform"),
+        visibleMask, mx, my, mz, memoryAdmission.voxelCount,
+        true, dt))
+    return;
   
   progress.setValue(75);
   qApp->processEvents();
+
+
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, memoryAdmission.voxelCount);
+  if (!maskTransaction.valid())
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Distance Transform"),
+        QStringLiteral("The rollback snapshot allocation failed."));
+      return;
+    }
 
   
   // check distance transform
@@ -4551,10 +5110,6 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
       m_maskDataUS[bidx] = qRound(sqrt(dt[idx]));
       idx++;
     }
-  
-  
-  delete [] dt;
-
 
   progress.setValue(100);
   
@@ -4566,7 +5121,26 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
   maxH = he;
 
   QMessageBox::information(0, "", "Done");
+  maskTransaction.commit();
   
+}
+catch (const std::bad_alloc&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Distance Transform"));
+}
+catch (const std::exception&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Distance Transform"));
+}
+catch (...)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Distance Transform"));
 }
 
 
@@ -4575,7 +5149,7 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 				 int& minD, int& maxD,
 				 int& minW, int& maxW,
 				 int& minH, int& maxH,
-				 int gradType, float minGrad, float maxGrad)
+				 int gradType, float minGrad, float maxGrad) try
 {
   QProgressDialog progress("Local Thickness",
 			   QString(),
@@ -4598,19 +5172,38 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
 
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
+  qint64 mx = static_cast<qint64>(he)-hs+1;
+  qint64 my = static_cast<qint64>(we)-ws+1;
+  qint64 mz = static_cast<qint64>(de)-ds+1;
+
+  PaintAlgorithmMemoryAdmission memoryAdmission;
+  if (!admitPaintVolumeAlgorithm(
+        QStringLiteral("Local Thickness"),
+        PaintVolumeAlgorithm::LocalThickness,
+        mz, my, mx, memoryAdmission))
+    return;
+
+  const qint64 voxelCount =
+    static_cast<qint64>(memoryAdmission.voxelCount);
 
   MyBitArray visibleMask;
-  visibleMask.resize(mx*my*mz);
-  visibleMask.fill(false);
-
-  getVisibleRegion(ds, ws, hs,
-		   de, we, he,
-		   tag, false,
-		   gradType, minGrad, maxGrad,
-		   visibleMask);
+  try
+    {
+      visibleMask.resize(voxelCount);
+      visibleMask.fill(false);
+      getVisibleRegion(ds, ws, hs,
+		       de, we, he,
+		       tag, false,
+		       gradType, minGrad, maxGrad,
+		       visibleMask);
+    }
+  catch (const std::bad_alloc&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Local Thickness"),
+        QStringLiteral("The visibility mask allocation failed."));
+      return;
+    }
 
   
   progress.setValue(10);
@@ -4618,15 +5211,18 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 
   
   // generate squared distance transform
-  float *lt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
-						   mx, my, mz,
-						   true);
+  std::unique_ptr<float[]> lt;
+  if (!createDistanceTransform(
+        QStringLiteral("Local Thickness"),
+        visibleMask, mx, my, mz, memoryAdmission.voxelCount,
+        true, lt))
+    return;
 
   
   //----------------------------
   // find max distance
   float maxLT = 0;
-  for(qint64 i=0; i<mx*my*mz; i++)
+  for(qint64 i=0; i<voxelCount; i++)
     {
       lt[i] = qSqrt(lt[i]);
       maxLT = qMax(maxLT, lt[i]);
@@ -4639,7 +5235,15 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   // find local thickness as described in
   // V. A. Dahl and A. B. Dahl, "Fast Local Thickness",
   // https://github.com/vedranaa/local-thickness
-  float *out = new float[mx*my*mz];
+  std::unique_ptr<float[]> out(
+    new (std::nothrow) float[static_cast<std::size_t>(voxelCount)]);
+  if (!out)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Local Thickness"),
+        QStringLiteral("The local-thickness workspace allocation failed."));
+      return;
+    }
   for(int r=0; r<(int)maxLT; r++)
     {
       progress.setLabelText(QString("%1 of %2").arg(r).arg((int)maxLT));
@@ -4647,11 +5251,11 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
       qApp->processEvents();
 
       // dilate distance
-      distDilate(lt, out,
+      distDilate(lt.get(), out.get(),
 		 mx, my, mz,
 		 r, (int)maxLT); // this is just for progress dialog
      
-      for(qint64 i=0; i<mx*my*mz; i++)
+      for(qint64 i=0; i<voxelCount; i++)
 	{
 	  if (lt[i] > r)
 	    lt[i] = out[i];
@@ -4660,9 +5264,6 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   //----------------------------
   
   
-  delete [] out;
-
-  
   //----------------------------
   // find maximum local thickness
   VolumeInformation pvlInfo;
@@ -4670,7 +5271,7 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   Vec voxelSize = pvlInfo.voxelSize;
 
   maxLT = 0;
-  for(qint64 i=0; i<mx*my*mz; i++)
+  for(qint64 i=0; i<voxelCount; i++)
     {
       lt[i] *= voxelSize.x;  // assuming isotropic voxel
       maxLT = qMax(maxLT, lt[i]);
@@ -4681,6 +5282,17 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   //----------------------------
   // set the local thickness as labels
   // from 64000 to 64999
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, memoryAdmission.voxelCount);
+  if (!maskTransaction.valid())
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Local Thickness"),
+        QStringLiteral("The rollback snapshot allocation failed."));
+      return;
+    }
+
   qint64 idx = 0;
   for(qint64 d=0; d<mz; d++)
   for(qint64 w=0; w<my; w++)
@@ -4696,7 +5308,7 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   //----------------------------
 
   progress.setValue(100);
-  qApp->processEvents();
+  processTransactionalPaintEvents();
 
   
 
@@ -4716,7 +5328,7 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
       //----------
       // save raw local thickness file
       StaticFunctions::saveVolumeToFile(rawflnm,
-				    8, (char*)lt,
+				    8, reinterpret_cast<char*>(lt.get()),
 				    mx, my, mz);
       //----------
   
@@ -4750,8 +5362,8 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
       //----------
       // map float local thickness (lt) to uchar (ltUC) using the same array
       // and save pvl.nc.001 file
-      uchar *ltUC = (uchar *)lt;
-      for(qint64 i=0; i<mx*my*mz; i++)
+      uchar *ltUC = reinterpret_cast<uchar*>(lt.get());
+      for(qint64 i=0; i<voxelCount; i++)
 	ltUC[i] = 255*lt[i]/maxLT;
       StaticFunctions::saveVolumeToFile(pvlflnm + ".001",
 					0, (char*)ltUC,
@@ -4764,9 +5376,6 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   //------------------------------
 
   
-  delete [] lt;
-  
-  
   minD = ds;
   minW = ws;
   minH = hs;
@@ -4776,6 +5385,25 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 
   if (rawflnm.isEmpty())
     QMessageBox::information(0, "", "Done");  
+  maskTransaction.commit();
+}
+catch (const std::bad_alloc&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Local Thickness"));
+}
+catch (const std::exception&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Local Thickness"));
+}
+catch (...)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Local Thickness"));
 }
 
 void
@@ -4981,7 +5609,7 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 			    int& minD, int& maxD,
 			    int& minW, int& maxW,
 			    int& minH, int& maxH,
-			    int gradType, float minGrad, float maxGrad)
+			    int gradType, float minGrad, float maxGrad) try
 {  
 
 //  //------------------
@@ -5041,33 +5669,44 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
 
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
+  qint64 mx = static_cast<qint64>(he)-hs+1;
+  qint64 my = static_cast<qint64>(we)-ws+1;
+  qint64 mz = static_cast<qint64>(de)-ds+1;
+
+  PaintAlgorithmMemoryAdmission memoryAdmission;
+  if (!admitPaintVolumeAlgorithm(
+        QStringLiteral("Watershed"),
+        PaintVolumeAlgorithm::Watershed,
+        mz, my, mx, memoryAdmission))
+    return;
+
+  const qint64 voxelCount =
+    static_cast<qint64>(memoryAdmission.voxelCount);
 
   MyBitArray visibleMask;
-  visibleMask.resize(mx*my*mz);
-  visibleMask.fill(false);
-
-
-  getVisibleRegion(ds, ws, hs,
-		   de, we, he,
-		   tag, false,
-		   gradType, minGrad, maxGrad,
-		   visibleMask);
-
-  
-  // bitmask
   MyBitArray bitmask;
-  bitmask = visibleMask;
+  try
+    {
+      visibleMask.resize(voxelCount);
+      visibleMask.fill(false);
+      getVisibleRegion(ds, ws, hs,
+		       de, we, he,
+		       tag, false,
+		       gradType, minGrad, maxGrad,
+		       visibleMask);
 
-
-  //------------------
-  // Erode to generate markers
-  _dilatebitmask(nErode, false, // dilate transparent region (i.e. erode solid region)
-		 mx, my, mz,
-		 bitmask);
-  //------------------
+      bitmask = visibleMask;
+      _dilatebitmask(nErode, false,
+		     mx, my, mz,
+		     bitmask);
+    }
+  catch (const std::bad_alloc&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Watershed"),
+        QStringLiteral("The marker-mask allocation failed."));
+      return;
+    }
 
   
   progress.setLabelText("Generating markers");
@@ -5085,19 +5724,46 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   // find connected components
   //int connectivity = 6;
   int connectivity = 26;
-  uint32_t* labels = cc3d::connected_components3d(bitmask,
-						  mx, my, mz,
-						  connectivity);  
+  std::unique_ptr<std::uint32_t[]> labels;
+  if (!createConnectedComponentLabels(
+        QStringLiteral("Watershed"),
+        bitmask, mx, my, mz, memoryAdmission.voxelCount,
+        connectivity, labels))
+    return;
+
+  PaintVolumeUniqueLabelTracker markerLabels;
+  if (!summarizeConnectedComponentLabels(
+        QStringLiteral("Watershed"), labels.get(),
+        memoryAdmission.voxelCount,
+        static_cast<std::uint32_t>(startLabel), 1, markerLabels))
+    return;
+  const int markerLabelCount =
+    static_cast<int>(markerLabels.uniqueLabelCount());
+
+  std::unique_ptr<float[]> dt;
+  if (!createDistanceTransform(
+        QStringLiteral("Watershed"),
+        visibleMask, mx, my, mz, memoryAdmission.voxelCount,
+        false, dt))
+    return;
+
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, memoryAdmission.voxelCount);
+  if (!maskTransaction.valid())
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Watershed"),
+        QStringLiteral("The rollback snapshot allocation failed."));
+      return;
+    }
   //------------------
 
 
   progress.setValue(30);
-  qApp->processEvents();
+  processTransactionalPaintEvents();
 
   
-  QList<int> ut;
-
-
   //------------------
   // just reset the visible portion - it will be labeled in subsequent phases
   for(qint64 d=ds; d<=de; d++)
@@ -5120,31 +5786,18 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 	  qint64 bidx = ((qint64)(d-ds))*mx*my+((qint64)(w-ws))*mx+(h-hs);
 	  if (labels[bidx] > 0)
 	    {
-	      if (!ut.contains(labels[bidx]))
-		ut << labels[bidx];
-	      
 	      qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	      m_maskDataUS[idx] = startLabel + labels[bidx];
 	    }
 	}
-  delete [] labels;
+  labels.reset();
   //------------------
-
-
-  //--------------------------------------------------------------------
-  // distance transform
-  float *dt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
-						   mx, my, mz,
-						   false);
-//  for(qint64 idx=0; idx<mx*my*mz; idx++)
-//    dt[idx] = sqrt(dt[idx]);
-  //--------------------------------------------------------------------
   
 
 
   progress.setLabelText("Watershed");
   progress.setValue(50);
-  qApp->processEvents();
+  processTransactionalPaintEvents();
   
 
   //------------------------------------------------------
@@ -5164,14 +5817,14 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   };
 
 
-  int labelMax = startLabel + ut.count() + 1;
+  int labelMax = startLabel + markerLabelCount + 1;
 
-  progress.setLabelText(QString("Watershed : number of components : %1").arg(ut.count()));
+  progress.setLabelText(QString("Watershed : number of components : %1").arg(markerLabelCount));
   
   for (int z = 0; z < mz; ++z)
     {
       progress.setValue(100*(float)z/(float)mz);
-      qApp->processEvents();
+      processTransactionalPaintEvents();
       for (int y = 0; y < my; ++y)
       for (int x = 0; x < mx; ++x)
 	{
@@ -5204,12 +5857,22 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 	  bool done = false;
 	  while (!done)
 	    {
-	      VOXEL next = findSteepestDescent(dt,
+	      VOXEL next = findSteepestDescent(dt.get(),
 					       current.x, current.y, current.z,
 					       mx, my, mz);
 	      
 	      qint64 next_idx = getIndex(next.x, next.y, next.z);
 	      qint64 gidx = getGlobalIndex(next.x+hs, next.y+ws, next.z+ds);
+	      if (next_idx < 0 || gidx < 0)
+		{
+		  done = true;
+		  if (!stack.isEmpty())
+		    {
+		      done = false;
+		      current = stack.pop();
+		    }
+		  continue;
+		}
 
 	      float kheight = dt[next_idx];
 	      int klabel = m_maskDataUS[gidx];
@@ -5304,7 +5967,7 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 
   
   progress.setValue(100);
-  
+
   minD = ds;
   minW = ws;
   minH = hs;
@@ -5313,6 +5976,22 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   maxH = he;
 
   QMessageBox::information(0, "", "Done");
+  maskTransaction.commit();
+}
+catch (const std::bad_alloc&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(QStringLiteral("Watershed"));
+}
+catch (const std::exception&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(QStringLiteral("Watershed"));
+}
+catch (...)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(QStringLiteral("Watershed"));
 }
 
 
@@ -5321,7 +6000,7 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
 				int& minD, int& maxD,
 				int& minW, int& maxW,
 				int& minH, int& maxH,
-				int gradType, float minGrad, float maxGrad)
+				int gradType, float minGrad, float maxGrad) try
 {  
   //------------------
   // starting label number
@@ -5355,25 +6034,38 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
 
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
+  qint64 mx = static_cast<qint64>(he)-hs+1;
+  qint64 my = static_cast<qint64>(we)-ws+1;
+  qint64 mz = static_cast<qint64>(de)-ds+1;
+
+  PaintAlgorithmMemoryAdmission memoryAdmission;
+  if (!admitPaintVolumeAlgorithm(
+        QStringLiteral("Watershed Plus"),
+        PaintVolumeAlgorithm::Watershed,
+        mz, my, mx, memoryAdmission))
+    return;
+
+  const qint64 voxelCount =
+    static_cast<qint64>(memoryAdmission.voxelCount);
 
   MyBitArray visibleMask;
-  visibleMask.resize(mx*my*mz);
-  visibleMask.fill(false);
-
-
-  getVisibleRegion(ds, ws, hs,
-		   de, we, he,
-		   -1, false,
-		   gradType, minGrad, maxGrad,
-		   visibleMask);
-
-  
-  // bitmask
-  MyBitArray bitmask;
-  bitmask = visibleMask;
+  try
+    {
+      visibleMask.resize(voxelCount);
+      visibleMask.fill(false);
+      getVisibleRegion(ds, ws, hs,
+		       de, we, he,
+		       -1, false,
+		       gradType, minGrad, maxGrad,
+		       visibleMask);
+    }
+  catch (const std::bad_alloc&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Watershed Plus"),
+        QStringLiteral("The visibility mask allocation failed."));
+      return;
+    }
 
 
   progress.setLabelText("Identifying markers");
@@ -5383,23 +6075,50 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
   
   //----------------------------
   // figure out all te labels
-  QList<int> ut;
+  PaintVolumeUniqueLabelTracker markerLabels;
   for(qint64 d=ds; d<=de; d++)
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  if (m_maskDataUS[idx] > 0 && !ut.contains(m_maskDataUS[idx]))
-	    ut << m_maskDataUS[idx];
+	  if (!markerLabels.add(m_maskDataUS[idx]))
+	    {
+	      reportPaintVolumeLabelCapacityFailure(
+	        QStringLiteral("Watershed Plus"),
+	        static_cast<std::uint32_t>(startLabel), m_maskDataUS[idx]);
+	      return;
+	    }
 	}
   //----------------------------
+
+  const int markerLabelCount =
+    static_cast<int>(markerLabels.uniqueLabelCount());
+  if (!admitPaintVolumeLabelRange(
+        QStringLiteral("Watershed Plus"),
+        static_cast<std::uint32_t>(startLabel),
+        static_cast<std::uint64_t>(markerLabelCount)+1))
+    return;
 
 
   //--------------------------------------------------------------------
   // distance transform
-  float *dt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
-						   mx, my, mz,
-						   false);
+  std::unique_ptr<float[]> dt;
+  if (!createDistanceTransform(
+        QStringLiteral("Watershed Plus"),
+        visibleMask, mx, my, mz, memoryAdmission.voxelCount,
+        false, dt))
+    return;
+
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, memoryAdmission.voxelCount);
+  if (!maskTransaction.valid())
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Watershed Plus"),
+        QStringLiteral("The rollback snapshot allocation failed."));
+      return;
+    }
   //--------------------------------------------------------------------
     
 
@@ -5421,14 +6140,14 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
 
 
 
-  int labelMax = startLabel + ut.count() + 1;
+  int labelMax = startLabel + markerLabelCount + 1;
 
-  progress.setLabelText(QString("Watershed : number of components : %1").arg(ut.count()));
+  progress.setLabelText(QString("Watershed : number of components : %1").arg(markerLabelCount));
   
   for (int z = 0; z < mz; ++z)
     {
       progress.setValue(100*(float)z/(float)mz);
-      qApp->processEvents();
+      processTransactionalPaintEvents();
       for (int y = 0; y < my; ++y)
       for (int x = 0; x < mx; ++x)
 	{
@@ -5461,12 +6180,22 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
 	  bool done = false;
 	  while (!done)
 	    {
-	      VOXEL next = findSteepestDescent(dt,
+	      VOXEL next = findSteepestDescent(dt.get(),
 					       current.x, current.y, current.z,
 					       mx, my, mz);
 	      
 	      qint64 next_idx = getIndex(next.x, next.y, next.z);
 	      qint64 gidx = getGlobalIndex(next.x+hs, next.y+ws, next.z+ds);
+	      if (next_idx < 0 || gidx < 0)
+		{
+		  done = true;
+		  if (!stack.isEmpty())
+		    {
+		      done = false;
+		      current = stack.pop();
+		    }
+		  continue;
+		}
 
 	      float kheight = dt[next_idx];
 	      int klabel = m_maskDataUS[gidx];
@@ -5561,7 +6290,7 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
 
   
   progress.setValue(100);
-  
+
   minD = ds;
   minW = ws;
   minH = hs;
@@ -5570,6 +6299,25 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
   maxH = he;
 
   QMessageBox::information(0, "", "Done");
+  maskTransaction.commit();
+}
+catch (const std::bad_alloc&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Watershed Plus"));
+}
+catch (const std::exception&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Watershed Plus"));
+}
+catch (...)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Watershed Plus"));
 }
 
 
@@ -5635,7 +6383,7 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
 					 int& minD, int& maxD,
 					 int& minW, int& maxW,
 					 int& minH, int& maxH,
-					 int gradType, float minGrad, float maxGrad)
+					 int gradType, float minGrad, float maxGrad) try
 {  
   //------------------
   // starting label number
@@ -5679,45 +6427,56 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
 
-  qint64 mx = he-hs+1;
-  qint64 my = we-ws+1;
-  qint64 mz = de-ds+1;
+  qint64 mx = static_cast<qint64>(he)-hs+1;
+  qint64 my = static_cast<qint64>(we)-ws+1;
+  qint64 mz = static_cast<qint64>(de)-ds+1;
+
+  PaintAlgorithmMemoryAdmission memoryAdmission;
+  if (!admitPaintVolumeAlgorithm(
+        QStringLiteral("Watershed (Priority Queue)"),
+        PaintVolumeAlgorithm::Watershed,
+        mz, my, mx, memoryAdmission))
+    return;
+
+  const qint64 voxelCount =
+    static_cast<qint64>(memoryAdmission.voxelCount);
 
   MyBitArray visibleMask;
-  visibleMask.resize(mx*my*mz);
-  visibleMask.fill(false);
-
-
-  getVisibleRegion(ds, ws, hs,
-		   de, we, he,
-		   tag, false,
-		   gradType, minGrad, maxGrad,
-		   visibleMask);
-
-  
-  //------------------
-  // just reset the visible portion - it will be labeled in subsequent phases
-  for(qint64 d=ds; d<=de; d++)
-    for(qint64 w=ws; w<=we; w++)
-      for(qint64 h=hs; h<=he; h++)
-	{
-	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  m_maskDataUS[idx] = 0;
-	}
-  //------------------
+  try
+    {
+      visibleMask.resize(voxelCount);
+      visibleMask.fill(false);
+      getVisibleRegion(ds, ws, hs,
+		       de, we, he,
+		       tag, false,
+		       gradType, minGrad, maxGrad,
+		       visibleMask);
+    }
+  catch (const std::bad_alloc&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Watershed (Priority Queue)"),
+        QStringLiteral("The visibility mask allocation failed."));
+      return;
+    }
 
   
   // bitmask
   MyBitArray bitmask;
-  bitmask = visibleMask;
-
-
-  //------------------
-  // Erode to generate markers
-  _dilatebitmask(nErode, false, // dilate transparent region (i.e. erode solid region)
-		 mx, my, mz,
-		 bitmask);
-  //------------------
+  try
+    {
+      bitmask = visibleMask;
+      _dilatebitmask(nErode, false,
+		     mx, my, mz,
+		     bitmask);
+    }
+  catch (const std::bad_alloc&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Watershed (Priority Queue)"),
+        QStringLiteral("The marker-mask allocation failed."));
+      return;
+    }
 
   
   progress.setLabelText("Generating markers");
@@ -5734,14 +6493,68 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
   //------------------
   // find connected components
   int connectivity = 26;
-  uint32_t* labels = cc3d::connected_components3d(bitmask,
-						  mx, my, mz,
-						  connectivity);  
+  std::unique_ptr<std::uint32_t[]> labels;
+  if (!createConnectedComponentLabels(
+        QStringLiteral("Watershed (Priority Queue)"),
+        bitmask, mx, my, mz, memoryAdmission.voxelCount,
+        connectivity, labels))
+    return;
+
+  PaintVolumeUniqueLabelTracker markerLabels;
+  if (!summarizeConnectedComponentLabels(
+        QStringLiteral("Watershed (Priority Queue)"), labels.get(),
+        memoryAdmission.voxelCount,
+        static_cast<std::uint32_t>(startLabel), 1, markerLabels))
+    return;
+  const int markerLabelCount =
+    static_cast<int>(markerLabels.uniqueLabelCount());
+
+  std::unique_ptr<float[]> dt;
+  if (!createDistanceTransform(
+        QStringLiteral("Watershed (Priority Queue)"),
+        visibleMask, mx, my, mz, memoryAdmission.voxelCount,
+        false, dt))
+    return;
+
+  std::vector<VOXEL_H> queueStorage;
+  try
+    {
+      queueStorage.reserve(static_cast<std::size_t>(voxelCount));
+    }
+  catch (const std::exception&)
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Watershed (Priority Queue)"),
+        QStringLiteral("The priority-queue allocation failed."));
+      return;
+    }
+
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, memoryAdmission.voxelCount);
+  if (!maskTransaction.valid())
+    {
+      reportPaintVolumeAlgorithmFailure(
+        QStringLiteral("Watershed (Priority Queue)"),
+        QStringLiteral("The rollback snapshot allocation failed."));
+      return;
+    }
   //------------------
 
 
   progress.setValue(30);
-  qApp->processEvents();
+  processTransactionalPaintEvents();
+
+  //------------------
+  // Reset only after every whole-volume workspace has been allocated.
+  for(qint64 d=ds; d<=de; d++)
+    for(qint64 w=ws; w<=we; w++)
+      for(qint64 h=hs; h<=he; h++)
+	{
+	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
+	  m_maskDataUS[idx] = 0;
+	}
+  //------------------
 
   //------------------
   for(qint64 d=ds; d<=de; d++)
@@ -5755,43 +6568,18 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
 	      m_maskDataUS[idx] = startLabel + labels[bidx];
 	    }
 	}
-  delete [] labels;
+  labels.reset();
   //------------------
-
-
-  //----------------------------
-  // figure out all the labels
-  QList<int> ut;
-  for(qint64 d=ds; d<=de; d++)
-    for(qint64 w=ws; w<=we; w++)
-      for(qint64 h=hs; h<=he; h++)
-	{
-	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-	  if (m_maskDataUS[idx] > 0 && !ut.contains(m_maskDataUS[idx]))
-	    ut << m_maskDataUS[idx];
-	}
-  //----------------------------
-
-
-  //--------------------------------------------------------------------
-  // distance transform
-  float *dt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
-						   mx, my, mz,
-						   false);
-//  for(qint64 idx=0; idx<mx*my*mz; idx++)
-//    dt[idx] = sqrt(dt[idx]);
-  //--------------------------------------------------------------------
-  
 
 
   progress.setLabelText("Watershed");
   progress.setValue(50);
-  qApp->processEvents();
+  processTransactionalPaintEvents();
   
   
-  int labelMax = startLabel + ut.count() + 1;
+  int labelMax = startLabel + markerLabelCount + 1;
 
-  progress.setLabelText(QString("number of components : %1").arg(ut.count()));
+  progress.setLabelText(QString("number of components : %1").arg(markerLabelCount));
 
   
   //------------------------------------------------------
@@ -5816,7 +6604,10 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
 
   
   //--------------------------------
-  std::priority_queue<VOXEL_H, std::vector<VOXEL_H>, std::greater<VOXEL_H>> pq;
+  std::priority_queue<VOXEL_H,
+                      std::vector<VOXEL_H>,
+                      std::greater<VOXEL_H>> pq(
+    std::greater<VOXEL_H>(), std::move(queueStorage));
   
 
   //--------------------------------
@@ -5837,7 +6628,7 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
 	  continue;
 
 	
-	qint64 gidx = getGlobalIndex(x+dx, y+dy, z+dz);
+	qint64 gidx = getGlobalIndex(x+dx+hs, y+dy+ws, z+dz+ds);
 	
 	if (m_maskDataUS[gidx] == 0) // only untagged
 	  {
@@ -5855,7 +6646,7 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
   for (int y = 0; y < my; ++y)
   for (int x = 0; x < mx; ++x)
     {
-      qint64 gidx = getGlobalIndex(x, y, z);
+      qint64 gidx = getGlobalIndex(x+hs, y+ws, z+ds);
       if (m_maskDataUS[gidx] > 0)
 	{
 	  qint64 bidx = getIndex(x, y, z);
@@ -5880,9 +6671,9 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
       if (pnd != pvnd)
 	{
 	  progress.setLabelText(QString("Watershed %1 : %2").arg(labelMax-1).arg(pq.size()));
-	  qApp->processEvents();
+	  processTransactionalPaintEvents();
 	  progress.setValue(pnd);
-	  qApp->processEvents();
+	  processTransactionalPaintEvents();
 	}
       pvnd = pnd;
       //---
@@ -5912,7 +6703,9 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
 	    continue;
 	  
 	  
-	  qint64 gidx = getGlobalIndex(vh.x+dx, vh.y+dy, vh.z+dz);
+	  qint64 gidx = getGlobalIndex(vh.x+dx+hs,
+	                                 vh.y+dy+ws,
+	                                 vh.z+dz+ds);
 	  int lbl = m_maskDataUS[gidx];
 
 	  if (lbl == 0) // unlabeled neighbor : add to neighbor list 
@@ -5939,7 +6732,7 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
       // without watershed lines
       // if any neighbors of the extracted voxel has been labeled
       // then the voxel is labeled with the first label it encountered
-      qint64 gidx = getGlobalIndex(vh.x, vh.y, vh.z);
+      qint64 gidx = getGlobalIndex(vh.x+hs, vh.y+ws, vh.z+ds);
       if (neighbor_labels.count() > 0)
 	{
 	  m_maskDataUS[gidx] = labelWithMaxHeight;
@@ -6007,7 +6800,7 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
 
   
   progress.setValue(100);
-  
+
   minD = ds;
   minW = ws;
   minH = hs;
@@ -6016,6 +6809,25 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
   maxH = he;
 
   QMessageBox::information(0, "", "Done");
+  maskTransaction.commit();
+}
+catch (const std::bad_alloc&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Watershed (Priority Queue)"));
+}
+catch (const std::exception&)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Watershed (Priority Queue)"));
+}
+catch (...)
+{
+  minD = maxD = minW = maxW = minH = maxH = -1;
+  reportRolledBackPaintVolumeAllocationFailure(
+    QStringLiteral("Watershed (Priority Queue)"));
 }
 
 

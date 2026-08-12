@@ -4,16 +4,30 @@ DRISHTI_DEFINES = IMPORT TIFF
 include(../../../../drishti.pri )
 
 CONFIG += release plugin
+QT += concurrent
 
 TARGET = tiffplugin
 
 include(../plugins.pri)
 
 win32 {
-  SOURCES = tiffplugin.cpp
+  SOURCES = tiffplugin.cpp \
+            ../../tiffpagevalidation.cpp
   INCLUDEPATH += ./ ../../
-  INCLUDEPATH += $$VCPKG_INCLUDE_PATH
-  QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
+
+  isEmpty(TIFF_INCLUDE_PATH) {
+    TIFF_INCLUDE_PATH = $$VCPKG_INCLUDE_PATH
+  }
+  isEmpty(TIFF_LIBRARY_PATH) {
+    TIFF_LIBRARY_PATH = $$VCPKG_LIBRARY_PATH
+  }
+  !exists($$TIFF_INCLUDE_PATH/tiffio.h) {
+    TIFF_INCLUDE_PATH = $$[QT_INSTALL_PREFIX]/include
+    TIFF_LIBRARY_PATH = $$[QT_INSTALL_PREFIX]/lib
+  }
+
+  INCLUDEPATH = $$TIFF_INCLUDE_PATH $$INCLUDEPATH
+  QMAKE_LIBDIR = $$TIFF_LIBRARY_PATH $$QMAKE_LIBDIR
   LIBS += tiff.lib
 }
 
@@ -25,7 +39,8 @@ unix {
   QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../ITK\'"
   QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../sharedlibs\'"
 
-  SOURCES = tiffplugin.cpp
+  SOURCES = tiffplugin.cpp \
+            ../../tiffpagevalidation.cpp
  }
 }
 
@@ -34,8 +49,13 @@ macx {
 
   LIBS += -ltiff
   
-  SOURCES = tiffplugin.cpp
+  SOURCES = tiffplugin.cpp \
+            ../../tiffpagevalidation.cpp
 }
 
-HEADERS = tiffplugin.h
+SOURCES += ../../importmemoryadmission.cpp
+
+HEADERS = tiffplugin.h \
+          ../../importmemoryadmission.h \
+          ../../tiffpagevalidation.h
 

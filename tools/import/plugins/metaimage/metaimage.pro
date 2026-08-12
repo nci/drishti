@@ -12,8 +12,10 @@ include(../plugins.pri)
 include(../plugins.itk)
 
 
-QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../ITK\'"
-QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../sharedlibs\'"
+unix:!macx {
+  QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../ITK\'"
+  QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../sharedlibs\'"
+}
 
 # Input
 HEADERS = metaimageplugin.h

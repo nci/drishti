@@ -76,7 +76,7 @@ other buffers that are needed for proper working of Drishti.</string>
              <number>1</number>
             </property>
             <property name="maximum">
-             <number>136</number>
+             <number>4</number>
             </property>
             <property name="pageStep">
              <number>10</number>
@@ -332,7 +332,7 @@ GPU with 1 GB texture memory set Max Drag Volume Size to 16 (lowest)
              <number>16</number>
             </property>
             <property name="maximum">
-             <number>1024</number>
+             <number>16</number>
             </property>
             <property name="singleStep">
              <number>1</number>

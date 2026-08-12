@@ -15,7 +15,7 @@ FORMS += ../../../propertyeditor.ui
 include(../plugin.itk)
 
 win32 {
-  DESTDIR = ../../../../bin/renderplugins/ITK
+  DESTDIR = $$clean_path($$DRISHTI_RENDER_PLUGIN_DIR/ITK)
 }
 unix {
  !macx {
@@ -35,3 +35,8 @@ HEADERS = connectedcomponent.h \
 
 SOURCES = connectedcomponent.cpp \
 	label.cpp
+
+HEADERS += ../itkmemoryadmission.h \
+	../../../../tools/paint/getmemorysize.h
+
+SOURCES += ../../../../tools/paint/getmemorysize.cpp

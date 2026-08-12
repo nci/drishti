@@ -2,7 +2,11 @@
 #include "common.h"
 #include "rawslicesplugin.h"
 #include "loadrawdialog.h"
+#include "../rawfileutils.h"
 #include <math.h>
+#include <cstring>
+#include <memory>
+#include <new>
 
 #if defined(Q_OS_WIN32)
 #define isnan _isnan
@@ -33,9 +37,12 @@ RawSlicesPlugin::init()
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_bytesPerVoxel = 1;
+  m_headerBytes = 0;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 }
 
 void
@@ -50,9 +57,12 @@ RawSlicesPlugin::clear()
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_bytesPerVoxel = 1;
+  m_headerBytes = 0;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 }
 
 void
@@ -89,6 +99,17 @@ RawSlicesPlugin::setMinMax(float rmin, float rmax)
 float RawSlicesPlugin::rawMin() { return m_rawMin; }
 float RawSlicesPlugin::rawMax() { return m_rawMax; }
 QList<uint> RawSlicesPlugin::histogram() { return m_histogram; }
+QString RawSlicesPlugin::lastError() const { return m_lastError; }
+bool RawSlicesPlugin::wasCanceled() const { return m_lastOperationCanceled; }
+
+bool
+RawSlicesPlugin::setError(const QString& error, bool showDialog)
+{
+  m_lastError = error;
+  if (showDialog)
+    QMessageBox::critical(0, "RAW Slices Import Error", error);
+  return false;
+}
 
 void
 RawSlicesPlugin::gridSize(int& d, int& w, int& h)
@@ -101,13 +122,36 @@ RawSlicesPlugin::gridSize(int& d, int& w, int& h)
 void
 RawSlicesPlugin::replaceFile(QString flnm)
 {
+  m_lastOperationCanceled = false;
+  RawFileUtils::Layout layout;
+  QString error;
+  if (m_depth != 1)
+    {
+      setError("A multi-file RAW slice stack cannot be replaced by one file.");
+      return;
+    }
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, error) ||
+      !RawFileUtils::validateFileSize(flnm, layout.requiredFileBytes, error))
+    {
+      setError(error);
+      return;
+    }
+
+  m_lastError.clear();
   m_fileName.clear();
   m_fileName << flnm;
+  m_imageList = m_fileName;
 }
 
 bool
 RawSlicesPlugin::setFile(QStringList files)
 {
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
+  if (files.isEmpty() || files[0].isEmpty())
+    return setError("No RAW slice files were selected.");
+
   m_fileName = files;
 
   m_imageList.clear();
@@ -126,7 +170,7 @@ RawSlicesPlugin::setFile(QStringList files)
 
 
       m_imageList.clear();
-      for(uint i=0; i<imgfiles.size(); i++)
+      for(int i=0; i<imgfiles.size(); i++)
 	{
 	  QFileInfo fileInfo(m_fileName[0], imgfiles[i]);
 	  QString imgfl = fileInfo.absoluteFilePath();
@@ -136,12 +180,19 @@ RawSlicesPlugin::setFile(QStringList files)
   else
     m_imageList = files;
 
+  if (m_imageList.isEmpty())
+    return setError("The selected RAW slice directory contains no files.");
+
   // --- load various parameters from the raw file ---
   LoadRawDialog loadRawDialog(0,
 			      (char *)m_imageList[0].toUtf8().data());
   loadRawDialog.exec();
   if (loadRawDialog.result() == QDialog::Rejected)
-    return false;
+    {
+      m_lastOperationCanceled = true;
+      m_lastError = "RAW slice import canceled";
+      return false;
+    }
   
   m_voxelType = loadRawDialog.voxelType();
   m_headerBytes = loadRawDialog.skipHeaderBytes();
@@ -153,26 +204,36 @@ RawSlicesPlugin::setFile(QStringList files)
   m_width = nX;
   m_height = nY;
 
+  if (!RawFileUtils::bytesPerVoxel(m_voxelType, m_bytesPerVoxel))
+    return setError(QString("Unsupported RAW voxel type %1.")
+                      .arg(m_voxelType));
 
-  m_bytesPerVoxel = 1;
-  if (m_voxelType == _UChar) m_bytesPerVoxel = 1;
-  else if (m_voxelType == _Char) m_bytesPerVoxel = 1;
-  else if (m_voxelType == _UShort) m_bytesPerVoxel = 2;
-  else if (m_voxelType == _Short) m_bytesPerVoxel = 2;
-  else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
-  else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
+  RawFileUtils::Layout sliceLayout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, sliceLayout, error))
+    return setError(error);
+  for (int i=0; i<m_imageList.count(); ++i)
+    if (!RawFileUtils::validateFileSize(m_imageList[i],
+                                        sliceLayout.requiredFileBytes, error))
+      return setError(error);
 
   if (m_voxelType == _UChar ||
       m_voxelType == _Char ||
       m_voxelType == _UShort ||
       m_voxelType == _Short)
     {
-      findMinMaxandGenerateHistogram();
+      if (!findMinMaxandGenerateHistogram())
+	return setError(m_lastError);
     }
   else
     {
       findMinMax();
+      if (!m_lastError.isEmpty())
+	return setError(m_lastError);
       generateHistogram();
+      if (!m_lastError.isEmpty())
+	return setError(m_lastError);
     }
 
   return true;
@@ -181,45 +242,40 @@ RawSlicesPlugin::setFile(QStringList files)
 
 #define MINMAXANDHISTOGRAM()				\
   {							\
-    for(uint j=0; j<m_width*m_height; j++)		\
+    for(qint64 j=0; j<voxelCount; j++)			\
       {							\
-	int val = ptr[j];				\
+	qint64 val = ptr[j];				\
 	m_rawMin = qMin(m_rawMin, (float)val);		\
 	m_rawMax = qMax(m_rawMax, (float)val);		\
 							\
-	int idx = val-rMin;				\
-	m_histogram[idx]++;				\
+	int idx = RawFileUtils::exactHistogramIndex(m_voxelType, val); \
+	if (idx < 0 || idx >= m_histogram.size())		\
+	  return setError("RAW slice histogram index is invalid.", false); \
+	if (m_histogram[idx] < std::numeric_limits<uint>::max()) \
+	  m_histogram[idx]++;				\
       }							\
   }
 
-void
+bool
 RawSlicesPlugin::findMinMaxandGenerateHistogram()
 {
-  float rSize;
-  float rMin;
   m_histogram.clear();
   if (m_voxelType == _UChar ||
       m_voxelType == _Char)
     {
-      if (m_voxelType == _UChar) rMin = 0;
-      if (m_voxelType == _Char) rMin = -127;
-      rSize = 255;
       for(uint i=0; i<256; i++)
 	m_histogram.append(0);
     }
   else if (m_voxelType == _UShort ||
       m_voxelType == _Short)
     {
-      if (m_voxelType == _UShort) rMin = 0;
-      if (m_voxelType == _Short) rMin = -32767;
-      rSize = 65535;
       for(uint i=0; i<65536; i++)
 	m_histogram.append(0);
     }
   else
     {
-      QMessageBox::information(0, "Error", "Why am i here ???");
-      return;
+      return setError("Unsupported voxel type for exact RAW slice histogram.",
+                      false);
     }
 
   //==================
@@ -237,34 +293,44 @@ RawSlicesPlugin::findMinMaxandGenerateHistogram()
 	{
 	  m_rawMin = 0;
 	  m_rawMax = 255;
-	  return;
+	  return true;
 	}
       else if (m_voxelType == _Char)
 	{
-	  m_rawMin = -127;
-	  m_rawMax = 128;
-	  return;
+	  m_rawMin = -128;
+	  m_rawMax = 127;
+	  return true;
 	}
       else if (m_voxelType == _UShort)
 	{
 	  m_rawMin = 0;
 	  m_rawMax = 65535;
-	  return;
+	  return true;
 	}
       else if (m_voxelType == _Short)
 	{
-	  m_rawMin = -32767;
-	  m_rawMax = 32768;
-	  return;
+	  m_rawMin = -32768;
+	  m_rawMax = 32767;
+	  return true;
 	}
     }
   //==================
 
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, error))
+    return setError(error, false);
+  const qint64 voxelCount = layout.sliceVoxels;
+  const qint64 nbytes = layout.sliceBytes;
+  std::unique_ptr<uchar[]> tmp(new (std::nothrow)
+                               uchar[static_cast<std::size_t>(nbytes)]);
+  if (!tmp)
+    return setError(QString("Cannot allocate %1 bytes for a RAW slice.")
+                      .arg(nbytes), false);
 
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
 
   QProgressDialog progress("Generating Histogram",
 			   0,
@@ -272,52 +338,46 @@ RawSlicesPlugin::findMinMaxandGenerateHistogram()
 			   0);
   progress.setMinimumDuration(0);
 
-  for(uint i=0; i<m_depth; i++)
+  for(int i=0; i<m_depth; i++)
     {
       progress.setValue((int)(100.0*(float)i/(float)m_depth));
-      qApp->processEvents();
+      if (qApp) qApp->processEvents();
 
-      //----------------------------
-      QFile fin(m_imageList[i]);
-      fin.open(QFile::ReadOnly);
-      fin.seek(m_headerBytes);
-      fin.read((char*)tmp, nbytes);
-      fin.close();
-      //----------------------------
+      if (!RawFileUtils::readAt(m_imageList[i], m_headerBytes,
+                                tmp.get(), nbytes, error))
+	return setError(error, false);
 
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
+	  uchar *ptr = tmp.get();
 	  MINMAXANDHISTOGRAM();
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
+	  qint8 *ptr = reinterpret_cast<qint8*>(tmp.get());
 	  MINMAXANDHISTOGRAM();
 	}
       if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
+	  quint16 *ptr = reinterpret_cast<quint16*>(tmp.get());
 	  MINMAXANDHISTOGRAM();
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
+	  qint16 *ptr = reinterpret_cast<qint16*>(tmp.get());
 	  MINMAXANDHISTOGRAM();
 	}
       else if (m_voxelType == _Int)
 	{
-	  int *ptr = (int*) tmp;
+	  qint32 *ptr = reinterpret_cast<qint32*>(tmp.get());
 	  MINMAXANDHISTOGRAM();
 	}
       else if (m_voxelType == _Float)
 	{
-	  float *ptr = (float*) tmp;
+	  float *ptr = reinterpret_cast<float*>(tmp.get());
 	  MINMAXANDHISTOGRAM();
 	}
     }
-
-  delete [] tmp;
 
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
@@ -325,22 +385,22 @@ RawSlicesPlugin::findMinMaxandGenerateHistogram()
 //    m_histogram.removeFirst();
 
   progress.setValue(100);
-  qApp->processEvents();
+  if (qApp) qApp->processEvents();
+  return true;
 }
 
 
 #define FINDMINMAX()					\
   {							\
-    for(uint j=0; j<m_width*m_height; j++)		\
+    for(qint64 j=0; j<voxelCount; j++)			\
       {							\
-	float val = ptr[j];				\
-	if (isnan(val)) val = 0;			\
+	float val = RawFileUtils::finiteValue(ptr[j]);		\
 	m_rawMin = qMin(m_rawMin, val);			\
 	m_rawMax = qMax(m_rawMax, val);			\
       }							\
   }
 
-void
+bool
 RawSlicesPlugin::findMinMax()
 {
   QProgressDialog progress("Finding Min and Max",
@@ -350,83 +410,83 @@ RawSlicesPlugin::findMinMax()
   progress.setMinimumDuration(0);
 
 
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, error))
+    return setError(error, false);
+  const qint64 voxelCount = layout.sliceVoxels;
+  const qint64 nbytes = layout.sliceBytes;
+  std::unique_ptr<uchar[]> tmp(new (std::nothrow)
+                               uchar[static_cast<std::size_t>(nbytes)]);
+  if (!tmp)
+    return setError(QString("Cannot allocate %1 bytes for a RAW slice.")
+                      .arg(nbytes), false);
 
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_headerBytes);
-
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
-  for(uint i=0; i<m_depth; i++)
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
+  for(int i=0; i<m_depth; i++)
     {
       progress.setValue((int)(100.0*(float)i/(float)m_depth));
-      qApp->processEvents();
+      if (qApp) qApp->processEvents();
 
-      //----------------------------
-      QFile fin(m_imageList[i]);
-      fin.open(QFile::ReadOnly);
-      fin.seek(m_headerBytes);
-      fin.read((char*)tmp, nbytes);
-      fin.close();
-      //----------------------------
+      if (!RawFileUtils::readAt(m_imageList[i], m_headerBytes,
+                                tmp.get(), nbytes, error))
+	return setError(error, false);
 
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
+	  uchar *ptr = tmp.get();
 	  FINDMINMAX();
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
+	  qint8 *ptr = reinterpret_cast<qint8*>(tmp.get());
 	  FINDMINMAX();
 	}
       if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
+	  quint16 *ptr = reinterpret_cast<quint16*>(tmp.get());
 	  FINDMINMAX();
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
+	  qint16 *ptr = reinterpret_cast<qint16*>(tmp.get());
 	  FINDMINMAX();
 	}
       else if (m_voxelType == _Int)
 	{
-	  int *ptr = (int*) tmp;
+	  qint32 *ptr = reinterpret_cast<qint32*>(tmp.get());
 	  FINDMINMAX();
 	}
       else if (m_voxelType == _Float)
 	{
-	  float *ptr = (float*) tmp;
+	  float *ptr = reinterpret_cast<float*>(tmp.get());
 	  FINDMINMAX();
 	}
     }
-  fin.close();
-
-  delete [] tmp;
-
   progress.setValue(100);
-  qApp->processEvents();
+  if (qApp) qApp->processEvents();
+  return true;
 }
 
 #define GENHISTOGRAM()					\
   {							\
-    for(uint j=0; j<m_width*m_height; j++)		\
+    for(qint64 j=0; j<voxelCount; j++)			\
       {							\
-	float val = ptr[j];				\
-	if (isnan(val)) val = 0;			\
-	float fidx = (val-m_rawMin)/rSize;		\
-	fidx = qBound(0.0f, fidx, 1.0f);		\
-	int idx = fidx*histogramSize;			\
-	m_histogram[idx]+=1;				\
+	float val = RawFileUtils::finiteValue(ptr[j]);		\
+	int idx = RawFileUtils::scaledHistogramIndex(		\
+	            val, m_rawMin, m_rawMax, histogramSize); \
+	if (idx >= 0 && idx < m_histogram.size() &&		\
+	    m_histogram[idx] < std::numeric_limits<uint>::max()) \
+	  m_histogram[idx]++;				\
       }							\
   }
 
 void
 RawSlicesPlugin::generateHistogram()
 {
+  m_lastError.clear();
   QProgressDialog progress("Generating Histogram",
 			   QString(),
 			   0, 100,
@@ -434,13 +494,24 @@ RawSlicesPlugin::generateHistogram()
   progress.setMinimumDuration(0);
 
 
-  float rSize = m_rawMax-m_rawMin;
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_headerBytes);
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, error))
+    {
+      setError(error, false);
+      return;
+    }
+  const qint64 voxelCount = layout.sliceVoxels;
+  const qint64 nbytes = layout.sliceBytes;
+  std::unique_ptr<uchar[]> tmp(new (std::nothrow)
+                               uchar[static_cast<std::size_t>(nbytes)]);
+  if (!tmp)
+    {
+      setError(QString("Cannot allocate %1 bytes for a RAW slice.")
+                 .arg(nbytes), false);
+      return;
+    }
 
   m_histogram.clear();
   if (m_voxelType == _UChar ||
@@ -448,7 +519,9 @@ RawSlicesPlugin::generateHistogram()
       m_voxelType == _UShort ||
       m_voxelType == _Short)
     {
-      for(uint i=0; i<rSize+1; i++)
+	const int bins = (m_voxelType == _UChar || m_voxelType == _Char) ?
+	                   256 : 65536;
+      for(int i=0; i<bins; i++)
 	m_histogram.append(0);
     }
   else
@@ -458,76 +531,89 @@ RawSlicesPlugin::generateHistogram()
     }
 
   int histogramSize = m_histogram.size()-1;
-  for(uint i=0; i<m_depth; i++)
+  for(int i=0; i<m_depth; i++)
     {
       progress.setValue((int)(100.0*(float)i/(float)m_depth));
-      qApp->processEvents();
+      if (qApp) qApp->processEvents();
 
-      //----------------------------
-      QFile fin(m_imageList[i]);
-      fin.open(QFile::ReadOnly);
-      fin.seek(m_headerBytes);
-      fin.read((char*)tmp, nbytes);
-      fin.close();
-      //----------------------------
+      if (!RawFileUtils::readAt(m_imageList[i], m_headerBytes,
+                                tmp.get(), nbytes, error))
+	{
+	  setError(error, false);
+	  return;
+	}
 
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
+	  uchar *ptr = tmp.get();
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
+	  qint8 *ptr = reinterpret_cast<qint8*>(tmp.get());
 	  GENHISTOGRAM();
 	}
       if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
+	  quint16 *ptr = reinterpret_cast<quint16*>(tmp.get());
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
+	  qint16 *ptr = reinterpret_cast<qint16*>(tmp.get());
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Int)
 	{
-	  int *ptr = (int*) tmp;
+	  qint32 *ptr = reinterpret_cast<qint32*>(tmp.get());
 	  GENHISTOGRAM();
 	}
       else if (m_voxelType == _Float)
 	{
-	  float *ptr = (float*) tmp;
+	  float *ptr = reinterpret_cast<float*>(tmp.get());
 	  GENHISTOGRAM();
 	}
     }
-  fin.close();
-
-  delete [] tmp;
-
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
 //  while(m_histogram.first() == 0)
 //    m_histogram.removeFirst();
 
-//  QMessageBox::information(0, "",  QString("%1 %2 : %3").\
-//			   arg(m_rawMin).arg(m_rawMax).arg(rSize));
-
   progress.setValue(100);
-  qApp->processEvents();
+  if (qApp) qApp->processEvents();
 }
 
 void
 RawSlicesPlugin::getDepthSlice(int slc,
 			      uchar *slice)
 {
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  QFile fin(m_imageList[slc]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_headerBytes);
-  fin.read((char*)slice, nbytes);
-  fin.close();
+  m_lastError.clear();
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, error))
+    {
+      setError(error, false);
+      return;
+    }
+  if (!slice)
+    {
+      setError("RAW slice destination is null.", false);
+      return;
+    }
+  if (slc < 0 || slc >= m_depth || slc >= m_imageList.count())
+    {
+      memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      setError(QString("RAW slice %1 is outside [0, %2).")
+                 .arg(slc).arg(m_depth), false);
+      return;
+    }
+  if (!RawFileUtils::readAt(m_imageList[slc], m_headerBytes, slice,
+                            layout.sliceBytes, error))
+    {
+      memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      setError(error, false);
+    }
 }
 
 //void
@@ -575,6 +661,7 @@ RawSlicesPlugin::getDepthSlice(int slc,
 QVariant
 RawSlicesPlugin::rawValue(int d, int w, int h)
 {
+  m_lastError.clear();
   QVariant v;
 
   if (d < 0 || d >= m_depth ||
@@ -582,52 +669,75 @@ RawSlicesPlugin::rawValue(int d, int w, int h)
       h < 0 || h >= m_height)
     {
       v = QVariant("OutOfBounds");
+      setError("RAW voxel coordinates are out of bounds.", false);
       return v;
     }
 
-  QFile fin(m_imageList[d]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_headerBytes +
-	   m_bytesPerVoxel*(w*m_height +h));
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, error))
+    {
+      setError(error, false);
+      return QVariant("ReadError");
+    }
+
+  qint64 rowIndex = 0;
+  qint64 voxelIndex = 0;
+  qint64 byteIndex = 0;
+  qint64 fileOffset = 0;
+  if (!RawFileUtils::checkedMultiply(w, m_height, rowIndex) ||
+      !RawFileUtils::checkedAdd(rowIndex, h, voxelIndex) ||
+      !RawFileUtils::checkedMultiply(voxelIndex, m_bytesPerVoxel, byteIndex) ||
+      !RawFileUtils::checkedAdd(m_headerBytes, byteIndex, fileOffset))
+    {
+      setError("RAW voxel offset overflowed.", false);
+      return QVariant("ReadError");
+    }
+
+  uchar bytes[sizeof(float)] = { 0, 0, 0, 0 };
+  if (!RawFileUtils::readAt(m_imageList[d], fileOffset, bytes,
+                            m_bytesPerVoxel, error))
+    {
+      setError(error, false);
+      return QVariant("ReadError");
+    }
 
   if (m_voxelType == _UChar)
     {
-      unsigned char a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      unsigned char a = bytes[0];
       v = QVariant((uint)a);
     }
   else if (m_voxelType == _Char)
     {
-      char a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      qint8 a = 0;
+      memcpy(&a, bytes, sizeof(a));
       v = QVariant((int)a);
     }
   else if (m_voxelType == _UShort)
     {
-      unsigned short a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      quint16 a = 0;
+      memcpy(&a, bytes, sizeof(a));
       v = QVariant((uint)a);
     }
   else if (m_voxelType == _Short)
     {
-      short a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      qint16 a = 0;
+      memcpy(&a, bytes, sizeof(a));
       v = QVariant((int)a);
     }
   else if (m_voxelType == _Int)
     {
-      int a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      qint32 a = 0;
+      memcpy(&a, bytes, sizeof(a));
       v = QVariant((int)a);
     }
   else if (m_voxelType == _Float)
     {
-      float a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      float a = 0;
+      memcpy(&a, bytes, sizeof(a));
       v = QVariant((double)a);
     }
-  fin.close();
-
   return v;
 }
 

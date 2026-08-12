@@ -21,7 +21,7 @@ class Volume : public QObject
   void startHistogramCalculation();
   void endHistogramCalculation();
   
-  void forceCreateLowresVolume();
+  bool forceCreateLowresVolume();
 
   int pvlVoxelType(int);
 
@@ -75,8 +75,8 @@ class Volume : public QObject
   int getSubvolumeSubsamplingLevel();
   unsigned char* getSubvolumeTexture();
 
-  void allocSlabs(int);
-  unsigned char* getSubvolumeTextureSlab(int, int);
+  bool allocSlabs(int);
+  unsigned char* getSubvolumeTextureSlab(int, int, int);
 
   int* getLowres1dHistogram(int vol=0);
   int* getLowres2dHistogram(int vol=0);
@@ -160,6 +160,9 @@ class Volume : public QObject
   VolumeRGB* m_volumeRGB;
 
   uchar* m_subvolumeTexture;
+  int m_slabLayerCapacity;
+  uchar* m_channelSlabTexture;
+  qint64 m_channelSlabBytes;
   uchar* m_dragSubvolumeTexture;
 
   uchar* m_dragTexture;

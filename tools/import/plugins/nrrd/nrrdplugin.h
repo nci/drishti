@@ -2,6 +2,9 @@
 #define NRRDPLUGIN_H
 
 #include <QObject>
+
+#include <memory>
+
 #include "volinterface.h"
 
 class NrrdPlugin : public QObject, VolInterface
@@ -10,14 +13,16 @@ class NrrdPlugin : public QObject, VolInterface
   Q_PLUGIN_METADATA(IID "drishti.import.Plugin.VolInterface/1.0")
   Q_INTERFACES(VolInterface)
 
- public :
+ public:
+  NrrdPlugin();
+  ~NrrdPlugin() override;
+
   QStringList registerPlugin();
 
   void init();
   void clear();
 
-  void setValue(QString, float) {};
-
+  void setValue(QString, float) {}
   void set4DVolume(bool);
 
   bool setFile(QStringList);
@@ -31,24 +36,24 @@ class NrrdPlugin : public QObject, VolInterface
   int headerBytes();
 
   QList<uint> histogram();
-  
   void setMinMax(float, float);
   float rawMin();
   float rawMax();
-   
-  void getDepthSlice(int, uchar*);
-  //void getWidthSlice(int, uchar*);
-  //void getHeightSlice(int, uchar*);
 
+  void getDepthSlice(int, uchar*);
   QVariant rawValue(int, int, int);
 
-  //void saveTrimmed(QString, int, int, int, int, int, int);
-
   void generateHistogram();
- private :
+
+  Q_INVOKABLE QString lastError() const;
+  Q_INVOKABLE bool wasCanceled() const;
+
+ private:
   QStringList m_fileName;
   bool m_4dvol;
-  int m_depth, m_width, m_height;
+  int m_depth;
+  int m_width;
+  int m_height;
   int m_voxelUnit;
   int m_voxelType;
   int m_headerBytes;
@@ -56,22 +61,17 @@ class NrrdPlugin : public QObject, VolInterface
   float m_voxelSizeY;
   float m_voxelSizeZ;
   QString m_description;
-  
-  float m_rawMin, m_rawMax;
+
+  float m_rawMin;
+  float m_rawMax;
   QList<uint> m_histogram;
 
   int m_skipBytes;
   int m_bytesPerVoxel;
 
-  void findMinMax();
-  void findMinMaxandGenerateHistogram();
-
-  template <class T> void readSlice(int[3], int[3], int, uchar*);
-
-
-  uchar *m_entireVolume;
-  template <class T> void readEntireVolume();
-  
+  std::shared_ptr<uchar> m_entireVolume;
+  QString m_lastError;
+  bool m_lastOperationCanceled;
 };
 
 #endif

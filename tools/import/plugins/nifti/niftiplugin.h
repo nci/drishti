@@ -37,6 +37,8 @@ class NiftiPlugin : public QObject, VolInterface
   float rawMax();
    
   void getDepthSlice(int, uchar*);
+  Q_INVOKABLE QString lastError() const;
+  Q_INVOKABLE bool wasCanceled() const;
   //void getWidthSlice(int, uchar*);
   //void getHeightSlice(int, uchar*);
 
@@ -62,6 +64,8 @@ class NiftiPlugin : public QObject, VolInterface
 
   int m_skipBytes;
   int m_bytesPerVoxel;
+  QString m_lastError;
+  bool m_lastOperationCanceled;
 
   void findMinMax();
   void findMinMaxandGenerateHistogram();

@@ -15,6 +15,10 @@ RemapHistogramWidget::RemapHistogramWidget(QWidget *parent) :
   m_base = 50;
   m_scaleHistogram = 1;
 
+  m_lineOrigin = m_base;
+  m_lineWidth = m_width;
+  m_lineHeight = 0;
+
   m_histMax = 0;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
@@ -28,8 +32,11 @@ RemapHistogramWidget::RemapHistogramWidget(QWidget *parent) :
   m_pvlMap.clear();
 
   m_moveLine = false;
+  m_button = Qt::NoButton;
+  m_prevX = 0;
+  m_prevY = 0;
 
-  m_Line = new RemapHistogramLine();
+  m_Line = new RemapHistogramLine(this);
   m_Line->setLine(m_base, m_base+m_width);
 
   connect(m_Line, SIGNAL(addTick(int)),
@@ -38,6 +45,9 @@ RemapHistogramWidget::RemapHistogramWidget(QWidget *parent) :
 	  this, SLOT(removeTick()));
   connect(m_Line, SIGNAL(updateScene(int)),
 	  this, SLOT(updateScene(int)));
+
+  defineMapping();
+  resizeLine();
 }
 
 void
@@ -74,6 +84,9 @@ void
 RemapHistogramWidget::setRawMinMax(float rmin, float rmax,
 				   int tminr, int tmaxr)
 {
+  if (rmax < rmin)
+    qSwap(rmin, rmax);
+
   m_rawMin = rmin;
   m_rawMax = rmax;
   if (!m_validRawMinMax)
@@ -83,10 +96,20 @@ RemapHistogramWidget::setRawMinMax(float rmin, float rmax,
       m_validRawMinMax = true;
     }
   
+  const float observedRange = m_rawMax-m_rawMin;
+  if (!qIsFinite(observedRange) || qFuzzyIsNull(observedRange))
+    {
+      m_Line->resetTicks();
+      m_scale = 1;
+      m_shift = 0;
+      resizeLine();
+      return;
+    }
+
   if (tminr == tmaxr)
     return;
 
-  m_scale = (float)(tmaxr-tminr)/(float)(m_rawMax-m_rawMin);
+  m_scale = (float)(tmaxr-tminr)/observedRange;
   m_shift = m_scale*m_width*(tminr-m_rawMin)/(float)(tmaxr-tminr);
 
   if (tminr <= m_rawMin)
@@ -120,7 +143,8 @@ RemapHistogramWidget::setHistogram(QList<uint> hist)
     if (m_histogram[i] < m_histMax)
       nexthm = qMax(nexthm, m_histogram[i]);
 
-  m_histMax = nexthm;  
+  if (nexthm > 0)
+    m_histMax = nexthm;
 
   rescaleHistogram();
 
@@ -132,6 +156,13 @@ void
 RemapHistogramWidget::rescaleHistogram()
 {
   m_histogramScaled.clear();
+  if (m_histMax == 0)
+    {
+      for(int i=0; i<m_histogram.size(); ++i)
+	m_histogramScaled.append(0);
+      return;
+    }
+
   for(uint i=0; i<m_histogram.size(); i++)
     {
       float hht = (float)m_histogram[i]/(float)m_histMax;
@@ -240,6 +271,9 @@ RemapHistogramWidget::drawConnectionLines(QPainter *p,
 				     QList<QPoint> e1,
 				     QList<QPoint> e2)
 {
+  if (e1.isEmpty() || e1.size() != e2.size())
+    return;
+
   p->setPen(QPen(Qt::darkGray));
 
   p->setBrush(QColor(150, 150, 150, 150));
@@ -306,6 +340,10 @@ RemapHistogramWidget::drawRawValues(QPainter *p)
 
   QList<float> tk = m_Line->ticks();
   QList<float> otk = m_Line->ticksOriginal();
+  if (tk.isEmpty() || tk.size() != otk.size() ||
+      tk.size() != m_pvlMap.size())
+    return;
+
   int nticks = tk.size()-1;
   for(uint i=0; i<=nticks; i++)
     {
@@ -447,6 +485,8 @@ RemapHistogramWidget::drawColorMap(QPainter *p)
     return;
 
   QList<float> tk = m_Line->ticks();
+  if (tk.isEmpty())
+    return;
 
   QLinearGradient lg(m_lineOrigin+m_lineWidth*tk[0],
 		     0,
@@ -472,20 +512,28 @@ RemapHistogramWidget::drawHistogram(QPainter *p)
 
   QList<float> tk = m_Line->ticks();
   QList<float> otk = m_Line->ticksOriginal();
+  if (tk.size() < 2 || tk.size() != otk.size())
+    return;
 
   int hsize = m_histogramScaled.size()-1;
+
+  const auto indexFraction = [](int index, int start, int end) -> float
+    {
+      return end > start ?
+	static_cast<float>(index-start)/static_cast<float>(end-start) : 0.0f;
+    };
 
   {
     QPolygon poly;
     //for first part
     float kstart = otk[0];
     float kend = tk[0];
-    int istart = kstart*hsize;
-    int iend = kend*hsize;
+    int istart = qBound(0, static_cast<int>(kstart*hsize), hsize);
+    int iend = qBound(istart, static_cast<int>(kend*hsize), hsize);
 
-    for(uint i=istart; i<=iend; i++)
+    for(int i=istart; i<=iend; i++)
       {
-	float frc =(float)(i-istart)/(float)(iend-istart);
+	float frc = indexFraction(i, istart, iend);
 	frc = kend*frc;
 
 	int x, y;
@@ -504,12 +552,12 @@ RemapHistogramWidget::drawHistogram(QPainter *p)
     float kend = otk[otke];
     float kstart = tk[otke];
     float kw = kend-kstart;
-    int istart = kstart*hsize;
-    int iend = kend*hsize;
+    int istart = qBound(0, static_cast<int>(kstart*hsize), hsize);
+    int iend = qBound(istart, static_cast<int>(kend*hsize), hsize);
 
-    for(uint i=istart; i<=iend; i++)
+    for(int i=istart; i<=iend; i++)
       {
-	float frc =(float)(i-istart)/(float)(iend-istart);
+	float frc = indexFraction(i, istart, iend);
 	frc = kstart + kw*frc;
 
 	int x, y;
@@ -534,12 +582,12 @@ RemapHistogramWidget::drawHistogram(QPainter *p)
       if (t == otk.size()-2) otkend = tkend;
       float tkw = tkend-tkstart;
 
-      int istart = otkstart*hsize;
-      int iend = otkend*hsize;
+      int istart = qBound(0, static_cast<int>(otkstart*hsize), hsize);
+      int iend = qBound(istart, static_cast<int>(otkend*hsize), hsize);
 
-      for(uint i=istart; i<=iend; i++)
+      for(int i=istart; i<=iend; i++)
 	{
-	  float frc =(float)(i-istart)/(float)(iend-istart);
+	  float frc = indexFraction(i, istart, iend);
 	  frc = tkstart + tkw*frc;
 
 	  int x, y;
@@ -558,12 +606,23 @@ RemapHistogramWidget::defineMapping()
   QList<float> tk = m_Line->ticks();
   QList<float> otk = m_Line->ticksOriginal();
 
-  float tklen = tk[tk.size()-1]-tk[0];
-
   m_rawMap.clear();
   m_pvlMap.clear();
 
-  for(uint i=0; i<otk.size(); i++)
+  const int tickCount = qMin(tk.size(), otk.size());
+  if (tickCount < 2)
+    return;
+
+  float tklen = tk[tickCount-1]-tk[0];
+  if (!qIsFinite(tklen) || qFuzzyIsNull(tklen))
+    {
+      m_rawMap << m_rawMin << m_rawMax;
+      m_pvlMap << 0 << m_pvlMapMax;
+      emit newMapping();
+      return;
+    }
+
+  for(int i=0; i<tickCount; i++)
     {
       float rv, pv;
       if (i > 0 && i < otk.size()-1)
@@ -587,7 +646,7 @@ RemapHistogramWidget::defineMapping()
 void
 RemapHistogramWidget::resizeEvent(QResizeEvent *event)
 {
-  m_width = rect().width()-2*m_base;
+  m_width = qMax(1, rect().width()-2*m_base);
 
   resizeLine();
 }
@@ -599,7 +658,7 @@ RemapHistogramWidget::resizeLine()
 //			   arg(m_base).arg(m_shift).arg(m_scale).arg(m_width));
 
   int rawStart = m_base + m_shift;
-  int rawWidth = m_scale*m_width;
+  int rawWidth = qMax(1, static_cast<int>(m_scale*m_width));
   m_Line->setLine(rawStart, rawWidth);
 
   QPoint rawline = m_Line->line();  
@@ -664,9 +723,14 @@ RemapHistogramWidget::keyPressEvent(QKeyEvent *event)
     }
   else if (event->key() == Qt::Key_H)
     {
+      const float rawRange = m_rawMax-m_rawMin;
       QList<float> tk = m_Line->ticks();
+      if (tk.size() < 2 || !qIsFinite(rawRange) || qFuzzyIsNull(rawRange))
+	return;
       float tminr = m_rawMin + tk[0]*(m_rawMax-m_rawMin);
-      float tmaxr = m_rawMin + tk[1]*(m_rawMax-m_rawMin); 
+      float tmaxr = m_rawMin + tk[tk.size()-1]*(m_rawMax-m_rawMin);
+      if (qFuzzyCompare(tminr, tmaxr))
+	return;
       m_scale = (float)(m_rawMax-m_rawMin)/(float)(tmaxr-tminr);
       m_shift = m_scale*m_width*(m_rawMin-tminr)/(float)(m_rawMax-m_rawMin);
       resizeLine();
@@ -690,6 +754,9 @@ RemapHistogramWidget::keyPressEvent(QKeyEvent *event)
     }
   else if (event->key() == Qt::Key_Right)
     {
+      const float rawRange = m_rawMax-m_rawMin;
+      if (!qIsFinite(rawRange) || qFuzzyIsNull(rawRange))
+	return;
       int numSteps = 2;
       m_scale *= numSteps;	
       QList<float> tk = m_Line->ticks();
@@ -702,6 +769,9 @@ RemapHistogramWidget::keyPressEvent(QKeyEvent *event)
     }
   else if (event->key() == Qt::Key_Left)
     {
+      const float rawRange = m_rawMax-m_rawMin;
+      if (!qIsFinite(rawRange) || qFuzzyIsNull(rawRange))
+	return;
       int numSteps = 2;
       m_scale *= 1.0/numSteps;
       m_scale = qMax(1.0f, m_scale);      
@@ -826,7 +896,11 @@ RemapHistogramWidget::mouseReleaseEvent(QMouseEvent *event)
 void
 RemapHistogramWidget::wheelEvent(QWheelEvent *event)
 {
+  const float rawRange = m_rawMax-m_rawMin;
   float numSteps = event->delta()*0.01;
+  if (!qIsFinite(rawRange) || qFuzzyIsNull(rawRange) ||
+      qFuzzyIsNull(numSteps))
+    return;
   if (numSteps < 0)
     {
       m_scale *= 1.0/(-numSteps); 

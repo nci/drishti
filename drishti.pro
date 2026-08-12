@@ -1,4 +1,5 @@
 TEMPLATE = subdirs
+CONFIG += ordered
 SUBDIRS = common\src\vdb \
           drishti \
           drishti\plugins \

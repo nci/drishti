@@ -9,18 +9,21 @@ LoadRawDialog::LoadRawDialog(QWidget *parent,
   ui.setupUi(this);
   
   char vt[5];
-  short snX, snY;
+  quint16 snX = 0, snY = 0;
   int nX=0, nY=0, nZ=0;
   int hb=56; // 56 byte header
 
   memset(vt, 0, 5);
 
   QFile fd(flnm);
-  fd.open(QFile::ReadOnly);
-  fd.read(vt, 4);
-  fd.read((char*)&snX, 2);
-  fd.read((char*)&snY, 2);
-  fd.close();
+  if (fd.open(QFile::ReadOnly))
+    {
+      if (fd.read(vt, 4) != 4 ||
+          fd.read(reinterpret_cast<char*>(&snX), 2) != 2 ||
+          fd.read(reinterpret_cast<char*>(&snY), 2) != 2)
+        snX = snY = 0;
+      fd.close();
+    }
 
   nX = snX;
   nY = snY;

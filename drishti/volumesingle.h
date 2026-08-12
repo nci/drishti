@@ -28,7 +28,7 @@ class VolumeSingle : public VolumeBase
 			  int, int,
 			  int, int);
 
-  void setMaxDimensions(int, int, int);
+  bool setMaxDimensions(int, int, int);
 
   int timestepNumber(int);
 
@@ -44,8 +44,9 @@ class VolumeSingle : public VolumeBase
   uchar* getSliceTextureSlab(int, int);
   void deleteTextureSlab();
 
-  void allocSlabs(int);
-  uchar* getSlab(int, int);
+  bool allocSlabs(int, bool allocateSlabTexture=true);
+  uchar* getSlab(int, int, int);
+  bool fillSlab(int, int, int, uchar*, qint64);
   
   uchar* getSubvolume();
   uchar* getDragSubvolumeTexture();
@@ -137,6 +138,7 @@ class VolumeSingle : public VolumeBase
   Vec m_subvolumeSize, m_subvolumeTextureSize;
   int m_subvolumeSubsamplingLevel;
   unsigned char* m_subvolumeTexture;
+  int m_slabLayerCapacity;
   
   Vec m_dragSubvolumeTextureSize;
   int m_dragSubvolumeSubsamplingLevel;
@@ -182,7 +184,7 @@ class VolumeSingle : public VolumeBase
 			   QList<Vec>,
 			   QList<Vec>);
 
-  void saveSubsampledVolume();
+  bool saveSubsampledVolume();
   void createSubsampledVolume();
 
   void checkGradients();
@@ -192,7 +194,8 @@ class VolumeSingle : public VolumeBase
 
   void setBasicInformation(int);
 
-  void generateHistograms(int, int, int);
+  uchar* getSlabInternal(int, int, int, uchar*, qint64);
+  void generateHistograms(int, int, int, uchar* = 0);
 
 };
 

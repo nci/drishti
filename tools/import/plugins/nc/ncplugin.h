@@ -40,10 +40,11 @@ class NcPlugin : public QObject, VolInterface
 
   QVariant rawValue(int, int, int);
 
-  void saveTrimmed(QString, int, int, int, int, int, int);
+  // Scalar exports use the shared Raw2Pvl path.
 
   void generateHistogram();
   void set4DVolume(bool);
+  Q_INVOKABLE QString lastError() const;
  private :
   QStringList m_fileName;
   bool m_4dvol;
@@ -64,6 +65,7 @@ class NcPlugin : public QObject, VolInterface
 
   QList<int> m_depthList;
   QString m_varName;
+  QString m_lastError;
 
   QList<QString> listAllVariables();
   QList<QString> listAllAttributes();

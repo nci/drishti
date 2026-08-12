@@ -77,6 +77,7 @@ class DrawLowresVolume : public QObject
 
   GLuint m_dataTex;
   GLhandleARB m_fragObj, m_progObj;
+  bool m_shaderUnavailable;
   GLint m_parm[20];
 
   BoundingBox m_boundingBox;

@@ -45,6 +45,7 @@ class VgiPlugin : public QObject, VolInterface
 
   void generateHistogram();
   void set4DVolume(bool);
+  Q_INVOKABLE QString lastError() const;
  private :
   QStringList m_fileName;
   bool m_4dvol;
@@ -65,6 +66,7 @@ class VgiPlugin : public QObject, VolInterface
 
   int m_skipBytes;
   int m_bytesPerVoxel;
+  QString m_lastError;
 
   void findMinMax();
   void findMinMaxandGenerateHistogram();

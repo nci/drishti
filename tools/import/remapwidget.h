@@ -9,6 +9,8 @@
 #include "myslider.h"
 #include <QScrollArea>
 
+#include <memory>
+
 class RemapWidget : public QWidget
 {
   Q_OBJECT
@@ -41,7 +43,7 @@ class RemapWidget : public QWidget
   void loadLimits();
   void saveLimits();
   void saveImage();
-  void saveAs();
+  bool saveAs();
   void batchProcess();
   void saveIsosurfaceAs();
   void saveImages();
@@ -55,7 +57,7 @@ class RemapWidget : public QWidget
   void on_butY_clicked();
   void on_butX_clicked();
 
-  void saveTrimmed(int, int,
+  bool saveTrimmed(int, int,
 		   int, int,
 		   int, int);
   void saveIsosurface(int, int,
@@ -70,12 +72,12 @@ class RemapWidget : public QWidget
 
   void handleMergeVolumes(QString, QString);
 
-  void mergeVolumes(QString, QString, QStringList);
+  bool mergeVolumes(QString, QString, QStringList);
 
  private :
   Ui::RemapWidget ui;
 
-  VolumeData m_volData;
+  std::unique_ptr<VolumeData> m_volData;
 
   QList<QString> m_volumeFile;
   int m_volumeType;
@@ -99,6 +101,7 @@ class RemapWidget : public QWidget
   
   void showWidgets();
   void hideWidgets();
+  bool saveTrimmedResult(int, int, int, int, int, int);
 
 };
 

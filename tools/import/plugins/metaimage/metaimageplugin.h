@@ -45,6 +45,7 @@ class MetaImagePlugin : public QObject, VolInterface
   //void saveTrimmed(QString, int, int, int, int, int, int);
 
   void generateHistogram();
+  Q_INVOKABLE QString lastError() const;
  private :
   QStringList m_fileName;
   bool m_4dvol;
@@ -62,6 +63,7 @@ class MetaImagePlugin : public QObject, VolInterface
 
   int m_skipBytes;
   int m_bytesPerVoxel;
+  QString m_lastError;
 
   void findMinMax();
   void findMinMaxandGenerateHistogram();

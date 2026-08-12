@@ -10,20 +10,158 @@
 #include "morphslice.h"
 #include "propertyeditor.h"
 #include "meshtools.h"
+#include "maskimportutils.h"
+#include "sliceorderutils.h"
 
 #include <QDockWidget>
+#include <QEventLoop>
 #include <QFileDialog>
+#include <QDirIterator>
 #include <QInputDialog>
+#include <QSaveFile>
 #include <QScrollArea>
  
 #include <exception>
+#include <limits>
+#include <memory>
+#include <new>
 #include "volumeinformation.h"
 #include "volumeoperations.h"
 #include "volumemeasure.h"
 
-#include "blosc.h"
-
 #include <exception>
+
+namespace
+{
+bool containsPaintScripts(const QString &directory)
+{
+  if (!QDir(directory).exists())
+    return false;
+
+  QDirIterator definitions(directory,
+			   QStringList() << "*.json",
+			   QDir::Files | QDir::Readable,
+			   QDirIterator::Subdirectories);
+  return definitions.hasNext();
+}
+
+bool checkedBufferBytes(qint64 first, qint64 second, qint64 bytesPerValue,
+                        size_t& bytes)
+{
+  if (first <= 0 || second <= 0 || bytesPerValue <= 0 ||
+      first > std::numeric_limits<qint64>::max()/second)
+    return false;
+  qint64 result = first*second;
+  if (result > std::numeric_limits<qint64>::max()/bytesPerValue)
+    return false;
+  result *= bytesPerValue;
+  if (static_cast<quint64>(result) >
+      static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    return false;
+  bytes = static_cast<size_t>(result);
+  return true;
+}
+
+void removePartialVolume(const QString& headerFile)
+{
+  if (headerFile.isEmpty())
+    return;
+  QFile::remove(headerFile+".001");
+  QFile::remove(headerFile);
+}
+
+bool volumeOutputExists(const QString& headerFile)
+{
+  return !headerFile.isEmpty() &&
+         (QFileInfo::exists(headerFile) || QFileInfo::exists(headerFile+".001"));
+}
+
+void updateImportedMaskProgress(std::uint64_t completed,
+                                std::uint64_t total,
+                                void *context)
+{
+  QProgressDialog *progress = static_cast<QProgressDialog*>(context);
+  if (!progress || total == 0)
+    return;
+  progress->setValue(static_cast<int>(
+    qMin<std::uint64_t>(completed,
+                        static_cast<std::uint64_t>(
+                          std::numeric_limits<int>::max()))));
+  qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
+}
+
+QString taggedMeshMemoryAmount(std::uint64_t bytes)
+{
+  const double mebibytes = static_cast<double>(bytes)/(1024.0*1024.0);
+  if (mebibytes < 1024.0)
+    return QString("%1 MiB").arg(mebibytes, 0, 'f', 1);
+  return QString("%1 GiB").arg(mebibytes/1024.0, 0, 'f', 2);
+}
+
+bool admitTaggedMeshMemory(qint64 depth,
+                           qint64 width,
+                           qint64 height,
+                           qint64 fullWidth,
+                           qint64 fullHeight,
+                           PaintAlgorithmMemoryAdmission& admission)
+{
+  std::uint64_t fullPlaneVoxels = 0;
+  std::uint64_t fullPlaneBytes = 0;
+  std::uint64_t fixedBytes = 256ULL*1024ULL*1024ULL;
+  if (depth <= 0 || width <= 0 || height <= 0 ||
+      fullWidth <= 0 || fullHeight <= 0 ||
+      !paintVolumeCheckedMultiply(
+        static_cast<std::uint64_t>(fullWidth),
+        static_cast<std::uint64_t>(fullHeight), fullPlaneVoxels) ||
+      !paintVolumeCheckedMultiply(fullPlaneVoxels, 3, fullPlaneBytes) ||
+      !paintVolumeCheckedAdd(fixedBytes, fullPlaneBytes, fixedBytes))
+    {
+      admission = PaintAlgorithmMemoryAdmission();
+      admission.reason =
+        PaintAlgorithmMemoryAdmissionReason::ArithmeticOverflow;
+      return false;
+    }
+
+  // Includes the dense label cache plus conservative OpenVDB/mesh topology
+  // growth.  The already-resident source volume and mask are excluded.
+  admission = evaluatePaintAlgorithmMemoryAdmission(
+    static_cast<std::uint64_t>(depth),
+    static_cast<std::uint64_t>(width),
+    static_cast<std::uint64_t>(height),
+    48ULL, fixedBytes);
+  return admission.approved;
+}
+
+void reportTaggedMeshMemoryFailure(
+  const PaintAlgorithmMemoryAdmission& admission)
+{
+  QMessageBox::warning(
+    0, "Save Mesh",
+    QString("Tagged-mesh extraction was stopped before allocating OpenVDB "
+            "working data. Required: %1; physical budget: %2; "
+            "Commit budget: %3. Reduce the 3D box or close other "
+            "applications and try again.")
+      .arg(taggedMeshMemoryAmount(admission.requiredBytes))
+      .arg(admission.physicalMemoryChecked ?
+             taggedMeshMemoryAmount(admission.availablePhysicalBudgetBytes) :
+             QString("unavailable"))
+      .arg(admission.commitMemoryChecked ?
+             taggedMeshMemoryAmount(admission.availableCommitBudgetBytes) :
+             QString("unavailable")));
+}
+
+void showPaintIoError(const QString& action, const QString& detail,
+                      QProgressDialog *progress = 0)
+{
+  if (progress)
+    progress->reset();
+  QMessageBox::critical(0, "Volume I/O Error",
+                        QString("%1 failed:\n%2")
+                          .arg(action,
+                               detail.isEmpty() ?
+                                 QString("Unknown volume I/O error") : detail));
+}
+}
 
 
 //#pragma push_macro("slots")
@@ -380,6 +518,7 @@ DrishtiPaint::DrishtiPaint(QWidget *parent) :
   setGeometry(100, 100, 700, 700);
 
   m_blockList.clear();
+  m_paintUndoReady = false;
 
   m_pyWidget = 0;
 
@@ -1199,7 +1338,9 @@ DrishtiPaint::loadTagNames()
 void
 DrishtiPaint::checkFileSave()
 {
-  m_volume->checkFileSave();
+  if (!m_volume->checkFileSave())
+    ui.statusbar->showMessage(QString("Cannot save mask: %1")
+                              .arg(m_volume->lastError()));
 }
 
 void
@@ -1214,7 +1355,11 @@ DrishtiPaint::on_saveWork_triggered()
       m_coronalCurves->saveCurves(curvesfile);
       
       //m_volume->saveIntermediateResults(true);
-      m_volume->exiting();
+      if (!m_volume->exiting())
+	{
+	  showPaintIoError("Save work", m_volume->lastError());
+	  return;
+	}
 
       QMessageBox::information(0, "Save Work", "Saved");
     }
@@ -1230,7 +1375,9 @@ DrishtiPaint::saveWork()
       m_sagitalCurves->saveCurves(curvesfile);
       m_coronalCurves->saveCurves(curvesfile);
       
-      m_volume->saveIntermediateResults();
+      if (!m_volume->saveIntermediateResults())
+	ui.statusbar->showMessage(QString("Cannot save mask: %1")
+	                            .arg(m_volume->lastError()));
     }
 }
 
@@ -1238,17 +1385,23 @@ DrishtiPaint::saveWork()
 void
 DrishtiPaint::tagDSlice(int currslice, uchar* tags)
 {
-  m_volume->tagDSlice(currslice, tags);
+  if (!m_volume->tagDSlice(currslice, tags))
+    ui.statusbar->showMessage(QString("Cannot save depth labels: %1")
+                              .arg(m_volume->lastError()));
 }
 void
 DrishtiPaint::tagWSlice(int currslice, uchar* tags)
 {
-  m_volume->tagWSlice(currslice, tags);
+  if (!m_volume->tagWSlice(currslice, tags))
+    ui.statusbar->showMessage(QString("Cannot save width labels: %1")
+                              .arg(m_volume->lastError()));
 }
 void
 DrishtiPaint::tagHSlice(int currslice, uchar* tags)
 {
-  m_volume->tagHSlice(currslice, tags);
+  if (!m_volume->tagHSlice(currslice, tags))
+    ui.statusbar->showMessage(QString("Cannot save height labels: %1")
+                              .arg(m_volume->lastError()));
 }
 
 void
@@ -1619,6 +1772,11 @@ DrishtiPaint::on_actionLoad_triggered()
 void
 DrishtiPaint::on_actionExit_triggered()
 {
+  close();
+}
+void
+DrishtiPaint::closeEvent(QCloseEvent *event)
+{
   if (m_volume->isValid())
     {
       QString curvesfile = m_pvlFile;
@@ -1627,23 +1785,19 @@ DrishtiPaint::on_actionExit_triggered()
       m_sagitalCurves->saveCurves(curvesfile);
       m_coronalCurves->saveCurves(curvesfile);
 
-      m_volume->saveIntermediateResults(true);
+      if (!m_volume->saveIntermediateResults(true))
+	{
+	  showPaintIoError("Save mask before exit", m_volume->lastError());
+	  event->ignore();
+	  return;
+	}
     }
 
-//  m_viewer->init();
-//  m_volume->reset();
-
-  m_viewer->close();
-
-  saveSettings();
-  close();
-}
-void
-DrishtiPaint::closeEvent(QCloseEvent *)
-{
   if (m_pyWidget)
     m_pyWidget->close();
-  on_actionExit_triggered();
+  m_viewer->close();
+  saveSettings();
+  event->accept();
 }
 
 
@@ -1743,6 +1897,13 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 void
 DrishtiPaint::setFile(QString filename)
 {
+  if (m_volume->isValid() && !m_volume->saveIntermediateResults(true))
+    {
+      showPaintIoError("Save current mask before loading another volume",
+                       m_volume->lastError());
+      return;
+    }
+
   if (m_volume->isValid())
     {
       QString curvesfile = m_pvlFile;
@@ -1753,6 +1914,7 @@ DrishtiPaint::setFile(QString filename)
     }
 
   m_blockList.clear();
+  m_paintUndoReady = false;
 
   QString flnm;
 
@@ -1782,7 +1944,11 @@ DrishtiPaint::setFile(QString filename)
 	}
     }
 
-  m_volume->reset();
+  if (!m_volume->reset())
+    {
+      showPaintIoError("Close current volume", m_volume->lastError());
+      return;
+    }
 
 //  m_axialImage->setGridSize(0,0,0);
 //  m_sagitalImage->setGridSize(0,0,0);
@@ -1928,7 +2094,7 @@ DrishtiPaint::loadSettings()
     return;
 
   QDomDocument document;
-  QFile f(flnm.toUtf8().data());
+  QFile f(flnm);
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -1951,7 +2117,12 @@ DrishtiPaint::loadSettings()
       else if (dlist.at(i).nodeName() == "scriptfolder")
 	{
 	  QString str = dlist.at(i).toElement().text();
-	  Global::setScriptFolder(str);
+	  if (containsPaintScripts(str))
+	    Global::setScriptFolder(str);
+	  else
+	    qWarning().noquote()
+	      << "Ignoring missing or empty Paint script folder from settings:"
+	      << QDir::toNativeSeparators(str);
 	}
       else if (dlist.at(i).nodeName() == "recentfile")
 	{
@@ -2231,12 +2402,16 @@ DrishtiPaint::smooth(int tag, int spread,
 
 
 
-void
+bool
 DrishtiPaint::savePvlHeader(QString volfile,
 			    QString pvlfile,
 			    int d, int w, int h,
 			    int bpv)
-{  
+{
+  if (d <= 0 || w <= 0 || h <= 0 || (bpv != 1 && bpv != 2) ||
+      d == std::numeric_limits<int>::max())
+    return false;
+
   QString rawFile;
   QString description;
   QString voxelSize;
@@ -2247,11 +2422,9 @@ DrishtiPaint::savePvlHeader(QString volfile,
 
   QDomDocument document;
   QFile f(volfile.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
+  if (!f.open(QIODevice::ReadOnly) || !document.setContent(&f))
+    return false;
+  f.close();
   
   QDomElement main = document.documentElement();
   QDomNodeList dlist = main.childNodes();
@@ -2352,15 +2525,18 @@ DrishtiPaint::savePvlHeader(QString volfile,
     topElement.appendChild(de0);
   }
       
-  QFile pf(pvlfile.toUtf8().data());
-  if (pf.open(QIODevice::WriteOnly))
+  QSaveFile pf(pvlfile);
+  if (!pf.open(QIODevice::WriteOnly))
+    return false;
+  QTextStream out(&pf);
+  doc.save(out, 2);
+  out.flush();
+  if (out.status() != QTextStream::Ok)
     {
-      QTextStream out(&pf);
-      doc.save(out, 2);
-      pf.close();
+      pf.cancelWriting();
+      return false;
     }
-
-  return;
+  return pf.commit();
 }
 
 void
@@ -2384,6 +2560,14 @@ DrishtiPaint::applyMaskOperation(int tag,
   qint64 tdepth = maxDSlice-minDSlice+1;
   qint64 twidth = maxWSlice-minWSlice+1;
   qint64 theight = maxHSlice-minHSlice+1;
+  if (tdepth <= 0 || twidth <= 0 || theight <= 0 ||
+      tdepth >= std::numeric_limits<int>::max() ||
+      twidth > std::numeric_limits<int>::max() ||
+      theight > std::numeric_limits<int>::max())
+    {
+      showPaintIoError("Apply mask operation", "Invalid mask dimensions");
+      return;
+    }
   
   //----------------
   QString mesg;
@@ -2400,13 +2584,66 @@ DrishtiPaint::applyMaskOperation(int tag,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  int nbytes = width*height;
-  ushort *tagData = new ushort[nbytes];
-  ushort *raw = new ushort[nbytes];
-  ushort **val;
-  val = new ushort*[2*spread+1];
-  for (int i=0; i<2*spread+1; i++)
-    val[i] = new ushort[nbytes];
+  size_t sliceBytes = 0;
+  if (spread < 0 || spread > (std::numeric_limits<int>::max()-1)/2 ||
+      !checkedBufferBytes(width, height, sizeof(ushort), sliceBytes) ||
+      sliceBytes/sizeof(ushort) >
+        static_cast<size_t>(std::numeric_limits<int>::max()))
+    {
+      showPaintIoError("Apply mask operation",
+                       "Mask slice dimensions or spread are too large");
+      return;
+    }
+
+  const int pixelCount = static_cast<int>(sliceBytes/sizeof(ushort));
+  const int planeCount = 2*spread+1;
+  const size_t allocationCount = static_cast<size_t>(planeCount)+2;
+  if (sliceBytes > std::numeric_limits<size_t>::max()/allocationCount)
+    {
+      showPaintIoError("Apply mask operation", "Mask workspace size overflow");
+      return;
+    }
+
+  std::unique_ptr<ushort[]> tagStorage(
+    new (std::nothrow) ushort[static_cast<size_t>(pixelCount)]);
+  std::unique_ptr<ushort[]> rawStorage(
+    new (std::nothrow) ushort[static_cast<size_t>(pixelCount)]);
+  std::unique_ptr<std::unique_ptr<ushort[]>[]> planeStorage(
+    new (std::nothrow) std::unique_ptr<ushort[]>[
+      static_cast<size_t>(planeCount)]);
+  std::unique_ptr<ushort*[]> valStorage(
+    new (std::nothrow) ushort*[static_cast<size_t>(planeCount)]);
+  if (!tagStorage || !rawStorage || !planeStorage || !valStorage)
+    {
+      showPaintIoError("Apply mask operation",
+                       "Cannot allocate the mask workspace");
+      return;
+    }
+
+  ushort *tagData = tagStorage.get();
+  ushort *raw = rawStorage.get();
+  ushort **val = valStorage.get();
+  for (int i=0; i<planeCount; ++i)
+    {
+      planeStorage[i].reset(
+        new (std::nothrow) ushort[static_cast<size_t>(pixelCount)]);
+      if (!planeStorage[i])
+        {
+          showPaintIoError("Apply mask operation",
+                           "Cannot allocate the mask workspace");
+          return;
+        }
+      val[i] = planeStorage[i].get();
+    }
+
+  auto copyMaskSlice = [&](int slice, ushort *destination) -> bool
+    {
+      uchar *source = m_volume->getMaskDepthSliceImage(slice);
+      if (!source)
+        return false;
+      memcpy(destination, source, sliceBytes);
+      return true;
+    };
 
   for(int d=minDSlice; d<=maxDSlice; d++)
     {
@@ -2414,12 +2651,22 @@ DrishtiPaint::applyMaskOperation(int tag,
       progress.setValue((int)(100*(float)slc/(float)tdepth));
       qApp->processEvents();
 
-      memcpy(tagData, m_volume->getMaskDepthSliceImage(d), 2*nbytes);
+      if (!copyMaskSlice(d, tagData))
+	{
+	  reloadSlices();
+	  showPaintIoError("Read mask slice", m_volume->lastError(), &progress);
+	  return;
+	}
 
       
       if (slc == 0)
 	{
-	  memcpy(val[spread], m_volume->getMaskDepthSliceImage(d), 2*nbytes);
+	  if (!copyMaskSlice(d, val[spread]))
+	    {
+	      reloadSlices();
+	      showPaintIoError("Read mask slice", m_volume->lastError(), &progress);
+	      return;
+	    }
 
 	  if (smoothType == 0 || smoothType == 3)
 	    {
@@ -2453,10 +2700,14 @@ DrishtiPaint::applyMaskOperation(int tag,
 	  
 	  for(int i=-spread; i<0; i++)
 	    {
-	      if (d+i >= 0)
-		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(d+i), 2*nbytes);
-	      else
-		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(0), 2*nbytes);
+	      const int sourceSlice = d+i >= 0 ? d+i : 0;
+	      if (!copyMaskSlice(sourceSlice, val[spread+i]))
+		{
+		  reloadSlices();
+		  showPaintIoError("Read mask slice", m_volume->lastError(),
+		                   &progress);
+		  return;
+		}
 	      
 	      if (smoothType == 0 || smoothType == 3)
 		{
@@ -2490,10 +2741,14 @@ DrishtiPaint::applyMaskOperation(int tag,
 
 	  for(int i=1; i<=spread; i++)
 	    {
-	      if (d+i < depth)
-		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(d+i), 2*nbytes);
-	      else
-		memcpy(val[spread+i], m_volume->getMaskDepthSliceImage(depth-1), 2*nbytes);
+	      const int sourceSlice = d+i < depth ? d+i : depth-1;
+	      if (!copyMaskSlice(sourceSlice, val[spread+i]))
+		{
+		  reloadSlices();
+		  showPaintIoError("Read mask slice", m_volume->lastError(),
+		                   &progress);
+		  return;
+		}
 	      
 	      if (smoothType == 0 || smoothType == 3)
 		{
@@ -2526,7 +2781,12 @@ DrishtiPaint::applyMaskOperation(int tag,
 	} // slc == 0
       else if (d < depth-spread)
 	{
-	  memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(d+spread), 2*nbytes);
+	  if (!copyMaskSlice(d+spread, val[2*spread]))
+	    {
+	      reloadSlices();
+	      showPaintIoError("Read mask slice", m_volume->lastError(), &progress);
+	      return;
+	    }
 	  
 	  if (smoothType == 0 || smoothType == 3)
 	    {
@@ -2559,7 +2819,12 @@ DrishtiPaint::applyMaskOperation(int tag,
 	} // d < depth-spread 
       else
 	{
-	  memcpy(val[2*spread], m_volume->getMaskDepthSliceImage(depth-1), 2*nbytes);
+	  if (!copyMaskSlice(depth-1, val[2*spread]))
+	    {
+	      reloadSlices();
+	      showPaintIoError("Read mask slice", m_volume->lastError(), &progress);
+	      return;
+	    }
 	  
 
 	  if (smoothType == 0 || smoothType == 3)
@@ -2598,7 +2863,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 		 val, raw,
 		 width, height,
 		 64);
-	  memcpy(val[0], raw, nbytes);
+	  memcpy(val[0], raw, sliceBytes);
 	  smooth(tag, spread,
 		 val, raw,
 		 width, height,
@@ -2610,7 +2875,7 @@ DrishtiPaint::applyMaskOperation(int tag,
 		 val, raw,
 		 width, height,
 		 192);
-	  memcpy(val[0], raw, nbytes);
+	  memcpy(val[0], raw, sliceBytes);
 	  smooth(tag, spread,
 		 val, raw,
 		 width, height,
@@ -2636,18 +2901,14 @@ DrishtiPaint::applyMaskOperation(int tag,
 	      tagData[w*height+h] = raw[w*height+h];
 	  }
       
-      m_volume->setMaskDepthSlice(d, (uchar*)tagData);
+      if (!m_volume->setMaskDepthSlice(d, reinterpret_cast<uchar*>(tagData)))
+	{
+	  reloadSlices();
+	  showPaintIoError("Write mask slice", m_volume->lastError(), &progress);
+	  return;
+	}
     }
-  
-  delete [] raw;
-  delete [] tagData;
-  if (spread > 0)
-    {
-      for (int i=0; i<2*spread+1; i++)
-	delete [] val[i];
-      delete [] val;
-    }
-  
+
   progress.setValue(100);  
 
   reloadSlices();
@@ -3048,131 +3309,74 @@ DrishtiPaint::sliceZeroAtTop()
 void
 DrishtiPaint::on_actionLoadMask_triggered()
 {
-  QString flnm;
-  flnm = QFileDialog::getOpenFileName(0,
-				      "Load Mask File",
-				      Global::previousDirectory(),
-				      "MASK Files (*.mask.sc | *.mask)",
-				      0);
-				      //QFileDialog::DontUseNativeDialog);
-
-  
+  const QString flnm = QFileDialog::getOpenFileName(
+    0, "Load Mask File", Global::previousDirectory(),
+    "MASK Files (*.mask.sc *.mask)", 0);
   if (flnm.isEmpty())
     return;
 
-  uchar vt;
-  int lrd, lrw, lrh;
-
-  int m_depth, m_width, m_height;
-  m_volume->gridSize(m_depth, m_width, m_height);
-
-  QFile mfile;
-  if (StaticFunctions::checkExtension(flnm, ".mask"))
+  ImportedPaintMask imported;
+  QString error;
+  if (!loadImportedPaintMask(flnm, imported, error))
     {
-      mfile.setFileName(flnm);
-      mfile.open(QFile::ReadOnly);
-      mfile.read((char*)&vt, 1);
-      mfile.read((char*)&lrd, 4);
-      mfile.read((char*)&lrw, 4);
-      mfile.read((char*)&lrh, 4);
+      QMessageBox::critical(0, "Load Mask",
+                            QString("Mask file was not loaded:\n%1").arg(error));
+      return;
     }
-  else if (StaticFunctions::checkExtension(flnm, ".mask.sc"))
-    {
-      char chkver[10];
-      mfile.setFileName(flnm);
-      mfile.open(QFile::ReadOnly);
-      mfile.read((char*)chkver, 6);
-      mfile.read((char*)&vt, 1);
-      mfile.read((char*)&lrd, 4);
-      mfile.read((char*)&lrw, 4);
-      mfile.read((char*)&lrh, 4);
-    }
-  
-  float scld = (float)m_depth/lrd;
-  float sclw = (float)m_width/lrw;
-  float sclh = (float)m_height/lrh;
-  
+
+  int targetDepth = 0;
+  int targetWidth = 0;
+  int targetHeight = 0;
+  m_volume->gridSize(targetDepth, targetWidth, targetHeight);
+  const float scaleDepth =
+    static_cast<float>(targetDepth)/imported.depth;
+  const float scaleWidth =
+    static_cast<float>(targetWidth)/imported.width;
+  const float scaleHeight =
+    static_cast<float>(targetHeight)/imported.height;
+
   QString mesg;
   mesg += QString("Volume Size : %1 %2 %3\n").			\
-	              arg(m_height).arg(m_width).arg(m_depth);
+	              arg(targetHeight).arg(targetWidth).arg(targetDepth);
   mesg += QString("Input Mask Size : %1 %2 %3\n").	\
-	              arg(lrh).arg(lrw).arg(lrd);
+	              arg(imported.height).arg(imported.width).arg(imported.depth);
   mesg += QString("Scaling applied : %1 %2 %3").	\
-	              arg(sclh).arg(sclw).arg(scld);
+	              arg(scaleHeight).arg(scaleWidth).arg(scaleDepth);
   QMessageBox::information(0, "", mesg);
 
-  uchar *lmask;
-  lmask = new uchar[(qint64)lrd*(qint64)lrw*(qint64)lrh];
-
-  if (StaticFunctions::checkExtension(flnm, ".mask"))
+  std::uint64_t targetVoxels = 0;
+  std::uint64_t targetBytes = 0;
+  if (!paintVolumeCheckedMultiply(
+        static_cast<std::uint64_t>(targetDepth),
+        static_cast<std::uint64_t>(targetWidth), targetVoxels) ||
+      !paintVolumeCheckedMultiply(
+        targetVoxels, static_cast<std::uint64_t>(targetHeight),
+        targetVoxels) ||
+      !paintVolumeCheckedMultiply(
+        targetVoxels, static_cast<std::uint64_t>(Global::bytesPerMask()),
+        targetBytes))
     {
-      mfile.read((char*)lmask, (qint64)lrd*(qint64)lrw*(qint64)lrh);
+      QMessageBox::critical(0, "Load Mask",
+                            "The destination mask size is invalid.");
+      return;
     }
-  else if (StaticFunctions::checkExtension(flnm, ".mask.sc"))
-    {
-      int mb100, nblocks;
-      mfile.read((char*)&nblocks, 4);
-      mfile.read((char*)&mb100, 4);
-      uchar *vBuf = new uchar[mb100];
-      for(qint64 i=0; i<nblocks; i++)
-	{
-	  int vbsize;
-	  mfile.read((char*)&vbsize, 4);
-	  mfile.read((char*)vBuf, vbsize);
-	  int bufsize = blosc_decompress(vBuf, lmask+i*mb100, mb100);
-	  if (bufsize < 0)
-	    {
-	      QMessageBox::information(0, "", "Error in decompression : .mask.sc file not read");
-	      mfile.close();
-	      return;
-	    }
-	}
-    }
-  
-  mfile.close();
 
-  
-  uchar *maskptr = m_volume->memMaskDataPtr();
-
-  bool s0top = sliceZeroAtTop();
-
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
+  const bool slice0AtTop = sliceZeroAtTop();
+  QProgressDialog progress("Updating voxel structure", QString(),
+                           0, targetDepth, 0,
+                           Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
-  int d;
-  for(qint64 slc=0; slc<lrd; slc++)
-    {      
-      if (s0top)
-	d = slc;
-      else
-	d = lrd-1-slc;
-      progress.setValue((95.0*d)/lrd);
-      for(qint64 w=0; w<lrw; w++)
-      for(qint64 h=0; h<lrh; h++)
-	{
-	  if (lmask[slc*lrw*lrh + w*lrh + h] > 0)
-	    {
-	      int ds = qMax(0, (int)(d*scld-scld/2));
-	      int ws = qMax(0, (int)(w*sclw-sclw/2));
-	      int hs = qMax(0, (int)(h*sclh-sclh/2));
-	      int de = qMin(m_depth-1, (int)((d+1)*scld-scld/2));
-	      int we = qMin(m_width-1, (int)((w+1)*sclw-sclw/2));
-	      int he = qMin(m_height-1,(int)((h+1)*sclh-sclh/2));
-
-	      uchar mv = lmask[slc*lrw*lrh + w*lrh + h];
-	      for(qint64 d0=ds; d0<de; d0++)
-		for(qint64 w0=ws; w0<we; w0++)
-		  for(qint64 h0=hs; h0<he; h0++)
-		    maskptr[d0*m_width*m_height + w0*m_height + h0] = mv;
-	    }
-	}
+  if (!overlayImportedPaintMask(
+        imported, slice0AtTop,
+        targetDepth, targetWidth, targetHeight,
+        Global::bytesPerMask(), m_volume->memMaskDataPtr(), targetBytes,
+        error, updateImportedMaskProgress, &progress))
+    {
+      QMessageBox::critical(0, "Load Mask",
+                            QString("Mask labels were not applied:\n%1")
+                              .arg(error));
+      return;
     }
-
-  delete [] lmask;
-  progress.setValue(100);
 
   QMessageBox::information(0, "", "Transfer Done.\n  Check 2D slice view.\n  Update 3D viewer.\n  If everything looks alright Save Work using File menu to save this change to mask file.");
 }
@@ -3319,11 +3523,28 @@ DrishtiPaint::on_actionExtractTag_triggered()
   QMessageBox::information(0, "", tflnm);
   if (!StaticFunctions::checkExtension(tflnm, ".pvl.nc"))
     tflnm += ".pvl.nc";
-  
-  savePvlHeader(m_volume->fileName(),
-		tflnm,
-		tdepth, twidth, theight,
-		Global::bytesPerVoxel());
+
+  if (volumeOutputExists(tflnm))
+    {
+      showPaintIoError("Create extracted volume",
+                       "The selected output already exists; choose a new filename");
+      return;
+    }
+
+  if (tdepth <= 0 || twidth <= 0 || theight <= 0 ||
+      tdepth >= std::numeric_limits<int>::max() ||
+      twidth > std::numeric_limits<int>::max() ||
+      theight > std::numeric_limits<int>::max())
+    {
+      showPaintIoError("Create extracted volume", "Invalid output dimensions");
+      return;
+    }
+  const int maskBytes = Global::bytesPerMask();
+  if (maskBytes != 1 && maskBytes != 2)
+    {
+      showPaintIoError("Create extracted volume", "Unsupported mask element size");
+      return;
+    }
 
   QStringList tflnms;
   tflnms << tflnm+".001";
@@ -3333,12 +3554,17 @@ DrishtiPaint::on_actionExtractTag_triggered()
     tFile.setVoxelType(VolumeFileManager::_UChar);
   else
     tFile.setVoxelType(VolumeFileManager::_UShort);
-  tFile.setDepth(tdepth);
-  tFile.setWidth(twidth);
-  tFile.setHeight(theight);
+  tFile.setDepth(static_cast<int>(tdepth));
+  tFile.setWidth(static_cast<int>(twidth));
+  tFile.setHeight(static_cast<int>(theight));
   tFile.setHeaderSize(13);
-  tFile.setSlabSize(tdepth+1);
-  tFile.createFile(true, false);
+  tFile.setSlabSize(static_cast<int>(tdepth)+1);
+  if (!tFile.createFile(true, false))
+    {
+      removePartialVolume(tflnm);
+      showPaintIoError("Create extracted volume", tFile.lastError());
+      return;
+    }
 
   QProgressDialog progress("Extracting labeled region from volume data",
 			   QString(),
@@ -3348,9 +3574,26 @@ DrishtiPaint::on_actionExtractTag_triggered()
   progress.setMinimumDuration(0);
 
   uchar *lut = Global::lut();
-  int nbytes = width*height*Global::bytesPerVoxel();
-  int nbytesRAW = width*height*2; // 16 bit mask
-  uchar *raw = new uchar[nbytesRAW];
+  size_t nbytesRAW = 0;
+  if (!checkedBufferBytes(twidth, theight, 1, nbytesRAW))
+    {
+      tFile.removeFile();
+      removePartialVolume(tflnm);
+      showPaintIoError("Extract labeled volume", "Mask slice byte count overflows",
+                       &progress);
+      return;
+    }
+  std::unique_ptr<uchar[]> raw(new (std::nothrow) uchar[nbytesRAW]);
+  if (!raw)
+    {
+      tFile.removeFile();
+      removePartialVolume(tflnm);
+      showPaintIoError("Extract labeled volume",
+                       QString("Cannot allocate %1-byte mask slice")
+                         .arg(static_cast<qulonglong>(nbytesRAW)),
+                       &progress);
+      return;
+    }
   
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
@@ -3365,6 +3608,14 @@ DrishtiPaint::on_actionExtractTag_triggered()
       qApp->processEvents();
 
       uchar *slice = m_volume->getDepthSliceImage(d);
+      if (!slice)
+	{
+	  const QString detail = m_volume->lastError();
+	  tFile.removeFile();
+	  removePartialVolume(tflnm);
+	  showPaintIoError("Read source volume", detail, &progress);
+	  return;
+	}
       ushort *sliceUS = 0;
       if (Global::bytesPerVoxel() == 2)
 	sliceUS = (ushort*)slice;
@@ -3373,63 +3624,48 @@ DrishtiPaint::on_actionExtractTag_triggered()
       // we need only value part
       if (Global::bytesPerVoxel() == 1)
 	{
-	  int i=0;
+	  qint64 i=0;
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
-		slice[i] = slice[w*height+h];
+		slice[i] = slice[static_cast<qint64>(w)*height+h];
 		i++;
 	      }
 	}
       else
 	{
-	  int i=0;
+	  qint64 i=0;
 	  for(int w=minWSlice; w<=maxWSlice; w++)
 	    for(int h=minHSlice; h<=maxHSlice; h++)
 	      {
-		sliceUS[i] = sliceUS[w*height+h];
+		sliceUS[i] = sliceUS[static_cast<qint64>(w)*height+h];
 		i++;
 	      }
 	}
       	  
-      memcpy(raw, m_volume->getMaskDepthSliceImage(d), nbytesRAW);
-
-      //-----------------------------
-      {
-	// convert 16bit labels into 8bit mask
-	if (tag[0] == -1)
+      uchar *maskSlice = m_volume->getMaskDepthSliceImage(d);
+      if (!maskSlice)
+	{
+	  const QString detail = m_volume->lastError();
+	  tFile.removeFile();
+	  removePartialVolume(tflnm);
+	  showPaintIoError("Read source mask", detail, &progress);
+	  return;
+	}
+      const ushort *maskSliceUS =
+        reinterpret_cast<const ushort*>(maskSlice);
+      qint64 maskOutputIndex = 0;
+      for(int w=minWSlice; w<=maxWSlice; ++w)
+	for(int h=minHSlice; h<=maxHSlice; ++h, ++maskOutputIndex)
 	  {
-	    for(int w=minWSlice; w<=maxWSlice; w++)
-	      for(int h=minHSlice; h<=maxHSlice; h++)
-		raw[w*height+h] = (((ushort*)raw)[w*height+h] > 0 ? 255 : 0);
+	    const qint64 sourceIndex = static_cast<qint64>(w)*height+h;
+	    const int label = maskBytes == 1 ?
+	      maskSlice[sourceIndex] : maskSliceUS[sourceIndex];
+	    const bool selected = tag[0] == -1 ? label > 0 :
+	                          tag[0] == 0 ? label == 0 :
+	                          tag.contains(label);
+	    raw[maskOutputIndex] = selected ? 255 : 0;
 	  }
-	else if (tag[0] == 0)
-	  {
-	    for(int w=minWSlice; w<=maxWSlice; w++)
-	      for(int h=minHSlice; h<=maxHSlice; h++)
-		raw[w*height+h] = (((ushort*)raw)[w*height+h] == 0 ? 255 : 0);
-	  }
-	else
-	  {
-	    for(int w=minWSlice; w<=maxWSlice; w++)
-	      for(int h=minHSlice; h<=maxHSlice; h++)
-		raw[w*height+h] = (tag.contains(((ushort*)raw)[w*height+h]) ? 255 : 0);
-	  }
-      }
-      //-----------------------------
-
-
-      //-----------------------------
-      {
-	int i=0;
-	for(int w=minWSlice; w<=maxWSlice; w++)
-	  for(int h=minHSlice; h<=maxHSlice; h++)
-	    {
-	      raw[i] = raw[w*height+h];
-	      i++;
-	    }
-      }
-      //-----------------------------
       
 
       //-----------------------------
@@ -3443,7 +3679,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	  
 	  if (Global::bytesPerVoxel() == 1)
 	    {
-	      int i=0;
+	      qint64 i=0;
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  {
@@ -3455,7 +3691,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	    }
 	  else
 	    {
-	      int i=0;
+	      qint64 i=0;
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 		for(int h=minHSlice; h<=maxHSlice; h++)
 		  {
@@ -3472,7 +3708,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
       
       // now mask data with labels
-      int i=0;
+      qint64 i=0;
       for(int w=minWSlice; w<=maxWSlice; w++)
 	for(int h=minHSlice; h<=maxHSlice; h++)
 	  {
@@ -3496,12 +3732,30 @@ DrishtiPaint::on_actionExtractTag_triggered()
 	      }
 	    i++;
 	  }	  
-      tFile.setSlice(slc, slice);
+      if (!tFile.setSlice(slc, slice))
+	{
+	  const QString detail = tFile.lastError();
+	  tFile.removeFile();
+	  removePartialVolume(tflnm);
+	  showPaintIoError("Write extracted volume", detail, &progress);
+	  return;
+	}
     }
 
-  delete [] raw;
+  if (!savePvlHeader(m_volume->fileName(),
+		     tflnm,
+		     static_cast<int>(tdepth),
+		     static_cast<int>(twidth),
+		     static_cast<int>(theight),
+		     Global::bytesPerVoxel()))
+    {
+      tFile.removeFile();
+      removePartialVolume(tflnm);
+      showPaintIoError("Write extracted volume header",
+                       "Cannot create the .pvl.nc header", &progress);
+      return;
+    }
 
-  
   progress.setValue(100);  
   QMessageBox::information(0, "Save", "-----Done-----");
 }
@@ -3943,6 +4197,55 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	    applyVoxelScaling,
 	    tetMesh);
 
+  PaintAlgorithmMemoryAdmission meshAdmission;
+  if (!admitTaggedMeshMemory(tdepth, twidth, theight,
+                             width, height, meshAdmission))
+    {
+      reportTaggedMeshMemoryFailure(meshAdmission);
+      return;
+    }
+
+  std::uint64_t roiVoxels = 0;
+  std::uint64_t fullPlaneVoxels = 0;
+  std::uint64_t curveMaskBytes = 0;
+  std::uint64_t maskPlaneBytes = 0;
+  if (!paintVolumeCheckedMultiply(
+        static_cast<std::uint64_t>(tdepth),
+        static_cast<std::uint64_t>(twidth), roiVoxels) ||
+      !paintVolumeCheckedMultiply(
+        roiVoxels, static_cast<std::uint64_t>(theight), roiVoxels) ||
+      !paintVolumeCheckedMultiply(roiVoxels, sizeof(ushort),
+                                  curveMaskBytes) ||
+      !paintVolumeCheckedMultiply(
+        static_cast<std::uint64_t>(width),
+        static_cast<std::uint64_t>(height), fullPlaneVoxels) ||
+      !paintVolumeCheckedMultiply(fullPlaneVoxels, sizeof(ushort),
+                                  maskPlaneBytes) ||
+      roiVoxels > static_cast<std::uint64_t>(
+                    std::numeric_limits<std::size_t>::max()) ||
+      fullPlaneVoxels > static_cast<std::uint64_t>(
+                          std::numeric_limits<std::size_t>::max()))
+    {
+      QMessageBox::warning(0, "Save Mesh",
+                           "Tagged-mesh buffer dimensions are invalid.");
+      return;
+    }
+
+  std::unique_ptr<ushort[]> curveMask(new (std::nothrow) ushort[
+    static_cast<std::size_t>(roiVoxels)]);
+  std::unique_ptr<uchar[]> raw(new (std::nothrow) uchar[
+    static_cast<std::size_t>(fullPlaneVoxels)]);
+  std::unique_ptr<ushort[]> mask(new (std::nothrow) ushort[
+    static_cast<std::size_t>(fullPlaneVoxels)]);
+  if (!curveMask || !raw || !mask)
+    {
+      QMessageBox::critical(
+        0, "Save Mesh",
+        "Tagged-mesh buffers could not be allocated after memory admission. "
+        "The system memory state changed; reduce the 3D box and try again.");
+      return;
+    }
+
   
   QProgressDialog progress("Meshing tagged region from volume data",
 			   "",
@@ -3951,20 +4254,11 @@ DrishtiPaint::on_actionMeshTag_triggered()
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  //----------------------------------
-  ushort *curveMask;
-  curveMask = new ushort[tdepth*twidth*theight];
-  memset(curveMask, 0, 2*tdepth*twidth*theight);
-  
   uchar *lut = Global::lut();
 
   QList<Vec> cPos =  m_viewer->clipPos();
   QList<Vec> cNorm = m_viewer->clipNorm();
   
-
-  int nbytes = width*height*2;
-  uchar *raw = new uchar[nbytes];
-  ushort *mask = new ushort[nbytes];
 
   int startLabel = 0;
   int endLabel = 1;
@@ -3974,7 +4268,11 @@ DrishtiPaint::on_actionMeshTag_triggered()
   QString extension = tflnm.right(4);
   for(int lbl=startLabel; lbl<endLabel; lbl++)
     {
-      VdbVolume vdb;
+      try
+	{
+          std::memset(curveMask.get(), 0,
+                      static_cast<std::size_t>(curveMaskBytes));
+          VdbVolume vdb;
       if (saveIndividual)
 	{
 	  tag.clear();
@@ -4010,9 +4308,10 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	  
 	  if (tag[0] == -2)
 	    {
-	      memset(raw, 0, width*height);
+	      memset(raw.get(), 0, static_cast<std::size_t>(fullPlaneVoxels));
 	      
-	      memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
+	      memcpy(mask.get(), m_volume->getMaskDepthSliceImage(d),
+	             static_cast<std::size_t>(maskPlaneBytes));
 	      int i=0;
 	      for(int w=minWSlice; w<=maxWSlice; w++)
 		for(int h=minHSlice; h<=maxHSlice; h++)
@@ -4020,11 +4319,13 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		    mask[i] = mask[w*height+h];
 		    i++;
 		  }
-	      memcpy(curveMask+slc*twidth*theight, mask, 2*twidth*theight);
+	      memcpy(curveMask.get()+slc*twidth*theight, mask.get(),
+	             static_cast<std::size_t>(2*twidth*theight));
 	    }
 	  else
 	    {
-	      memcpy(mask, m_volume->getMaskDepthSliceImage(d), nbytes);
+	      memcpy(mask.get(), m_volume->getMaskDepthSliceImage(d),
+	             static_cast<std::size_t>(maskPlaneBytes));
 	      
 	      if (tag[0] == -1)
 		{
@@ -4126,7 +4427,10 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		    
 		    if (!clipped)
 		      {
-			if (lut[4*slice[i]+3]*Global::tagColors()[4*mask[i]+3] == 0)
+			const int value = Global::bytesPerVoxel() == 1 ?
+			  slice[i] : reinterpret_cast<ushort*>(slice)[i];
+			if (lut[4*value+3]*
+			    Global::tagColors()[4*mask[i]+3] == 0)
 			  raw[i] = 255;
 		      }
 		    else
@@ -4141,18 +4445,12 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	  for(int i=0; i<twidth*theight; i++)
 	    raw[i] = ~raw[i];
 	  
-	  vdb.addSliceToVDB(raw,
+	  vdb.addSliceToVDB(raw.get(),
 			    slc, twidth, theight,
 			    -1, 1);  // values less than 1 are background
 	  
 	}
 
-      if (!saveIndividual)
-	{
-	  delete [] raw;
-	  delete [] mask;
-	}
-      
       progress.setValue(90);  
       
       
@@ -4250,7 +4548,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 	  C.fill(QVector3D(userColor.x, userColor.y, userColor.z));
 	  if (colorType != 0 && colorType != 4)
 	    colorMesh(C, V, N,
-		      colorType, curveMask,
+		      colorType, curveMask.get(),
 		      minHSlice, minWSlice, minDSlice,
 		      theight, twidth, tdepth, meshSmooth,
 		      resample);
@@ -4285,20 +4583,52 @@ DrishtiPaint::on_actionMeshTag_triggered()
 
       
       // save mesh
+      bool meshSaved = false;
       if (tetMesh)
 	{
-	  MeshTools::saveToTetrahedralMesh(tflnm, V, T);
+	  meshSaved = MeshTools::saveToTetrahedralMesh(tflnm, V, T);
 	}
       else
 	{
 	  if (tflnm.right(3).toLower() == "obj")
-	    MeshTools::saveToOBJ(tflnm, V, N, C, T);
+	    meshSaved = MeshTools::saveToOBJ(tflnm, V, N, C, T);
 	  else if (tflnm.right(3).toLower() == "ply")
-	    MeshTools::saveToPLY(tflnm, V, N, C, T);
+	    meshSaved = MeshTools::saveToPLY(tflnm, V, N, C, T);
 	  else if (tflnm.right(3).toLower() == "stl")
-	    MeshTools::saveToSTL(tflnm, V, N, T);
+	    meshSaved = MeshTools::saveToSTL(tflnm, V, N, T);
+	}
+
+	  if (!meshSaved)
+	{
+	  QMessageBox::critical(0, "Save Mesh",
+	    QString("Mesh output could not be written completely: %1")
+	      .arg(tflnm));
+	  return;
 	}
       
+	}
+      catch (const std::bad_alloc&)
+	{
+	  QMessageBox::critical(
+	    0, "Save Mesh",
+	    "Tagged-mesh extraction ran out of memory after admission. "
+	    "No further labels were processed; reduce the 3D box and try again.");
+	  return;
+	}
+      catch (const std::exception& exception)
+	{
+	  QMessageBox::critical(
+	    0, "Save Mesh",
+	    QString("Tagged-mesh extraction failed: %1")
+	      .arg(QString::fromLocal8Bit(exception.what())));
+	  return;
+	}
+      catch (...)
+	{
+	  QMessageBox::critical(0, "Save Mesh",
+	                        "Tagged-mesh extraction failed unexpectedly.");
+	  return;
+	}
     } // End Label
   
   //QMessageBox::information(0, "Save", "-----Done-----");
@@ -4309,14 +4639,6 @@ DrishtiPaint::on_actionMeshTag_triggered()
   mb.exec();
   
 
-  if (saveIndividual)
-    {
-      delete [] raw;
-      delete [] mask;
-    }
-  delete [] curveMask;
-
-  
   if (m_meshViewer.state() == QProcess::Running)
     {
       QByteArray Data;
@@ -4366,7 +4688,7 @@ DrishtiPaint::colorMesh(QVector<QVector3D>& C,
       int tag = tagdata[d*twidth*theight + w*theight + h];
 
       if (tag == 0 &&
-	  (colorType != 2 || colorType != 5)) // tag not needed apply transfer function
+	  colorType != 2 && colorType != 5) // tag not needed for transfer function
 	{	  
 	  for(int sp=1; sp<=bsz+1; sp++)
 	    {
@@ -4384,7 +4706,9 @@ DrishtiPaint::colorMesh(QVector<QVector3D>& C,
 	}
       
       // get color
-      uchar r,g,b;
+      uchar r = 255;
+      uchar g = 255;
+      uchar b = 255;
       if (colorType == 1) // apply tag colors
 	{
 	  r = Global::tagColors()[4*tag+0];
@@ -4408,6 +4732,9 @@ DrishtiPaint::colorMesh(QVector<QVector3D>& C,
 	      val = m_volume->rawValue(lod*dd+minDSlice,
 				       lod*ww+minWSlice,
 				       lod*hh+minHSlice);
+	      if (val.isEmpty())
+		continue;
+	      val[0] = qBound(0, val[0], 65535);
 	      int pr = lut[4*val[0]+2];
 	      int pg = lut[4*val[0]+1];
 	      int pb = lut[4*val[0]+0];
@@ -4451,6 +4778,15 @@ DrishtiPaint::paint3DStart()
 {
   m_prevSeed = Vec(-1,-1,-1);
   m_blockList.clear();
+  m_paintUndoReady = false;
+  if (!m_volume || !m_volume->isValid())
+    return;
+  if (!m_volume->createUndo())
+    {
+      showPaintIoError("Prepare 3D paint undo", m_volume->lastError());
+      return;
+    }
+  m_paintUndoReady = true;
 }
 
 void
@@ -4458,6 +4794,9 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 		      int d, int w, int h,
 		      int button, int otag, bool onlyConnected)
 {
+  if (!m_paintUndoReady)
+    return;
+
   // block the signals coming from viewer till we complete this process
   QSignalBlocker blockSignals(m_viewer);
   
@@ -4753,10 +5092,18 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 void
 DrishtiPaint::paint3DEnd()
 {
+  const bool undoReady = m_paintUndoReady;
+  m_paintUndoReady = false;
+  if (!undoReady)
+    return;
   if (m_blockList.count() == 0)
     return;
 
-  m_volume->saveMaskBlock(m_blockList);
+  if (!m_volume->saveMaskBlock(m_blockList))
+    {
+      showPaintIoError("Save 3D paint", m_volume->lastError());
+      return;
+    }
   m_blockList.clear();
 }
 
@@ -5018,7 +5365,11 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
 
   progress.setLabelText("Save modified region to mask file");
   qApp->processEvents();
-  m_volume->saveMaskBlock(m_blockList);
+  if (!m_volume->saveMaskBlock(m_blockList))
+    {
+      showPaintIoError("Save graph-cut mask", m_volume->lastError(), &progress);
+      return false;
+    }
 
   progress.setValue(100);
  
@@ -5068,7 +5419,11 @@ DrishtiPaint::updateModifiedRegion(int minD, int maxD,
 
   progress.setLabelText("Save modified region to mask file");
   qApp->processEvents();
-  m_volume->saveMaskBlock(m_blockList);
+  if (!m_volume->saveMaskBlock(m_blockList))
+    {
+      showPaintIoError("Save connected mask", m_volume->lastError(), &progress);
+      return;
+    }
 
   progress.setValue(100);
 }
@@ -5191,7 +5546,11 @@ DrishtiPaint::tagTubes(Vec bmin, Vec bmax, int tag,
 void
 DrishtiPaint::loadRawMask(QString flnm)
 {
-  m_volume->loadRawMask(flnm);
+  if (!m_volume->loadRawMask(flnm))
+    {
+      showPaintIoError("Load raw mask", m_volume->lastError());
+      return;
+    }
 
   m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
 
@@ -5209,7 +5568,11 @@ DrishtiPaint::reloadMask()
     
   m_volume->setMaskVoxelType(2);
 			     
-  m_volume->reloadMask();
+  if (!m_volume->reloadMask())
+    {
+      showPaintIoError("Reload mask", m_volume->lastError());
+      return;
+    }
 
   m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
   m_axialImage->setMaskPtr(m_volume->memMaskDataPtr());
@@ -5953,7 +6316,11 @@ DrishtiPaint::modifyOriginalVolume(Vec bmin, Vec bmax, int val)
   if (minD < 0)
     return;
   
-  m_volume->genHistogram(true);
+  if (!m_volume->genHistogram(true))
+    {
+      showPaintIoError("Regenerate histogram", m_volume->lastError());
+      return;
+    }
   m_volume->generateHistogramImage();
 
   m_tfEditor->setHistogramImage(m_volume->histogramImage1D(),
@@ -5961,8 +6328,12 @@ DrishtiPaint::modifyOriginalVolume(Vec bmin, Vec bmax, int val)
   
   m_viewer->generateBoxMinMax();
 
-  m_volume->saveModifiedOriginalVolume();
-  
+  if (!m_volume->saveModifiedOriginalVolume())
+    {
+      showPaintIoError("Save modified volume", m_volume->lastError());
+      return;
+    }
+
   QMessageBox::information(0, "", "Modified Volume Saved.");
 }
 
@@ -6009,24 +6380,33 @@ DrishtiPaint::bakeCurves_clicked()
 
   //----------------------------------
   
-  uchar *curveMask = 0;
-  try
+  size_t curvePlaneBytes = 0;
+  if (!checkedBufferBytes(tdepth, twidth, 1, curvePlaneBytes) ||
+      theight <= 0 ||
+      static_cast<quint64>(theight) >
+        static_cast<quint64>(std::numeric_limits<size_t>::max()/curvePlaneBytes))
     {
-      curveMask = new uchar[tdepth*twidth*theight];
+      showPaintIoError("Bake curves", "Curve-mask dimensions overflow",
+                       &progress);
+      return;
     }
-  catch (std::exception &e)
+  const size_t curveMaskBytes = curvePlaneBytes*static_cast<size_t>(theight);
+  std::unique_ptr<uchar[]> curveMask(
+    new (std::nothrow) uchar[curveMaskBytes]);
+  if (!curveMask)
     {
-      QMessageBox::information(0, "", "Not enough memory : Cannot create curve mask.\nOffloading volume data and mask.");
-      m_volume->offloadMemFile();
-      
-      curveMask = new uchar[tdepth*twidth*theight];
-    };
+      showPaintIoError("Bake curves",
+                       QString("Cannot allocate %1-byte curve mask")
+                         .arg(static_cast<qulonglong>(curveMaskBytes)),
+                       &progress);
+      return;
+    }
   
-  memset(curveMask, 0, tdepth*twidth*theight);
+  memset(curveMask.get(), 0, curveMaskBytes);
 
   //----------------------------------
   // bake for all the curves
-  updateCurveMask(curveMask,
+  updateCurveMask(curveMask.get(),
 		  depth, width, height,
 		  tdepth, twidth, theight,
 		  minDSlice, minWSlice, minHSlice,
@@ -6037,14 +6417,12 @@ DrishtiPaint::bakeCurves_clicked()
   float maxGrad = m_viewer->maxGrad();
   int gradType = m_viewer->gradType();
 
-  VolumeOperations::bakeCurves(curveMask,
+  VolumeOperations::bakeCurves(curveMask.get(),
 			       minDSlice, maxDSlice,
 			       minWSlice, maxWSlice,
 			       minHSlice, maxHSlice,
 			       tag,
 			       gradType, minGrad, maxGrad);
-
-  delete [] curveMask;
 
   m_viewer->uploadMask(minDSlice,minWSlice,minHSlice,
 		       maxDSlice,maxWSlice,maxHSlice);
@@ -6059,7 +6437,11 @@ DrishtiPaint::bakeCurves_clicked()
 
   progress.setLabelText("Save modified region to mask file");
   qApp->processEvents();
-  m_volume->saveMaskBlock(m_blockList);
+  if (!m_volume->saveMaskBlock(m_blockList))
+    {
+      showPaintIoError("Save curve mask", m_volume->lastError(), &progress);
+      return;
+    }
 
   m_axialCurves->sliceChanged();
   m_sagitalCurves->sliceChanged();
@@ -6079,49 +6461,18 @@ DrishtiPaint::on_changeSliceOrdering_triggered()
     }
 
   uchar *vol = m_volume->memVolDataPtr();
-  ushort *volUS = 0;
-  if (Global::bytesPerVoxel() == 2)
-    volUS = (ushort*)vol;
   uchar *mask = m_volume->memMaskDataPtr();
 
   int depth, width, height;
   m_volume->gridSize(depth, width, height);
 
-  {
-    int nbytes = width*height*Global::bytesPerVoxel();
-    uchar *tmp = new uchar[nbytes];
-    if (!volUS)
-      {
-	for(int d=0; d<depth/2; d++)
-	  {
-	    memcpy(tmp, vol+d*nbytes, nbytes);
-	    memcpy(vol+d*nbytes, vol+(depth-1-d)*nbytes, nbytes);
-	    memcpy(vol+(depth-1-d)*nbytes, tmp, nbytes);
-	  }
-      }
-    else
-      {
-	for(int d=0; d<depth/2; d++)
-	  {
-	    memcpy(tmp, volUS+d*nbytes, nbytes);
-	    memcpy(volUS+d*nbytes, volUS+(depth-1-d)*nbytes, nbytes);
-	    memcpy(volUS+(depth-1-d)*nbytes, tmp, nbytes);
-	  }
-      }
-    delete [] tmp;
-  }
-  {
-    int nbytes = 2*width*height;    // mask is 16bit per voxel
-    uchar *tmp = new uchar[nbytes];
-    for(int d=0; d<depth/2; d++)
-      {
-	memcpy(tmp, mask+d*nbytes, nbytes);
-	memcpy(mask+d*nbytes, mask+(depth-1-d)*nbytes, nbytes);
-	memcpy(mask+(depth-1-d)*nbytes, tmp, nbytes);
-      }
-
-    delete [] tmp;
-  }
+  QString reverseError;
+  if (!reversePaintSliceOrder(vol, Global::bytesPerVoxel(), mask,
+                              depth, width, height, reverseError))
+    {
+      showPaintIoError("Change slice ordering", reverseError);
+      return;
+    }
 
   m_viewer->generateBoxMinMax();
   m_viewer->updateVoxels();
@@ -6134,8 +6485,9 @@ DrishtiPaint::on_changeSliceOrdering_triggered()
   m_sagitalCurves->sliceChanged();
   m_coronalCurves->sliceChanged();
 
-  m_volume->saveModifiedOriginalVolume();
-  m_volume->saveIntermediateResults(true);
+  if (!m_volume->saveModifiedOriginalVolume() ||
+      !m_volume->saveIntermediateResults(true))
+    showPaintIoError("Save flipped volume", m_volume->lastError());
 }
 
 void
@@ -6196,8 +6548,16 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
   int voxelType = StaticFunctions::getPvlVoxelTypeFromHeader(flnm);
   int headerSize = StaticFunctions::getPvlHeadersizeFromHeader(flnm);
   QStringList pvlnames = StaticFunctions::getPvlNamesFromHeader(flnm);
-  if (pvlnames.count() > 0)
-    aVolume.setFilenameList(pvlnames);
+  if (aDepth <= 0 || aWidth <= 0 || aHeight <= 0 || slabSize <= 0 ||
+      headerSize < 0 || pvlnames.isEmpty() ||
+      (voxelType != VolumeFileManager::_UChar &&
+       voxelType != VolumeFileManager::_UShort))
+    {
+      showPaintIoError("Open extraction source",
+                       "Only valid unsigned 8-bit and 16-bit PVL volumes are supported");
+      return;
+    }
+  aVolume.setFilenameList(pvlnames);
   aVolume.setBaseFilename(flnm);
   aVolume.setVoxelType(voxelType);
   aVolume.setDepth(aDepth);
@@ -6206,13 +6566,12 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
   aVolume.setHeaderSize(headerSize);
   aVolume.setSlabSize(slabSize);
 
-  int bpv = 1;
-  if (voxelType <2)
-    bpv = 1;
-  else if (voxelType < 4)
-    bpv = 2;
-  else
-    bpv = 4;
+  const int bpv = (voxelType == VolumeFileManager::_UShort ? 2 : 1);
+  if (!aVolume.exists())
+    {
+      showPaintIoError("Open extraction source", aVolume.lastError());
+      return;
+    }
 
 
   //----------------
@@ -6258,6 +6617,20 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
   // original volume
   int depth, width, height;
   m_volume->gridSize(depth, width, height);
+  uchar *maskData = m_volume->memMaskDataPtr();
+  const int maskBytes = Global::bytesPerMask();
+  if (depth <= 0 || width <= 0 || height <= 0 || !maskData ||
+      (maskBytes != 1 && maskBytes != 2))
+    {
+      showPaintIoError("Extract from another volume",
+                       "The current mask volume is unavailable");
+      return;
+    }
+  const ushort *maskDataUS = reinterpret_cast<const ushort*>(maskData);
+  auto maskValueAt = [&](qint64 index) -> int
+    {
+      return maskBytes == 1 ? maskData[index] : maskDataUS[index];
+    };
   //----------------
 
   
@@ -6314,14 +6687,27 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
       qint64 atdepth = amaxD-aminD+1;
       qint64 atwidth = amaxW-aminW+1;
       qint64 atheight = amaxH-aminH+1;
+      if (atdepth <= 0 || atwidth <= 0 || atheight <= 0 ||
+          atdepth >= std::numeric_limits<int>::max() ||
+          atwidth > std::numeric_limits<int>::max() ||
+          atheight > std::numeric_limits<int>::max())
+	{
+	  showPaintIoError("Extract from another volume",
+	                   QString("Invalid output dimensions for tag %1").arg(tag),
+	                   &progress);
+	  return;
+	}
       
-      
-      savePvlHeader(m_volume->fileName(),
-		    tflnm,
-		    atdepth, atwidth, atheight,
-		    bpv);
       
       QStringList tflnms;
+      if (volumeOutputExists(tflnm))
+	{
+	  showPaintIoError("Create extracted tag volume",
+	                   QString("Output '%1' already exists; choose a new base filename")
+	                     .arg(tflnm),
+	                   &progress);
+	  return;
+	}
       tflnms << tflnm+".001";
       VolumeFileManager tFile;
       tFile.setFilenameList(tflnms);
@@ -6329,47 +6715,80 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
 	tFile.setVoxelType(VolumeFileManager::_UChar);
       else
 	tFile.setVoxelType(VolumeFileManager::_UShort);
-      tFile.setDepth(atdepth);
-      tFile.setWidth(atwidth);
-      tFile.setHeight(atheight);
-      tFile.setSlabSize(atdepth+1);
-      tFile.createFile(true, false);
-      
-      uchar *maskData = m_volume->memMaskDataPtr();
-      
-      int nbytes = aWidth*aHeight*bpv;
-      uchar *raw = new uchar[nbytes];
+      tFile.setDepth(static_cast<int>(atdepth));
+      tFile.setWidth(static_cast<int>(atwidth));
+      tFile.setHeight(static_cast<int>(atheight));
+      tFile.setHeaderSize(13);
+      tFile.setSlabSize(static_cast<int>(atdepth)+1);
+      if (!tFile.createFile(true, false))
+	{
+	  removePartialVolume(tflnm);
+	  showPaintIoError("Create extracted tag volume", tFile.lastError(),
+	                   &progress);
+	  return;
+	}
+
+      size_t nbytes = 0;
+      if (!checkedBufferBytes(atwidth, atheight, bpv, nbytes))
+	{
+	  tFile.removeFile();
+	  removePartialVolume(tflnm);
+	  showPaintIoError("Extract from another volume",
+	                   "Source slice byte count overflows", &progress);
+	  return;
+	}
+      std::unique_ptr<uchar[]> raw(new (std::nothrow) uchar[nbytes]);
+      if (!raw)
+	{
+	  tFile.removeFile();
+	  removePartialVolume(tflnm);
+	  showPaintIoError("Extract from another volume",
+	                   QString("Cannot allocate %1-byte source slice")
+	                     .arg(static_cast<qulonglong>(nbytes)),
+	                   &progress);
+	  return;
+	}
       
       for(int d=aminD; d<=amaxD; d++)
 	{
-	  int d2 = d/scld;
+	  int d2 = qBound(0, static_cast<int>(d/scld), depth-1);
 	  
 	  int slc = d-aminD;
 	  progress.setValue((int)(100*(float)slc/(float)atdepth));
 	  qApp->processEvents();
 	  
 	  uchar *slice = aVolume.getSlice(d);
+	  if (!slice)
+	    {
+	      const QString detail = aVolume.lastError();
+	      tFile.removeFile();
+	      removePartialVolume(tflnm);
+	      showPaintIoError("Read extraction source", detail, &progress);
+	      return;
+	    }
 	  ushort *sliceUS = 0;
 	  ushort *rawUS = 0;
 	  if (bpv == 2)
 	    {
 	      sliceUS = (ushort*)slice;
-	      rawUS = (ushort*)raw;
+	      rawUS = reinterpret_cast<ushort*>(raw.get());
 	    }
 	  
 	  // we get value+grad from volume
 	  // we need only value part
 	  if (bpv == 1)
 	    {
-	      int i=0;
+	      qint64 i=0;
 	      for(int w=aminW; w<=amaxW; w++)
 		{
-		  int w2 = w/sclw;
+		  int w2 = qBound(0, static_cast<int>(w/sclw), width-1);
 		  for(int h=aminH; h<=amaxH; h++)
 		    {
-		      int h2 = h/sclh;
-		      if (maskData[d2*width*height + w2*height + h2] == tag)
-			raw[i] = slice[w*aHeight+h];
+		      int h2 = qBound(0, static_cast<int>(h/sclh), height-1);
+		      const qint64 maskIndex =
+			(static_cast<qint64>(d2)*width+w2)*height+h2;
+		      if (maskValueAt(maskIndex) == tag)
+			raw[i] = slice[static_cast<qint64>(w)*aHeight+h];
 		      else
 			raw[i] = outsideVal;
 		      i++;
@@ -6378,15 +6797,17 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
 	    }
 	  else
 	    {
-	      int i=0;
+	      qint64 i=0;
 	      for(int w=aminW; w<=amaxW; w++)
 		{
-		  int w2 = w/sclw;
+		  int w2 = qBound(0, static_cast<int>(w/sclw), width-1);
 		  for(int h=aminH; h<=amaxH; h++)
 		    {
-		      int h2 = h/sclh;
-		      if (maskData[d2*width*height + w2*height + h2] == tag)
-			rawUS[i] = sliceUS[w*aHeight+h];
+		      int h2 = qBound(0, static_cast<int>(h/sclh), height-1);
+		      const qint64 maskIndex =
+			(static_cast<qint64>(d2)*width+w2)*height+h2;
+		      if (maskValueAt(maskIndex) == tag)
+			rawUS[i] = sliceUS[static_cast<qint64>(w)*aHeight+h];
 		      else
 			rawUS[i] = outsideVal;
 		      i++;
@@ -6394,10 +6815,29 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
 		}
 	    }
 	  
-	  tFile.setSlice(slc, raw);
+	  if (!tFile.setSlice(slc, raw.get()))
+	    {
+	      const QString detail = tFile.lastError();
+	      tFile.removeFile();
+	      removePartialVolume(tflnm);
+	      showPaintIoError("Write extracted tag volume", detail, &progress);
+	      return;
+	    }
 	} // loop on slices
 
-      delete [] raw;
+      if (!savePvlHeader(flnm,
+			 tflnm,
+			 static_cast<int>(atdepth),
+			 static_cast<int>(atwidth),
+			 static_cast<int>(atheight),
+			 bpv))
+	{
+	  tFile.removeFile();
+	  removePartialVolume(tflnm);
+	  showPaintIoError("Write extracted tag header",
+	                   "Cannot create the .pvl.nc header", &progress);
+	  return;
+	}
     } // loop on tags
 
   progress.setValue(100);  
@@ -6407,7 +6847,8 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
 void
 DrishtiPaint::on_actionExportMask_triggered()
 {
-  m_volume->exportMask();
+  if (!m_volume->exportMask() && !m_volume->lastError().isEmpty())
+    showPaintIoError("Export mask", m_volume->lastError());
 }
 
 void
@@ -6422,7 +6863,11 @@ DrishtiPaint::on_actionImportMask_triggered()
   if (flnm.isEmpty())
     return;
 
-  m_volume->loadRawMask(flnm);
+  if (!m_volume->loadRawMask(flnm))
+    {
+      showPaintIoError("Import raw mask", m_volume->lastError());
+      return;
+    }
 
   m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
 
@@ -6484,7 +6929,13 @@ DrishtiPaint::on_actionDeleteCheckpoint_triggered()
 void
 DrishtiPaint::undoPaint3D()
 {
-  m_volume->undo();
+  m_paintUndoReady = false;
+  m_blockList.clear();
+  if (!m_volume->undo())
+    {
+      showPaintIoError("Undo 3D paint", m_volume->lastError());
+      return;
+    }
 
   int m_depth, m_width, m_height;
   m_volume->gridSize(m_depth, m_width, m_height);

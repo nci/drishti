@@ -1,6 +1,10 @@
 #include "staticfunctions.h"
 #include "meshgenerator.h"
 
+#include <QFileInfo>
+
+#include <stdexcept>
+
 MeshGenerator::MeshGenerator()
 {
   vcolor=0;
@@ -463,20 +467,43 @@ MeshGenerator::start(VolumeFileManager *vfm,
     volumeFiles << m_vfm->fileName();
   
 
-  generateMesh(nSlabs,
-	       volumeFiles,
-	       outflnm,
-	       depth,
-	       stops,
-	       fillValue,
-	       checkForMore,
-	       lookInside,
-	       voxelScaling,
-	       clipPos, clipNormal,
-	       crops, paths,
-	       lut,
-	       chan,
-	       avgColor);
+  const bool outputExisted = QFileInfo::exists(outflnm);
+  bool succeeded = false;
+  try
+    {
+      generateMesh(nSlabs,
+		   volumeFiles,
+		   outflnm,
+		   depth,
+		   stops,
+		   fillValue,
+		   checkForMore,
+		   lookInside,
+		   voxelScaling,
+		   clipPos, clipNormal,
+		   crops, paths,
+		   lut,
+		   chan,
+		   avgColor);
+      succeeded = true;
+    }
+  catch (const std::exception& error)
+    {
+      QMessageBox::critical(0, "Mesh repaint failed",
+                            QString::fromLocal8Bit(error.what()));
+    }
+  catch (...)
+    {
+      QMessageBox::critical(0, "Mesh repaint failed",
+                            "Allocation or mesh processing failed.");
+    }
+
+  if (!succeeded)
+    {
+      if (!outputExisted)
+        QFile::remove(outflnm);
+      outflnm.clear();
+    }
 
 
   meshWindow->close();
@@ -886,6 +913,10 @@ MeshGenerator::generateMesh(int nSlabs,
 	{
 	  m_vfm->setBaseFilename(volumeFiles[volnum]);
 	  uchar *vslice = m_vfm->getSlice(0);
+	  if (!vslice)
+	    throw std::runtime_error(
+	        QString("Cannot read the first source slice: %1")
+	        .arg(m_vfm->lastError()).toStdString());
 	}
 
       m_meshLog->moveCursor(QTextCursor::End);
@@ -920,6 +951,16 @@ MeshGenerator::generateMesh(int nSlabs,
 	      
 	      int iv = qBound(0, i, m_depth-1);
 	      uchar *vslice = m_vfm->getSlice(iv);
+	      if (!vslice)
+	        {
+	          const QString detail = m_vfm->lastError();
+	          delete [] tmp;
+	          delete [] cropped;
+	          delete [] extData;
+	          throw std::runtime_error(
+	              QString("Cannot read source slice %1: %2")
+	              .arg(iv).arg(detail).toStdString());
+	        }
 	      
 	      memset(cropped, 0, nbytes);
 	      

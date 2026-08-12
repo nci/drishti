@@ -1,6 +1,13 @@
 #include <QtGui>
 #include "common.h"
 #include "vgiplugin.h"
+#include "../rawfileutils.h"
+
+#include <cmath>
+#include <cstring>
+#include <limits>
+#include <memory>
+#include <new>
 
 QStringList
 VgiPlugin::registerPlugin()
@@ -25,10 +32,12 @@ VgiPlugin::init()
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
@@ -44,10 +53,12 @@ VgiPlugin::clear()
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
@@ -84,6 +95,7 @@ VgiPlugin::setMinMax(float rmin, float rmax)
 float VgiPlugin::rawMin() { return m_rawMin; }
 float VgiPlugin::rawMax() { return m_rawMax; }
 QList<uint> VgiPlugin::histogram() { return m_histogram; }
+QString VgiPlugin::lastError() const { return m_lastError; }
 
 void
 VgiPlugin::gridSize(int& d, int& w, int& h)
@@ -96,44 +108,93 @@ VgiPlugin::gridSize(int& d, int& w, int& h)
 void
 VgiPlugin::replaceFile(QString flnm)
 {
-  m_fileName.clear();
-  m_fileName << flnm;
+  m_lastError.clear();
+  VgiPlugin candidate;
+  candidate.init();
+  candidate.set4DVolume(true);
+  if (!candidate.setFile(QStringList() << flnm))
+    {
+      m_lastError = candidate.lastError().isEmpty() ?
+        "The replacement VGI volume is invalid." : candidate.lastError();
+      return;
+    }
+  if (candidate.m_depth != m_depth || candidate.m_width != m_width ||
+      candidate.m_height != m_height || candidate.m_voxelType != m_voxelType)
+    {
+      m_lastError = QString("Replacement VGI volume is %1 x %2 x %3, "
+                            "voxel-type %4; expected %5 x %6 x %7, type %8.")
+                      .arg(candidate.m_depth).arg(candidate.m_width)
+                      .arg(candidate.m_height).arg(candidate.m_voxelType)
+                      .arg(m_depth).arg(m_width).arg(m_height).arg(m_voxelType);
+      return;
+    }
+
+  m_fileName = candidate.m_fileName;
+  m_hdrFile = candidate.m_hdrFile;
+  m_imgFile = candidate.m_imgFile;
+  m_byteSwap = candidate.m_byteSwap;
+  m_skipBytes = candidate.m_skipBytes;
+  m_headerBytes = candidate.m_headerBytes;
 }
 
 QString
 VgiPlugin::getImgFilename(QString hdrFile)
 {
-  QString imgFile;
   QFile file(hdrFile);
-  file.open(QFile::ReadOnly | QIODevice::Text);
+  if (!file.open(QFile::ReadOnly | QIODevice::Text))
+    return QString();
   QTextStream in(&file);
-  QString vtp;
-  bool done = false;
-  while (!in.atEnd() || !done)
+  QString fallbackName;
+  bool inFileSection = false;
+  while (!in.atEnd())
     {
-      QString line = in.readLine();
-      line = line.toLower().trimmed();
-
-      QStringList words = line.split("=");
-      if (words[0].trimmed() == "name")
+      const QString line = in.readLine().trimmed();
+      if (line.startsWith('[') && line.endsWith(']'))
+        {
+          inFileSection = line.mid(1, line.size()-2).trimmed()
+                            .compare("file1", Qt::CaseInsensitive) == 0;
+          continue;
+        }
+      const int separator = line.indexOf('=');
+      if (separator > 0 &&
+          line.left(separator).trimmed().compare("name", Qt::CaseInsensitive) == 0)
 	{
-	  m_imgFile = words[1].trimmed();
-	  return m_imgFile;
+	  QString imageName = line.mid(separator+1).trimmed();
+	  if (imageName.size() >= 2 &&
+	      ((imageName.startsWith('"') && imageName.endsWith('"')) ||
+	       (imageName.startsWith('\'') && imageName.endsWith('\''))))
+	    imageName = imageName.mid(1, imageName.size()-2);
+	  if (inFileSection)
+	    return imageName;
+	  if (fallbackName.isEmpty())
+	    fallbackName = imageName;
 	}
     }      
 
-  return imgFile;
+  return fallbackName;
 }
 
 bool
 VgiPlugin::setFile(QStringList files)
 {
-  m_fileName = files;
+  m_lastError.clear();
+  if (files.isEmpty() || files.first().trimmed().isEmpty())
+    {
+      m_lastError = "No VGI/VOL volume file was selected.";
+      return false;
+    }
+
+  m_fileName = QStringList() << QFileInfo(files.first()).absoluteFilePath();
 
   if (checkExtension(files[0], "vgi"))
     {
-      m_hdrFile = files[0];
+      m_hdrFile = m_fileName[0];
       QString imgflnm = getImgFilename(m_hdrFile);
+      if (imgflnm.isEmpty())
+        {
+          m_lastError = "The VGI header does not identify a volume data file.";
+          return false;
+        }
       QFileInfo info(m_hdrFile);
       QDir direc = info.absoluteDir();
       m_imgFile = direc.absoluteFilePath(imgflnm);
@@ -144,70 +205,85 @@ VgiPlugin::setFile(QStringList files)
     }
   else if (checkExtension(files[0], "vol"))
     {
-      m_imgFile = files[0];
+      m_imgFile = m_fileName[0];
       m_hdrFile = m_imgFile;
       m_hdrFile.chop(3);
       m_hdrFile += "vgi";
     }
+  else
+    {
+      m_lastError = "Select a VGI .vgi header or .vol data file.";
+      return false;
+    }
+
+  if (m_imgFile.isEmpty())
+    {
+      m_lastError = "The VGI header does not identify a volume data file.";
+      return false;
+    }
 
   m_byteSwap = false;
+  m_voxelType = -1;
 
   QFile file(m_hdrFile);
-  file.open(QFile::ReadOnly | QIODevice::Text);
+  if (!file.open(QFile::ReadOnly | QIODevice::Text))
+    {
+      m_lastError = QString("Cannot open VGI header %1: %2")
+                      .arg(m_hdrFile, file.errorString());
+      return false;
+    }
   QTextStream in(&file);
-  bool gotfile1 = false;
+  bool gotDimensions = false;
+  bool gotResolution = false;
+  bool gotVoxelType = false;
   QString vtp;
   int bpe = 0;
-  int ninfo = 0;
   while (!in.atEnd())
     {
-      QString line = in.readLine();
-      line = line.toLower();
-
-      QStringList words = line.split("=");
-      if (words[0] == "[file1]")
-	gotfile1 = true;      
-      
-      words[0] = words[0].simplified();
-      if (gotfile1 && words.count() > 1)
-	{	  
-	  words[1] = words[1].simplified();
-	  if (words[0] == "size")
+      const QString line = in.readLine();
+      const int separator = line.indexOf('=');
+      if (separator > 0)
+	{
+	  const QString key = line.left(separator).simplified().toLower();
+	  const QString value = line.mid(separator+1).simplified();
+	  if (key == "size")
 	    {
-	      ninfo ++;
-
-	      QStringList size = words[1].split(" ");
-	      m_depth = size[2].toInt();
-	      m_width = size[1].toInt();
-	      m_height = size[0].toInt();
+	      const QStringList size = value.split(' ', Qt::SkipEmptyParts);
+	      if (size.size() == 3)
+	        {
+	          m_depth = size[2].toInt();
+	          m_width = size[1].toInt();
+	          m_height = size[0].toInt();
+	          gotDimensions = true;
+	        }
 	    }
-	  else if (words[0] == "datatype")
+	  else if (key == "datatype")
 	    {
-	      vtp = words[1].toLower();
+	      vtp = value.toLower();
 	    }
-	  else if (words[0] == "bitsperelement")
+	  else if (key == "bitsperelement")
 	    {
-	      bpe = words[1].toInt();
+	      bpe = value.toInt();
 	    }
-	  else if (words[0] == "resolution")
+	  else if (key == "resolution")
 	    {
-	      ninfo ++;
-	      
-	      QStringList size = words[1].split(" ");
-	      m_voxelSizeZ = size[2].toFloat();
-	      m_voxelSizeY = size[1].toFloat();
-	      m_voxelSizeX = size[0].toFloat();
+	      const QStringList size = value.split(' ', Qt::SkipEmptyParts);
+	      if (size.size() == 3)
+	        {
+	          m_voxelSizeZ = size[2].toFloat();
+	          m_voxelSizeY = size[1].toFloat();
+	          m_voxelSizeX = size[0].toFloat();
+	          gotResolution = true;
+	        }
 	    }
-	  else if (words[0] == "unit")
+	  else if (key == "unit")
 	    {
-	      ninfo ++;
-	      if (words[1] == "mm")
+	      if (value.compare("mm", Qt::CaseInsensitive) == 0)
 		m_voxelUnit = _Millimeter;
 	    }
 
 	  if (!vtp.isEmpty() && bpe > 0)
 	    {
-	      ninfo ++;
 	      if (bpe == 8)
 		{
 		  if (vtp == "unsigned integer")
@@ -225,7 +301,7 @@ VgiPlugin::setFile(QStringList files)
 		}
 	      else if (bpe == 32)
 		{
-		  if (vtp == "unsigned integer")
+		  if (vtp == "integer")
 		    m_voxelType = _Int;
 		  else if (vtp == "float")
 		    m_voxelType = _Float;
@@ -233,10 +309,11 @@ VgiPlugin::setFile(QStringList files)
 
 	      vtp = "";
 	      bpe = 0;
+	      gotVoxelType = m_voxelType >= _UChar && m_voxelType <= _Float;
 	    }
 	}
 
-      if (ninfo == 4)
+      if (gotDimensions && gotVoxelType && gotResolution)
 	break;
     }
   file.close();
@@ -253,6 +330,29 @@ VgiPlugin::setFile(QStringList files)
   else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
 
+  RawFileUtils::Layout layout;
+  QString layoutError;
+  if (!gotDimensions || !gotVoxelType ||
+      !RawFileUtils::makeLayout(m_depth, m_width, m_height,
+                                m_voxelType, m_skipBytes,
+                                layout, layoutError) ||
+      !RawFileUtils::validateFileSize(m_imgFile,
+                                      layout.requiredFileBytes,
+                                      layoutError))
+    {
+      if (layoutError.isEmpty())
+        layoutError = "The VGI header is missing size or datatype information.";
+      m_lastError = layoutError;
+      return false;
+    }
+
+  if (!std::isfinite(m_voxelSizeX) || m_voxelSizeX <= 0) m_voxelSizeX = 1;
+  if (!std::isfinite(m_voxelSizeY) || m_voxelSizeY <= 0) m_voxelSizeY = 1;
+  if (!std::isfinite(m_voxelSizeZ) || m_voxelSizeZ <= 0) m_voxelSizeZ = 1;
+
+  if (m_4dvol)
+    return true;
+
   if (m_voxelType == _UChar ||
       m_voxelType == _Char ||
       m_voxelType == _UShort ||
@@ -266,7 +366,7 @@ VgiPlugin::setFile(QStringList files)
       generateHistogram();
     }
 
-  return true;
+  return m_lastError.isEmpty() && !m_histogram.isEmpty();
 }
 
 #define MINMAXANDHISTOGRAM()				\
@@ -299,7 +399,7 @@ VgiPlugin::findMinMaxandGenerateHistogram()
       m_voxelType == _Char)
     {
       if (m_voxelType == _UChar) rMin = 0;
-      if (m_voxelType == _Char) rMin = -127;
+      if (m_voxelType == _Char) rMin = -128;
       rSize = 255;
       for(uint i=0; i<256; i++)
 	m_histogram.append(0);
@@ -308,7 +408,7 @@ VgiPlugin::findMinMaxandGenerateHistogram()
       m_voxelType == _Short)
     {
       if (m_voxelType == _UShort) rMin = 0;
-      if (m_voxelType == _Short) rMin = -32767;
+      if (m_voxelType == _Short) rMin = -32768;
       rSize = 65535;
       for(uint i=0; i<65536; i++)
 	m_histogram.append(0);
@@ -324,21 +424,48 @@ VgiPlugin::findMinMaxandGenerateHistogram()
   nY = m_width;
   nZ = m_height;
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
+    {
+      m_lastError = error;
+      m_histogram.clear();
+      return;
+    }
+  const int nbytes = static_cast<int>(layout.sliceBytes);
+  std::unique_ptr<uchar[]> storage(new (std::nothrow) uchar[nbytes]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for a VGI slice.")
+                      .arg(nbytes);
+      m_histogram.clear();
+      return;
+    }
+  uchar *tmp = storage.get();
 
   QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes);
+  if (!fin.open(QFile::ReadOnly) || !fin.seek(m_skipBytes))
+    {
+      m_lastError = QString("Cannot read VGI volume %1: %2")
+                      .arg(m_imgFile, fin.errorString());
+      m_histogram.clear();
+      return;
+    }
 
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
   for(uint i=0; i<nX; i++)
     {
       progress.setValue((int)(100.0*(float)i/(float)nX));
       qApp->processEvents();
 
-      fin.read((char*)tmp, nbytes);
+      if (!RawFileUtils::readExact(fin, tmp, nbytes, error))
+        {
+          m_lastError = error;
+          m_histogram.clear();
+          return;
+        }
 
       if (m_byteSwap && m_bytesPerVoxel > 1)
 	swapbytes(tmp, m_bytesPerVoxel, nbytes);      
@@ -376,8 +503,6 @@ VgiPlugin::findMinMaxandGenerateHistogram()
     }
   fin.close();
 
-  delete [] tmp;
-
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
 //  while(m_histogram.first() == 0)
@@ -393,8 +518,11 @@ VgiPlugin::findMinMaxandGenerateHistogram()
     for(uint j=0; j<nY*nZ; j++)				\
       {							\
 	float val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, val);			\
-	m_rawMax = qMax(m_rawMax, val);			\
+	if (std::isfinite(static_cast<double>(val)))		\
+	  {						\
+	    m_rawMin = qMin(m_rawMin, val);		\
+	    m_rawMax = qMax(m_rawMax, val);		\
+	  }						\
       }							\
   }
 
@@ -413,21 +541,44 @@ VgiPlugin::findMinMax()
   nY = m_width;
   nZ = m_height;
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
+    {
+      m_lastError = error;
+      return;
+    }
+  const int nbytes = static_cast<int>(layout.sliceBytes);
+  std::unique_ptr<uchar[]> storage(new (std::nothrow) uchar[nbytes]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for a VGI slice.")
+                      .arg(nbytes);
+      return;
+    }
+  uchar *tmp = storage.get();
 
   QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes);
+  if (!fin.open(QFile::ReadOnly) || !fin.seek(m_skipBytes))
+    {
+      m_lastError = QString("Cannot read VGI volume %1: %2")
+                      .arg(m_imgFile, fin.errorString());
+      return;
+    }
 
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
   for(uint i=0; i<nX; i++)
     {
       progress.setValue((int)(100.0*(float)i/(float)nX));
       qApp->processEvents();
 
-      fin.read((char*)tmp, nbytes);
+      if (!RawFileUtils::readExact(fin, tmp, nbytes, error))
+        {
+          m_lastError = error;
+          return;
+        }
 
       if (m_byteSwap && m_bytesPerVoxel > 1)
 	swapbytes(tmp, m_bytesPerVoxel, nbytes);      
@@ -465,8 +616,8 @@ VgiPlugin::findMinMax()
     }
   fin.close();
 
-  delete [] tmp;
-
+  if (m_rawMin > m_rawMax)
+    m_rawMin = m_rawMax = 0;
   progress.setValue(100);
   qApp->processEvents();
 }
@@ -475,10 +626,10 @@ VgiPlugin::findMinMax()
   {							\
     for(uint j=0; j<nY*nZ; j++)				\
       {							\
-	float fidx = (ptr[j]-m_rawMin)/rSize;		\
-	fidx = qBound(0.0f, fidx, 1.0f);		\
-	int idx = fidx*histogramSize;			\
-	m_histogram[idx]+=1;				\
+	int idx = RawFileUtils::scaledHistogramIndex(		\
+	  static_cast<float>(ptr[j]), m_rawMin, m_rawMax, \
+	  histogramSize);					\
+	if (idx >= 0) m_histogram[idx]+=1;			\
       }							\
   }
 
@@ -499,12 +650,34 @@ VgiPlugin::generateHistogram()
   nY = m_width;
   nZ = m_height;
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
+    {
+      m_lastError = error;
+      m_histogram.clear();
+      return;
+    }
+  const int nbytes = static_cast<int>(layout.sliceBytes);
+  std::unique_ptr<uchar[]> storage(new (std::nothrow) uchar[nbytes]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for a VGI slice.")
+                      .arg(nbytes);
+      m_histogram.clear();
+      return;
+    }
+  uchar *tmp = storage.get();
 
   QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes);
+  if (!fin.open(QFile::ReadOnly) || !fin.seek(m_skipBytes))
+    {
+      m_lastError = QString("Cannot read VGI volume %1: %2")
+                      .arg(m_imgFile, fin.errorString());
+      m_histogram.clear();
+      return;
+    }
 
   m_histogram.clear();
   if (m_voxelType == _UChar ||
@@ -527,7 +700,12 @@ VgiPlugin::generateHistogram()
       progress.setValue((int)(100.0*(float)i/(float)nX));
       qApp->processEvents();
 
-      fin.read((char*)tmp, nbytes);
+      if (!RawFileUtils::readExact(fin, tmp, nbytes, error))
+        {
+          m_lastError = error;
+          m_histogram.clear();
+          return;
+        }
 
       if (m_byteSwap && m_bytesPerVoxel > 1)
 	swapbytes(tmp, m_bytesPerVoxel, nbytes);      
@@ -565,8 +743,6 @@ VgiPlugin::generateHistogram()
     }
   fin.close();
 
-  delete [] tmp;
-
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
 //  while(m_histogram.first() == 0)
@@ -584,16 +760,37 @@ void
 VgiPlugin::getDepthSlice(int slc,
 			    uchar *slice)
 {
-  qint64 nbytes = m_width*m_height*m_bytesPerVoxel;
+  m_lastError.clear();
+  if (!slice)
+    {
+      m_lastError = "VGI depth-slice output buffer is null.";
+      return;
+    }
 
-  QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-  fin.seek((qint64)(m_skipBytes + nbytes*slc));
-  fin.read((char*)slice, (qint64)(nbytes));
-  fin.close();
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height,
+                                m_voxelType, m_skipBytes, layout, error))
+    {
+      m_lastError = error;
+      return;
+    }
+  if (slc < 0 || slc >= m_depth)
+    {
+      std::memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      m_lastError = QString("Invalid VGI depth slice %1.").arg(slc);
+      return;
+    }
+  if (!RawFileUtils::readAt(m_imgFile,
+                            m_skipBytes+layout.sliceBytes*slc,
+                            slice, layout.sliceBytes, error))
+    {
+      std::memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      m_lastError = error;
+    }
 
   if (m_byteSwap && m_bytesPerVoxel > 1)
-    swapbytes(slice, m_bytesPerVoxel, nbytes);      
+    swapbytes(slice, m_bytesPerVoxel, layout.sliceBytes);
 }
 
 //void
@@ -654,82 +851,60 @@ VgiPlugin::getDepthSlice(int slc,
 QVariant
 VgiPlugin::rawValue(int d, int w, int h)
 {
-  QVariant v;
-
   if (d < 0 || d >= m_depth ||
       w < 0 || w >= m_width ||
       h < 0 || h >= m_height)
-    {
-      v = QVariant("OutOfBounds");
-      return v;
-    }
+    return QVariant("OutOfBounds");
 
-  QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-  fin.seek((qint64)(m_skipBytes +
-	   m_bytesPerVoxel*(d*m_width*m_height +
-			    w*m_height +
-			    h)));
+  const qint64 voxelIndex = static_cast<qint64>(d)*m_width*m_height+
+                            static_cast<qint64>(w)*m_height+h;
+  qint64 byteOffset = 0;
+  if (!RawFileUtils::checkedMultiply(voxelIndex, m_bytesPerVoxel,
+                                     byteOffset) ||
+      !RawFileUtils::checkedAdd(byteOffset, m_skipBytes, byteOffset))
+    return QVariant("ReadError");
+
+  alignas(4) uchar bytes[4] = { 0, 0, 0, 0 };
+  QString error;
+  if (!RawFileUtils::readAt(m_imgFile, byteOffset, bytes,
+                            m_bytesPerVoxel, error))
+    return QVariant("ReadError");
+  if (m_byteSwap && m_bytesPerVoxel > 1)
+    swapbytes(bytes, m_bytesPerVoxel, m_bytesPerVoxel);
 
   if (m_voxelType == _UChar)
-    {
-      unsigned char a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      v = QVariant((uint)a);
-    }
+    return QVariant(static_cast<uint>(bytes[0]));
   else if (m_voxelType == _Char)
     {
-      char a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      v = QVariant((int)a);
+      signed char value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<int>(value));
     }
   else if (m_voxelType == _UShort)
     {
-      unsigned short a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      if (m_byteSwap)
-	{
-	  uchar *sptr = (uchar*)(&a);
-	  swapbytes(sptr, 2);
-	}
-      v = QVariant((uint)a);
+      ushort value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<uint>(value));
     }
   else if (m_voxelType == _Short)
     {
-      short a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      if (m_byteSwap)
-	{
-	  uchar *sptr = (uchar*)(&a);
-	  swapbytes(sptr, 2);
-	}
-      v = QVariant((int)a);
+      short value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<int>(value));
     }
   else if (m_voxelType == _Int)
     {
-      int a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      if (m_byteSwap)
-	{
-	  uchar *sptr = (uchar*)(&a);
-	  swapbytes(sptr, 4);
-	}
-      v = QVariant((int)a);
+      int value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(value);
     }
   else if (m_voxelType == _Float)
     {
-      float a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      if (m_byteSwap)
-	{
-	  uchar *sptr = (uchar*)(&a);
-	  swapbytes(sptr, 4);
-	}
-      v = QVariant((double)a);
+      float value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<double>(value));
     }
-  fin.close();
-
-  return v;
+  return QVariant("ReadError");
 }
 
 //void
@@ -810,20 +985,10 @@ VgiPlugin::rawValue(int d, int w, int h)
 bool
 VgiPlugin::checkExtension(QString flnm, const char *ext)
 {
-  bool ok = true;
-  int extlen = strlen(ext);
-
-  QFileInfo info(flnm);
-  if (info.exists() && info.isFile())
-    {
-      QByteArray exten = flnm.toUtf8().right(extlen);
-      if (exten != ext)
-	ok = false;
-    }
-  else
-    ok = false;
-
-  return ok;
+  const QFileInfo info(flnm);
+  return info.exists() && info.isFile() &&
+         info.suffix().compare(QString::fromLatin1(ext),
+                               Qt::CaseInsensitive) == 0;
 }
 
 void

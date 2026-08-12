@@ -49,6 +49,8 @@ Cube2Sphere::getFace(Vec v)
       else
 	return 1; // Left
     }
+
+  return -1;
 }
 
 //FACE_Z_POS = 0  # Left
@@ -72,6 +74,8 @@ Cube2Sphere::rawFaceCoordinates(int face, Vec v)
 
   if (face == 4) return Vec( v.z, v.y, v.x); // front
   if (face == 5) return Vec(-v.z, v.y, v.x); // back
+
+  return v;
 }
 
 Vec

@@ -12,6 +12,48 @@
 #include <QInputDialog>
 #include <QtConcurrentMap>
 
+#include <limits>
+#include <new>
+
+namespace
+{
+  bool
+  checkedSizeFactor(qint64 factor, qint64 &size)
+  {
+    if (factor <= 0 || size > std::numeric_limits<qint64>::max()/factor)
+      return false;
+    size *= factor;
+    return true;
+  }
+
+  bool
+  validAllocationSize(qint64 size)
+  {
+    return (size > 0 &&
+            static_cast<quint64>(size) <=
+            static_cast<quint64>(std::numeric_limits<size_t>::max()));
+  }
+
+  void
+  reportVolumeIoFailure(const QString& operation,
+                        const QString& error,
+                        bool showDialog = true)
+  {
+    QString message = operation;
+    if (!error.isEmpty())
+      message += QString(": %1").arg(error);
+
+    MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+      setWindowTitle(QString("Drishti"));
+    Global::progressBar()->setValue(0);
+    Global::hideProgressBar();
+    MainWindowUI::mainWindowUI()->statusBar->showMessage(message, 10000);
+
+    if (showDialog)
+      QMessageBox::warning(0, operation, message);
+  }
+}
+
 void VolumeSingle::closePvlFileManager() { m_pvlFileManager.closeQFile(); }
 VolumeFileManager* VolumeSingle::pvlFileManager() { return &m_pvlFileManager; }
 VolumeFileManager* VolumeSingle::gradFileManager() { return &m_gradFileManager; }
@@ -75,6 +117,7 @@ VolumeSingle::VolumeSingle() :
 
   m_dragSubvolumeTexture = 0;
   m_subvolumeTexture = 0;
+  m_slabLayerCapacity = 0;
 
   m_subvolume1dHistogram = new int[256];
   m_subvolume2dHistogram = new int[256*256];
@@ -126,6 +169,7 @@ VolumeSingle::~VolumeSingle()
 
   m_dragSubvolumeTexture = 0;
   m_subvolumeTexture = 0;
+  m_slabLayerCapacity = 0;
   m_subvolume1dHistogram = 0;
   m_subvolume2dHistogram = 0;
   m_drag1dHistogram = 0;
@@ -145,6 +189,9 @@ VolumeSingle::~VolumeSingle()
 bool
 VolumeSingle::loadVolume(QList<QString> vfiles, bool redo)
 {
+  if (vfiles.isEmpty())
+    return false;
+
   Global::setLod(1);
 
   m_repeatType = true;
@@ -161,9 +208,12 @@ VolumeSingle::loadVolume(QList<QString> vfiles, bool redo)
   bool ok = VolumeBase::loadVolume(m_volumeFiles[0].toUtf8().data(),
 				   redo);
 
+  if (!ok)
+    return false;
+
   setBasicInformation(m_volnum);
 
-  return ok;
+  return true;
 }
 
 bool
@@ -179,7 +229,8 @@ VolumeSingle::loadDummyVolume(int nx, int ny, int nz)
   VolumeInformation vInfo;
   VolumeInformation::setVolumeInformation(vInfo);
 
-  VolumeBase::loadDummyVolume(nx, ny, nz);
+  if (!VolumeBase::loadDummyVolume(nx, ny, nz))
+    return false;
 
   return true;
 }
@@ -322,15 +373,16 @@ VolumeSingle::setSubvolume(Vec boxMin, Vec boxMax,
   int lenx = m_subvolumeSize.x;
   int leny = m_subvolumeSize.y;
   int lenz = m_subvolumeSize.z;
-  int lenx2 = lenx/m_subvolumeSubsamplingLevel;
-  int leny2 = leny/m_subvolumeSubsamplingLevel;
-  int lenz2 = lenz/m_subvolumeSubsamplingLevel;
+  int lenx2 = qMax(1, lenx/m_subvolumeSubsamplingLevel);
+  int leny2 = qMax(1, leny/m_subvolumeSubsamplingLevel);
+  int lenz2 = qMax(1, lenz/m_subvolumeSubsamplingLevel);
   m_subvolumeTextureSize = Vec(lenx2, leny2, lenz2);
   //-------------
 
 
   if (m_subvolumeTexture) delete [] m_subvolumeTexture;
   m_subvolumeTexture = 0;
+  m_slabLayerCapacity = 0;
 
   if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
   m_dragSubvolumeTexture = 0;
@@ -433,6 +485,9 @@ VolumeSingle::getSurfaceArea(uchar *lut,
 		clipNormal,
 		crops,
 		paths);
+
+  if (m_bitmask.isEmpty())
+    return;
   
   m_nonZeroVoxels = 0;
   getSurfaceBitmask(minx, maxx,
@@ -558,6 +613,15 @@ VolumeSingle::createBitmask(int minx, int maxx,
 
       uchar *vslice;
       vslice = m_pvlFileManager.getSlice(k);
+      if (!vslice)
+	{
+	  const QString error = m_pvlFileManager.lastError();
+	  delete [] vg;
+	  m_bitmask.clear();
+	  m_nonZeroVoxels = 0;
+	  reportVolumeIoFailure("Generating non-zero voxels", error);
+	  return;
+	}
 
       if (m_pvlVoxelType == 0)
 	{
@@ -565,6 +629,15 @@ VolumeSingle::createBitmask(int minx, int maxx,
 	    vg[2*t] = vslice[t];
 
 	  vslice = m_gradFileManager.getSlice(k);
+	  if (!vslice)
+	    {
+	      const QString error = m_gradFileManager.lastError();
+	      delete [] vg;
+	      m_bitmask.clear();
+	      m_nonZeroVoxels = 0;
+	      reportVolumeIoFailure("Reading gradient volume", error);
+	      return;
+	    }
 
 	  for(int t=0; t<nbytes; t++)
 	    vg[2*t+1] = vslice[t];
@@ -835,7 +908,17 @@ VolumeSingle::saveVolume(uchar *lut,
   if (!savePvl)
     {
       if (m_pvlVoxelType == 0)
-	checkGradients();
+	{
+	  checkGradients();
+	  if (!m_gradFileManager.exists())
+	    {
+	      const QString error = m_gradFileManager.lastError();
+	      delete [] prune;
+	      delete [] tagData;
+	      reportVolumeIoFailure("Preparing gradient volume", error);
+	      return;
+	    }
+	}
     }
 
 
@@ -913,11 +996,33 @@ VolumeSingle::saveVolume(uchar *lut,
   if (savePvl && m_pvlVoxelType > 0)
     opFileManager.setVoxelType(m_pvlVoxelType);
   opFileManager.setSlabSize(opslabSize);
-  opFileManager.createFile(true);
+  if (!opFileManager.createFile(true))
+    {
+      const QString error = opFileManager.lastError();
+      delete [] prune;
+      delete [] tagData;
+      if (savePvl)
+	QFile::remove(opFile);
+      reportVolumeIoFailure("Creating output volume", error);
+      return;
+    }
 
   int nbytes = m_width*m_height;
   uchar *vg = new uchar [2*nbytes];
   uchar *opacity = new uchar [2*ny*nx];
+
+  const auto abortSave = [&](const QString& operation,
+			     const QString& error)
+    {
+      delete [] vg;
+      delete [] opacity;
+      delete [] prune;
+      delete [] tagData;
+      opFileManager.removeFile();
+      if (savePvl)
+	QFile::remove(opFile);
+      reportVolumeIoFailure(operation, error);
+    };
 
   Vec voxelScaling = Global::voxelScaling();
   for(int k=minz; k<=maxz; k++)
@@ -926,6 +1031,12 @@ VolumeSingle::saveVolume(uchar *lut,
 
       uchar *vslice;
       vslice = m_pvlFileManager.getSlice(k);
+      if (!vslice)
+	{
+	  const QString error = m_pvlFileManager.lastError();
+	  abortSave("Reading source volume", error);
+	  return;
+	}
 
       memset(vg, 0, 2*nbytes);
       if (m_pvlVoxelType == 0)
@@ -936,6 +1047,12 @@ VolumeSingle::saveVolume(uchar *lut,
 		vg[2*t] = vslice[t];
 	      
 	      vslice = m_gradFileManager.getSlice(k);
+	      if (!vslice)
+		{
+		  const QString error = m_gradFileManager.lastError();
+		  abortSave("Reading gradient volume", error);
+		  return;
+		}
 	      
 	      for(int t=0; t<nbytes; t++)
 		vg[2*t+1] = vslice[t];
@@ -1040,11 +1157,17 @@ VolumeSingle::saveVolume(uchar *lut,
 	      }
 	    idx++;
 	  }
-      opFileManager.setSlice(k-minz, opacity);
+      if (!opFileManager.setSlice(k-minz, opacity))
+	{
+	  const QString error = opFileManager.lastError();
+	  abortSave("Writing output volume", error);
+	  return;
+	}
     }
   delete [] vg;
   delete [] opacity;
   delete [] prune;
+  delete [] tagData;
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Drishti"));
@@ -1081,6 +1204,9 @@ VolumeSingle::maskRawVolume(uchar *lut,
 		clipPos, clipNormal,
 		crops,
 		paths);
+
+  if (m_bitmask.isEmpty())
+    return;
 
   RawVolume::maskRawVolume(minx, maxx,
 			   miny, maxy,
@@ -1140,9 +1266,25 @@ VolumeSingle::getDragTextureSize(int& dtexX, int& dtexY)
   dtexY = m_dragTexHeight;
 }
 
-void
+bool
 VolumeSingle::setMaxDimensions(int maxH, int maxW, int maxD)
 {
+  int bpv = 1;
+  if (m_pvlVoxelType > 0) bpv = 2;
+
+  qint64 sliceBytes = 1;
+  if (maxD <= 0 ||
+      !checkedSizeFactor(bpv, sliceBytes) ||
+      !checkedSizeFactor(maxW, sliceBytes) ||
+      !checkedSizeFactor(maxH, sliceBytes) ||
+      !validAllocationSize(sliceBytes))
+    return false;
+
+  uchar *sliceTemp =
+    new (std::nothrow) uchar[static_cast<size_t>(sliceBytes)];
+  if (!sliceTemp)
+    return false;
+
   //-------------------------
   // used for centering smaller volumes within larger volume
   m_maxHeight = maxH;
@@ -1152,10 +1294,8 @@ VolumeSingle::setMaxDimensions(int maxH, int maxW, int maxD)
 
   if (m_sliceTemp)
     delete [] m_sliceTemp;
-  
-  int bpv = 1;
-  if (m_pvlVoxelType > 0) bpv = 2;
-  m_sliceTemp = new uchar [bpv*m_maxWidth*m_maxHeight];
+  m_sliceTemp = sliceTemp;
+  return true;
 }
 
 void
@@ -1185,8 +1325,8 @@ VolumeSingle::getSliceTextureSizeSlabs()
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
 
-  if(m_subvolumeSubsamplingLevel > 1)
-    saveSubsampledVolume();
+  if (m_subvolumeSubsamplingLevel > 1 && !saveSubsampledVolume())
+    return QList<Vec>();
   
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Generating slab limits"));
@@ -1202,16 +1342,16 @@ VolumeSingle::getSliceTextureSizeSlabs()
   if (slabinfo.count() > 1)
     {
       m_dragTextureInfo = slabinfo[0];
-      int dlenx2 = int(m_subvolumeSize.x)/int(m_dragTextureInfo.z);
-      int dleny2 = int(m_subvolumeSize.y)/int(m_dragTextureInfo.z);
+      int dlenx2 = qMax(1, int(m_subvolumeSize.x)/int(m_dragTextureInfo.z));
+      int dleny2 = qMax(1, int(m_subvolumeSize.y)/int(m_dragTextureInfo.z));
       m_dragTexWidth = int(m_dragTextureInfo.x)*dlenx2;
       m_dragTexHeight = int(m_dragTextureInfo.y)*dleny2;
     }
   else
     {
       m_dragTextureInfo = Vec(ncols, nrows, m_subvolumeSubsamplingLevel);
-      int dlenx2 = int(m_subvolumeSize.x)/m_subvolumeSubsamplingLevel;
-      int dleny2 = int(m_subvolumeSize.y)/m_subvolumeSubsamplingLevel;
+      int dlenx2 = qMax(1, int(m_subvolumeSize.x)/m_subvolumeSubsamplingLevel);
+      int dleny2 = qMax(1, int(m_subvolumeSize.y)/m_subvolumeSubsamplingLevel);
       m_dragTexWidth = ncols*dlenx2;
       m_dragTexHeight = nrows*dleny2;
     }
@@ -1223,8 +1363,8 @@ VolumeSingle::getSliceTextureSizeSlabs()
 
   int lenx = m_subvolumeSize.x;
   int leny = m_subvolumeSize.y;
-  int lenx2 = lenx/m_subvolumeSubsamplingLevel;
-  int leny2 = leny/m_subvolumeSubsamplingLevel;
+  int lenx2 = qMax(1, lenx/m_subvolumeSubsamplingLevel);
+  int leny2 = qMax(1, leny/m_subvolumeSubsamplingLevel);
 
   Global::progressBar()->setValue(50);
 
@@ -1239,18 +1379,18 @@ VolumeSingle::getSliceTextureSizeSlabs()
   return slabinfo;
 }
 
-void
+bool
 VolumeSingle::saveSubsampledVolume()
 {
   if(m_subvolumeSubsamplingLevel <= 1)
-    return;
+    return true;
 
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
 
-  int lenx2 = m_height/m_subvolumeSubsamplingLevel;
-  int leny2 = m_width/m_subvolumeSubsamplingLevel;
-  int lenz2 = m_depth/m_subvolumeSubsamplingLevel;
+  int lenx2 = qMax(1, m_height/m_subvolumeSubsamplingLevel);
+  int leny2 = qMax(1, m_width/m_subvolumeSubsamplingLevel);
+  int lenz2 = qMax(1, m_depth/m_subvolumeSubsamplingLevel);
 
   //*** number of slices in each tmp file
   //*** max 1Gb per slab
@@ -1269,6 +1409,9 @@ VolumeSingle::saveSubsampledVolume()
 //	lodslabSize = lenz2+1;
 //    }
 
+  if (!m_sliceTemp || lenz2 == std::numeric_limits<int>::max())
+    return false;
+
   int lodslabSize = lenz2+1;
 
   QString lodflnm = m_volumeFiles[m_volnum]+QString(".lod%1").arg(m_subvolumeSubsamplingLevel);
@@ -1283,10 +1426,37 @@ VolumeSingle::saveSubsampledVolume()
   m_lodFileManager.setHeaderSize(13);
   m_lodFileManager.setSlabSize(lodslabSize);
   if (m_lodFileManager.exists())
-    return;
-  m_lodFileManager.createFile(true);
+    return true;
 
-  float *tmp = new float[leny2*lenx2];
+  qint64 sourceBytes = 1;
+  if (!checkedSizeFactor(bpv, sourceBytes) ||
+      !checkedSizeFactor(m_width, sourceBytes) ||
+      !checkedSizeFactor(m_height, sourceBytes) ||
+      !validAllocationSize(sourceBytes))
+    return false;
+
+  qint64 tmpCount = 1;
+  if (!checkedSizeFactor(leny2, tmpCount) ||
+      !checkedSizeFactor(lenx2, tmpCount) ||
+      tmpCount > std::numeric_limits<int>::max())
+    return false;
+
+  qint64 tmpBytes = tmpCount;
+  if (!checkedSizeFactor(sizeof(float), tmpBytes) ||
+      !validAllocationSize(tmpBytes))
+    return false;
+
+  float *tmp = new (std::nothrow) float[static_cast<size_t>(tmpCount)];
+  if (!tmp)
+    return false;
+
+  if (!m_lodFileManager.createFile(true))
+    {
+      const QString error = m_lodFileManager.lastError();
+      delete [] tmp;
+      reportVolumeIoFailure("Creating subsampled volume", error);
+      return false;
+    }
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Generating subsampled volume"));
@@ -1301,12 +1471,20 @@ VolumeSingle::saveSubsampledVolume()
 
       Global::progressBar()->setValue((int)(100.0*(float)kslc/(float)lenz2));
 
-      memset(tmp, 0, 4*leny2*lenx2);
+      memset(tmp, 0, static_cast<size_t>(tmpBytes));
       //for(int k=kmin; k<=kmax; k++)
       int k = kmin;
 	{
 	  uchar *vslice = m_pvlFileManager.getSlice(k);
-	  memcpy(m_sliceTemp, vslice, bpv*m_width*m_height);
+	  if (!vslice)
+	    {
+	      const QString error = m_pvlFileManager.lastError();
+	      delete [] tmp;
+	      m_lodFileManager.removeFile();
+	      reportVolumeIoFailure("Reading source volume", error);
+	      return false;
+	    }
+	  memcpy(m_sliceTemp, vslice, static_cast<size_t>(sourceBytes));
 
 	  int ji=0;
 	  for(int j=0; j<leny2; j++)
@@ -1376,7 +1554,14 @@ VolumeSingle::saveSubsampledVolume()
       //  }
       ////---------------------------------
 
-      m_lodFileManager.setSlice(kslc, m_sliceTemp);
+      if (!m_lodFileManager.setSlice(kslc, m_sliceTemp))
+	{
+	  const QString error = m_lodFileManager.lastError();
+	  delete [] tmp;
+	  m_lodFileManager.removeFile();
+	  reportVolumeIoFailure("Writing subsampled volume", error);
+	  return false;
+	}
     }  
 
   delete [] tmp;
@@ -1385,6 +1570,7 @@ VolumeSingle::saveSubsampledVolume()
     setWindowTitle(QString("Drishti"));
   Global::progressBar()->setValue(100);
   Global::hideProgressBar();
+  return true;
 }
 
 //----------------------------
@@ -1416,10 +1602,10 @@ VolumeSingle::getSubvolume()
   qint64 lenz2 = m_subvolumeTextureSize.z;
 
   //-------- for dragTexure ---------------
-  int dtlod = m_dragTextureInfo.z;
-  int dtlenx2 = lenx/dtlod;
-  int dtleny2 = leny/dtlod;
-  int dtlenz2 = lenz/dtlod;
+  int dtlod = qMax(1, static_cast<int>(m_dragTextureInfo.z));
+  int dtlenx2 = qMax(1, lenx/dtlod);
+  int dtleny2 = qMax(1, leny/dtlod);
+  int dtlenz2 = qMax(1, lenz/dtlod);
   float stp = (float)dtlod/(float)m_subvolumeSubsamplingLevel;
   uchar *tmp = new uchar[bpv*dtlenx2*dtleny2];
   //---------------------------------------
@@ -1431,6 +1617,7 @@ VolumeSingle::getSubvolume()
   if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
 
   m_subvolumeTexture = new uchar[bpv*lenx2*leny2*lenz2];
+  m_slabLayerCapacity = lenz2;
   m_dragSubvolumeTexture = new uchar[bpv*dtlenx2*dtleny2*dtlenz2];
 
   
@@ -1446,23 +1633,29 @@ VolumeSingle::getSubvolume()
       int kmin = minz/m_subvolumeSubsamplingLevel;
       int kmax = maxz/m_subvolumeSubsamplingLevel;
 
-      int leni2 = m_height/m_subvolumeSubsamplingLevel;
-      int lenj2 = m_width/m_subvolumeSubsamplingLevel;
-      int lenk2 = m_depth/m_subvolumeSubsamplingLevel;
+      int leni2 = qMax(1, m_height/m_subvolumeSubsamplingLevel);
+      int lenj2 = qMax(1, m_width/m_subvolumeSubsamplingLevel);
+      int lenk2 = qMax(1, m_depth/m_subvolumeSubsamplingLevel);
 
       int imin = minx/m_subvolumeSubsamplingLevel;
       int jmin = miny/m_subvolumeSubsamplingLevel;
 
-      int kbytes = bpv*leni2*lenj2;
-
-      int kslc = 0;
+      qint64 kbytes = 1;
+      if (!checkedSizeFactor(bpv, kbytes) ||
+          !checkedSizeFactor(leni2, kbytes) ||
+          !checkedSizeFactor(lenj2, kbytes) ||
+          !validAllocationSize(kbytes))
+        {
+          delete [] tmp;
+          return 0;
+        }
 
       int offD = m_offD/m_subvolumeSubsamplingLevel;
       int offW = m_offW/m_subvolumeSubsamplingLevel;
       int offH = m_offH/m_subvolumeSubsamplingLevel;
 
-      int maxHsl = m_maxHeight/m_subvolumeSubsamplingLevel;
-      int maxWsl = m_maxWidth/m_subvolumeSubsamplingLevel;
+      int maxHsl = qMax(1, m_maxHeight/m_subvolumeSubsamplingLevel);
+      int maxWsl = qMax(1, m_maxWidth/m_subvolumeSubsamplingLevel);
 
       Vec relDataPos = Global::relDataPos();
       if (relDataPos.x < -0.5) offH = 0;
@@ -1472,9 +1665,17 @@ VolumeSingle::getSubvolume()
       if (relDataPos.x > 0.5) offH = (m_maxHeight-m_height)/m_subvolumeSubsamplingLevel;;
       if (relDataPos.y > 0.5) offW = (m_maxWidth-m_width)/m_subvolumeSubsamplingLevel;;
       if (relDataPos.z > 0.5) offD = (m_maxDepth-m_depth)/m_subvolumeSubsamplingLevel;;
+
+      offH = qBound(0, offH, qMax(0, maxHsl-leni2));
+      offW = qBound(0, offW, qMax(0, maxWsl-lenj2));
+      imin = qBound(0, imin,
+		    qMax(0, maxHsl-static_cast<int>(lenx2)));
+      jmin = qBound(0, jmin,
+		    qMax(0, maxWsl-static_cast<int>(leny2)));
       
       uchar *sliceTemp1 = new uchar [bpv*maxWsl*maxHsl];
 
+      int kslc = 0;
       for(int k0=kmin; k0<=kmax; k0++)
 	{
 	  Global::progressBar()->setValue((int)(100.0*(float)(kslc)/(float)(lenz2)));
@@ -1485,6 +1686,20 @@ VolumeSingle::getSubvolume()
 	  if (k >= 0 && k<lenk2)
 	    {
 	      uchar *vslice = m_lodFileManager.getSlice(k);
+	      if (!vslice)
+		{
+		  const QString error = m_lodFileManager.lastError();
+		  delete [] g0;
+		  delete [] g1;
+		  delete [] g2;
+		  delete [] g3;
+		  delete [] tmp;
+		  delete [] sliceTemp1;
+		  deleteTextureSlab();
+		  m_lodFileManager.removeFile();
+		  reportVolumeIoFailure("Reading subsampled volume", error);
+		  return 0;
+		}
 	      memcpy(m_sliceTemp, vslice, kbytes);
 	    }
 	  else
@@ -1515,8 +1730,7 @@ VolumeSingle::getSubvolume()
 	  memset(tmp, 0, bpv*dtlenx2*dtleny2);
 
 	  //-------- form dragSubvolumeTexure ---------------
-	  if (k >= (int)(m_dataMin.z/m_subvolumeSubsamplingLevel) &&
-	      k <= (int)(m_dataMax.z/m_subvolumeSubsamplingLevel))
+	  if (k >= 0)
 	    {
 	      int ji=0;
 	      if (bpv == 1)
@@ -1642,6 +1856,13 @@ VolumeSingle::getSubvolume()
   if (relDataPos.y > 0.5) offW = m_maxWidth - m_width;
   if (relDataPos.z > 0.5) offD = m_maxDepth - m_depth;
 
+  offH = qBound(0, offH, qMax(0, m_maxHeight-m_height));
+  offW = qBound(0, offW, qMax(0, m_maxWidth-m_width));
+  const int cropMinX = qBound(0, minx,
+			      qMax(0, m_maxHeight-static_cast<int>(lenx2)));
+  const int cropMinY = qBound(0, miny,
+			      qMax(0, m_maxWidth-static_cast<int>(leny2)));
+
 
   bool quick;
   quick = (offH == 0) && (offW==0) && (offD==0);
@@ -1667,6 +1888,19 @@ VolumeSingle::getSubvolume()
       if (k >= 0 && k < m_depth)
 	{
 	  uchar *vslice = m_pvlFileManager.getSlice(k);
+	  if (!vslice)
+	    {
+	      const QString error = m_pvlFileManager.lastError();
+	      delete [] g0;
+	      delete [] g1;
+	      delete [] g2;
+	      delete [] g3;
+	      delete [] tmp;
+	      delete [] sliceTemp1;
+	      deleteTextureSlab();
+	      reportVolumeIoFailure("Reading source volume", error);
+	      return 0;
+	    }
 	  memcpy(m_sliceTemp, vslice, nbytes);
 	}
       else
@@ -1692,7 +1926,7 @@ VolumeSingle::getSubvolume()
 	  
 	  for(int j=0; j<leny2; j++)
 	    memcpy(m_sliceTemp + bpv*j*lenx2,
-		   sliceTemp1 + bpv*((j+miny)*m_maxHeight + minx),
+		   sliceTemp1 + bpv*((j+cropMinY)*m_maxHeight + cropMinX),
 		   bpv*lenx2);
 	  
 	  // copy into array texture
@@ -1705,7 +1939,7 @@ VolumeSingle::getSubvolume()
       memcpy(g2, m_sliceTemp, bpv*lenx2*leny2);
 
       //-------- form dragTexure ---------------
-      if (k >= (int)m_dataMin.z && k <= (int)m_dataMax.z)
+      if (k >= 0)
 	{
 	  int ji=0;
 	  if (bpv == 1)
@@ -1846,10 +2080,10 @@ VolumeSingle::calculateGradientsForDragTexture()
   int lenx = m_subvolumeSize.x;
   int leny = m_subvolumeSize.y;
   int lenz = m_subvolumeSize.z;
-  int dtlod = m_dragTextureInfo.z;
-  int dtlenx2 = lenx/dtlod;
-  int dtleny2 = leny/dtlod;
-  int dtlenz2 = lenz/dtlod;
+  int dtlod = qMax(1, static_cast<int>(m_dragTextureInfo.z));
+  int dtlenx2 = qMax(1, lenx/dtlod);
+  int dtleny2 = qMax(1, leny/dtlod);
+  int dtlenz2 = qMax(1, lenz/dtlod);
 
   for(int i=0;i<dtlenz2;i++)
     {
@@ -1996,7 +2230,12 @@ VolumeSingle::createGradVolume()
   m_gradFileManager.setVoxelType(m_pvlVoxelType);
   m_gradFileManager.setHeaderSize(13);
   m_gradFileManager.setSlabSize(slabSize);
-  m_gradFileManager.createFile(true);
+  if (!m_gradFileManager.createFile(true))
+    {
+      const QString error = m_gradFileManager.lastError();
+      reportVolumeIoFailure("Creating gradient volume", error, false);
+      return;
+    }
   //-------------------------------------------
 
   int minx = 0;
@@ -2027,6 +2266,17 @@ VolumeSingle::createGradVolume()
   memset(g1, 0, nbytes);
   memset(g2, 0, nbytes);
 
+  const auto abortGradientGeneration = [&](const QString& operation,
+					   const QString& error)
+    {
+      delete [] tmp;
+      delete [] g0;
+      delete [] g1;
+      delete [] g2;
+      m_gradFileManager.removeFile();
+      reportVolumeIoFailure(operation, error, false);
+    };
+
   for(int kslc=0; kslc<m_depth; kslc++)
     {
       Global::progressBar()->setValue((int)(100.0*(float)kslc/(float)m_depth));
@@ -2034,6 +2284,12 @@ VolumeSingle::createGradVolume()
 
       uchar *vslice;
       vslice = m_pvlFileManager.getSlice(kslc);
+      if (!vslice)
+	{
+	  const QString error = m_pvlFileManager.lastError();
+	  abortGradientGeneration("Reading source volume", error);
+	  return;
+	}
 
       memcpy(g2, vslice, nbytes);
 
@@ -2072,10 +2328,14 @@ VolumeSingle::createGradVolume()
 	    }
 	}
 
-      if (kslc==0 || kslc==m_depth-1) // first or last slice
-	m_gradFileManager.setSlice(kslc, tmp);
-      else
-	m_gradFileManager.setSlice(kslc-1, tmp);
+      const int outputSlice = (kslc==0 || kslc==m_depth-1) ?
+	kslc : kslc-1;
+      if (!m_gradFileManager.setSlice(outputSlice, tmp))
+	{
+	  const QString error = m_gradFileManager.lastError();
+	  abortGradientGeneration("Writing gradient volume", error);
+	  return;
+	}
 
       uchar *gt = g0;
       g0 = g1;
@@ -2229,7 +2489,10 @@ VolumeSingle::resliceVolume(Vec pos,
 					      "RAW Files (*.raw)");
 
   if (flnm.isEmpty())
-    return;
+    {
+      delete [] slice;
+      return;
+    }
 
   
   int slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFiles[0]);
@@ -2242,7 +2505,13 @@ VolumeSingle::resliceVolume(Vec pos,
   resliceFileManager.setVoxelType(m_pvlVoxelType);
   resliceFileManager.setHeaderSize(13); // default is 13 bytes
   resliceFileManager.setSlabSize(slabSize);
-  resliceFileManager.createFile(true);
+  if (!resliceFileManager.createFile(true))
+    {
+      const QString error = resliceFileManager.lastError();
+      delete [] slice;
+      reportVolumeIoFailure("Creating resliced volume", error);
+      return;
+    }
 
   QProgressDialog progress("Reslicing volume",
 			   QString(),
@@ -2292,7 +2561,18 @@ VolumeSingle::resliceVolume(Vec pos,
 	}
 
       for(int ivv=iv; ivv<qMin(iv+blksz, nslices); ivv++)
-	resliceFileManager.setSlice(ivv, slice+bpv*(ivv-iv)*wd*ht);
+	{
+	  if (!resliceFileManager.setSlice(ivv,
+					   slice+bpv*(ivv-iv)*wd*ht))
+	    {
+	      const QString error = resliceFileManager.lastError();
+	      m_pvlFileManager.endBlockInterpolation();
+	      delete [] slice;
+	      resliceFileManager.removeFile();
+	      reportVolumeIoFailure("Writing resliced volume", error);
+	      return;
+	    }
+	}
     }
 
   m_pvlFileManager.endBlockInterpolation();
@@ -2745,6 +3025,9 @@ VolumeSingle::countIsolatedRegions(uchar *lut,
 		crops,
 		paths);
 
+  if (m_bitmask.isEmpty())
+    return;
+
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Counting Isolated Regions"));
 
@@ -2843,18 +3126,21 @@ VolumeSingle::countIsolatedRegions(uchar *lut,
 // for loading texture in slabs
 //----------------------------
 void
-VolumeSingle::allocSlabs(int nZSlices)
+VolumeSingle::deleteTextureSlab()
+{
+  if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
+  m_dragSubvolumeTexture = 0;
+
+  if (m_subvolumeTexture) delete [] m_subvolumeTexture;
+  m_subvolumeTexture = 0;
+  m_slabLayerCapacity = 0;
+}
+
+bool
+VolumeSingle::allocSlabs(int layerCapacity, bool allocateSlabTexture)
 {
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
-
-  int minx = m_dataMin.x;
-  int miny = m_dataMin.y;
-  int minz = m_dataMin.z;
-  
-  int maxx = m_dataMax.x;
-  int maxy = m_dataMax.y;
-  int maxz = m_dataMax.z;
 
   int lenx = m_subvolumeSize.x;
   int leny = m_subvolumeSize.y;
@@ -2862,41 +3148,123 @@ VolumeSingle::allocSlabs(int nZSlices)
 
   qint64 lenx2 = m_subvolumeTextureSize.x;
   qint64 leny2 = m_subvolumeTextureSize.y;
-  qint64 lenz2 = m_subvolumeTextureSize.z;
 
   //-------- for dragTexure ---------------
-  int dtlod = m_dragTextureInfo.z;
-  int dtlenx2 = lenx/dtlod;
-  int dtleny2 = leny/dtlod;
-  int dtlenz2 = lenz/dtlod;
+  int dtlod = qMax(1, static_cast<int>(m_dragTextureInfo.z));
+  int dtlenx2 = qMax(1, lenx/dtlod);
+  int dtleny2 = qMax(1, leny/dtlod);
+  int dtlenz2 = qMax(1, lenz/dtlod);
   //---------------------------------------
 
   m_dragSubvolumeSubsamplingLevel = dtlod;
   m_dragSubvolumeTextureSize = Vec(dtlenx2, dtleny2, dtlenz2); 
 
-  if (m_dragSubvolumeTexture) delete [] m_dragSubvolumeTexture;
-  m_dragSubvolumeTexture = new uchar[bpv*dtlenx2*dtleny2*dtlenz2];
+  deleteTextureSlab();
 
-  if (m_subvolumeTexture) delete [] m_subvolumeTexture;
-  m_subvolumeTexture = new uchar[bpv*nZSlices*leny2*lenx2];
+  if (layerCapacity <= 0)
+    return false;
+
+  qint64 dragBytes = 1;
+  if (!checkedSizeFactor(bpv, dragBytes) ||
+      !checkedSizeFactor(dtlenx2, dragBytes) ||
+      !checkedSizeFactor(dtleny2, dragBytes) ||
+      !checkedSizeFactor(dtlenz2, dragBytes) ||
+      !validAllocationSize(dragBytes))
+    return false;
+
+  qint64 slabBytes = 1;
+  if (!checkedSizeFactor(bpv, slabBytes) ||
+      !checkedSizeFactor(layerCapacity, slabBytes) ||
+      !checkedSizeFactor(leny2, slabBytes) ||
+      !checkedSizeFactor(lenx2, slabBytes) ||
+      !validAllocationSize(slabBytes))
+    return false;
+
+  m_dragSubvolumeTexture =
+    new (std::nothrow) uchar[static_cast<size_t>(dragBytes)];
+  if (!m_dragSubvolumeTexture)
+    return false;
+
+  if (allocateSlabTexture)
+    {
+      m_subvolumeTexture =
+        new (std::nothrow) uchar[static_cast<size_t>(slabBytes)];
+      if (!m_subvolumeTexture)
+        {
+          delete [] m_dragSubvolumeTexture;
+          m_dragSubvolumeTexture = 0;
+          return false;
+        }
+
+      memset(m_subvolumeTexture, 0, static_cast<size_t>(slabBytes));
+    }
+
+  memset(m_dragSubvolumeTexture, 0, static_cast<size_t>(dragBytes));
+  m_slabLayerCapacity = layerCapacity;
+  return true;
 }
 
 uchar*
-VolumeSingle::getSlab(int startZSlice, int endZSlice)
+VolumeSingle::getSlab(int startZSlice, int endZSlice, int layerCount)
 {
-  MainWindowUI::mainWindowUI()->statusBar->showMessage(QString("Loading %1 to %2").arg(startZSlice).arg(endZSlice));
-  Global::progressBar()->show();
+  qint64 slabBytes = 1;
+  const int bpv = m_pvlVoxelType > 0 ? 2 : 1;
+  if (!checkedSizeFactor(bpv, slabBytes) ||
+      !checkedSizeFactor(layerCount, slabBytes) ||
+      !checkedSizeFactor(static_cast<qint64>(m_subvolumeTextureSize.y),
+                         slabBytes) ||
+      !checkedSizeFactor(static_cast<qint64>(m_subvolumeTextureSize.x),
+                         slabBytes) ||
+      !validAllocationSize(slabBytes))
+    return 0;
+
+  return getSlabInternal(startZSlice, endZSlice, layerCount,
+                         m_subvolumeTexture, slabBytes);
+}
+
+bool
+VolumeSingle::fillSlab(int startZSlice, int endZSlice, int layerCount,
+                       uchar *output, qint64 outputBytes)
+{
+  return getSlabInternal(startZSlice, endZSlice, layerCount,
+                         output, outputBytes) != 0;
+}
+
+uchar*
+VolumeSingle::getSlabInternal(int startZSlice, int endZSlice, int layerCount,
+                              uchar *slabTexture, qint64 slabTextureBytes)
+{
+  const int lod = qMax(1, m_subvolumeSubsamplingLevel);
+  const qint64 textureDepth =
+    qMax<qint64>(1, static_cast<qint64>(m_subvolumeTextureSize.z));
+  const qint64 firstLayer =
+    (static_cast<qint64>(startZSlice)-
+     static_cast<qint64>(m_dataMin.z))/lod;
+  const qint64 lastLayer = firstLayer+static_cast<qint64>(layerCount)-1;
 
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
 
+  qint64 slabLayerBytes = 1;
+  if (!checkedSizeFactor(bpv, slabLayerBytes) ||
+      !checkedSizeFactor(static_cast<qint64>(m_subvolumeTextureSize.y),
+                         slabLayerBytes) ||
+      !checkedSizeFactor(static_cast<qint64>(m_subvolumeTextureSize.x),
+                         slabLayerBytes) ||
+      !validAllocationSize(slabLayerBytes) ||
+      layerCount <= 0 ||
+      slabLayerBytes > std::numeric_limits<qint64>::max()/layerCount ||
+      slabTextureBytes < slabLayerBytes*layerCount ||
+      layerCount > m_slabLayerCapacity ||
+      firstLayer < 0 || lastLayer >= textureDepth ||
+      !slabTexture || !m_dragSubvolumeTexture || !m_sliceTemp)
+    return 0;
+
+  MainWindowUI::mainWindowUI()->statusBar->showMessage(QString("Loading %1 to %2").arg(startZSlice).arg(endZSlice));
+  Global::progressBar()->show();
+
   int minx = m_dataMin.x;
   int miny = m_dataMin.y;
-  int minz = m_dataMin.z;
-  
-  int maxx = m_dataMax.x;
-  int maxy = m_dataMax.y;
-  int maxz = m_dataMax.z;
 
   int lenx = m_subvolumeSize.x;
   int leny = m_subvolumeSize.y;
@@ -2904,71 +3272,121 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
 
   qint64 lenx2 = m_subvolumeTextureSize.x;
   qint64 leny2 = m_subvolumeTextureSize.y;
-  qint64 lenz2 = m_subvolumeTextureSize.z;
 
   //-------- for dragTexure ---------------
-  int dtlod = m_dragTextureInfo.z;
-  int dtlenx2 = lenx/dtlod;
-  int dtleny2 = leny/dtlod;
-  int dtlenz2 = lenz/dtlod;
-  float stp = (float)dtlod/(float)m_subvolumeSubsamplingLevel;
-  uchar *tmp = new uchar[bpv*dtlenx2*dtleny2];
+  int dtlod = qMax(1, static_cast<int>(m_dragTextureInfo.z));
+  int dtlenx2 = qMax(1, lenx/dtlod);
+  int dtleny2 = qMax(1, leny/dtlod);
+  int dtlenz2 = qMax(1, lenz/dtlod);
+  float stp = (float)dtlod/(float)lod;
+  qint64 tmpBytes = 1;
+  if (!checkedSizeFactor(bpv, tmpBytes) ||
+      !checkedSizeFactor(dtlenx2, tmpBytes) ||
+      !checkedSizeFactor(dtleny2, tmpBytes) ||
+      !validAllocationSize(tmpBytes))
+    return 0;
+
+  uchar *tmp = new (std::nothrow) uchar[static_cast<size_t>(tmpBytes)];
+  if (!tmp)
+    return 0;
   //---------------------------------------
 
     
   //---------------------------------------------------------
-  if (m_subvolumeSubsamplingLevel > 1)
+  if (lod > 1)
     {
-      int leni2 = m_height/m_subvolumeSubsamplingLevel;
-      int lenj2 = m_width/m_subvolumeSubsamplingLevel;
-      int lenk2 = m_depth/m_subvolumeSubsamplingLevel;
+      int leni2 = qMax(1, m_height/lod);
+      int lenj2 = qMax(1, m_width/lod);
+      int lenk2 = qMax(1, m_depth/lod);
 
-      int imin = minx/m_subvolumeSubsamplingLevel;
-      int jmin = miny/m_subvolumeSubsamplingLevel;
+      int imin = minx/lod;
+      int jmin = miny/lod;
 
-      int kbytes = bpv*leni2*lenj2;
+      qint64 kbytes = 1;
+      if (!checkedSizeFactor(bpv, kbytes) ||
+          !checkedSizeFactor(leni2, kbytes) ||
+          !checkedSizeFactor(lenj2, kbytes) ||
+          !validAllocationSize(kbytes))
+        {
+          delete [] tmp;
+          return 0;
+        }
 
       int kslc = 0;
 
-      int offD = m_offD/m_subvolumeSubsamplingLevel;
-      int offW = m_offW/m_subvolumeSubsamplingLevel;
-      int offH = m_offH/m_subvolumeSubsamplingLevel;
+      int offD = m_offD/lod;
+      int offW = m_offW/lod;
+      int offH = m_offH/lod;
 
-      int maxHsl = m_maxHeight/m_subvolumeSubsamplingLevel;
-      int maxWsl = m_maxWidth/m_subvolumeSubsamplingLevel;
+      int maxHsl = qMax(1, m_maxHeight/lod);
+      int maxWsl = qMax(1, m_maxWidth/lod);
 
       Vec relDataPos = Global::relDataPos();
       if (relDataPos.x < -0.5) offH = 0;
       if (relDataPos.y < -0.5) offW = 0;
       if (relDataPos.z < -0.5) offD = 0;
 
-      if (relDataPos.x > 0.5) offH = (m_maxHeight-m_height)/m_subvolumeSubsamplingLevel;
-      if (relDataPos.y > 0.5) offW = (m_maxWidth-m_width)/m_subvolumeSubsamplingLevel;
-      if (relDataPos.z > 0.5) offD = (m_maxDepth-m_depth)/m_subvolumeSubsamplingLevel;
-      
-      uchar *sliceTemp1 = new uchar [bpv*maxWsl*maxHsl];
+      if (relDataPos.x > 0.5) offH = (m_maxHeight-m_height)/lod;
+      if (relDataPos.y > 0.5) offW = (m_maxWidth-m_width)/lod;
+      if (relDataPos.z > 0.5) offD = (m_maxDepth-m_depth)/lod;
 
-      int kmin = startZSlice/m_subvolumeSubsamplingLevel;
-      int kmax = endZSlice/m_subvolumeSubsamplingLevel;
-      for(int k0=kmin; k0<=kmax; k0++)
+      offH = qBound(0, offH, qMax(0, maxHsl-leni2));
+      offW = qBound(0, offW, qMax(0, maxWsl-lenj2));
+      imin = qBound(0, imin,
+		    qMax(0, maxHsl-static_cast<int>(lenx2)));
+      jmin = qBound(0, jmin,
+		    qMax(0, maxWsl-static_cast<int>(leny2)));
+
+      qint64 sliceBytes = 1;
+      if (!checkedSizeFactor(bpv, sliceBytes) ||
+          !checkedSizeFactor(maxWsl, sliceBytes) ||
+          !checkedSizeFactor(maxHsl, sliceBytes) ||
+          !validAllocationSize(sliceBytes))
+        {
+          delete [] tmp;
+          return 0;
+        }
+
+      uchar *sliceTemp1 =
+        new (std::nothrow) uchar[static_cast<size_t>(sliceBytes)];
+      if (!sliceTemp1)
+        {
+          delete [] tmp;
+          return 0;
+        }
+
+      const qint64 kmin = static_cast<qint64>(startZSlice)/lod;
+      for(int kslc=0; kslc<layerCount; kslc++)
 	{
-	  Global::progressBar()->setValue((int)(100.0*(float)(k0-kmin)/(float)(kmax-kmin+1)));
+	  const qint64 k0 = kmin+kslc;
+	  Global::progressBar()->setValue((int)(100.0*(float)kslc/(float)layerCount));
 	  if (kslc%100==0) qApp->processEvents();
 
-	  int k = k0 - offD; // shift slice by given depth offset
+	  const qint64 shiftedSlice = k0-offD;
+	  const int k = (shiftedSlice >= 0 && shiftedSlice < lenk2) ?
+	    static_cast<int>(shiftedSlice) : -1;
 
-	  if (k >= 0 && k<lenk2)
+	  if (k >= 0)
 	    {
 	      uchar *vslice = m_lodFileManager.getSlice(k);
-	      memcpy(m_sliceTemp, vslice, kbytes);
+	      if (!vslice)
+                {
+		  const QString error = m_lodFileManager.lastError();
+                  delete [] tmp;
+                  delete [] sliceTemp1;
+		  m_lodFileManager.removeFile();
+		  reportVolumeIoFailure("Reading subsampled volume", error);
+                  return 0;
+                }
+	      memcpy(m_sliceTemp, vslice, static_cast<size_t>(kbytes));
 	    }
 	  else
 	    {
-	      memset(m_sliceTemp, 0, kbytes);
+	      memset(m_sliceTemp, 0, static_cast<size_t>(kbytes));
 	    }
 
 	  //---
-	  memset(sliceTemp1, 0, bpv*maxWsl*maxHsl);
+	  memset(sliceTemp1, 0, static_cast<size_t>(sliceBytes));
 	  for(int j=0; j<lenj2; j++)
 	    memcpy(sliceTemp1 + bpv*((j+offW)*maxHsl + offH),
 		   m_sliceTemp + bpv*j*leni2,
@@ -2980,17 +3398,16 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
 		   bpv*lenx2);
 
 	  // copy into array texture
-	  memcpy(m_subvolumeTexture + bpv*kslc*lenx2*leny2,
+	  memcpy(slabTexture + static_cast<qint64>(kslc)*slabLayerBytes,
 		 m_sliceTemp,
-		 bpv*lenx2*leny2);
+		 static_cast<size_t>(slabLayerBytes));
 	  //---
 
 
-	  memset(tmp, 0, bpv*dtlenx2*dtleny2);
+	  memset(tmp, 0, static_cast<size_t>(tmpBytes));
 
 	  //-------- form dragSubvolumeTexure ---------------
-	  if (k >= (int)(m_dataMin.z/m_subvolumeSubsamplingLevel) &&
-	      k <= (int)(m_dataMax.z/m_subvolumeSubsamplingLevel))
+	  if (k >= 0)
 	    {
 	      int ji=0;
 	      if (bpv == 1)
@@ -3021,14 +3438,14 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
 		}
 
 	      // copy into array texture
-	      int dtkslc = qBound(0, (int)((kslc+kmin)/stp), dtlenz2-1);
-	      memcpy(m_dragSubvolumeTexture + bpv*dtkslc*dtlenx2*dtleny2,
+	      const qint64 dragLayer = qBound<qint64>(
+		0, static_cast<qint64>((firstLayer+kslc)/stp), dtlenz2-1);
+	      memcpy(m_dragSubvolumeTexture + dragLayer*tmpBytes,
 		     tmp,
-		     bpv*dtlenx2*dtleny2);
+		     static_cast<size_t>(tmpBytes));
 	    }
 	  //---------------------------------------
 
-	  kslc ++;
 	}
 
       delete [] tmp;
@@ -3039,10 +3456,10 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
 
   
       if (!Global::histogramDisabled())
-	generateHistograms(kmax-kmin+1, leny2, lenx2);
+	generateHistograms(layerCount, leny2, lenx2, slabTexture);
       
       Global::progressBar()->setValue(100);
-      return m_subvolumeTexture;
+      return slabTexture;
     }
   //---------------------------------------------------------
 
@@ -3050,9 +3467,15 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
   //---------------------------------------------------------
   //m_subvolumeSubsamplingLevel == 1
   //---------------------------------------------------------
-  int nbytes = bpv*m_width*m_height;
-  int kslc = 0;
-
+  qint64 nbytes = 1;
+  if (!checkedSizeFactor(bpv, nbytes) ||
+      !checkedSizeFactor(m_width, nbytes) ||
+      !checkedSizeFactor(m_height, nbytes) ||
+      !validAllocationSize(nbytes))
+    {
+      delete [] tmp;
+      return 0;
+    }
   int offD = m_offD;
   int offW = m_offW;
   int offH = m_offH;
@@ -3066,6 +3489,13 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
   if (relDataPos.y > 0.5) offW = m_maxWidth - m_width;
   if (relDataPos.z > 0.5) offD = m_maxDepth - m_depth;
 
+  offH = qBound(0, offH, qMax(0, m_maxHeight-m_height));
+  offW = qBound(0, offW, qMax(0, m_maxWidth-m_width));
+  const int cropMinX = qBound(0, minx,
+			      qMax(0, m_maxHeight-static_cast<int>(lenx2)));
+  const int cropMinY = qBound(0, miny,
+			      qMax(0, m_maxWidth-static_cast<int>(leny2)));
+
 
   bool quick;
   quick = (offH == 0) && (offW==0);
@@ -3075,40 +3505,67 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
   quick = quick && (m_maxWidth==m_width);
 
   
-  uchar *sliceTemp1 = new uchar [bpv*m_maxWidth*m_maxHeight];
+  qint64 sliceBytes = 1;
+  if (!checkedSizeFactor(bpv, sliceBytes) ||
+      !checkedSizeFactor(m_maxWidth, sliceBytes) ||
+      !checkedSizeFactor(m_maxHeight, sliceBytes) ||
+      !validAllocationSize(sliceBytes))
+    {
+      delete [] tmp;
+      return 0;
+    }
+
+  uchar *sliceTemp1 =
+    new (std::nothrow) uchar[static_cast<size_t>(sliceBytes)];
+  if (!sliceTemp1)
+    {
+      delete [] tmp;
+      return 0;
+    }
 
   //-------------------------------------------------------
-  for(int k0=startZSlice; k0<=endZSlice; k0++)
+  for(int kslc=0; kslc<layerCount; kslc++)
     {
-      Global::progressBar()->setValue((int)(100.0*(float)(k0-startZSlice)/(float)(endZSlice-startZSlice+1)));
+      const qint64 sourceSlice = static_cast<qint64>(startZSlice)+kslc;
+      Global::progressBar()->setValue((int)(100.0*(float)kslc/(float)layerCount));
       if (kslc%100==0) qApp->processEvents();
       qApp->processEvents();
 
 
-      int k = k0 - offD; // shift slice by given depth offset
+      const qint64 shiftedSlice = sourceSlice-offD;
+      const int k = (shiftedSlice >= 0 && shiftedSlice < m_depth) ?
+        static_cast<int>(shiftedSlice) : -1;
       
       if (k >= 0 && k < m_depth)
 	{
 	  uchar *vslice = m_pvlFileManager.getSlice(k);
-	  memcpy(m_sliceTemp, vslice, nbytes);
+	  if (!vslice)
+            {
+	      const QString error = m_pvlFileManager.lastError();
+              delete [] tmp;
+              delete [] sliceTemp1;
+	      reportVolumeIoFailure("Reading source volume", error);
+              return 0;
+            }
+	  memcpy(m_sliceTemp, vslice, static_cast<size_t>(nbytes));
 	}
       else
 	{
-	  memset(m_sliceTemp, 0, nbytes);
+	  memset(m_sliceTemp, 0, static_cast<size_t>(nbytes));
 	}
       
 
       if (quick)
 	{
 	  // copy into array texture
-	  memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,
+	  memcpy(slabTexture + static_cast<qint64>(kslc)*slabLayerBytes,
 		 m_sliceTemp,
-		 bpv*lenx2*leny2);
+		 static_cast<size_t>(slabLayerBytes));
 	}
       else
 	{
 	  //---
-	  memset(sliceTemp1, 0, bpv*m_maxWidth*m_maxHeight);
+	  memset(sliceTemp1, 0, static_cast<size_t>(sliceBytes));
 	  for(int j=0; j<m_width; j++)
 	    memcpy(sliceTemp1 + bpv*((j+offW)*m_maxHeight + offH),
 		   m_sliceTemp + bpv*j*m_height,
@@ -3116,18 +3573,18 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
 	  
 	  for(int j=0; j<leny2; j++)
 	    memcpy(m_sliceTemp + bpv*j*lenx2,
-		   sliceTemp1 + bpv*((j+miny)*m_maxHeight + minx),
+		   sliceTemp1 + bpv*((j+cropMinY)*m_maxHeight + cropMinX),
 		   bpv*lenx2);
 	  
 	  // copy into array texture
-	  memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,
+	  memcpy(slabTexture + static_cast<qint64>(kslc)*slabLayerBytes,
 		 m_sliceTemp,
-		 bpv*lenx2*leny2);
+		 static_cast<size_t>(slabLayerBytes));
 	  //---
 	}
 
       //-------- form dragTexure ---------------
-      if (k >= (int)m_dataMin.z && k <= (int)m_dataMax.z)
+      if (k >= 0)
 	{
 	  int ji=0;
 	  if (bpv == 1)
@@ -3158,14 +3615,15 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
 	    }
 	  
 	  // copy into array texture
-	  int dtkslc = qBound(0, (int)((kslc+startZSlice)/stp), dtlenz2-1);
-	  memcpy(m_dragSubvolumeTexture + bpv*dtkslc*dtlenx2*dtleny2,
+	  const qint64 dragLayer = qBound<qint64>(
+	    0, static_cast<qint64>((firstLayer+kslc)/stp),
+	    dtlenz2-1);
+	  memcpy(m_dragSubvolumeTexture + dragLayer*tmpBytes,
 		 tmp,
-		 bpv*dtlenx2*dtleny2);
+		 static_cast<size_t>(tmpBytes));
 	}
       //---------------------------------------
 
-      kslc ++;
     }
 
   delete [] tmp;
@@ -3175,12 +3633,12 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
   sliceTemp1 = 0;
   
   if (!Global::histogramDisabled())
-    generateHistograms(endZSlice-startZSlice+1, leny2, lenx2);
+    generateHistograms(layerCount, leny2, lenx2, slabTexture);
 
   Global::progressBar()->setValue(100);
   MainWindowUI::mainWindowUI()->statusBar->showMessage("Ready");
 
-  return m_subvolumeTexture;
+  return slabTexture;
 }
 
 
@@ -3242,8 +3700,14 @@ parHistogramGeneration(QList<QVariant> plist)
 }
 
 void
-VolumeSingle::generateHistograms(int nslices, int leny2, int lenx2)
+VolumeSingle::generateHistograms(int nslices, int leny2, int lenx2,
+                                 uchar *texture)
 {
+  if (!texture)
+    texture = m_subvolumeTexture;
+  if (!texture || nslices <= 0 || leny2 <= 0 || lenx2 <= 0)
+    return;
+
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
 
@@ -3273,7 +3737,7 @@ VolumeSingle::generateHistograms(int nslices, int leny2, int lenx2)
       plist << QVariant(endZ);
       plist << QVariant(leny2);
       plist << QVariant(lenx2);
-      plist << QVariant::fromValue(static_cast<void*>(m_subvolumeTexture));
+      plist << QVariant::fromValue(static_cast<void*>(texture));
       plist << QVariant::fromValue(static_cast<void*>(hist1D + d*256));
       plist << QVariant::fromValue(static_cast<void*>(hist2D + d*256*256));
       

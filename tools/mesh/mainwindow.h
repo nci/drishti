@@ -76,7 +76,7 @@ class MainWindow : public QMainWindow
   
    void quitDrishti();
    void openRecentFile();   
-   void loadProject(const char*);
+   void loadProject(const QString&);
    void saveProject(QString);
    void loadSurfaceMesh(QString);
    void GlewInit();
@@ -122,6 +122,7 @@ class MainWindow : public QMainWindow
    QString m_projectFileName;
 
    Viewer *m_Viewer;
+   bool m_rendererServicesStarted;
   
    DrawHiresVolume *m_Hires;
 
@@ -160,7 +161,7 @@ class MainWindow : public QMainWindow
    QStringList m_pluginDll;;
 
 
-   QProcess* m_scriptProcess;
+   QProcess* m_scriptProcess = nullptr;
    QString m_scriptDir;
    QStringList m_scriptsList;
    QStringList m_scriptsTitle;
@@ -188,8 +189,8 @@ class MainWindow : public QMainWindow
    void loadDummyVolume(int, int, int);
 
 
-   void loadKeyFrames(const char*);
-   void saveKeyFrames(const char*);
+   void loadKeyFrames(const QString&);
+   void saveKeyFrames(const QString&);
 
 
    void setTextureMemory();
@@ -202,6 +203,7 @@ class MainWindow : public QMainWindow
 
 
    void registerScripts();
+   void stopScriptProcess();
    void runScript(int, bool);
   
    void registerPlugins();

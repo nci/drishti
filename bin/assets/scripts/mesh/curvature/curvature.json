@@ -3,5 +3,6 @@
     "interpreter" : "python",
     "script" : "curvature.py",
     "description" : "Curvature",
-    "menu_hierarchy" : "Filters"
+    "menu_hierarchy" : "Filters",
+    "packages" : ["PyQt5", "pyvista", "pyvistaqt", "numpy", "scipy"]
 }

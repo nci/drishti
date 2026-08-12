@@ -3,6 +3,20 @@
 #include <QCoreApplication>
 #include <QAction>
 
+#include <cmath>
+#include <limits>
+
+namespace
+{
+const int c_minimumTextureMemoryMB = 128;
+const int c_maximumTextureMemoryMB = 512;
+const float c_maximumSlabSizeGiB = 0.5f;
+const qint64 c_integratedGpuDragVolumeMiB = 16;
+const int c_minimumTextureSizePower = 20; // 1 MiB
+const int c_maximumTextureSizePower = 30; // 1 GiB
+const int c_maximumArrayTextureLayers = 16384;
+}
+
 QString Global::DrishtiVersion() { return QString(DRISHTI_VERSION); }
 
 bool Global::m_playFrames = false;
@@ -151,8 +165,11 @@ void Global::setFlipImageX(bool flag) { m_flipImageX = flag; }
 void Global::setFlipImageY(bool flag) { m_flipImageY = flag; }
 void Global::setFlipImageZ(bool flag) { m_flipImageZ = flag; }
 
-float Global::m_maxSlabSize = 1.0; // 4Gb
-void Global::setMaxSlabSize(float mss) { m_maxSlabSize = qBound(0.25f, mss, 4.0f); }
+float Global::m_maxSlabSize = c_maximumSlabSizeGiB; // GiB
+void Global::setMaxSlabSize(float mss)
+{
+  m_maxSlabSize = qBound(0.25f, mss, c_maximumSlabSizeGiB);
+}
 float Global::maxSlabSize() { return m_maxSlabSize; }
 
 float Global::m_texSizeReduceFraction = 1.0f;
@@ -162,25 +179,44 @@ float Global::texSizeReduceFraction() { return m_texSizeReduceFraction; }
 GLint
 Global::max2dTextureSize()
 {
-  GLint texSize;
-  glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB, &texSize);
-  
- // restrict max 2D texturesize to 8K
-  //texSize = qMin(16384, texSize);
+  GLint textureSize = 0;
+  GLint rectangleTextureSize = 0;
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &textureSize);
+  glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB, &rectangleTextureSize);
 
-  // but if the user wants to modify it, so be it
-  return texSize*m_texSizeReduceFraction;
-  //return texSize;
+  GLint hardwareLimit = textureSize;
+  if (rectangleTextureSize > 0)
+    hardwareLimit = hardwareLimit > 0 ?
+      qMin(hardwareLimit, rectangleTextureSize) : rectangleTextureSize;
+  hardwareLimit = qMax<GLint>(1, hardwareLimit);
+
+  // A user reduction may lower the working limit, but must never raise it
+  // beyond what GL_TEXTURE_2D_ARRAY and rectangle textures actually support.
+  const GLint requestedLimit = qMax<GLint>(
+    1, static_cast<GLint>(hardwareLimit*m_texSizeReduceFraction));
+  return qMin(hardwareLimit, requestedLimit);
 }
 
 int Global::m_textureSize = 25; // 512x256x256 (9+8+8)
 int Global::textureSize() {return m_textureSize;}
-void Global::setTextureSize(int sz) {m_textureSize = sz;}
+void Global::setTextureSize(int sz)
+{
+  m_textureSize = qBound(c_minimumTextureSizePower,
+			sz,
+			c_maximumTextureSizePower);
+}
 
 
-int Global::m_textureMemorySize = 128;
+// A conservative explicit budget for shared-memory integrated GPUs.  System
+// RAM is deliberately not treated as dedicated graphics memory.
+int Global::m_textureMemorySize = 512;
 int Global::textureMemorySize() {return m_textureMemorySize;}
-void Global::setTextureMemorySize(int sz) { m_textureMemorySize = sz; }
+void Global::setTextureMemorySize(int sz)
+{
+  m_textureMemorySize = qBound(c_minimumTextureMemoryMB,
+			      sz,
+			      c_maximumTextureMemoryMB);
+}
 
 void Global::calculate3dTextureSize()
 {
@@ -204,6 +240,11 @@ void Global::calculate3dTextureSize()
       useMask())
     comp++;
 
+  comp = qBound(1, comp, 5);
+  m_textureMemorySize = qBound(c_minimumTextureMemoryMB,
+			       m_textureMemorySize,
+			       c_maximumTextureMemoryMB);
+
   
   qint64 tms = m_textureMemorySize;
   // set aside some texture memory for other buffers
@@ -212,19 +253,14 @@ void Global::calculate3dTextureSize()
   else if (m_textureMemorySize >= 512) tms -= 64;
   else tms -= 32;
 
-  tms /= comp;
+  tms = qMax<qint64>(1, tms/comp);
 
-
-  int p2 = 0;
-  while (tms > 0)
+  int p2 = c_minimumTextureSizePower;
+  while (tms > 1 && p2 < c_maximumTextureSizePower)
     {
       tms /= 2;
       p2 ++;
     }
-  // for memory size in Mb
-  p2 += 20;
-  p2 --;
-  p2 = qMin(30, p2);
 
   Global::setTextureSize(p2);
 }
@@ -406,10 +442,11 @@ void Global::setTagColors(uchar *colors)
 }
 
 
-qint64 Global::m_maxDragVolSize = 128;
+qint64 Global::m_maxDragVolSize = c_integratedGpuDragVolumeMiB;
 void Global::setMaxDragVolSize(qint64 sz)
 {
-  m_maxDragVolSize = sz;
+  Q_UNUSED(sz);
+  m_maxDragVolSize = c_integratedGpuDragVolumeMiB;
   m_updatePruneTexture = true;  // force to update prune texture when loading volume
 }
 qint64 Global::maxDragVolSize() { return m_maxDragVolSize; }
@@ -420,7 +457,10 @@ qint64 Global::actualDragVolSize() { return m_actualDragVolSize; }
 
 //this is actually GL_MAX_ARRAY_TEXTURE_LAYERS
 int Global::m_maxArrayTextureLayers = 512;
-void Global::setMaxArrayTextureLayers(int sz) { m_maxArrayTextureLayers = sz; }
+void Global::setMaxArrayTextureLayers(int sz)
+{
+  m_maxArrayTextureLayers = qBound(1, sz, c_maximumArrayTextureLayers);
+}
 int Global::maxArrayTextureLayers() { return m_maxArrayTextureLayers; }
 
 bool Global::m_interpolationType[10] = {true, true, true, true, true,
@@ -862,54 +902,99 @@ GLuint Global::cylinderTexture()
 Vec
 Global::getDragInfo(int bytesPerVoxel, Vec dataMin, Vec dataMax, int lod0)
 {
-  int texSize = max2dTextureSize();
-  qint64 lenx = dataMax.x - dataMin.x + 1;
-  qint64 leny = dataMax.y - dataMin.y + 1;
-  qint64 lenz = dataMax.z - dataMin.z + 1;
+  const qint64 texSize = qMax<qint64>(1, max2dTextureSize());
+  const qint64 lenx = qMax<qint64>(1, dataMax.x-dataMin.x+1);
+  const qint64 leny = qMax<qint64>(1, dataMax.y-dataMin.y+1);
+  const qint64 lenz = qMax<qint64>(1, dataMax.z-dataMin.z+1);
+  const int maxLod = static_cast<int>(qMin<qint64>(
+    std::numeric_limits<int>::max(), qMax(lenx, qMax(leny, lenz))));
 
-  qint64 mDVS = maxDragVolSize()*1024*1024/bytesPerVoxel; // reduce maxDragVolSize by nuber of bytes per voxel
-  int mATL = maxArrayTextureLayers();
-  int lod = lod0;
-  qint64 lenx2 = lenx/lod;
-  qint64 leny2 = leny/lod;
-  qint64 lenz2 = lenz/lod;
-  while(lenz2 > mATL ||
-	lenx2*leny2*lenz2 > mDVS)
+  const qint64 voxelCapacity = qMax<qint64>(
+    1, maxDragVolSize()*1024LL*1024LL/qMax(1, bytesPerVoxel));
+  const qint64 layerLimit = qMax(1, maxArrayTextureLayers());
+  int lod = qBound(1, lod0, maxLod);
+  qint64 lenx2 = qMax<qint64>(1, lenx/lod);
+  qint64 leny2 = qMax<qint64>(1, leny/lod);
+  qint64 lenz2 = qMax<qint64>(1, lenz/lod);
+
+  const auto fitsVoxelCapacity = [voxelCapacity](qint64 x,
+						 qint64 y,
+						 qint64 z)
+    {
+      qint64 capacity = voxelCapacity;
+      if (x > capacity) return false;
+      capacity /= x;
+      if (y > capacity) return false;
+      capacity /= y;
+      return z <= capacity;
+    };
+
+  const auto packedTextureFits = [voxelCapacity](qint64 x,
+						  qint64 y,
+						  qint64 columns,
+						  qint64 rows)
+    {
+      qint64 capacity = voxelCapacity;
+      const qint64 dimensions[4] = {x, y, columns, rows};
+      for (int i=0; i<4; ++i)
+	{
+	  if (dimensions[i] > capacity)
+	    return false;
+	  capacity /= dimensions[i];
+	}
+      return true;
+    };
+
+  while (lod < maxLod &&
+	 (lenz2 > layerLimit || !fitsVoxelCapacity(lenx2, leny2, lenz2)))
     {
       lod++;
-      lenz2 = lenz/lod;
-      lenx2 = lenx/lod;
-      leny2 = leny/lod;
+      lenz2 = qMax<qint64>(1, lenz/lod);
+      lenx2 = qMax<qint64>(1, lenx/lod);
+      leny2 = qMax<qint64>(1, leny/lod);
     }
 
-  int dgridx = texSize/lenx2;
-  int dgridy = texSize/leny2;
+  qint64 dgridx = 1;
+  qint64 dgridy = 1;
+  const auto updatePacking = [&]()
+    {
+      const qint64 maxColumns = qMax<qint64>(1, texSize/lenx2);
+      // Empty columns still consume memory in the rectangular helper
+      // textures.  Never allocate more columns than there are z layers.
+      dgridx = qMax<qint64>(1, qMin(lenz2, maxColumns));
+      dgridy = qMax<qint64>(1, (lenz2+dgridx-1)/dgridx);
+    };
+  updatePacking();
 
 
   // although the subsampled volume may fit in
   // the available texture memory, it may not
   // do so once the data is packed in 2d texture
-  while (dgridx*dgridy < lenz2)
+  while (lod < maxLod &&
+	 (lenx2 > texSize ||
+	  leny2 > texSize ||
+	  dgridy > texSize/leny2 ||
+	  !packedTextureFits(lenx2, leny2, dgridx, dgridy)))
     {
       lod++;
-      lenx2 = lenx/lod;
-      leny2 = leny/lod;
-      lenz2 = lenz/lod;
-      dgridx = texSize/lenx2;
-      dgridy = texSize/leny2;
+      lenx2 = qMax<qint64>(1, lenx/lod);
+      leny2 = qMax<qint64>(1, leny/lod);
+      lenz2 = qMax<qint64>(1, lenz/lod);
+      updatePacking();
     }
-  
-  // reduce the number of rows if the
-  // subsampled volume is much smaller 
-  while (dgridx*dgridy > lenz2)
-    dgridy--;
-  
-  if (dgridx*dgridy < lenz2)
-    dgridy++;
-
 
   // actual drag volume size in MB
-  m_actualDragVolSize = qRound(lenx2*leny2*lenz2/1024.0/1024.0);
+  // Keep the historical unit of one-byte-voxel MiB.  Callers multiply this
+  // value by their channel/buffer costs when reserving texture memory.  Use
+  // the packed rectangle because its unused cells still consume GPU memory.
+  const long double dragVoxels = static_cast<long double>(lenx2)*
+				 static_cast<long double>(leny2)*
+				 static_cast<long double>(dgridx)*
+				 static_cast<long double>(dgridy);
+  const long double dragMiB = dragVoxels/(1024.0L*1024.0L);
+  m_actualDragVolSize = qMax<qint64>(
+    1, static_cast<qint64>(qMin<long double>(
+	  std::numeric_limits<qint64>::max(), std::ceil(dragMiB))));
   
   
   return Vec(dgridx, dgridy, lod);
@@ -923,46 +1008,76 @@ Global::getSlabs(int samplingLevel,
 {
   QList<Vec> slabinfo;
 
-  int texSize = max2dTextureSize();
-  int lenx = dataMax.x - dataMin.x + 1;
-  int leny = dataMax.y - dataMin.y + 1;
-  int lenz = dataMax.z - dataMin.z + 1;
+  nrows = 0;
+  ncols = 0;
+
+  const int safeSamplingLevel = qMax(1, samplingLevel);
+  const qint64 texSize = qMax<qint64>(1, max2dTextureSize());
+  const qint64 lenx = qMax<qint64>(1, dataMax.x-dataMin.x+1);
+  const qint64 leny = qMax<qint64>(1, dataMax.y-dataMin.y+1);
+  const qint64 lenz = qMax<qint64>(1, dataMax.z-dataMin.z+1);
 
   Vec draginfo = getDragInfo(bytesPerVoxel, dataMin, dataMax, 1);
   slabinfo.append(draginfo);
 
-  int lenx2 = lenx/samplingLevel;
-  int leny2 = leny/samplingLevel;
-  int lenz2 = lenz/samplingLevel;
+  const qint64 lenx2 = qMax<qint64>(1, lenx/safeSamplingLevel);
+  const qint64 leny2 = qMax<qint64>(1, leny/safeSamplingLevel);
+  const qint64 sampledSliceCount =
+    qMax<qint64>(1, lenz/safeSamplingLevel);
 
-  int gridx = texSize/lenx2;
-  int gridy = texSize/leny2;
-  
-  bool done = false;
-  int slc = 0;
-  int tSL = maxArrayTextureLayers();
+  if (lenx2 > texSize || leny2 > texSize)
+    {
+      qWarning("High-resolution volume slice exceeds GL_MAX_TEXTURE_SIZE");
+      return QList<Vec>();
+    }
+
+  const qint64 gridx = qMax<qint64>(1, texSize/lenx2);
+  const qint64 gridy = qMax<qint64>(1, texSize/leny2);
 
   // we want to keep size below given limit
-  float sliceSize = lenx2*leny2*bytesPerVoxel;
-  sliceSize /= (1024*1024); // sliceSize in Mb;
-  tSL = qMin((float)tSL, maxSlabSize()*1024/sliceSize);
-
-  while(slc*(tSL-1) < (lenz2-1))
+  const long double sliceSizeMB =
+    static_cast<long double>(lenx2)*static_cast<long double>(leny2)*
+    qMax(1, bytesPerVoxel)/(1024.0L*1024.0L);
+  const qint64 budgetLayers = sliceSizeMB > 0.0L ?
+    static_cast<qint64>(
+      (static_cast<long double>(maxSlabSize())*1024.0L)/sliceSizeMB) : 0;
+  // Adjacent slabs share a boundary sample for trilinear interpolation.
+  // Refuse a multi-layer volume when the configured budget or driver cannot
+  // hold that overlap; one-layer slabs have zero spatial thickness here.
+  const qint64 arrayLayerLimit = qMax(1, maxArrayTextureLayers());
+  const qint64 layersPerSlab = qMin<qint64>(
+    arrayLayerLimit, budgetLayers);
+  if (layersPerSlab < 1 ||
+      (sampledSliceCount > 1 && layersPerSlab < 2))
     {
-      int zmin = slc*(tSL-1);
-      int zmax = qMin(lenz2, (slc+1)*(tSL-1));
-      int dmin = m_dataMin.z + samplingLevel*zmin;
-      int dmax = m_dataMin.z + samplingLevel*zmax;
-      dmax = qMin((int)m_dataMax.z , dmax);
+      qWarning("High-resolution volume slab exceeds the configured texture budget");
+      return QList<Vec>();
+    }
+  const qint64 lastSample = sampledSliceCount-1;
+
+  qint64 zmin = 0;
+  while (zmin <= lastSample)
+    {
+      const qint64 zmax = layersPerSlab > 1 ?
+	qMin(lastSample, zmin+layersPerSlab-1) : zmin;
+      const qint64 dmin = static_cast<qint64>(dataMin.z)+safeSamplingLevel*zmin;
+      const qint64 sampledDmax = static_cast<qint64>(dataMin.z)+
+	                         safeSamplingLevel*zmax;
+      const qint64 dmax = zmax == lastSample ?
+	static_cast<qint64>(dataMax.z) : qMin<qint64>(dataMax.z, sampledDmax);
       
       slabinfo.append(Vec(zmax-zmin+1,  // no. of slices in the slab
 			  dmin, dmax));
-      slc ++;
+
+      if (zmax >= lastSample)
+	break;
+      // Share one sample when the hardware can hold at least two layers.
+      zmin = layersPerSlab > 1 ? zmax : zmax+1;
     }
 
   // taking rectangular textures
-  ncols = gridx;
-  nrows = gridy;
+  ncols = static_cast<int>(qMin<qint64>(std::numeric_limits<int>::max(), gridx));
+  nrows = static_cast<int>(qMin<qint64>(std::numeric_limits<int>::max(), gridy));
 
   return slabinfo;
 }

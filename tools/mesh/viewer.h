@@ -54,10 +54,12 @@ class Viewer : public QGLViewer
 
 
   void GlewInit();
+  bool rendererReady() const { return m_rendererReady; }
+  QString rendererError() const { return m_rendererError; }
 
   void dummydraw();
 
-  void createImageBuffers();
+  bool createImageBuffers();
 
   void setFieldOfView(float);
   void setHiresVolume(DrawHiresVolume*);
@@ -165,6 +167,7 @@ class Viewer : public QGLViewer
   virtual void draw();
   virtual void fastDraw();
   virtual void init();
+  virtual void paintEvent(QPaintEvent*);
 
  private :
   QWidget *m_parent;
@@ -201,6 +204,11 @@ class Viewer : public QGLViewer
   int m_imageHeight;
   QGLFramebufferObject *m_imageBuffer;
 
+  bool m_rendererReady;
+  bool m_rendererInitAttempted;
+  bool m_rendererInitialising;
+  QString m_rendererError;
+
   //GLhandleARB m_blurShader;
   //GLint m_blurParm[5];
   //GLhandleARB m_copyShader;
@@ -213,6 +221,7 @@ class Viewer : public QGLViewer
 
   uchar *m_backBufferImage;
   int m_backBufferWidth, m_backBufferHeight;
+  bool m_backBufferImageValid;
 
 
   QTimer m_autoUpdateTimer;
@@ -271,11 +280,14 @@ class Viewer : public QGLViewer
   void splashScreen();
   bool bindFBOs(int);
   void releaseFBOs(int);
+  void cleanupRendererResources();
+  void failRenderer(const QString&);
+  void paintRendererError();
 
   //void createBlurShader();
   //void createCopyShader();
 
-  void grabBackBufferImage();
+  bool grabBackBufferImage(GLenum);
   void showBackBufferImage();
 
   void undoParameters();

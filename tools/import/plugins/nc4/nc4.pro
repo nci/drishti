@@ -21,7 +21,7 @@ win32 {
   INCLUDEPATH += $$VCPKG_INCLUDE_PATH
   QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
-  LIBS += netcdf-cxx4.lib netcdf.lib
+  LIBS += $$DRISHTI_NETCDF_LIBS
 }
 
 

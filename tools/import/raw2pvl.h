@@ -41,19 +41,19 @@ class Raw2Pvl
 			   uchar*, int, QList<int>,
 			   int, int);
 
-  static void savePvl(VolumeData*,
+  static bool savePvl(VolumeData*,
 		      int, int,
 		      int, int,
 		      int, int,
 		      QStringList);
 
-  static void mergeVolumes(VolumeData*,
+  static bool mergeVolumes(VolumeData*,
 			   int, int,
 			   int, int,
 			   int, int,
 			   QStringList);
 
-  static void quickRaw(VolumeData*,
+  static bool quickRaw(VolumeData*,
 		       QStringList);
 
   static void saveIsosurface(VolumeData*,
@@ -77,7 +77,7 @@ class Raw2Pvl
 			      QString,
 			      int);
 
-  static void savePvlHeader(QString,
+	static bool savePvlHeader(QString,
 			    bool, QString,
 			    int, int, int,
 			    int, int, int,
@@ -97,7 +97,7 @@ class Raw2Pvl
 				     int, bool,
 				     float*);
   
-  static void saveMHD(QString,
+  static bool saveMHD(QString,
 		      VolumeData*,
 		      int, int,
 		      int, int,
@@ -160,7 +160,7 @@ class Raw2Pvl
 				  QProgressDialog&);
 
 
-  static void parIsoGen(VolumeData*,
+  static bool parIsoGen(VolumeData*,
 			uchar,
 			int, int, int,
 			int, int,

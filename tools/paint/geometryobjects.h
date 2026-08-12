@@ -1,8 +1,6 @@
 #ifndef GEOMETRYOBJECTS_H
 #define GEOMETRYOBJECTS_H
 
-#include <GL/glew.h>
-
 #include "clipplane.h"
 #include "crops.h"
 //#include "paths.h"

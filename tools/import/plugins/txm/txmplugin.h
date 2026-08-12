@@ -13,6 +13,8 @@ class TxmPlugin : public QObject, VolInterface
   Q_INTERFACES(VolInterface)
 
  public :
+  ~TxmPlugin() override;
+
   QStringList registerPlugin();
 
   void init();
@@ -37,6 +39,8 @@ class TxmPlugin : public QObject, VolInterface
   float rawMax();
    
   void getDepthSlice(int, uchar*);
+  Q_INVOKABLE QString lastError() const;
+  Q_INVOKABLE bool wasCanceled() const;
   //void getWidthSlice(int, uchar*);
   //void getHeightSlice(int, uchar*);
 
@@ -47,7 +51,7 @@ class TxmPlugin : public QObject, VolInterface
   void generateHistogram();
   void set4DVolume(bool);
  private :
-  POLE::Storage *m_storage;
+  POLE::Storage *m_storage = 0;
 
   QStringList m_fileName;
   bool m_4dvol;
@@ -68,13 +72,14 @@ class TxmPlugin : public QObject, VolInterface
   int m_bytesPerVoxel;
 
   int m_dirCount;
+  QString m_lastError;
+  bool m_lastOperationCanceled;
 
   void findMinMaxandGenerateHistogram();
   void findMinMax();
 
-  void enumerateImages(POLE::Storage*, std::string);
-
-  void loadTxmImage(int, uchar*);
+  bool loadFile(const QString&, bool, bool);
+  bool loadTxmImage(int, uchar*);
 };
 
 #endif

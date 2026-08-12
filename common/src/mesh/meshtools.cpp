@@ -1,17 +1,242 @@
 #include "meshtools.h"
-#include "ply.h"
-
+#include <QDir>
+#include <QDebug>
+#include <QFileInfo>
 #include <QList>
 #include <QProgressDialog>
 #include <QMultiMap>
 #include <QApplication>
 #include <QFile>
+#include <QSaveFile>
+#include <QTemporaryDir>
 #include <QTextStream>
+#include <QtEndian>
 #include <QtMath>
 #include <QMessageBox>
 #include <QThread>
 
+#include <cstring>
+#include <limits>
+#include <memory>
+#include <new>
+#include <stdexcept>
+
 #include "gmsh.h_cwrap"
+
+namespace
+{
+struct SlabMeshData
+{
+  QVector<QVector3D> vertices;
+  QVector<QVector3D> normals;
+  QVector<QVector3D> colors;
+  QVector<int> triangles;
+  QStringList artifacts;
+};
+
+bool writeAll(QIODevice& device, const char *data, qint64 bytes);
+
+class BufferedDeviceWriter
+{
+public:
+  explicit BufferedDeviceWriter(QIODevice& device)
+    : m_device(device)
+  {
+    m_buffer.reserve(1024*1024);
+  }
+
+  bool append(const char *data, int bytes)
+  {
+    if (bytes < 0)
+      return false;
+    if (m_buffer.size()+bytes > 1024*1024 && !flush())
+      return false;
+    if (bytes > 1024*1024)
+      return writeAll(m_device, data, bytes);
+    m_buffer.append(data, bytes);
+    return true;
+  }
+
+  bool flush()
+  {
+    if (m_buffer.isEmpty())
+      return true;
+    const bool ok = writeAll(m_device, m_buffer.constData(), m_buffer.size());
+    m_buffer.clear();
+    return ok;
+  }
+
+private:
+  QIODevice& m_device;
+  QByteArray m_buffer;
+};
+
+void storeFloatLittleEndian(char *destination, float value)
+{
+  quint32 bits = 0;
+  static_assert(sizeof(bits) == sizeof(value), "unexpected float size");
+  std::memcpy(&bits, &value, sizeof(bits));
+  qToLittleEndian(bits, destination);
+}
+
+void storeIntLittleEndian(char *destination, qint32 value)
+{
+  qToLittleEndian(static_cast<quint32>(value), destination);
+}
+
+bool writeAll(QIODevice& device, const char *data, qint64 bytes)
+{
+  qint64 written = 0;
+  while (written < bytes)
+    {
+      const qint64 count = device.write(data+written, bytes-written);
+      if (count <= 0)
+        return false;
+      written += count;
+    }
+  return true;
+}
+
+bool readAll(QIODevice& device, char *data, qint64 bytes)
+{
+  qint64 read = 0;
+  while (read < bytes)
+    {
+      const qint64 count = device.read(data+read, bytes-read);
+      if (count <= 0)
+        return false;
+      read += count;
+    }
+  return true;
+}
+
+bool validMesh(const QVector<QVector3D>& vertices,
+               const QVector<QVector3D>& normals,
+               const QVector<QVector3D>& colors,
+               const QVector<int>& triangles)
+{
+  if ((!normals.isEmpty() && normals.count() != vertices.count()) ||
+      (!colors.isEmpty() && colors.count() != vertices.count()) ||
+      triangles.count()%3 != 0)
+    return false;
+
+  for (int index : triangles)
+    if (index < 0 || index >= vertices.count())
+      return false;
+  return true;
+}
+
+bool loadSlabMesh(const QString& baseName,
+                  int slabCount,
+                  int expectedVertices,
+                  int expectedTriangles,
+                  bool hasColors,
+                  bool globalTriangleIndices,
+                  SlabMeshData& mesh)
+{
+  if (slabCount <= 0 || expectedVertices < 0 || expectedTriangles < 0)
+    return false;
+
+  try
+    {
+      mesh.vertices.reserve(expectedVertices);
+      mesh.normals.reserve(expectedVertices);
+      if (hasColors)
+        mesh.colors.reserve(expectedVertices);
+      if (expectedTriangles > std::numeric_limits<int>::max()/3)
+        return false;
+      mesh.triangles.reserve(3*expectedTriangles);
+
+      for (int slab=0; slab<slabCount; ++slab)
+        {
+          const QString vertexName =
+            baseName + QString(".%1.vert").arg(slab);
+          QFile vertexFile(vertexName);
+          if (!vertexFile.open(QFile::ReadOnly))
+            return false;
+
+          qint32 vertexCount = 0;
+          if (!readAll(vertexFile, reinterpret_cast<char*>(&vertexCount), 4) ||
+              vertexCount < 0)
+            return false;
+          const qint64 recordBytes = hasColors ? 27 : 24;
+          if (static_cast<qint64>(vertexCount)*recordBytes !=
+                vertexFile.size()-vertexFile.pos() ||
+              vertexCount > std::numeric_limits<int>::max()-mesh.vertices.count())
+            return false;
+
+          const int vertexOffset = mesh.vertices.count();
+          for (int index=0; index<vertexCount; ++index)
+            {
+              float values[6];
+              if (!readAll(vertexFile, reinterpret_cast<char*>(values), 24))
+                return false;
+              mesh.vertices << QVector3D(values[0], values[1], values[2]);
+              mesh.normals << QVector3D(values[3], values[4], values[5]);
+              if (hasColors)
+                {
+                  uchar color[3];
+                  if (!readAll(vertexFile, reinterpret_cast<char*>(color), 3))
+                    return false;
+                  mesh.colors << QVector3D(color[0], color[1], color[2]);
+                }
+            }
+          vertexFile.close();
+          mesh.artifacts << vertexName;
+
+          const QString triangleName =
+            baseName + QString(".%1.tri").arg(slab);
+          QFile triangleFile(triangleName);
+          if (!triangleFile.open(QFile::ReadOnly))
+            return false;
+
+          qint32 triangleCount = 0;
+          if (!readAll(triangleFile,
+                       reinterpret_cast<char*>(&triangleCount), 4) ||
+              triangleCount < 0 ||
+               static_cast<qint64>(triangleCount)*12 !=
+                 triangleFile.size()-triangleFile.pos() ||
+              triangleCount >
+                (std::numeric_limits<int>::max()-mesh.triangles.count())/3)
+            return false;
+
+          for (int index=0; index<triangleCount; ++index)
+            {
+              qint32 triangle[3];
+              if (!readAll(triangleFile,
+                           reinterpret_cast<char*>(triangle), 12))
+                return false;
+              for (int corner=0; corner<3; ++corner)
+                {
+                  qint64 vertex = triangle[corner];
+                  if (!globalTriangleIndices)
+                    vertex += vertexOffset;
+                  if (vertex < 0 || vertex >= mesh.vertices.count())
+                    return false;
+                  mesh.triangles << static_cast<int>(vertex);
+                }
+            }
+          triangleFile.close();
+          mesh.artifacts << triangleName;
+        }
+    }
+  catch (const std::bad_alloc&)
+    {
+      return false;
+    }
+
+  return mesh.vertices.count() == expectedVertices &&
+    mesh.triangles.count()/3 == expectedTriangles &&
+    validMesh(mesh.vertices, mesh.normals, mesh.colors, mesh.triangles);
+}
+
+void removeSlabArtifacts(const QStringList& artifacts)
+{
+  for (const QString& artifact : artifacts)
+    if (!QFile::remove(artifact))
+      qWarning() << "Cannot remove mesh slab artifact" << artifact;
+}
+}
 
 
 //------------------------------------------
@@ -22,7 +247,17 @@ MeshTools::smoothMesh(QVector<QVector3D>& V,
 		      QVector<int>& T,
 		      int ntimes,
 		      bool showProgress)
-{  
+{
+  QVector<QVector3D> noColors;
+  if (ntimes < 0 || !validMesh(V, N, noColors, T))
+    {
+      qWarning() << "Cannot smooth an inconsistent mesh";
+      return;
+    }
+
+  if (N.isEmpty())
+    N.resize(V.count());
+
   QProgressDialog progress("Mesh smoothing in progress ... ",
 			   QString(),
 			   0, 100,
@@ -50,7 +285,7 @@ MeshTools::smoothMesh(QVector<QVector3D>& V,
 	  if (i%10000 == 0)
 	    {
 	      progress.setValue((int)(100.0*(float)i/(float)(ntri)));
-	      qApp->processEvents();
+	      if (qApp) qApp->processEvents();
 	    }
 	}
 
@@ -76,7 +311,7 @@ MeshTools::smoothMesh(QVector<QVector3D>& V,
       if (showProgress)
 	{
 	  progress.setValue((int)(100.0*(float)nt/(float)(ntimes)));
-	  qApp->processEvents();
+	  if (qApp) qApp->processEvents();
 	}
 
       // deflation step
@@ -145,7 +380,7 @@ MeshTools::smoothMesh(QVector<QVector3D>& V,
 	  if (i%10000 == 0)
 	    {
 	      progress.setValue((int)(100.0*(float)i/(float)(ntri)));
-	      qApp->processEvents();
+	      if (qApp) qApp->processEvents();
 	    }
 	}
 
@@ -170,7 +405,7 @@ MeshTools::smoothMesh(QVector<QVector3D>& V,
     }
 
   for(int i=0; i<nv; i++)
-      N[i] = newV[i]/nvs[i];
+    N[i] = nvs[i] > 0 ? newV[i]/nvs[i] : QVector3D();
   //----------------------------
 
   if (showProgress)
@@ -184,19 +419,18 @@ MeshTools::smoothMesh(QVector<QVector3D>& V,
 
 //------------------------------------------
 //------------------------------------------
-void
+bool
 MeshTools::saveToOBJ(QString objflnm,
 		     QVector<QVector3D> V,
 		     QVector<QVector3D> N,
 		     QVector<int> T,
 		     bool showProgress)
-{		     
+{
   QVector<QVector3D> C;
-  C.clear();
-  saveToOBJ(objflnm, V, N, C, T, showProgress);
+  return saveToOBJ(objflnm, V, N, C, T, showProgress);
 }
 
-void
+bool
 MeshTools::saveToOBJ(QString flnm,
 		     int nSlabs,
 		     int nvertices, int ntriangles)
@@ -208,81 +442,47 @@ MeshTools::saveToOBJ(QString flnm,
 			   Qt::WindowStaysOnTopHint);
 
 
-  QVector<QVector3D> V;
-  QVector<QVector3D> N;
-  QVector<QVector3D> C;
-  QVector<int> T;
-
-  for (int nb=0; nb<nSlabs; nb++)
+  SlabMeshData mesh;
+  if (!loadSlabMesh(flnm, nSlabs, nvertices, ntriangles,
+                    true, true, mesh))
     {
-      progress.setValue((int)(33.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      //-------
-      // read vertices
-      int nverts;
-      QString vflnm = flnm + QString(".%1.vert").arg(nb);
-      QFile vfin(vflnm);
-      vfin.open(QFile::ReadOnly);
-      vfin.read((char*)&nverts, 4);
-      for(int ni=0; ni<nverts; ni++)
-	{
-	  float v[6];
-	  vfin.read((char*)v, 24);
-	  uchar c[3];
- 	  vfin.read((char*)c, 3);
-
-	  V << QVector3D(v[0], v[1], v[2]);
-	  N << QVector3D(v[3], v[4], v[5]);
-	  C << QVector3D(c[0], c[1], c[2]);
-	}
-      vfin.close();	
-      vfin.remove();
-      //-------
-
-
-      progress.setValue((int)(66.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      //-------
-      // read triangles
-      int ntrigs;
-      QString tflnm = flnm + QString(".%1.tri").arg(nb);
-      QFile tfin(tflnm);
-      tfin.open(QFile::ReadOnly);
-      tfin.read((char*)&ntrigs, 4);
-      int *tri;
-      tri = new int[3*ntrigs];
-      tfin.read((char*)tri, 4*3*ntrigs);
-      tfin.close();
-      tfin.remove();
-      
-      for(int ni=0; ni<ntrigs; ni++)
-	T << tri[3*ni+0] << tri[3*ni+1] << tri[3*ni+2];
-
-      delete [] tri;
-      //-------
-
-      progress.setValue((int)(100.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
+      qWarning() << "Cannot read OBJ mesh slab files for" << flnm;
+      return false;
     }
   progress.setValue(100);
-  qApp->processEvents();
+  if (qApp)
+    qApp->processEvents();
 
-  saveToOBJ(flnm, V, N, C, T);
+  if (!saveToOBJ(flnm, mesh.vertices, mesh.normals,
+                 mesh.colors, mesh.triangles))
+    return false;
+  removeSlabArtifacts(mesh.artifacts);
+  return true;
 }
 
-void
+bool
 MeshTools::saveToOBJ(QString objflnm,
 		     QVector<QVector3D> V,
 		     QVector<QVector3D> N,
 		     QVector<QVector3D> C,
 		     QVector<int> T,
 		     bool showProgress)
-{		     
-  QFile fobj(objflnm);
-  fobj.open(QFile::WriteOnly);
+{
+  Q_UNUSED(showProgress);
+  if (!validMesh(V, N, C, T))
+    {
+      qWarning() << "Invalid mesh passed to OBJ writer" << objflnm;
+      return false;
+    }
+
+  QSaveFile fobj(objflnm);
+  if (!fobj.open(QFile::WriteOnly | QFile::Text))
+    {
+      qWarning() << "Cannot open OBJ output" << objflnm << fobj.errorString();
+      return false;
+    }
   QTextStream out(&fobj);
+  out.setLocale(QLocale::c());
   out << "#\n";
   out << "#  Wavefront OBJ generated by Drishti\n";
   out << "#\n";
@@ -325,6 +525,17 @@ MeshTools::saveToOBJ(QString objflnm,
       for(int i=0; i<T.count()/3; i++)
 	out << "f " << QString("%1 %2 %3\n").arg(T[3*i+2]+1).arg(T[3*i+1]+1).arg(T[3*i+0]+1);
     }
+
+  out.flush();
+  if (out.status() != QTextStream::Ok ||
+      fobj.error() != QFileDevice::NoError || !fobj.commit())
+    {
+      qWarning() << "Cannot complete OBJ output" << objflnm
+                 << fobj.errorString();
+      fobj.cancelWriting();
+      return false;
+    }
+  return true;
 }
 //------------------------------------------
 //------------------------------------------
@@ -335,7 +546,7 @@ MeshTools::saveToOBJ(QString objflnm,
 
 //------------------------------------------
 //------------------------------------------
-void
+bool
 MeshTools::saveToPLY(QString flnm,
 		     QVector<QVector3D> V,
 		     QVector<QVector3D> N,
@@ -343,10 +554,9 @@ MeshTools::saveToPLY(QString flnm,
 		     bool showProgress)
 {
   QVector<QVector3D> C;
-  C.clear();
-  saveToPLY(flnm, V, N, C, T, showProgress); 
+  return saveToPLY(flnm, V, N, C, T, showProgress);
 }
-void
+bool
 MeshTools::saveToPLY(QString flnm,
 		     int nSlabs,
 		     int nvertices, int ntriangles,
@@ -357,79 +567,32 @@ MeshTools::saveToPLY(QString flnm,
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
-
-
-  QVector<QVector3D> V;
-  QVector<QVector3D> N;
-  QVector<QVector3D> C;
-  QVector<int> T;
-
-  for (int nb=0; nb<nSlabs; nb++)
+  SlabMeshData mesh;
+  if (!loadSlabMesh(flnm, nSlabs, nvertices, ntriangles,
+                    true, true, mesh))
     {
-      progress.setValue((int)(33.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      //-------
-      // read vertices
-      int nverts;
-      QString vflnm = flnm + QString(".%1.vert").arg(nb);
-      QFile vfin(vflnm);
-      vfin.open(QFile::ReadOnly);
-      vfin.read((char*)&nverts, 4);
-      for(int ni=0; ni<nverts; ni++)
-	{
-	  float v[6];
-	  vfin.read((char*)v, 24);
-	  uchar c[3];
- 	  vfin.read((char*)c, 3);
-
-	  V << QVector3D(v[0], v[1], v[2]);
-	  N << QVector3D(v[3], v[4], v[5]);
-	  C << QVector3D(c[0], c[1], c[2]);
-	}
-      vfin.close();	
-      vfin.remove();
-      //-------
-
-      progress.setValue((int)(66.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      //-------
-      // read triangles
-      int ntrigs;
-      QString tflnm = flnm + QString(".%1.tri").arg(nb);
-      QFile tfin(tflnm);
-      tfin.open(QFile::ReadOnly);
-      tfin.read((char*)&ntrigs, 4);
-      int *tri;
-      tri = new int[3*ntrigs];
-      tfin.read((char*)tri, 4*3*ntrigs);
-      tfin.close();
-      tfin.remove();
-      
-      for(int ni=0; ni<ntrigs; ni++)
-	T << tri[3*ni+0] << tri[3*ni+1] << tri[3*ni+2];
-
-      delete [] tri;
-      //-------
-
-      progress.setValue((int)(100.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
+      qWarning() << "Cannot read PLY mesh slab files for" << flnm;
+      return false;
     }
   progress.setValue(100);
-  qApp->processEvents();
+  if (qApp)
+    qApp->processEvents();
 
-
-  saveToPLY(flnm, V, N, C, T);
+  if (!saveToPLY(flnm, mesh.vertices, mesh.normals,
+                 mesh.colors, mesh.triangles, true, bin))
+    return false;
+  removeSlabArtifacts(mesh.artifacts);
+  return true;
 }
 
-void
+bool
 MeshTools::saveToPLY(QString flnm,
 		     QVector<QVector3D> V,
 		     QVector<QVector3D> N,
 		     QVector<QVector3D> C,
 		     QVector<int> T,
-		     bool showProgress)
+		     bool showProgress,
+		     bool binary)
 {
   QProgressDialog progress("Saving mesh ...",
 			   QString(),
@@ -441,151 +604,113 @@ MeshTools::saveToPLY(QString flnm,
   else
     progress.close();
 
-  
-  QStringList ps;
-  ps << "x";
-  ps << "y";
-  ps << "z";
-  ps << "nx";
-  ps << "ny";
-  ps << "nz";
-  ps << "red";
-  ps << "green";
-  ps << "blue";
-  ps << "vertex_indices";
-  ps << "vertex";
-  ps << "face";
-
-  QList<char *> plyStrings;
-  for(int i=0; i<ps.count(); i++)
+  if (!validMesh(V, N, C, T))
     {
-      char *s;
-      s = new char[ps[i].size()+1];
-      strcpy(s, ps[i].toLatin1().data());
-      plyStrings << s;
+      qWarning() << "Invalid mesh passed to PLY writer" << flnm;
+      return false;
     }
 
-
-  int ntriangles = T.count()/3;
-  int nvertices = V.count();
-
-  typedef struct PlyFace
-  {
-    unsigned char nverts;    /* number of Vertex indices in list */
-    int *verts;              /* Vertex index list */
-  } PlyFace;
-
-  typedef struct
-  {
-    float  x,  y,  z ;  /**< Vertex coordinates */
-    float nx, ny, nz ;  /**< Vertex normal */
-    uchar r, g, b;
-  } myVertex ;
-
-  PlyProperty vert_props[] = { /* list of property information for a vertex */
-    {plyStrings[0], Float32, Float32, offsetof(myVertex,x), 0, 0, 0, 0},
-    {plyStrings[1], Float32, Float32, offsetof(myVertex,y), 0, 0, 0, 0},
-    {plyStrings[2], Float32, Float32, offsetof(myVertex,z), 0, 0, 0, 0},
-    {plyStrings[3], Float32, Float32, offsetof(myVertex,nx), 0, 0, 0, 0},
-    {plyStrings[4], Float32, Float32, offsetof(myVertex,ny), 0, 0, 0, 0},
-    {plyStrings[5], Float32, Float32, offsetof(myVertex,nz), 0, 0, 0, 0},
-    {plyStrings[6], Uint8, Uint8, offsetof(myVertex,r), 0, 0, 0, 0},
-    {plyStrings[7], Uint8, Uint8, offsetof(myVertex,g), 0, 0, 0, 0},
-    {plyStrings[8], Uint8, Uint8, offsetof(myVertex,b), 0, 0, 0, 0},
-  };
-
-  PlyProperty face_props[] = { /* list of property information for a face */
-    {plyStrings[9], Int32, Int32, offsetof(PlyFace,verts),
-     1, Uint8, Uint8, offsetof(PlyFace,nverts)},
-  };
-
-  PlyFile    *ply;
-  FILE       *fp = fopen(flnm.toLatin1().data(),
-			 bin ? "wb" : "w");
-
-  PlyFace     face ;
-  int         verts[3] ;
-  char       *elem_names[]  = {plyStrings[10], plyStrings[11]};
-  ply = write_ply (fp,
-		   2,
-		   elem_names,
-		   bin? PLY_BINARY_LE : PLY_ASCII );
-
-  /* describe what properties go into the PlyVertex elements */
-  describe_element_ply ( ply, plyStrings[10], nvertices );
-  describe_property_ply ( ply, &vert_props[0] );
-  describe_property_ply ( ply, &vert_props[1] );
-  describe_property_ply ( ply, &vert_props[2] );
-  describe_property_ply ( ply, &vert_props[3] );
-  describe_property_ply ( ply, &vert_props[4] );
-  describe_property_ply ( ply, &vert_props[5] );
-  describe_property_ply ( ply, &vert_props[6] );
-  describe_property_ply ( ply, &vert_props[7] );
-  describe_property_ply ( ply, &vert_props[8] );
-
-  /* describe PlyFace properties (just list of PlyVertex indices) */
-  describe_element_ply ( ply, plyStrings[11], ntriangles );
-  describe_property_ply ( ply, &face_props[0] );
-
-  header_complete_ply ( ply );
-
-
-  /* set up and write the PlyVertex elements */
-  put_element_setup_ply ( ply, plyStrings[10] );
-
-  for(int ni=0; ni<nvertices; ni++)
+  const int nvertices = V.count();
+  const int ntriangles = T.count()/3;
+  QSaveFile output(flnm);
+  if (!output.open(QFile::WriteOnly))
     {
-      if (showProgress)
-	{
-	  if (ni%10000 == 0)
-	    {
-	      progress.setValue((int)(100.0*(float)ni/(float)(nvertices)));
-	      qApp->processEvents();
-	    }
-	}
-
-      myVertex vertex;
-      vertex.x = V[ni].x();
-      vertex.y = V[ni].y();
-      vertex.z = V[ni].z();
-      vertex.nx = N[ni].x();
-      vertex.ny = N[ni].y();
-      vertex.nz = N[ni].z();
-      if (C.count() > 0)
-	{
-	  vertex.r = C[ni].x();
-	  vertex.g = C[ni].y();
-	  vertex.b = C[ni].z();
-	}
-      else
-	{
-	  vertex.r = vertex.g = vertex.b = 200;
-	}
-
-      put_element_ply ( ply, ( void * ) &vertex );
+      qWarning() << "Cannot open PLY output" << flnm << output.errorString();
+      return false;
     }
 
-  /* set up and write the PlyFace elements */
-  put_element_setup_ply ( ply, plyStrings[11] );
-  face.nverts = 3 ;
-  face.verts  = verts ;
-  for(int ni=0; ni<ntriangles; ni++)
-    {      
-      face.verts[0] = T[3*ni+2];
-      face.verts[1] = T[3*ni+1];
-      face.verts[2] = T[3*ni+0];
-      
-      put_element_ply ( ply, ( void * ) &face );
+  QByteArray header("ply\n");
+  header += binary ? "format binary_little_endian 1.0\n" :
+                     "format ascii 1.0\n";
+  header += "element vertex " + QByteArray::number(nvertices) + "\n";
+  header += "property float x\nproperty float y\nproperty float z\n";
+  header += "property float nx\nproperty float ny\nproperty float nz\n";
+  header += "property uchar red\nproperty uchar green\nproperty uchar blue\n";
+  header += "element face " + QByteArray::number(ntriangles) + "\n";
+  header += "property list uchar int vertex_indices\nend_header\n";
+  if (!writeAll(output, header.constData(), header.size()))
+    {
+      qWarning() << "Cannot write PLY header" << flnm << output.errorString();
+      output.cancelWriting();
+      return false;
     }
 
-  close_ply ( ply );
-  free_ply ( ply );
+  bool ok = true;
+  if (binary)
+    {
+      BufferedDeviceWriter writer(output);
+      for (int ni=0; ok && ni<nvertices; ++ni)
+        {
+          if (showProgress && ni%10000 == 0)
+            {
+              progress.setValue(nvertices > 0 ? 80*ni/nvertices : 80);
+              if (qApp) qApp->processEvents();
+            }
 
-  for(int i=0; i<plyStrings.count(); i++)
-    delete [] plyStrings[i];
+          const QVector3D normal = N.isEmpty() ? QVector3D() : N[ni];
+          char record[27];
+          storeFloatLittleEndian(record+0, V[ni].x());
+          storeFloatLittleEndian(record+4, V[ni].y());
+          storeFloatLittleEndian(record+8, V[ni].z());
+          storeFloatLittleEndian(record+12, normal.x());
+          storeFloatLittleEndian(record+16, normal.y());
+          storeFloatLittleEndian(record+20, normal.z());
+          record[24] = static_cast<char>(C.isEmpty() ? 200 :
+                            qBound(0, qRound(C[ni].x()), 255));
+          record[25] = static_cast<char>(C.isEmpty() ? 200 :
+                            qBound(0, qRound(C[ni].y()), 255));
+          record[26] = static_cast<char>(C.isEmpty() ? 200 :
+                            qBound(0, qRound(C[ni].z()), 255));
+          ok = writer.append(record, sizeof(record));
+        }
+      for (int ni=0; ok && ni<ntriangles; ++ni)
+        {
+          char record[13];
+          record[0] = 3;
+          storeIntLittleEndian(record+1, T[3*ni+2]);
+          storeIntLittleEndian(record+5, T[3*ni+1]);
+          storeIntLittleEndian(record+9, T[3*ni+0]);
+          ok = writer.append(record, sizeof(record));
+        }
+      ok = ok && writer.flush();
+    }
+  else
+    {
+      QTextStream stream(&output);
+      stream.setLocale(QLocale::c());
+      stream.setRealNumberPrecision(9);
+      for (int ni=0; ni<nvertices; ++ni)
+        {
+          if (showProgress && ni%10000 == 0)
+            {
+              progress.setValue(nvertices > 0 ? 80*ni/nvertices : 80);
+              if (qApp) qApp->processEvents();
+            }
+          const QVector3D normal = N.isEmpty() ? QVector3D() : N[ni];
+          const int red = C.isEmpty() ? 200 : qBound(0, qRound(C[ni].x()), 255);
+          const int green = C.isEmpty() ? 200 : qBound(0, qRound(C[ni].y()), 255);
+          const int blue = C.isEmpty() ? 200 : qBound(0, qRound(C[ni].z()), 255);
+          stream << V[ni].x() << ' ' << V[ni].y() << ' ' << V[ni].z() << ' '
+                 << normal.x() << ' ' << normal.y() << ' ' << normal.z() << ' '
+                 << red << ' ' << green << ' ' << blue << '\n';
+        }
+      for (int ni=0; ni<ntriangles; ++ni)
+        stream << "3 " << T[3*ni+2] << ' ' << T[3*ni+1] << ' '
+               << T[3*ni+0] << '\n';
+      stream.flush();
+      ok = stream.status() == QTextStream::Ok;
+    }
 
+  if (!ok || output.error() != QFileDevice::NoError || !output.commit())
+    {
+      qWarning() << "Cannot complete PLY output" << flnm
+                 << output.errorString();
+      output.cancelWriting();
+      return false;
+    }
   if (showProgress)
     progress.setValue(100);
+  return true;
 }
 //------------------------------------------
 //------------------------------------------
@@ -596,7 +721,7 @@ MeshTools::saveToPLY(QString flnm,
 
 //------------------------------------------
 //------------------------------------------
-void
+bool
 MeshTools::saveToSTL(QString flnm,
 		     int nSlabs,
 		     int nvertices, int ntriangles)
@@ -606,69 +731,24 @@ MeshTools::saveToSTL(QString flnm,
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
-
-  QVector<QVector3D> V;
-  QVector<QVector3D> N;
-  QVector<int> T;
-
-  for (int nb=0; nb<nSlabs; nb++)
+  SlabMeshData mesh;
+  if (!loadSlabMesh(flnm, nSlabs, nvertices, ntriangles,
+                    false, false, mesh))
     {
-      progress.setValue((int)(33.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      //-------
-      // read vertices
-      int nverts;
-      QString vflnm = flnm + QString(".%1.vert").arg(nb);
-      QFile vfin(vflnm);
-      vfin.open(QFile::ReadOnly);
-      vfin.read((char*)&nverts, 4);
-      float *v;
-      v = new float[6*nverts];
-      vfin.read((char*)v, 4*6*nverts);
-      vfin.close();	
-      vfin.remove();
-      for(int ni=0; ni<nverts; ni++)
-	{
-	  V << QVector3D(v[6*ni+0], v[6*ni+1], v[6*ni+2]);
-	  N << QVector3D(v[6*ni+3], v[6*ni+4], v[6*ni+5]);
-	}
-      delete [] v;
-      //-------
-
-      progress.setValue((int)(66.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      //-------
-      // read triangles
-      int ntrigs;
-      QString tflnm = flnm + QString(".%1.tri").arg(nb);
-      QFile tfin(tflnm);
-      tfin.open(QFile::ReadOnly);
-      tfin.read((char*)&ntrigs, 4);
-      int *tri;
-      tri = new int[3*ntrigs];
-      tfin.read((char*)tri, 4*3*ntrigs);
-      tfin.close();
-      tfin.remove();
-
-      for(int ni=0; ni<ntrigs; ni++)
-	T << tri[3*ni+0] << tri[3*ni+1] << tri[3*ni+2];
-
-      delete [] tri;
-      //-------
-
-      progress.setValue((int)(100.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
+      qWarning() << "Cannot read STL mesh slab files for" << flnm;
+      return false;
     }
   progress.setValue(100);
-  qApp->processEvents();
+  if (qApp)
+    qApp->processEvents();
 
-
-  saveToSTL(flnm, V, N, T);
+  if (!saveToSTL(flnm, mesh.vertices, mesh.normals, mesh.triangles))
+    return false;
+  removeSlabArtifacts(mesh.artifacts);
+  return true;
 }
 
-void
+bool
 MeshTools::saveToSTL(QString flnm,
 		     QVector<QVector3D> V,
 		     QVector<QVector3D> N,
@@ -685,72 +765,73 @@ MeshTools::saveToSTL(QString flnm,
   else
     progress.close();
 
-  
-  int ntri = T.count()/3;
-  
-  char header[80];
-  sprintf(header, "Drishti generated STL file.");
-  QFile fstl(flnm);
-  fstl.open(QFile::WriteOnly);
-  fstl.write((char*)&header, 80); // 80 byte header
-  fstl.write((char*)&ntri, 4); // number of triangles
+  QVector<QVector3D> noColors;
+  if (!validMesh(V, N, noColors, T))
+    {
+      qWarning() << "Invalid mesh passed to STL writer" << flnm;
+      return false;
+    }
 
-  for(int ni=0; ni<ntri; ni++)
+  const int ntri = T.count()/3;
+  QSaveFile output(flnm);
+  if (!output.open(QFile::WriteOnly))
+    {
+      qWarning() << "Cannot open STL output" << flnm << output.errorString();
+      return false;
+    }
+
+  char header[84] = {};
+  const QByteArray title("Drishti generated STL file.");
+  std::memcpy(header, title.constData(), title.size());
+  storeIntLittleEndian(header+80, ntri);
+  BufferedDeviceWriter writer(output);
+  bool ok = writer.append(header, sizeof(header));
+
+  for(int ni=0; ok && ni<ntri; ni++)
     {
       if (showProgress)
 	{
 	  if (ni%10000 == 0)
 	    {
 	      progress.setValue((int)(100.0*(float)ni/(float)(ntri)));
-	      qApp->processEvents();
+	      if (qApp) qApp->processEvents();
 	    }
 	}
 
-      float v[12];
-      int k = T[3*ni+0];
-      int j = T[3*ni+1];
-      int i = T[3*ni+2];
+      const int k = T[3*ni+0];
+      const int j = T[3*ni+1];
+      const int i = T[3*ni+2];
+      QVector3D normal;
+      if (!N.isEmpty())
+        normal = -(N[i]+N[j]+N[k]);
+      if (normal.lengthSquared() <= 0)
+        normal = QVector3D::crossProduct(V[j]-V[i], V[k]-V[i]);
+      if (normal.lengthSquared() > 0)
+        normal.normalize();
 
-      if (N.count() == 0)
-	{
-	  v[0] = v[1] = v[2] = 0;
-	}
-      else
-	{
-	  v[0] = N[i].x() + N[j].x() + N[k].x();
-	  v[1] = N[i].y() + N[j].y() + N[k].y();
-	  v[2] = N[i].z() + N[j].z() + N[k].z();
-	  float mag = qSqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-	  v[0]/=mag;
-	  v[1]/=mag;
-	  v[2]/=mag;
-	  v[0] = -v[0];
-	  v[1] = -v[1];
-	  v[2] = -v[2];
-	}
-      
-      v[3] = V[i].x();
-      v[4] = V[i].y();
-      v[5] = V[i].z();
-      
-      v[6] = V[j].x();
-      v[7] = V[j].y();
-      v[8] = V[j].z();
-      
-      v[9] = V[k].x();
-      v[10]= V[k].y();
-      v[11]= V[k].z();
-      
-      fstl.write((char*)&v, 12*4);
-      
-      ushort abc = 0; // attribute byte count
-      fstl.write((char*)&abc, 2);
+      char record[50] = {};
+      const float values[12] = {
+        normal.x(), normal.y(), normal.z(),
+        V[i].x(), V[i].y(), V[i].z(),
+        V[j].x(), V[j].y(), V[j].z(),
+        V[k].x(), V[k].y(), V[k].z()
+      };
+      for (int value=0; value<12; ++value)
+        storeFloatLittleEndian(record+4*value, values[value]);
+      ok = writer.append(record, sizeof(record));
     }
 
-  fstl.close();
-
+  ok = ok && writer.flush();
+  if (!ok || output.error() != QFileDevice::NoError || !output.commit())
+    {
+      qWarning() << "Cannot complete STL output" << flnm
+                 << output.errorString();
+      output.cancelWriting();
+      return false;
+    }
   if (showProgress)
     progress.setValue(100);
+  return true;
 }
 //------------------------------------------
 //------------------------------------------
@@ -773,64 +854,21 @@ MeshTools::saveToTetrahedralMesh(QString flnm,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  QVector<QVector3D> V;
-  QVector<int> T;  
-
-  for (int nb=0; nb<nSlabs; nb++)
+  SlabMeshData mesh;
+  if (!loadSlabMesh(flnm, nSlabs, nvertices, ntriangles,
+                    true, true, mesh))
     {
-      progress.setValue((int)(33.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      //-------
-      // read vertices
-      int nverts;
-      QString vflnm = flnm + QString(".%1.vert").arg(nb);
-      QFile vfin(vflnm);
-      vfin.open(QFile::ReadOnly);
-      vfin.read((char*)&nverts, 4);
-      for(int ni=0; ni<nverts; ni++)
-	{
-	  float v[6];
-	  vfin.read((char*)v, 24);
-	  uchar c[3];
- 	  vfin.read((char*)c, 3);
-
-	  V << QVector3D(v[0], v[1], v[2]);
-	}
-      vfin.close();	
-      vfin.remove();
-      //-------
-
-      progress.setValue((int)(66.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
-
-      //-------
-      // read triangles
-      int ntrigs;
-      QString tflnm = flnm + QString(".%1.tri").arg(nb);
-      QFile tfin(tflnm);
-      tfin.open(QFile::ReadOnly);
-      tfin.read((char*)&ntrigs, 4);
-      int *tri;
-      tri = new int[3*ntrigs];
-      tfin.read((char*)tri, 4*3*ntrigs);
-      tfin.close();
-      tfin.remove();
-      
-      for(int ni=0; ni<ntrigs; ni++)
-	T << tri[3*ni+0] << tri[3*ni+1] << tri[3*ni+2];
-
-      delete [] tri;
-      //-------
-
-      progress.setValue((int)(100.0*(float)nb/(float)nSlabs));
-      qApp->processEvents();
+      qWarning() << "Cannot read tetrahedral mesh slab files for" << flnm;
+      return false;
     }
   progress.setValue(100);
-  qApp->processEvents();
+  if (qApp)
+    qApp->processEvents();
 
-
-  return saveToTetrahedralMesh(flnm, V, T);
+  if (!saveToTetrahedralMesh(flnm, mesh.vertices, mesh.triangles))
+    return false;
+  removeSlabArtifacts(mesh.artifacts);
+  return true;
 }
 
 bool
@@ -846,27 +884,43 @@ MeshTools::saveToTetrahedralMesh(QString flnm,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
-  //QMessageBox::information(0, "", QString("Using gmsh %1").arg(GMSH_API_VERSION));
-  gmsh::initialize();
+  QVector<QVector3D> noNormals;
+  QVector<QVector3D> noColors;
+  if (!validMesh(V, noNormals, noColors, T))
+    {
+      qWarning() << "Invalid mesh passed to tetrahedral writer" << flnm;
+      return false;
+    }
 
-// Set Gmsh options
-  int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
-  gmsh::option::setNumber("General.NumThreads", nThreads);   // multithreading
-  //gmsh::option::setNumber("Mesh.Algorithm3D", 1); // Delaunay for 3D
-  gmsh::option::setNumber("Mesh.Algorithm3D", 10); // HXT for 3D
-  gmsh::option::setNumber("Mesh.Optimize", 1);    // Optimize mesh
-  //gmsh::option::setNumber("Mesh.OptimizeNetgen", 1); // Use Netgen for optimization
+  QTemporaryDir temporaryDirectory;
+  if (!temporaryDirectory.isValid())
+    {
+      qWarning() << "Cannot create temporary directory for tetrahedral output"
+                 << flnm << temporaryDirectory.errorString();
+      return false;
+    }
+
+  const QString stl_flnm = temporaryDirectory.filePath("surface.stl");
+  const QString gmsh_flnm = temporaryDirectory.filePath("volume.msh");
+  bool gmshInitialized = false;
 
   try
       {
+      gmsh::initialize();
+      gmshInitialized = true;
+
+      const int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
+      gmsh::option::setNumber("General.NumThreads", nThreads);
+      gmsh::option::setNumber("Mesh.Algorithm3D", 10);
+      gmsh::option::setNumber("Mesh.Optimize", 1);
 //-----------------------------------------
 // Save STL and load from it
-      QString stl_flnm = flnm.chopped(3)+"stl";
       QVector<QVector3D> N;
-      saveToSTL(stl_flnm, V, N, T);
+      if (!saveToSTL(stl_flnm, V, N, T, false))
+        throw std::runtime_error("cannot create temporary STL input");
   
       gmsh::model::add("tetrahedral_model");
-	gmsh::merge(stl_flnm.toLatin1().data());
+	gmsh::merge(stl_flnm.toUtf8().constData());
 	//QMessageBox::information(0, "", "merge "+stl_flnm);
 	
 	// Create a volume from all the surfaces
@@ -876,8 +930,6 @@ MeshTools::saveToTetrahedralMesh(QString flnm,
 	for(auto surf : s) sl.push_back(surf.second);
 	int l = gmsh::model::geo::addSurfaceLoop(sl);
 	gmsh::model::geo::addVolume({l});
-      QFile f(stl_flnm);
-      f.remove(); // remove temporary stl file
 //-----------------------------------------
 
 	
@@ -941,7 +993,7 @@ MeshTools::saveToTetrahedralMesh(QString flnm,
 
 	
 	progress.setValue(60);
-	qApp->processEvents();
+	if (qApp) qApp->processEvents();
 	
 	progress.setLabelText("Sync");
 	//--------------
@@ -950,7 +1002,7 @@ MeshTools::saveToTetrahedralMesh(QString flnm,
 	//--------------
 
 	progress.setValue(80);
-	qApp->processEvents();
+	if (qApp) qApp->processEvents();
 
 	progress.setLabelText("Creating tetrahedral mesh");
 	//--------------
@@ -965,27 +1017,71 @@ MeshTools::saveToTetrahedralMesh(QString flnm,
 
 
 	progress.setValue(90);
-	qApp->processEvents();
+	if (qApp) qApp->processEvents();
 
 	progress.setLabelText("Saving tetrahedral mesh");
 	//--------------
 	// Save the mesh to a file
-	gmsh::write(flnm.toLatin1().data());
+	gmsh::write(gmsh_flnm.toUtf8().constData());
 	//--------------
 
 	// Finalize Gmsh
 	gmsh::finalize();
+	gmshInitialized = false;
 	progress.setValue(100);
       }
     catch (const std::exception &e)
       {
-	// Finalize Gmsh
-	gmsh::finalize();
+	if (gmshInitialized)
+	  {
+	    try { gmsh::finalize(); } catch (...) {}
+	  }
 	progress.setValue(100);
-	QMessageBox::information(0, "Error", e.what());
-
+	qWarning() << "Tetrahedral mesh generation failed for" << flnm
+	           << e.what();
 	return false;
       }
+
+  QFile generated(gmsh_flnm);
+  if (!generated.open(QFile::ReadOnly) || generated.size() <= 0)
+    {
+      qWarning() << "Gmsh did not create a valid output" << gmsh_flnm
+                 << generated.errorString();
+      return false;
+    }
+
+  QSaveFile output(flnm);
+  if (!output.open(QFile::WriteOnly))
+    {
+      qWarning() << "Cannot open tetrahedral output" << flnm
+                 << output.errorString();
+      return false;
+    }
+  QByteArray buffer(1024*1024, '\0');
+  bool copied = true;
+  while (!generated.atEnd())
+    {
+      const qint64 bytes = generated.read(buffer.data(), buffer.size());
+      if (bytes <= 0)
+        {
+          copied = false;
+          break;
+        }
+      if (!writeAll(output, buffer.constData(), bytes))
+        {
+          copied = false;
+          break;
+        }
+    }
+  copied = copied && generated.error() == QFileDevice::NoError &&
+           output.error() == QFileDevice::NoError;
+  if (!copied || !output.commit())
+    {
+      qWarning() << "Cannot install tetrahedral output" << flnm
+                 << output.errorString();
+      output.cancelWriting();
+      return false;
+    }
 
   return true;
 }

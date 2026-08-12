@@ -1,14 +1,16 @@
+#ifndef GRAPHCUT_H
+#define GRAPHCUT_H
+
+#include "getmemorysize.h"
 #include "graph.h"
 #include "point.h"
 
-#include <math.h>
-#include <vector>
+#include <QString>
+#include <QtGlobal>
 
-using namespace std;
+#include <cstddef>
 
 typedef Graph<double,double,double> GraphType;
-
-#define uchar unsigned char
 
 class MaxFlowMinCut
 {
@@ -16,16 +18,29 @@ class MaxFlowMinCut
   MaxFlowMinCut();
   ~MaxFlowMinCut();
 
-  int run(int, int,
-	  int, float, bool,
-	  uchar*, ushort*, int, ushort*);
+  bool run(int, int,
+	   int, float, bool,
+	   const uchar*, const ushort*, int, ushort*,
+	   int&, QString&);
+
+  static bool estimateMemoryBytes(int, int, quint64&, QString&);
+  static bool estimateInvocationMemoryBytes(int, int, int, int,
+				    quint64&, QString&);
+  static bool admitMemoryBytes(quint64,
+			       QString&,
+			       PaintAlgorithmMemoryAdmission * = nullptr,
+			       PaintMemoryStatusProvider = nullptr,
+			       void * = nullptr);
+  static quint64 memoryLimitBytes();
 
  private :
-  void compute_sigmas(uchar*, int, int, double*, int, float);
+  void compute_sigmas(const uchar*, int, int, double*, int, float);
 
   void draw_edges_image_data(GraphType&,
-			     uchar*, int, int,
+			     const uchar*, int, int,
 			     int, int, int, int,
-			     double*, double);
+			     const double*, double);
 
 };
+
+#endif

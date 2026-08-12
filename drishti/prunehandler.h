@@ -8,6 +8,7 @@ using namespace qglviewer;
 
 #include <QGLWidget>
 #include <QGLFramebufferObject>
+#include <QString>
 
 class PruneHandler
 {
@@ -151,6 +152,8 @@ class PruneHandler
 
   private :
     static bool m_mopActive;
+    static bool m_available;
+    static QString m_failureReason;
 
     static bool m_forceRegen;
     
@@ -254,8 +257,11 @@ class PruneHandler
     static void saveImage(QString);
     static void saveRaw(QString);
 
-    static bool standardChecks();
-    static void genBuffer(int, int);
+    static bool standardChecks(bool requireBuffer=true);
+    static bool genBuffer(int, int);
+    static bool loadProgram(GLhandleARB&, const QString&, const QString&);
+    static void fail(const QString&, const QString&);
+    static void releaseBuffers();
 
 };
 

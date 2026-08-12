@@ -34,12 +34,15 @@ TEMPLATE = app
 DESTDIR = ../bin
 
 TARGET = drishti
+VERSION = 4.0.4.9
 DEPENDPATH += .
 
 include( ../drishti.pri )
 
 win32 {
+  DESTDIR = $$DRISHTI_BIN_DIR
   RC_ICONS += images/drishti-256.ico
+  QMAKE_LFLAGS += /MANIFESTINPUT:$$shell_path($$PWD/../windows_long_path.manifest)
 
   contains(Windows_Setup, Win64) {
     message(drishti.exe : Win64 setup)
@@ -49,21 +52,15 @@ win32 {
                    ..\common\src\widgets \
                    ..\common\src\videoencoder
 	               
-    LIBS += -lQGLViewer2 \
-            -lnetcdf-cxx4 \
-            -lnetcdf \
-  	    	-lglew32 \
-  	    	-lfreeglut \
-            -lopengl32 \
-            -lglu32 \
-            -lassimp-vc145-mt
+    LIBS += $$DRISHTI_QGLVIEWER_LIB \
+            $$DRISHTI_NETCDF_LIBS \
+            $$DRISHTI_GLEW_LIB \
+            $$DRISHTI_FREEGLUT_LIB \
+            $$DRISHTI_OPENGL_LIBS \
+            $$DRISHTI_ASSIMP_LIB
 
      # Set list of required FFmpeg libraries
-     LIBS += -lavutil \
-             -lavcodec \
-             -lavformat \
-             -lswresample \
-             -lswscale              
+     LIBS += $$DRISHTI_FFMPEG_LIBS
      }
 }
 
@@ -189,7 +186,7 @@ HEADERS += launcher.h \
 	   	pathgroupobject.h \
 	   	pathgroupgrabber.h \
 	   	pathshaderfactory.h \
-	   	ply.h \
+	   ../common/src/mesh/binaryplywriter.h \
 	   	plugininterface.h \
 	   	pluginthread.h \
 	   	preferenceswidget.h \
@@ -218,6 +215,9 @@ HEADERS += launcher.h \
 	   	trisets.h \
 	   	trisetgrabber.h \
 	   	trisetobject.h \
+		../cpumeshpaint.h \
+		../framebufferbudget.h \
+		../meshvertexbuffer.h \
         viewer.h \
 	   	volume.h \
         volumebase.h \
@@ -328,7 +328,7 @@ HEADERS += launcher.h \
 	   pathgroupobject.cpp \
 	   pathgroupgrabber.cpp \
 	   pathshaderfactory.cpp \
-	   ply.c \
+	   ../common/src/mesh/binaryplywriter.cpp \
 	   pluginthread.cpp \
 	   preferenceswidget.cpp \
 	   profileviewer.cpp \

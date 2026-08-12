@@ -13,13 +13,14 @@ class Volume : public QObject
   ~Volume();
 
   bool isValid();
-  void reset();
-  void exiting();
+  bool reset();
+  bool exiting();
 
-  void undo() { m_mask.undo(); }
+  bool createUndo();
+  bool undo();
 
-  void reloadMask() { m_mask.loadMemFile(); }
-  void loadRawMask(QString flnm) { m_mask.loadRawFile(flnm); }
+  bool reloadMask();
+  bool loadRawMask(QString);
 
   bool setFile(QString);
   QString fileName() { return m_fileName; }
@@ -30,15 +31,15 @@ class Volume : public QObject
   void saveTagNames(QStringList);
   QStringList loadTagNames();
 
-  void exportMask();
+  bool exportMask();
   void checkPoint();
   bool loadCheckPoint();
   bool loadCheckPoint(QString);
   bool deleteCheckPoint();
 
-  void offloadMaskFile() { m_mask.offloadMemFile(); }
-  void offloadMemFile();
-  void loadMemFile();
+  bool offloadMaskFile() { return m_mask.offloadMemFile(); }
+  bool offloadMemFile();
+  bool loadMemFile();
 
   void setSaveFrequency(int t) { m_mask.setSaveFrequency(t); }
 
@@ -56,13 +57,13 @@ class Volume : public QObject
   uchar* getMaskWidthSliceImage(int);
   uchar* getMaskHeightSliceImage(int);
 
-  void setMaskDepthSlice(int, uchar*);
+  bool setMaskDepthSlice(int, uchar*);
 
   QList<int> rawValue(int, int, int);
 
-  void tagDSlice(int, uchar*);
-  void tagWSlice(int, uchar*);
-  void tagHSlice(int, uchar*);
+  bool tagDSlice(int, uchar*);
+  bool tagWSlice(int, uchar*);
+  bool tagHSlice(int, uchar*);
   
   uchar* memVolDataPtr() {return m_pvlFileManager.memVolDataPtr();};
   ushort* memVolDataPtrUS() {return m_pvlFileManager.memVolDataPtrUS();};
@@ -70,16 +71,18 @@ class Volume : public QObject
   uchar* memMaskDataPtr() {return m_mask.memMaskDataPtr();};
   ushort* memMaskDataPtrUS() {return m_mask.memMaskDataPtrUS();};
 
-  void checkFileSave();
-  void saveIntermediateResults(bool forceSave=false);
+  bool checkFileSave();
+  bool saveIntermediateResults(bool forceSave=false);
   
-  void saveMaskBlock(int, int, int, int);
-  void saveMaskBlock(QList< QList<int> >);
+  bool saveMaskBlock(int, int, int, int);
+  bool saveMaskBlock(QList< QList<int> >);
 
-  void genHistogram(bool);
+  bool genHistogram(bool);
   void generateHistogramImage();
 
-  void saveModifiedOriginalVolume();
+  bool saveModifiedOriginalVolume();
+
+  QString lastError() const;
 
   void findStartEndForTag(int,
 			  int&, int&,
@@ -98,6 +101,7 @@ class Volume : public QObject
   VolumeMask m_mask;
 
   QString m_fileName;
+  QString m_lastError;
 
   int m_depth, m_width, m_height;
   uchar *m_slice;

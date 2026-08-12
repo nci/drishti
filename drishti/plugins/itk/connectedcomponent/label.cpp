@@ -1,5 +1,12 @@
 #include "staticfunctions.h"
 #include "label.h"
+#include "../itkmemoryadmission.h"
+
+#include <QSaveFile>
+
+#include <limits>
+#include <memory>
+#include <stdexcept>
 #include "propertyeditor.h"
 
 #include "itkConnectedComponentImageFilter.h"
@@ -163,6 +170,7 @@ Label::start(VolumeFileManager *vfm,
   //----------------------------
 
 
+  bool succeeded = false;
   try
     {
       applyLabeling(flnm,
@@ -171,10 +179,22 @@ Label::start(VolumeFileManager *vfm,
 		    lut,
 		    chan,
 		    fullyconnected);
+      succeeded = true;
+    }
+  catch (const std::exception& error)
+    {
+      QMessageBox::critical(0, "Error",
+                            QString("Cannot run connected-component labeling.\n%1")
+                            .arg(QString::fromLocal8Bit(error.what())));
     }
   catch ( ... )
     {
-      QMessageBox::information(0, "Error", "Sorry cannot run the filter.\nProbably cannot allocate enough memory or failure in the filter code.");
+      QMessageBox::critical(0, "Error", "Cannot run connected-component labeling because allocation or filter execution failed.");
+    }
+
+  if (!succeeded)
+    {
+      flnm.clear();
     }
 
 
@@ -211,9 +231,9 @@ Label::applyTear(int d0, int d1, int nextra,
 		    if (viewMix > 0.01)
 		      {
 			if (!flag || m_voxelType == 0)
-			  data1[(i0-d0+nextra)*m_nY*m_nZ + j*m_nZ + k] = 0;
+			  data1[(static_cast<qint64>(i0-d0+nextra)*m_nY+j)*m_nZ+k] = 0;
 			else 
-			  ((ushort*)data1)[(i0-d0+nextra)*m_nY*m_nZ + j*m_nZ + k] = 0;
+			  ((ushort*)data1)[(static_cast<qint64>(i0-d0+nextra)*m_nY+j)*m_nZ+k] = 0;
 		      }
 		    else
 		      {
@@ -226,11 +246,11 @@ Label::applyTear(int d0, int d1, int nextra,
 			newj = qBound(0, newj, m_nY-1);
 			newk = qBound(0, newk, m_nZ-1);
 			if (!flag || m_voxelType == 0)
-			  data1[(i0-d0+nextra)*m_nY*m_nZ + j*m_nZ + k] = 
-			    data0[(newi-d0+nextra)*m_nY*m_nZ + newj*m_nZ + newk];
+			  data1[(static_cast<qint64>(i0-d0+nextra)*m_nY+j)*m_nZ+k] =
+			    data0[(static_cast<qint64>(newi-d0+nextra)*m_nY+newj)*m_nZ+newk];
 			else
-			  ((ushort*)data1)[(i0-d0+nextra)*m_nY*m_nZ + j*m_nZ + k] = 
-			    ((ushort*)data0)[(newi-d0+nextra)*m_nY*m_nZ + newj*m_nZ + newk];
+			  ((ushort*)data1)[(static_cast<qint64>(i0-d0+nextra)*m_nY+j)*m_nZ+k] =
+			    ((ushort*)data0)[(static_cast<qint64>(newi-d0+nextra)*m_nY+newj)*m_nZ+newk];
 		      }
 		  }
 	      }
@@ -245,17 +265,23 @@ Label::applyOpacity(int iv,
 		    uchar* lut,
 		    uchar* tmp)
 {
-  int jk = 0;
+  if (m_nY <= 0 || m_nZ <= 0)
+    throw std::runtime_error("Opacity plane dimensions must be positive");
+  const qint64 planeVoxels = static_cast<qint64>(m_nY)*m_nZ;
+  qint64 jk = 0;
   for(int j=0; j<m_nY; j++)
     for(int k=0; k<m_nZ; k++)
       {
-	if (cropped[jk] > 0)
+	if (jk < 0 || jk >= planeVoxels)
+	  throw std::runtime_error("Opacity plane index is out of bounds");
+	const size_t planeIndex = static_cast<size_t>(jk);
+	if (cropped[planeIndex] > 0)
 	  {
 	    int v;
 	    if (m_voxelType == 0)
-	      v = tmp[jk];
+	      v = tmp[planeIndex];
 	    else
-	      v = ((ushort*)tmp)[jk];
+	      v = reinterpret_cast<const ushort*>(tmp)[planeIndex];
 
 	    int tfSet = 0;
 
@@ -295,7 +321,7 @@ Label::applyOpacity(int iv,
 		  }
 	      }
 		
-	    float mop = cropped[jk]/255.0;
+	    float mop = cropped[planeIndex]/255.0;
 	    float opac = 0;
 	    if (m_voxelType == 0)
 	      opac = mop*lut[tfSet + 4*v + 3];
@@ -307,14 +333,17 @@ Label::applyOpacity(int iv,
 	      }
 
 	    if (opac > 0)
-	      tmp[jk] = 255;
+	      tmp[planeIndex] = 255;
 	    else
-	      tmp[jk] = 0;
+	      tmp[planeIndex] = 0;
 	  }
 	else
-	  tmp[jk] = 0;
+	  tmp[planeIndex] = 0;
 	jk++;
       } // tmp now contains binary data based on opacity
+
+  if (jk != planeVoxels)
+    throw std::runtime_error("Opacity plane traversal did not match its buffer");
 }
 
 bool
@@ -418,9 +447,79 @@ Label::applyLabeling(QString flnm,
 		     int chan,
 		     bool fullyconnected)
 {
-  int bpv = 1;
-  if (m_voxelType > 0) bpv = 2;
-  int nbytes = bpv*m_nY*m_nZ;
+  if (m_voxelType != VolumeFileManager::_UChar &&
+      m_voxelType != VolumeFileManager::_UShort)
+    throw std::runtime_error(
+        "Connected components supports only unsigned 8-bit and 16-bit volumes");
+  const int bpv = (m_voxelType == VolumeFileManager::_UShort ? 2 : 1);
+  if (m_nX <= 0 || m_nY <= 0 || m_nZ <= 0)
+    throw std::runtime_error("Label volume dimensions must be positive");
+
+  qint64 voxelCount = m_nX;
+  if (voxelCount > std::numeric_limits<qint64>::max()/m_nY)
+    throw std::runtime_error("Label volume dimensions overflow addressable memory");
+  voxelCount *= m_nY;
+  if (voxelCount > std::numeric_limits<qint64>::max()/m_nZ)
+    throw std::runtime_error("Label volume dimensions overflow addressable memory");
+  voxelCount *= m_nZ;
+
+  const qint64 planeVoxels = static_cast<qint64>(m_nY)*m_nZ;
+  if (planeVoxels > std::numeric_limits<qint64>::max()/bpv)
+    throw std::runtime_error("Label volume dimensions overflow addressable memory");
+  const qint64 planeBytes64 = planeVoxels*bpv;
+  if (static_cast<quint64>(voxelCount) > std::numeric_limits<size_t>::max() ||
+      static_cast<quint64>(planeBytes64) > std::numeric_limits<size_t>::max())
+    throw std::runtime_error("Label volume exceeds addressable memory");
+
+  const size_t nbytes = static_cast<size_t>(planeBytes64);
+  const size_t planeVoxelCount = static_cast<size_t>(planeVoxels);
+
+  if (m_width <= 0 || m_height <= 0)
+    throw std::runtime_error("Source slice dimensions must be positive");
+  const qint64 sourcePlaneVoxels = static_cast<qint64>(m_width)*m_height;
+  if (sourcePlaneVoxels > std::numeric_limits<qint64>::max()/bpv)
+    throw std::runtime_error("Source slice dimensions overflow addressable memory");
+  const qint64 sourcePlaneBytes64 = sourcePlaneVoxels*bpv;
+  if (planeBytes64 > sourcePlaneBytes64 ||
+      static_cast<quint64>(sourcePlaneBytes64) >
+      std::numeric_limits<size_t>::max())
+    throw std::runtime_error("Source slice is smaller than the requested label plane");
+
+  const auto checkedPlaneIndex = [=](int row, int column) -> size_t
+    {
+      if (row < 0 || row >= m_nY || column < 0 || column >= m_nZ)
+        throw std::runtime_error("Label plane index is out of bounds");
+      const qint64 index = static_cast<qint64>(row)*m_nZ + column;
+      if (index < 0 || index >= planeVoxels)
+        throw std::runtime_error("Label plane index exceeds its buffer");
+      return static_cast<size_t>(index);
+    };
+  const auto checkedSourceIndex = [=](qint64 row, qint64 column) -> size_t
+    {
+      if (row < 0 || row >= m_width || column < 0 || column >= m_height)
+        throw std::runtime_error("Requested source voxel is outside its slice");
+      const qint64 index = row*m_height + column;
+      if (index < 0 || index >= sourcePlaneVoxels)
+        throw std::runtime_error("Source voxel index exceeds its slice buffer");
+      return static_cast<size_t>(index);
+    };
+
+  if (m_pruneX <= 0 || m_pruneY <= 0 || m_pruneZ <= 0 ||
+      m_pruneLod <= 0 || chan < 0 || chan >= 3)
+    throw std::runtime_error("Prune data geometry or channel is invalid");
+  const qint64 prunePlane = static_cast<qint64>(m_pruneY)*m_pruneX;
+  if (prunePlane > std::numeric_limits<qint64>::max()/m_pruneZ)
+    throw std::runtime_error("Prune data dimensions overflow addressable memory");
+  const qint64 pruneVoxelCount = prunePlane*m_pruneZ;
+  if (pruneVoxelCount > std::numeric_limits<qint64>::max()/3 ||
+      3*pruneVoxelCount > static_cast<qint64>(m_pruneData.size()))
+    throw std::runtime_error("Prune data buffer is smaller than its geometry");
+
+  requireItkMemoryAdmission(
+    ItkMemoryWorkload::ConnectedComponents,
+    static_cast<std::uint64_t>(m_nX),
+    static_cast<std::uint64_t>(m_nY),
+    static_cast<std::uint64_t>(m_nZ));
 
   bool trim = (qRound(m_dataSize.x) < m_height ||
 	       qRound(m_dataSize.y) < m_width ||
@@ -455,10 +554,14 @@ Label::applyLabeling(QString flnm,
   int d0z = d0 + qRound(m_dataMin.z);
   int d1z = d1 + qRound(m_dataMin.z);
 
-  uchar *opacityVol = new uchar[m_nX*m_nY*m_nZ];
-  
-  uchar *cropped = new uchar[nbytes];
-  uchar *tmp = new uchar[nbytes];
+  std::unique_ptr<uchar[]> opacityOwner(
+      new uchar[static_cast<size_t>(voxelCount)]);
+  uchar *opacityVol = opacityOwner.get();
+
+  std::unique_ptr<uchar[]> croppedOwner(new uchar[planeVoxelCount]);
+  std::unique_ptr<uchar[]> tmpOwner(new uchar[nbytes]);
+  uchar *cropped = croppedOwner.get();
+  uchar *tmp = tmpOwner.get();
 
   int i0 = 0;
   for(int i=d0z; i<=d1z; i++)
@@ -468,8 +571,12 @@ Label::applyLabeling(QString flnm,
 
       int iv = qBound(0, i, m_depth-1);
       uchar *vslice = m_vfm->getSlice(iv);
+      if (!vslice)
+        throw std::runtime_error(
+            QString("Cannot read source slice %1: %2")
+            .arg(iv).arg(m_vfm->lastError()).toStdString());
 
-      memset(cropped, 0, nbytes);
+      memset(cropped, 0, planeVoxelCount);
 
       if (!trim)
 	memcpy(tmp, vslice, nbytes);
@@ -481,20 +588,33 @@ Label::applyLabeling(QString flnm,
 	    {
 	      for(int w=0; w<m_nY; w++)
 		for(int h=0; h<m_nZ; h++)
-		  tmp[w*m_nZ + h] = vslice[(wmin+w)*m_height + (hmin+h)];
+		  {
+		    const size_t targetIndex = checkedPlaneIndex(w, h);
+		    const size_t sourceIndex = checkedSourceIndex(
+		        static_cast<qint64>(wmin)+w,
+		        static_cast<qint64>(hmin)+h);
+		    tmp[targetIndex] = vslice[sourceIndex];
+		  }
 	    }
 	  else
 	    {
 	      for(int w=0; w<m_nY; w++)
 		for(int h=0; h<m_nZ; h++)
-		  ((ushort*)tmp)[w*m_nZ + h] = ((ushort*)vslice)[(wmin+w)*m_height + (hmin+h)];
+		  {
+		    const size_t targetIndex = checkedPlaneIndex(w, h);
+		    const size_t sourceIndex = checkedSourceIndex(
+		        static_cast<qint64>(wmin)+w,
+		        static_cast<qint64>(hmin)+h);
+		    reinterpret_cast<ushort*>(tmp)[targetIndex] =
+		        reinterpret_cast<const ushort*>(vslice)[sourceIndex];
+		  }
 	    }
 	}
 
-      int jk = 0;
       for(int j=0; j<m_nY; j++)
 	for(int k=0; k<m_nZ; k++)
 	  {
+	    const size_t planeIndex = checkedPlaneIndex(j, k);
 	    Vec po = Vec(m_dataMin.x+k, m_dataMin.y+j, iv);
 	    bool ok = true;
 	    
@@ -508,8 +628,15 @@ Label::applyLabeling(QString flnm,
 	      ppi = qBound(0, ppi, m_pruneX-1);
 	      ppj = qBound(0, ppj, m_pruneY-1);
 	      ppk = qBound(0, ppk, m_pruneZ-1);
-	      int mopidx = ppk*m_pruneY*m_pruneX + ppj*m_pruneX + ppi;
-	      mop = m_pruneData[3*mopidx + chan];
+	      const qint64 mopidx =
+	          (static_cast<qint64>(ppk)*m_pruneY + ppj)*m_pruneX + ppi;
+	      const qint64 mopOffset = 3*mopidx + chan;
+	      if (mopidx < 0 || mopidx >= pruneVoxelCount ||
+	          mopOffset < 0 ||
+	          mopOffset >= static_cast<qint64>(m_pruneData.size()) ||
+	          mopOffset > std::numeric_limits<int>::max())
+	        throw std::runtime_error("Prune data index is out of bounds");
+	      mop = m_pruneData.at(static_cast<int>(mopOffset));
 	      ok = (mop > 0);
 	    }
 	    
@@ -528,9 +655,9 @@ Label::applyLabeling(QString flnm,
 	      {
 		ushort v;
 		if (m_voxelType == 0)
-		  v = tmp[j*m_nZ + k];
+		  v = tmp[planeIndex];
 		else
-		  v = ((ushort*)tmp)[j*m_nZ + k];
+		  v = reinterpret_cast<const ushort*>(tmp)[planeIndex];
 		ok = checkBlend(po, v, lut);
 	      }
 	    
@@ -538,23 +665,21 @@ Label::applyLabeling(QString flnm,
 	      {
 		ushort v;
 		if (m_voxelType == 0)
-		  v = tmp[j*m_nZ + k];
+		  v = tmp[planeIndex];
 		else
-		  v = ((ushort*)tmp)[j*m_nZ + k];
+		  v = reinterpret_cast<const ushort*>(tmp)[planeIndex];
 		ok = checkPathBlend(po, v, lut);
 	      }
 	    
 	    if (ok)
-	      cropped[jk] = mop;
+	      cropped[planeIndex] = mop;
 	    else
-	      cropped[jk] = 0;
-	    
-	    jk ++;
+	      cropped[planeIndex] = 0;
 	  }
       
       if (m_voxelType == 0)
 	{
-	  for(int j=0; j<m_nY*m_nZ; j++)
+	  for(qint64 j=0; j<planeVoxels; j++)
 	    {
 	      if (cropped[j] == 0)
 		tmp[j] = 0;
@@ -562,7 +687,7 @@ Label::applyLabeling(QString flnm,
 	}
       else
 	{
-	  for(int j=0; j<m_nY*m_nZ; j++)
+	  for(qint64 j=0; j<planeVoxels; j++)
 	    {
 	      if (cropped[j] == 0)
 		((ushort*)tmp)[j] = 0;
@@ -570,24 +695,23 @@ Label::applyLabeling(QString flnm,
 	}
       
       applyOpacity(iv, cropped, lut, tmp);
-      memcpy(opacityVol + i0*m_nY*m_nZ, tmp, m_nY*m_nZ);
+      memcpy(opacityVol + static_cast<size_t>(i0)*static_cast<size_t>(planeVoxels),
+             tmp, static_cast<size_t>(planeVoxels));
       
       i0++;
     }
-  delete [] tmp;
-  delete [] cropped;
   m_meshProgress->setValue(100);
   qApp->processEvents();
 
   //------------
   if (m_tearPresent)
     {
-      uchar *data0 = new uchar[m_nX*m_nY*m_nZ];
-      memcpy(data0, opacityVol, m_nX*m_nY*m_nZ);
+      std::unique_ptr<uchar[]> data0Owner(
+          new uchar[static_cast<size_t>(voxelCount)]);
+      uchar *data0 = data0Owner.get();
+      memcpy(data0, opacityVol, static_cast<size_t>(voxelCount));
       applyTear(d0, d1, 0,
 		data0, opacityVol, false);
-      
-      delete [] data0;
     }
 
 
@@ -610,7 +734,7 @@ Label::applyLabeling(QString flnm,
   image->Allocate();
   image->FillBuffer(0);
   uchar *iptr = (uchar*)image->GetBufferPointer();
-  memcpy(iptr, opacityVol, m_nX*m_nY*m_nZ);
+  memcpy(iptr, opacityVol, static_cast<size_t>(voxelCount));
 
   typedef itk::Image< ushort, 3 > OutputImageType;
   typedef itk::ConnectedComponentImageFilter<ImageType, OutputImageType> LabelFilter;
@@ -628,18 +752,33 @@ Label::applyLabeling(QString flnm,
 
   labelFilter->Update();
 
-  QFile fp;
-  fp.setFileName(flnm);
-  fp.open(QFile::WriteOnly);
+  QSaveFile fp(flnm);
+  fp.setDirectWriteFallback(false);
+  if (!fp.open(QFile::WriteOnly))
+    throw std::runtime_error(
+        QString("Cannot open output file: %1").arg(fp.errorString()).toStdString());
   uchar vt = 2;
-  fp.write((char*)&vt, 1);
-  fp.write((char*)&m_nX, 4);
-  fp.write((char*)&m_nY, 4);
-  fp.write((char*)&m_nZ, 4);
   OutputImageType *dimg = labelFilter->GetOutput();
   char *tdata = (char*)(dimg->GetBufferPointer());
-  fp.write(tdata, 2*m_nX*m_nY*m_nZ);
-  fp.close();
+  if (voxelCount > std::numeric_limits<qint64>::max()/2)
+    throw std::runtime_error("Label output size overflows file offsets");
+  const qint64 outputBytes = 2*voxelCount;
+  if (fp.write((char*)&vt, 1) != 1 ||
+      fp.write((char*)&m_nX, 4) != 4 ||
+      fp.write((char*)&m_nY, 4) != 4 ||
+      fp.write((char*)&m_nZ, 4) != 4 ||
+      fp.write(tdata, outputBytes) != outputBytes)
+    {
+      const QString detail = fp.errorString();
+      fp.cancelWriting();
+      throw std::runtime_error(
+          QString("Cannot write complete label volume: %1")
+          .arg(detail).toStdString());
+    }
+  if (!fp.commit())
+    throw std::runtime_error(
+        QString("Cannot commit label volume: %1")
+        .arg(fp.errorString()).toStdString());
 
   m_meshLog->moveCursor(QTextCursor::End);
   m_meshLog->insertPlainText("Label data saved in "+flnm);

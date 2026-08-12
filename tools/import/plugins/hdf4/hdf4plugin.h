@@ -44,6 +44,7 @@ class HDF4Plugin : public QObject, VolInterface
 
   void generateHistogram();
   void set4DVolume(bool);
+  Q_INVOKABLE QString lastError() const;
  private :
   QStringList m_fileName;
   bool m_4dvol;
@@ -64,12 +65,15 @@ class HDF4Plugin : public QObject, VolInterface
 
   int m_Index;
   QList<QString> m_imageList;
+  QString m_varName;
+  QString m_lastError;
 
   QList<QString> listAllVariables();
   void findMinMax();
   void findMinMaxandGenerateHistogram();
 
   bool setImageFiles(QStringList);
+  bool readSlice(int, uchar*);
 };
 
 #endif

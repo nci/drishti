@@ -6,6 +6,7 @@
 #include "remapwidget.h"
 #include "fileslistdialog.h"
 #include "raw2pvl.h"
+#include "tiffinputrouting.h"
 
 #include <QFile>
 #include <QTextStream>
@@ -14,15 +15,11 @@
 #include <QTableWidget>
 
 
-namespace py = pybind11;
-
 DrishtiImport::DrishtiImport(QWidget *parent) :
   QMainWindow(parent)
 {
   ui.setupUi(this);
   
-  py::print("Import Volume"); // test the embedded Python environment
-
   resize(1280, 1024);
   qApp->setFont(QFont("MS Reference Sans Serif", 12));
   
@@ -48,6 +45,7 @@ void
 DrishtiImport::registerPlugins()
 {
   m_pluginFileTypes.clear();
+  m_pluginFileDLib.clear();
   m_pluginDirTypes.clear();
   m_pluginDirDLib.clear();
 
@@ -103,7 +101,7 @@ DrishtiImport::registerPlugins()
 	      if (idx == -1) idx = rs.indexOf("files");
 	      if (idx >= 0)
 		{
-		  if (rs.size() >= idx+1)
+		  if (rs.size() > idx+1)
 		    {
 		      m_pluginFileTypes << rs[idx+1];
 		      m_pluginFileDLib << pluginflnm;
@@ -120,7 +118,7 @@ DrishtiImport::registerPlugins()
 	      if (idx >= 0)
 		{
 		  QPair<QString, QStringList> ft;
-		  if (rs.size() >= idx+1)
+		  if (rs.size() > idx+1)
 		    {
 		      m_pluginDirTypes << rs[idx+1];
 		      m_pluginDirDLib << pluginflnm;
@@ -182,13 +180,18 @@ DrishtiImport::registerExternalScripts()
 {
   QStringList scripts;
 
-  QDir app = QCoreApplication::applicationDirPath();
-  app.cd("assets");
-  app.cd("scripts");
-  app.cd("import");
-  QString scriptDir = app.absolutePath();
+  const QString scriptDir =
+    QDir(QCoreApplication::applicationDirPath())
+      .filePath(QStringLiteral("assets/scripts/import"));
   
   QDir topDir(scriptDir);
+  if (!topDir.exists())
+    {
+      qWarning().noquote() << "Optional import scripts not found under"
+                           << QDir::toNativeSeparators(scriptDir);
+      return;
+    }
+
   topDir.setFilter(QDir::Dirs | QDir::Readable | QDir::NoDotAndDotDot);
   topDir.setSorting(QDir::Name);
 
@@ -246,7 +249,7 @@ DrishtiImport::registerExternalScripts()
 			}
 		      if (!dirDesc.isEmpty())
 			{
-			  m_pluginDirTypes << filesDesc;
+			  m_pluginDirTypes << dirDesc;
 			  m_pluginDirDLib << "script : "+m_scriptsPlugin+" : "+jsonfile;
 			}
 			
@@ -258,7 +261,8 @@ DrishtiImport::registerExternalScripts()
     }
 
   if (scripts.count() == 0)
-    QMessageBox::information(0, "Error", "No scripts found under "+scriptDir);
+    qWarning().noquote() << "No valid import scripts found under"
+                         << QDir::toNativeSeparators(scriptDir);
 }
 
 
@@ -266,6 +270,9 @@ void
 DrishtiImport::loadFiles()
 {
   QAction *action = qobject_cast<QAction *>(sender());
+  if (!action)
+    return;
+
   QString plugin = action->data().toString();
   int idx = m_pluginFileTypes.indexOf(plugin);
 
@@ -295,6 +302,9 @@ void
 DrishtiImport::loadFiles(QStringList flnms,
 			 int pluginidx)
 {
+  if (flnms.isEmpty())
+    return;
+
   if (flnms.count() > 1)
     {
       FilesListDialog fld(flnms);
@@ -336,6 +346,21 @@ DrishtiImport::loadFiles(QStringList flnms,
 
   if (idx >= 0)
     {
+      if (idx >= m_pluginFileDLib.size())
+	{
+	  QMessageBox::information(0, "Error", "The selected file plugin is unavailable");
+	  return;
+	}
+
+      const int routedIndex = TiffInputRouting::routedPluginIndex(
+	idx, m_pluginFileTypes, m_pluginFileDLib, flnms, false);
+      if (routedIndex != idx)
+	{
+	  qInfo().noquote()
+	    << "Routing an all-TIFF file selection through the native TIFF importer.";
+	  idx = routedIndex;
+	}
+
       if (!m_remapWidget->setFile(flnms, m_pluginFileDLib[idx]))
 	return;
     }
@@ -350,6 +375,9 @@ void
 DrishtiImport::loadDirectory()
 {
   QAction *action = qobject_cast<QAction *>(sender());
+  if (!action)
+    return;
+
   QString plugin = action->data().toString();
   int idx = m_pluginDirTypes.indexOf(plugin);
 
@@ -373,6 +401,9 @@ DrishtiImport::loadDirectory()
 void
 DrishtiImport::loadDirectory(QString dirname, int pluginidx)
 {
+  if (dirname.isEmpty())
+    return;
+
   QFileInfo f(dirname);
   Global::setPreviousDirectory(f.absolutePath());
 
@@ -408,6 +439,21 @@ DrishtiImport::loadDirectory(QString dirname, int pluginidx)
 
   if (idx >= 0)
     {
+      if (idx >= m_pluginDirDLib.size())
+	{
+	  QMessageBox::information(0, "Error", "The selected directory plugin is unavailable");
+	  return;
+	}
+
+      const int routedIndex = TiffInputRouting::routedPluginIndex(
+	idx, m_pluginDirTypes, m_pluginDirDLib, flnms, true);
+      if (routedIndex != idx)
+	{
+	  qInfo().noquote()
+	    << "Routing an all-TIFF directory through the native TIFF importer.";
+	  idx = routedIndex;
+	}
+
       if (!m_remapWidget->setFile(flnms, m_pluginDirDLib[idx]))
 	return;
     }
@@ -624,14 +670,14 @@ DrishtiImport::on_actionSave_Images_triggered()
 void
 DrishtiImport::on_actionExit_triggered()
 {
-  saveSettings();
   close();
 }
 
 void
-DrishtiImport::closeEvent(QCloseEvent *)
+DrishtiImport::closeEvent(QCloseEvent *event)
 {
-  on_actionExit_triggered();
+  saveSettings();
+  QMainWindow::closeEvent(event);
 }
 
 void
@@ -729,6 +775,11 @@ DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
 
   if (idx >= 0)
     {
+      if (idx >= m_pluginDirDLib.size())
+	{
+	  QMessageBox::information(0, "Error", "The selected directory plugin is unavailable");
+	  return;
+	}
       QProgressDialog progress("Processing ",
 			       "Cancel",
 			       0, 100,
@@ -753,7 +804,11 @@ DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
 	  progress.setLabelText(flnms[i]);
 	  qApp->processEvents();
 
-	  m_remapWidget->setFile(dnames, m_pluginDirDLib[idx]);
+	  if (!m_remapWidget->setFile(dnames, m_pluginDirDLib[idx]))
+	    {
+	      progress.setValue(100);
+	      return;
+	    }
 
 	  progress.setValue(30);
 	  qApp->processEvents();
@@ -766,7 +821,11 @@ DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
 	  progress.setValue(50);
 	  qApp->processEvents();
 
-	  m_remapWidget->saveTrimmed(0,0,0, 0,0,0);
+	  if (!m_remapWidget->saveTrimmed(0,0,0, 0,0,0))
+	    {
+	      progress.setValue(100);
+	      return;
+	    }
 	}
 
       progress.setValue(100);
@@ -786,9 +845,11 @@ DrishtiImport::on_actionMimics_triggered()
   w.setFileMode(QFileDialog::DirectoryOnly);
   w.setOption(QFileDialog::DontUseNativeDialog, true);
   QListView *l = w.findChild<QListView*>("listView");
-  l->setSelectionMode(QAbstractItemView::ExtendedSelection);
+  if (l)
+    l->setSelectionMode(QAbstractItemView::ExtendedSelection);
   QTreeView *t = w.findChild<QTreeView*>("treeView");
-  t->setSelectionMode(QAbstractItemView::ExtendedSelection);
+  if (t)
+    t->setSelectionMode(QAbstractItemView::ExtendedSelection);
   
   if (w.exec() != QDialog::Accepted)
     return;
@@ -809,8 +870,19 @@ DrishtiImport::on_actionMimics_triggered()
   qApp->processEvents();
 
   int idx = m_pluginDirTypes.indexOf("DICOM Image Directory");
+  if (idx < 0 || idx >= m_pluginDirDLib.size())
+    {
+      QMessageBox::information(0, "Error", "The DICOM directory plugin is unavailable");
+      return;
+    }
 
   QStringList rawFiles;
+  const auto removeTemporaryRawFiles = [&rawFiles]()
+    {
+      for (const QString &fileName : rawFiles)
+	QFile::remove(fileName);
+      rawFiles.clear();
+    };
 
   float vx, vy, vz;
   
@@ -822,21 +894,34 @@ DrishtiImport::on_actionMimics_triggered()
 	{
 	  progress.setValue(100);  
 	  QMessageBox::information(0, "Save", "-----Aborted-----");
-	  break;
+	  removeTemporaryRawFiles();
+	  return;
 	}
 	  
       QStringList dnames;
       dnames << flnms[i];
       
       QFileInfo fraw(flnms[i]);
-      rawFiles << QFileInfo(fraw.absolutePath(),
-			    fraw.baseName() + ".raw").absoluteFilePath();
+      const QString rawFile = QFileInfo(fraw.absolutePath(),
+					fraw.baseName() + ".raw").absoluteFilePath();
+      if (QFileInfo::exists(rawFile))
+	{
+	  removeTemporaryRawFiles();
+	  QMessageBox::critical(0, "Mimics Conversion",
+	    QString("Refusing to overwrite an existing RAW file: %1").arg(rawFile));
+	  return;
+	}
   
 
       progress.setLabelText(flnms[i]);
       qApp->processEvents();
       
-      m_remapWidget->setFile(dnames, m_pluginDirDLib[idx]);
+      if (!m_remapWidget->setFile(dnames, m_pluginDirDLib[idx]))
+	{
+	  progress.setValue(100);
+	  removeTemporaryRawFiles();
+	  return;
+	}
 
       if (i == 0)
 	{ // use saved voxel information while merging volumes
@@ -854,7 +939,23 @@ DrishtiImport::on_actionMimics_triggered()
       progress.setValue(50);
       qApp->processEvents();
       
-      m_remapWidget->saveTrimmed(0,0,0, 0,0,0);
+      if (!m_remapWidget->saveTrimmed(0,0,0, 0,0,0))
+	{
+	  progress.setValue(100);
+	  removeTemporaryRawFiles();
+	  return;
+	}
+      QFileInfo generatedRaw(rawFile);
+      if (!generatedRaw.exists() || !generatedRaw.isFile() ||
+	  generatedRaw.size() <= 13)
+	{
+	  removeTemporaryRawFiles();
+	  QMessageBox::critical(0, "Mimics Conversion",
+	    QString("RAW conversion did not produce a complete output: %1")
+	      .arg(rawFile));
+	  return;
+	}
+      rawFiles << rawFile;
   }
   
   progress.setValue(100);
@@ -865,23 +966,36 @@ DrishtiImport::on_actionMimics_triggered()
   //-------------------
   // process the saved raw files  
   idx = m_pluginFileTypes.indexOf("RAW Files");
+  if (idx < 0 || idx >= m_pluginFileDLib.size())
+    {
+      removeTemporaryRawFiles();
+      QMessageBox::information(0, "Error", "The RAW file plugin is unavailable");
+      return;
+    }
 
-  m_remapWidget->mergeVolumes(m_pluginFileTypes[idx],
-			      m_pluginFileDLib[idx],
-			      rawFiles);
+  if (!m_remapWidget->mergeVolumes(m_pluginFileTypes[idx],
+				   m_pluginFileDLib[idx],
+				   rawFiles))
+    {
+      removeTemporaryRawFiles();
+      return;
+    }
 
-  m_remapWidget->saveAs();
+  if (!m_remapWidget->saveAs())
+    {
+      QMessageBox::warning(
+	0, "Mimics Conversion",
+	"The merged output was not completed. Temporary RAW volumes were kept "
+	"so the Save operation can be retried:\n\n" + rawFiles.join("\n"));
+      return;
+    }
   //---------------------
 
   
   //---------------------
   // remove temporary raw files
   //foreach(QString flnm, rawFiles)
-  for(int i=0; i<rawFiles.count(); i++)
-  {
-    QString flnm = rawFiles[i];
-    QFile::remove(flnm);
-  }
+  removeTemporaryRawFiles();
   //---------------------
 }
 

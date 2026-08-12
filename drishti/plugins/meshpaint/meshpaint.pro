@@ -16,20 +16,24 @@ TARGET = meshpaintplugin
 FORMS += ../../propertyeditor.ui
 
 win32 {
-  DESTDIR = ../../../bin/renderplugins
-
-  LIBS += common.lib \
-	  QGLViewer2.lib \
-	  glew32.lib \
-	  glmedia.lib \
-          opengl32.lib \
-          glu32.lib
+  DESTDIR = $$DRISHTI_RENDER_PLUGIN_DIR
 
  contains(Windows_Setup, Win64) {
+  isEmpty(DRISHTI_PLUGIN_COMMON_LIB_DIR): DRISHTI_PLUGIN_COMMON_LIB_DIR = $$clean_path($$PWD/../common)
+  isEmpty(DRISHTI_GLMEDIA_LIBRARY_PATH): DRISHTI_GLMEDIA_LIBRARY_PATH = $$clean_path($$PWD/../../../glmedia-64)
+
   INCLUDEPATH += ../../
-  QMAKE_LIBDIR += ..\common ..\..\..\glmedia-64
-  LIBS += netcdfcpp.lib \
-	  freeglut.lib
+  QMAKE_LIBDIR += $$DRISHTI_PLUGIN_COMMON_LIB_DIR \
+                  $$DRISHTI_GLMEDIA_LIBRARY_PATH
+  PRE_TARGETDEPS += $$clean_path($$DRISHTI_PLUGIN_COMMON_LIB_DIR/$$DRISHTI_COMMON_LIB)
+
+  LIBS += $$DRISHTI_COMMON_LIB \
+	  $$DRISHTI_QGLVIEWER_LIB \
+	  $$DRISHTI_GLEW_LIB \
+	  $$DRISHTI_GLMEDIA_LIB \
+          $$DRISHTI_OPENGL_LIBS \
+          $$DRISHTI_LEGACY_NETCDF_LIB \
+	  $$DRISHTI_FREEGLUT_LIB
  }
 }
 

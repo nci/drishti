@@ -142,10 +142,12 @@ class Trisets : public QObject
   GLuint m_depthBuffer;
   GLuint m_rbo;
   GLuint m_depthTex[4];
+  int m_fboWidth, m_fboHeight;
+  int m_failedFboWidth, m_failedFboHeight;
 
   float m_blur, m_edges;
     
-  void createFBO(int, int);
+  bool createFBO(int, int);
 
   void render(Camera*, int);
 

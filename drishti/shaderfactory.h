@@ -37,9 +37,6 @@ class ShaderFactory
 
   static QString genLutShaderString(bool);
 
-  static GLuint paintShader();
-  static GLint* paintShaderParm();
-
   static GLuint meshShader();
   static GLint* meshShaderParm();
 
@@ -71,11 +68,6 @@ class ShaderFactory
   static QString noise3d();
 
  private :
-  static QList<GLuint> m_shaderList;
-
-  static GLuint m_paintShader;
-  static GLint m_paintShaderParm[10];
-  
   static GLuint m_meshShader;
   static GLint m_meshShaderParm[50];
 
@@ -119,8 +111,8 @@ class ShaderFactory
   static QString pnShaderV();
   static QString pnShaderF();
 
-  static bool addShader(GLuint, GLenum, QString);
-  static bool finalize(GLuint);
+  static bool addShader(GLuint&, GLenum, QString);
+  static bool finalize(GLuint&);
 
 
   static QString oitShaderV();
@@ -128,7 +120,6 @@ class ShaderFactory
 
   static QString oitFinalShaderF();
 
-  static void createPaintShader();
 };
 
 #endif

@@ -216,7 +216,7 @@ KeyFrame::saveProject(Vec pos, Quaternion rot,
   m_savedKeyFrame.setOpMod(fop, bop);
   m_savedKeyFrame.setDOF(dofBlur, dofNF);
   m_savedKeyFrame.setGamma(Global::gamma());
-  m_savedKeyFrame.setSplinePos(Global::interpolationType(Global::CameraPositionInterpolation) > 0);
+  m_savedKeyFrame.setSplinePos(Global::interpolationType(Global::CameraPositionInterpolation));
 
   // not saving splineInfo for savedKeyFrame
   //m_savedKeyFrame.setSplineInfo(splineInfo);
@@ -364,7 +364,7 @@ KeyFrame::setKeyFrame(Vec pos, Quaternion rot,
   kfi->setOpMod(fop, bop);
   kfi->setDOF(dofBlur, dofNF);
   kfi->setGamma(Global::gamma());
-  kfi->setSplinePos(Global::interpolationType(Global::CameraPositionInterpolation) > 0);
+  kfi->setSplinePos(Global::interpolationType(Global::CameraPositionInterpolation));
 
   emit setImage(kfn, image);  
   

@@ -6,6 +6,37 @@
 
 #include <QInputDialog>
 #include <QFileDialog>
+#include <QFileInfo>
+#include <QSaveFile>
+
+#include <memory>
+#include <limits>
+#include <stdexcept>
+
+namespace
+{
+bool writeAll(QIODevice& device, const char *data, qint64 bytes)
+{
+  qint64 written = 0;
+  while (written < bytes)
+    {
+      const qint64 count = device.write(data+written, bytes-written);
+      if (count <= 0)
+        return false;
+      written += count;
+    }
+  return true;
+}
+
+bool checkedMultiply(qint64 left, qint64 right, qint64& result)
+{
+  if (left < 0 || right < 0 ||
+      (right != 0 && left > std::numeric_limits<qint64>::max()/right))
+    return false;
+  result = left*right;
+  return true;
+}
+}
 
 
 MeshGenerator::MeshGenerator()
@@ -468,6 +499,14 @@ MeshGenerator::start(VolumeFileManager *vfm,
   qint64 gb = 1024*1024*1024;
   qint64 memsize = memGb*gb; // max memory we can use (in GB)
 
+  if (m_nX <= 0 || m_nY <= 0 || m_nZ <= 0 || memsize <= 0)
+    {
+      QMessageBox::critical(0, "Mesh generation failed",
+                            "The selected mesh grid or memory budget is invalid.");
+      meshWindow->close();
+      return QString();
+    }
+
   qint64 canhandle = memsize/11;
   qint64 gsize = qPow((double)canhandle, 0.333);
 
@@ -501,27 +540,90 @@ MeshGenerator::start(VolumeFileManager *vfm,
   
 
 
-  int nSlabs = 1;
-  qint64 reqmem = m_nX;
-  reqmem *= m_nY*m_nZ*6;
-  nSlabs = qMax(qint64(1), reqmem/memsize + 1);
+  qint64 planeVoxels = 0;
+  qint64 volumeVoxels = 0;
+  qint64 reqmem = 0;
+  if (!checkedMultiply(m_nY, m_nZ, planeVoxels) ||
+      !checkedMultiply(m_nX, planeVoxels, volumeVoxels) ||
+      !checkedMultiply(volumeVoxels, 11, reqmem))
+    {
+      QMessageBox::critical(0, "Mesh generation failed",
+                            "The mesh memory estimate overflows the supported range.");
+      meshWindow->close();
+      return QString();
+    }
+  const qint64 requestedSlabs = reqmem/memsize +
+                                (reqmem%memsize == 0 ? 0 : 1);
+  const int nSlabs = static_cast<int>(
+    qBound<qint64>(1, requestedSlabs, m_nX));
 //  QMessageBox::information(0, "", QString("Number of Slabs : %1 : %2 %3").\
 //			   arg(nSlabs).arg(reqmem).arg(memsize));
 
-  generateMesh(nSlabs,
-	       isoval,
-	       flnm,
-	       depth, spread,
-	       stops,
-	       useColor,
-	       voxelScaling,
-	       clipPos, clipNormal,
-	       crops, paths,
-	       smoothOpacity, lut,
-	       chan,
-	       avgColor,
-	       adaptivity,
-	       tetMesh);
+  const bool outputExisted = QFileInfo::exists(flnm);
+  QStringList preexistingSlabArtifacts;
+  for (int slab=0; slab<nSlabs; ++slab)
+    {
+      const QString triFile = flnm + QString(".%1.tri").arg(slab);
+      const QString vertFile = flnm + QString(".%1.vert").arg(slab);
+      if (QFileInfo::exists(triFile)) preexistingSlabArtifacts << triFile;
+      if (QFileInfo::exists(vertFile)) preexistingSlabArtifacts << vertFile;
+    }
+  if (!preexistingSlabArtifacts.isEmpty())
+    {
+      QMessageBox::critical(0, "Mesh generation failed",
+        "Temporary mesh files already exist beside the selected output. "
+        "Move or remove those .tri/.vert files before retrying so they are "
+        "not overwritten.");
+      meshWindow->close();
+      return QString();
+    }
+
+  bool succeeded = false;
+  try
+    {
+      succeeded = generateMesh(nSlabs,
+		   isoval,
+		   flnm,
+		   depth, spread,
+		   stops,
+		   useColor,
+		   voxelScaling,
+		   clipPos, clipNormal,
+		   crops, paths,
+		   smoothOpacity, lut,
+		   chan,
+		   avgColor,
+		   adaptivity,
+		   tetMesh);
+      if (!succeeded)
+        QMessageBox::critical(0, "Mesh generation failed",
+                              "The mesh output or a temporary slab file "
+                              "could not be written completely.");
+    }
+  catch (const std::exception& error)
+    {
+      QMessageBox::critical(0, "Mesh generation failed",
+                            QString::fromLocal8Bit(error.what()));
+    }
+  catch (...)
+    {
+      QMessageBox::critical(0, "Mesh generation failed",
+                            "Allocation or mesh processing failed.");
+    }
+
+  if (!succeeded)
+    {
+      if (!outputExisted)
+        QFile::remove(flnm);
+      for (int slab=0; slab<nSlabs; ++slab)
+        {
+          const QString triFile = flnm + QString(".%1.tri").arg(slab);
+          const QString vertFile = flnm + QString(".%1.vert").arg(slab);
+          if (!preexistingSlabArtifacts.contains(triFile)) QFile::remove(triFile);
+          if (!preexistingSlabArtifacts.contains(vertFile)) QFile::remove(vertFile);
+        }
+      flnm.clear();
+    }
 
 
   meshWindow->close();
@@ -962,7 +1064,7 @@ MeshGenerator::checkPathCrop(Vec po)
     }  return cropped;
 }
 
-void
+bool
 MeshGenerator::generateMesh(int nSlabs, int isoval,
 			    QString flnm,
 			    int depth, int spread,
@@ -989,7 +1091,21 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 
   int bpv = 1;
   if (m_voxelType > 0) bpv = 2;
-  int nbytes = bpv*m_nY*m_nZ;
+  if (nSlabs <= 0 || m_nX <= 0 || m_nY <= 0 || m_nZ <= 0)
+    return false;
+
+  qint64 planeVoxels = 0;
+  qint64 planeBytes = 0;
+  if (!checkedMultiply(m_nY, m_nZ, planeVoxels) ||
+      !checkedMultiply(planeVoxels, bpv, planeBytes) ||
+      planeVoxels > std::numeric_limits<int>::max() ||
+      static_cast<quint64>(planeBytes) >
+        static_cast<quint64>(std::numeric_limits<std::size_t>::max()))
+    {
+      qWarning() << "Mesh slice size exceeds the supported address range";
+      return false;
+    }
+  const std::size_t nbytes = static_cast<std::size_t>(planeBytes);
 
   
   bool trim = (qRound(m_dataSize.x) < m_height ||
@@ -1019,7 +1135,6 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
       if (m_paths[i].crop()) m_pathCropPresent = true;
     }
 
-  int blockStep = m_nX/nSlabs;
   int ntriangles = 0;
   int nvertices = 0;
   for (int nb=0; nb<nSlabs; nb++)
@@ -1027,29 +1142,46 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
       m_meshLog->moveCursor(QTextCursor::End);
       m_meshLog->insertPlainText(QString("Processing slab %1 of %2\n").arg(nb+1).arg(nSlabs));
 
-      int d0 = nb*blockStep;
-      int d1 = qMin(m_nX-1, (nb+1)*blockStep);
+      const int d0 = static_cast<int>(
+        static_cast<qint64>(nb)*m_nX/nSlabs);
+      const int d1 = qMin(m_nX-1, static_cast<int>(
+        static_cast<qint64>(nb+1)*m_nX/nSlabs));
       int dlen = d1-d0+1;
       
       int d0z = d0 + qRound(m_dataMin.z);
       int d1z = d1 + qRound(m_dataMin.z);
 
-      qint64 dataSize = m_nY*m_nZ;
-      dataSize *= dlen;
-      uchar *extData;
-      if (m_voxelType == 0)
-	extData = new uchar[dataSize];
-      else
-	extData = new uchar[2*dataSize]; // ushort
-
-      uchar *gData = new uchar[dataSize];
-
-
-      uchar *cropped = new uchar[nbytes];
-      uchar *tmp = new uchar[nbytes];
-      uchar *tmp0 = new uchar[nbytes];
-      uchar *tmp1 = new uchar[nbytes];
-      uchar *tmp2 = new uchar[nbytes];
+      qint64 dataSize = 0;
+      qint64 rawDataBytes = 0;
+      if (dlen <= 0 ||
+          !checkedMultiply(planeVoxels, dlen, dataSize) ||
+          !checkedMultiply(dataSize, bpv, rawDataBytes) ||
+          static_cast<quint64>(dataSize) >
+            static_cast<quint64>(std::numeric_limits<std::size_t>::max()) ||
+          static_cast<quint64>(rawDataBytes) >
+            static_cast<quint64>(std::numeric_limits<std::size_t>::max()))
+        {
+          qWarning() << "Mesh slab size exceeds the supported address range";
+          return false;
+        }
+      const std::size_t dataBytes = static_cast<std::size_t>(dataSize);
+      const std::size_t sourceDataBytes =
+        static_cast<std::size_t>(rawDataBytes);
+      std::unique_ptr<uchar[]> extDataOwner(
+        new uchar[sourceDataBytes]);
+      std::unique_ptr<uchar[]> gDataOwner(new uchar[dataBytes]);
+      std::unique_ptr<uchar[]> croppedOwner(new uchar[nbytes]);
+      std::unique_ptr<uchar[]> tmpOwner(new uchar[nbytes]);
+      std::unique_ptr<uchar[]> tmp0Owner(new uchar[nbytes]);
+      std::unique_ptr<uchar[]> tmp1Owner(new uchar[nbytes]);
+      std::unique_ptr<uchar[]> tmp2Owner(new uchar[nbytes]);
+      uchar *extData = extDataOwner.get();
+      uchar *gData = gDataOwner.get();
+      uchar *cropped = croppedOwner.get();
+      uchar *tmp = tmpOwner.get();
+      uchar *tmp0 = tmp0Owner.get();
+      uchar *tmp1 = tmp1Owner.get();
+      uchar *tmp2 = tmp2Owner.get();
       memset(tmp,  0, nbytes);
       memset(tmp0, 0, nbytes);
       memset(tmp1, 0, nbytes);
@@ -1064,6 +1196,13 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 
 	  int iv = qBound(0, i, m_depth-1);
 	  uchar *vslice = m_vfm->getSlice(iv);
+	  if (!vslice)
+	    {
+	      const QString detail = m_vfm->lastError();
+	      throw std::runtime_error(
+	          QString("Cannot read source slice %1: %2")
+	          .arg(iv).arg(detail).toStdString());
+	    }
 
 	  memset(cropped, 0, nbytes);
 
@@ -1151,7 +1290,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 
 	  if (m_voxelType == 0)
 	    {
-	      for(int j=0; j<m_nY*m_nZ; j++)
+	      for(qint64 j=0; j<planeVoxels; j++)
 		{
 		  if (cropped[j] == 0)
 		    tmp[j] = 0;
@@ -1159,7 +1298,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	    }
 	  else
 	    {
-	      for(int j=0; j<m_nY*m_nZ; j++)
+	      for(qint64 j=0; j<planeVoxels; j++)
 		{
 		  if (cropped[j] == 0)
 		    ((ushort*)tmp)[j] = 0;
@@ -1167,7 +1306,7 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	    }
 
 	  // tmp now clipped and contains raw data
-	  memcpy(extData + bpv*i0*qint64(m_nY*m_nZ), tmp, nbytes);
+	  memcpy(extData + bpv*i0*planeVoxels, tmp, nbytes);
 
 	  // apply opacity
 	  {
@@ -1179,18 +1318,21 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	      {
 		applyOpacity(iv, cropped, lut, tmp,
 			     tmp1, tmp2, tmp2); // i0 == 0
-		memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
+		memcpy(gData + i0*planeVoxels, tmp,
+		       static_cast<std::size_t>(planeVoxels));
 	      }
 	    if (i0 > 1)
 	      {
 		applyOpacity(iv, cropped, lut, tmp,
 			     tmp0, tmp1, tmp2); // i0 == 1
-		memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
+		memcpy(gData + i0*planeVoxels, tmp,
+		       static_cast<std::size_t>(planeVoxels));
 		if (i0 == i0end)
 		  {
 		    applyOpacity(iv, cropped, lut, tmp,
 				 tmp1, tmp2, tmp2); // i0 == 1
-		    memcpy(gData + i0*qint64(m_nY*m_nZ), tmp, m_nY*m_nZ);
+		    memcpy(gData + i0*planeVoxels, tmp,
+		           static_cast<std::size_t>(planeVoxels));
 		  }
 	      }
 	    }
@@ -1198,32 +1340,27 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	  i0++;
 	} // i loop
       
-      delete [] tmp;
-      delete [] tmp0;
-      delete [] tmp1;
-      delete [] tmp2;
-      delete [] cropped;
       m_meshProgress->setValue(100);
       qApp->processEvents();
 
       //------------
       if (m_tearPresent)
 	{
-	  uchar *data0 = new uchar[dataSize];
+	  std::unique_ptr<uchar[]> data0Owner(new uchar[dataBytes]);
+	  uchar *data0 = data0Owner.get();
 
 	  // applyTear once for coloring volume
 	  uchar *data1 = extData;
-	  memcpy(data0, data1, dataSize);
+	  memcpy(data0, data1, dataBytes);
 	  applyTear(d0, d1,
 		    data0, data1, true);
 
 	  // applyTear once for opacity volume
 	  data1 = gData;
-	  memcpy(data0, data1, dataSize);
+	  memcpy(data0, data1, dataBytes);
 	  applyTear(d0, d1,
 		    data0, data1, false);
 
-	  delete [] data0;
 	}
       //------------
 
@@ -1260,12 +1397,19 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
       else // set adaptivity to 0.0 for tetrahedral mesh generation
 	vdb.generateMesh(0, 3*(128.0-isoval)/255.0, 0.0, V, VN, T);
       
-      QVector<QVector3D> E;
-      for(int i=0; i<T.count()/3; i++)
-	E << QVector3D(T[3*i+0], T[3*i+1], T[3*i+2]);
-
       int nverts = V.count();
-      int ntrigs = E.count();
+      if (T.count()%3 != 0 || VN.count() != nverts)
+        {
+          qWarning() << "VDB produced inconsistent mesh arrays";
+          return false;
+        }
+      int ntrigs = T.count()/3;
+      if (nvertices > std::numeric_limits<int>::max()-nverts ||
+          ntriangles > std::numeric_limits<int>::max()-ntrigs)
+        {
+          qWarning() << "Combined mesh exceeds the supported index range";
+          return false;
+        }
 	
       //--------------------------------
       //--------------------------------
@@ -1281,18 +1425,30 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	m_meshLog->moveCursor(QTextCursor::End);
 	m_meshLog->insertPlainText("Saving triangle coordinates ...\n");
 	QString mflnm = flnm + QString(".%1.tri").arg(nb);
-	QFile fout(mflnm);
-	fout.open(QFile::WriteOnly);
-	fout.write((char*)&ntrigs, 4);
+	QSaveFile fout(mflnm);
+	if (!fout.open(QFile::WriteOnly) ||
+	    !writeAll(fout, reinterpret_cast<const char*>(&ntrigs), 4))
+	  {
+	    qWarning() << "Cannot write triangle slab" << mflnm
+	               << fout.errorString();
+	    fout.cancelWriting();
+	    return false;
+	  }
 	if (saveType < 2) // save modified triangle vertex numbers only for PLY and OBJ files
 	  {
 	    for(int ni=0; ni<ntrigs; ni++)
 	      {
 		int v[3];
-		v[0] = E[ni].x() + nvertices;
-		v[1] = E[ni].y() + nvertices;
-		v[2] = E[ni].z() + nvertices;
-		fout.write((char*)v, 12);
+		v[0] = T[3*ni+0] + nvertices;
+		v[1] = T[3*ni+1] + nvertices;
+		v[2] = T[3*ni+2] + nvertices;
+		if (!writeAll(fout, reinterpret_cast<const char*>(v), 12))
+		  {
+		    qWarning() << "Cannot complete triangle slab" << mflnm
+		               << fout.errorString();
+		    fout.cancelWriting();
+		    return false;
+		  }
 	      }
 	  }
 	else // saving stl formatted output
@@ -1300,21 +1456,39 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	    for(int ni=0; ni<ntrigs; ni++)
 	      {
 		int v[3];
-		v[0] = E[ni].x();
-		v[1] = E[ni].y();
-		v[2] = E[ni].z();
-		fout.write((char*)v, 12);
+		v[0] = T[3*ni+0];
+		v[1] = T[3*ni+1];
+		v[2] = T[3*ni+2];
+		if (!writeAll(fout, reinterpret_cast<const char*>(v), 12))
+		  {
+		    qWarning() << "Cannot complete triangle slab" << mflnm
+		               << fout.errorString();
+		    fout.cancelWriting();
+		    return false;
+		  }
 	      }
 	  }
-	fout.close();
+	if (fout.error() != QFileDevice::NoError || !fout.commit())
+	  {
+	    qWarning() << "Cannot commit triangle slab" << mflnm
+	               << fout.errorString();
+	    fout.cancelWriting();
+	    return false;
+	  }
 	ntriangles += ntrigs;
       }      
   
-      {
+	{
 	QString mflnm = flnm + QString(".%1.vert").arg(nb);
-	QFile fout(mflnm);
-	fout.open(QFile::WriteOnly);
-	fout.write((char*)&nverts, 4);
+	QSaveFile fout(mflnm);
+	if (!fout.open(QFile::WriteOnly) ||
+	    !writeAll(fout, reinterpret_cast<const char*>(&nverts), 4))
+	  {
+	    qWarning() << "Cannot write vertex slab" << mflnm
+	               << fout.errorString();
+	    fout.cancelWriting();
+	    return false;
+	  }
 	for(int ni=0; ni<nverts; ni++)
 	  {
 	    m_meshProgress->setValue((int)(100.0*(float)ni/(float)nverts));
@@ -1335,7 +1509,13 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	    v[0] *= m_scaleModel;
 	    v[1] *= m_scaleModel;
 	    v[2] *= m_scaleModel;
-	    fout.write((char*)v, 24);
+	    if (!writeAll(fout, reinterpret_cast<const char*>(v), 24))
+	      {
+		qWarning() << "Cannot complete vertex slab" << mflnm
+		           << fout.errorString();
+		fout.cancelWriting();
+		return false;
+	      }
 	    
 	    if (saveType < 2) // do colour calculations for PLY/OBJ files
 	      {
@@ -1372,16 +1552,26 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 		c[0] = r*255;
 		c[1] = g*255;
 		c[2] = b*255;
-		fout.write((char*)c, 3);
+		if (!writeAll(fout, reinterpret_cast<const char*>(c), 3))
+		  {
+		    qWarning() << "Cannot complete vertex colors" << mflnm
+		               << fout.errorString();
+		    fout.cancelWriting();
+		    return false;
+		  }
 	      } // if (saveType == 0)
 	  }
-	fout.close();
+	if (fout.error() != QFileDevice::NoError || !fout.commit())
+	  {
+	    qWarning() << "Cannot commit vertex slab" << mflnm
+	               << fout.errorString();
+	    fout.cancelWriting();
+	    return false;
+	  }
 	nvertices += nverts;
 	m_meshProgress->setValue(100);
       }
       
-      delete [] extData;
-      if (gData) delete [] gData;
     } // loop over slabs
 
 
@@ -1396,18 +1586,18 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
   else
     {
       if (saveType == 0) // PLY
-	MeshTools::saveToPLY(flnm,
-			     nSlabs,
-			     nvertices, ntriangles,
-			     true);
+	ok = MeshTools::saveToPLY(flnm,
+			          nSlabs,
+			          nvertices, ntriangles,
+			          true);
       else if (saveType == 1) // OBJ	
-	MeshTools::saveToOBJ(flnm,
-			     nSlabs,
-			     nvertices, ntriangles);
+	ok = MeshTools::saveToOBJ(flnm,
+			          nSlabs,
+			          nvertices, ntriangles);
       else // STL
-	MeshTools::saveToSTL(flnm,
-			     nSlabs,
-			     nvertices, ntriangles);
+	ok = MeshTools::saveToSTL(flnm,
+			          nSlabs,
+			          nvertices, ntriangles);
     }
   
   if (ok)
@@ -1423,4 +1613,5 @@ MeshGenerator::generateMesh(int nSlabs, int isoval,
 	}
     }
 
+  return ok;
 }

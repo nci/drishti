@@ -5,12 +5,20 @@
 #include "raw2pvl.h"
 #include "savepvldialog.h"
 #include "fileslistdialog.h"
+#include "importmemoryadmission.h"
 #include <QFile>
+#include <QSaveFile>
+
+#include <cstring>
+#include <limits>
+#include <memory>
+#include <new>
 
 void RemapWidget::setPvlMapMax(int pmm) { m_histogramWidget->setPvlMapMax(pmm); }
 
 RemapWidget::RemapWidget(QWidget *parent) :
-  QWidget(parent)
+  QWidget(parent),
+  m_volData(new VolumeData)
 {
   ui.setupUi(this);
 
@@ -63,8 +71,8 @@ RemapWidget::showWidgets()
   m_histogramWidget->show();
   m_gradientWidget->show();
 
-  if (m_volData.voxelType() == _Rgb ||
-      m_volData.voxelType() == _Rgba)
+  if (m_volData->voxelType() == _Rgb ||
+      m_volData->voxelType() == _Rgba)
     {
       ui.checkBox->hide();
       ui.checkBox->setCheckState(Qt::Unchecked);
@@ -89,8 +97,8 @@ RemapWidget::showWidgets()
 void
 RemapWidget::saveVoxelInfo()
 {
-  m_vu = m_volData.voxelUnit();
-  m_volData.voxelSize(m_vx, m_vy, m_vz);
+  m_vu = m_volData->voxelUnit();
+  m_volData->voxelSize(m_vx, m_vy, m_vz);
 //  QMessageBox::information(0, "", QString("%1 : %2 %3 %4").
 //			   arg(m_vu).arg(m_vx).arg(m_vy).arg(m_vz));
 }
@@ -100,37 +108,33 @@ RemapWidget::setFile(QList<QString> flnm,
 		     QString plugin,
 		     bool vol4d,
 		     bool skipRawDialog)
-{  
+{
+  std::unique_ptr<VolumeData> candidate(new VolumeData);
+  if (!candidate->setFile(flnm, plugin, vol4d, skipRawDialog))
+    {
+      if (!candidate->lastOperationCanceled() &&
+	  !candidate->lastError().isEmpty())
+	QMessageBox::critical(0, "Volume Load Error", candidate->lastError());
+      return false;
+    }
+
   m_mergeVolumes = false;
-
   m_fileNames = flnm;
-
   m_timeseriesFiles.clear();
   Global::statusBar()->clearMessage();
 
   hideWidgets();
-
-  if (m_histogramWidget)
-    delete m_histogramWidget;
-
-  if (m_imageWidget)
-    delete m_imageWidget;
-
-  if (m_gradientWidget)
-    delete m_gradientWidget;
-
-  if (m_slider)
-    delete m_slider;
-
+  delete m_histogramWidget;
+  delete m_imageWidget;
+  delete m_gradientWidget;
+  delete m_slider;
   m_histogramWidget = 0;
   m_imageWidget = 0;
   m_gradientWidget = 0;
   m_slider = 0;
 
   m_volumeFile = flnm;
-
-  if (! m_volData.setFile(m_volumeFile, plugin, vol4d, skipRawDialog))
-    return false;
+  m_volData.swap(candidate);
 
   m_histogramWidget = new RemapHistogramWidget();
   m_histogramWidget->setMinimumSize(100, 300);
@@ -143,7 +147,7 @@ RemapWidget::setFile(QList<QString> flnm,
   m_gradientWidget->setGeneralLock(GradientEditor::LockToHalfHeight);
   
   int d, w, h;
-  m_volData.gridSize(d, w, h);
+  m_volData->gridSize(d, w, h);
 
   m_slider = new MySlider();
   m_slider->set(0, d-1, 0, d-1, 0);
@@ -228,7 +232,7 @@ RemapWidget::on_butZ_clicked()
   m_imageWidget->setSliceType(RemapImage::DSlice);
 
   int d, w, h, u0, u1;
-  m_volData.gridSize(d, w, h);
+  m_volData->gridSize(d, w, h);
   m_imageWidget->depthUserRange(u0, u1);
   m_slider->set(0, d-1, u0, u1, 0);
 }
@@ -238,7 +242,7 @@ RemapWidget::on_butY_clicked()
   m_imageWidget->setSliceType(RemapImage::WSlice);
 
   int d, w, h, u0, u1;
-  m_volData.gridSize(d, w, h);
+  m_volData->gridSize(d, w, h);
   m_imageWidget->widthUserRange(u0, u1);
   m_slider->set(0, w-1, u0, u1, 0);
 }
@@ -248,7 +252,7 @@ RemapWidget::on_butX_clicked()
   m_imageWidget->setSliceType(RemapImage::HSlice);
 
   int d, w, h, u0, u1;
-  m_volData.gridSize(d, w, h);
+  m_volData->gridSize(d, w, h);
   m_imageWidget->heightUserRange(u0, u1);
   m_slider->set(0, h-1, u0, u1, 0);
 }
@@ -256,30 +260,34 @@ RemapWidget::on_butX_clicked()
 void
 RemapWidget::newMinMax(float rmin, float rmax)
 {
-  m_volData.setMinMax(rmin, rmax);
+  if (!m_volData->setMinMax(rmin, rmax))
+    {
+      QMessageBox::warning(0, "Histogram Range", m_volData->lastError());
+      return;
+    }
   setRawMinMax();
-  m_histogramWidget->setHistogram(m_volData.histogram());
+  m_histogramWidget->setHistogram(m_volData->histogram());
 }
 
 void
 RemapWidget::getRawValue(int d, int w, int h)
 {
-  m_imageWidget->setRawValue(m_volData.rawValue(d, w, h));
+  m_imageWidget->setRawValue(m_volData->rawValue(d, w, h));
 }
 
 void
 RemapWidget::setRawMinMax()
 {
   float rawMin, rawMax;
-  rawMin = m_volData.rawMin();
-  rawMax = m_volData.rawMax();
+  rawMin = m_volData->rawMin();
+  rawMax = m_volData->rawMax();
 
   int minRaw, maxRaw;
   minRaw = maxRaw = -1;
-  if (m_volData.voxelType() == _UChar) { minRaw=0; maxRaw=255; }
-  if (m_volData.voxelType() == _Char) { minRaw=-127; maxRaw=128; }
-  if (m_volData.voxelType() == _UShort) { minRaw=0; maxRaw=65535; }
-  if (m_volData.voxelType() == _Short) { minRaw=-32767; maxRaw=32768; }
+  if (m_volData->voxelType() == _UChar) { minRaw=0; maxRaw=255; }
+  if (m_volData->voxelType() == _Char) { minRaw=-128; maxRaw=127; }
+  if (m_volData->voxelType() == _UShort) { minRaw=0; maxRaw=65535; }
+  if (m_volData->voxelType() == _Short) { minRaw=-32768; maxRaw=32767; }
 
   m_histogramWidget->setRawMinMax(rawMin, rawMax, minRaw, maxRaw);
 
@@ -297,11 +305,11 @@ RemapWidget::getSlice(int slc)
   m_currSlice = slc;
 
   if (ui.butZ->isChecked())
-    m_imageWidget->setImage(m_volData.getDepthSliceImage(m_currSlice));
+    m_imageWidget->setImage(m_volData->getDepthSliceImage(m_currSlice));
   else if (ui.butY->isChecked())
-    m_imageWidget->setImage(m_volData.getWidthSliceImage(m_currSlice));
+    m_imageWidget->setImage(m_volData->getWidthSliceImage(m_currSlice));
   else if (ui.butX->isChecked())
-    m_imageWidget->setImage(m_volData.getHeightSliceImage(m_currSlice));
+    m_imageWidget->setImage(m_volData->getHeightSliceImage(m_currSlice));
 
   m_slider->setValue(slc);
 }
@@ -315,21 +323,21 @@ RemapWidget::newMapping()
   rawMap = m_histogramWidget->rawMap();
   pvlMap = m_histogramWidget->pvlMap();
 
-  m_volData.setMap(rawMap, pvlMap);
+  m_volData->setMap(rawMap, pvlMap);
   
   if (ui.butZ->isChecked())
-    m_imageWidget->setImage(m_volData.getDepthSliceImage(m_currSlice));
+    m_imageWidget->setImage(m_volData->getDepthSliceImage(m_currSlice));
   else if (ui.butY->isChecked())
-    m_imageWidget->setImage(m_volData.getWidthSliceImage(m_currSlice));
+    m_imageWidget->setImage(m_volData->getWidthSliceImage(m_currSlice));
   else if (ui.butX->isChecked())
-    m_imageWidget->setImage(m_volData.getHeightSliceImage(m_currSlice));
+    m_imageWidget->setImage(m_volData->getHeightSliceImage(m_currSlice));
 }
 
 void
 RemapWidget::getHistogram()
 {
   // will be called only once
-  m_histogramWidget->setHistogram(m_volData.histogram());
+  m_histogramWidget->setHistogram(m_volData->histogram());
 }
 
 void
@@ -367,13 +375,25 @@ RemapWidget::saveImage()
     QMessageBox::information(0, "Error", "Save what ???  Load a volume first !!"); 
 }
 
-void
+bool
 RemapWidget::saveAs()
 {
-  if (m_imageWidget)
-    m_imageWidget->emitSaveTrimmed();
-  else
-    QMessageBox::information(0, "Error", "Save what ???  Load a volume first !!"); 
+  if (!m_imageWidget)
+    {
+      QMessageBox::information(0, "Error", "Save what ???  Load a volume first !!");
+      return false;
+    }
+
+  int dmin = 0;
+  int dmax = 0;
+  int wmin = 0;
+  int wmax = 0;
+  int hmin = 0;
+  int hmax = 0;
+  m_imageWidget->depthUserRange(dmin, dmax);
+  m_imageWidget->widthUserRange(wmin, wmax);
+  m_imageWidget->heightUserRange(hmin, hmax);
+  return saveTrimmedResult(dmin, dmax, wmin, wmax, hmin, hmax);
 }
 
 void
@@ -431,27 +451,91 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
   if (StaticFunctions::checkExtension(imgflnm, ".raw"))
     {
       int nX,nY,nZ, bps;
-      m_volData.gridSize(nX,nY,nZ);
-      bps = m_volData.bytesPerVoxel();
-      int vtype = m_volData.voxelType();
-      uchar vt;
+      m_volData->gridSize(nX,nY,nZ);
+      bps = m_volData->bytesPerVoxel();
+      int vtype = m_volData->voxelType();
+      if (vtype == _Rgb || vtype == _Rgba)
+        {
+          QMessageBox::warning(
+            0, "Save Images",
+            "Packed RAW image export supports scalar volumes only. "
+            "Use an image format or the RGB/RGBA volume export instead.");
+          return;
+        }
+
+      uchar vt = 0;
       if (vtype == _UChar) vt = 0; // unsigned byte
       if (vtype == _Char) vt = 1; // signed byte
       if (vtype == _UShort) vt = 2; // unsigned short
       if (vtype == _Short) vt = 3; // signed short
       if (vtype == _Int) vt = 4; // int
       if (vtype == _Float) vt = 8; // float
-      uchar *slc;
-      slc = new uchar[nY*nZ*bps];
+      std::uint64_t sourcePixels = 0;
+      std::uint64_t sourceBytes = 0;
+      std::uint64_t outputPixels = 0;
+      std::uint64_t outputBytes = 0;
+      if (!checkedImportMultiply(static_cast<std::uint64_t>(nY),
+				 static_cast<std::uint64_t>(nZ),
+				 sourcePixels) ||
+	  !checkedImportMultiply(sourcePixels,
+				 static_cast<std::uint64_t>(bps),
+				 sourceBytes) ||
+	  !checkedImportMultiply(static_cast<std::uint64_t>(wsz),
+				 static_cast<std::uint64_t>(hsz),
+				 outputPixels) ||
+	  !checkedImportMultiply(outputPixels,
+				 static_cast<std::uint64_t>(bps),
+				 outputBytes) ||
+	  sourceBytes > static_cast<std::uint64_t>(
+			      std::numeric_limits<std::size_t>::max()) ||
+	  outputBytes > static_cast<std::uint64_t>(
+			      std::numeric_limits<qint64>::max()))
+	{
+	  QMessageBox::critical(0, "Save Images",
+				"The RAW slice size is unsupported.");
+	  return;
+	}
+      const ImportMemoryAdmission admission =
+	evaluateImportMemoryAdmission(sourceBytes);
+      if (!admission.approved)
+	{
+	  QMessageBox::critical(0, "Save Images",
+				"The RAW export was stopped because there is not "
+				"enough physical-memory or Commit headroom.");
+	  return;
+	}
+      std::unique_ptr<uchar[]> sliceStorage(
+	new (std::nothrow) uchar[static_cast<std::size_t>(sourceBytes)]);
+      if (!sliceStorage)
+	{
+	  QMessageBox::critical(0, "Save Images",
+				"Cannot allocate the admitted RAW slice buffer.");
+	  return;
+	}
+      uchar *slc = sliceStorage.get();
       for(int d=dmin; d<=dmax; d++)
 	{
+	  if (progress.wasCanceled())
+	    {
+	      QMessageBox::information(0, "Save Images", "-----Aborted-----");
+	      return;
+	    }
 	  progress.setValue((int)(100*(float)(d-dmin)/(float)dsz));
 
-	  m_volData.getDepthSlice(d, slc);
-	  for(uint j=wmin; j<=wmax; j++)
-	    memcpy(slc+(j-wmin)*hsz*bps,
-		   slc+(j*nZ + hmin)*bps,
-		   hsz*bps);	  
+	  if (!m_volData->getDepthSlice(d, slc))
+	    {
+	      QMessageBox::critical(0, "Save Images", m_volData->lastError());
+	      return;
+	    }
+	  for(int j=wmin; j<=wmax; j++)
+	    {
+	      const qint64 destinationOffset =
+		static_cast<qint64>(j-wmin)*hsz*bps;
+	      const qint64 sourceOffset =
+		(static_cast<qint64>(j)*nZ+hmin)*bps;
+	      std::memmove(slc+destinationOffset, slc+sourceOffset,
+			   static_cast<std::size_t>(hsz)*bps);
+	    }
 
 	  QString flname = f.absolutePath() +
 	                   QDir::separator() +
@@ -459,15 +543,21 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
 	  flname += QString("%1").arg((int)d, 5, 10, fillChar);
 	  flname += ".";
 	  flname += f.completeSuffix();
-	  QFile fout(flname);
-	  fout.open(QFile::WriteOnly);	  
-	  fout.write((char*)&vt, 1);
-	  fout.write((char*)&wsz, 4);
-	  fout.write((char*)&hsz, 4);
-	  fout.write((char*)slc, wsz*hsz*bps);
-	  fout.close();
+	  QSaveFile fout(flname);
+	  if (!fout.open(QFile::WriteOnly) ||
+	      fout.write((char*)&vt, 1) != 1 ||
+	      fout.write((char*)&wsz, 4) != 4 ||
+	      fout.write((char*)&hsz, 4) != 4 ||
+	      fout.write((char*)slc, static_cast<qint64>(outputBytes)) !=
+	        static_cast<qint64>(outputBytes) ||
+	      !fout.commit())
+	    {
+	      fout.cancelWriting();
+	      QMessageBox::critical(0, "Save Images",
+		QString("Cannot write '%1': %2").arg(flname, fout.errorString()));
+	      return;
+	    }
 	}
-      delete [] slc;
     }      
   else
     {
@@ -475,7 +565,12 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
       QVector<QRgb> colorMap = m_imageWidget->colorMap();
       for(int d=dmin; d<=dmax; d++)
 	{
-	  timage = m_volData.getDepthSliceImage(d);
+	  if (progress.wasCanceled())
+	    {
+	      QMessageBox::information(0, "Save Images", "-----Aborted-----");
+	      return;
+	    }
+	  timage = m_volData->getDepthSliceImage(d);
 	  if (timage.format() == QImage::Format_Indexed8)
 	    timage.setColorTable(colorMap);  
 	  timage = timage.copy(hmin, wmin, hsz, wsz);
@@ -486,7 +581,17 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
 	  flname += ".";
 	  flname += f.completeSuffix();
 	  
-	  timage.save(flname);
+	  QSaveFile output(flname);
+	  const QByteArray format = f.completeSuffix().toLatin1();
+	  if (!output.open(QIODevice::WriteOnly) ||
+	      !timage.save(&output, format.constData()) ||
+	      !output.commit())
+	    {
+	      output.cancelWriting();
+	      QMessageBox::critical(0, "Save Images",
+		QString("Cannot write '%1': %2").arg(flname, output.errorString()));
+	      return;
+	    }
 	  progress.setValue((int)(100*(float)(d-dmin)/(float)dsz));
 	}
     }
@@ -497,29 +602,35 @@ void
 RemapWidget::batchProcess()
 {
   if (m_imageWidget)
-    Raw2Pvl::batchProcess(&m_volData, m_fileNames);
+    Raw2Pvl::batchProcess(m_volData.get(), m_timeseriesFiles);
   else
     QMessageBox::information(0, "Error", "Batch Process what ???  Load a volume data first !!"); 
 }
 
-void
+bool
 RemapWidget::saveTrimmed(int dmin, int dmax,
 			 int wmin, int wmax,
 			 int hmin, int hmax)
 {
+  return saveTrimmedResult(dmin, dmax, wmin, wmax, hmin, hmax);
+}
+
+bool
+RemapWidget::saveTrimmedResult(int dmin, int dmax,
+			       int wmin, int wmax,
+			       int hmin, int hmax)
+{
   if (dmax == 0 && wmax == 0 && hmax == 0)
     {
-      Raw2Pvl::quickRaw(&m_volData,
-			m_volumeFile);
-
-      return;
+      return Raw2Pvl::quickRaw(m_volData.get(),
+			       m_volumeFile);
     }
   
   
   //-----------------------------------------------------
   // -- take care of RGB/A volumes
-  if (m_volData.voxelType() == _Rgb ||
-      m_volData.voxelType() == _Rgba)
+  if (m_volData->voxelType() == _Rgb ||
+      m_volData->voxelType() == _Rgba)
     {
       QString trimRawFile;
       trimRawFile = QFileDialog::getSaveFileName(0,
@@ -530,33 +641,36 @@ RemapWidget::saveTrimmed(int dmin, int dmax,
 						 QFileDialog::DontUseNativeDialog);
 
       if (trimRawFile.isEmpty())
-	return;
+	return false;
 
       if (trimRawFile.endsWith(".pvl.nc.pvl.nc"))
 	  trimRawFile.chop(7);
       if (!trimRawFile.endsWith(".pvl.nc"))
 	 trimRawFile += ".pvl.nc";
 
-      m_volData.saveTrimmed(trimRawFile,
-			     dmin, dmax,
-			     wmin, wmax,
-			     hmin, hmax);
+      if (!m_volData->saveTrimmed(trimRawFile,
+				  dmin, dmax,
+				  wmin, wmax,
+				  hmin, hmax))
+	return false;
 
       QMessageBox::information(0, "Save RGB Volume", "Done");
-      return;
+      return true;
     }
   //-----------------------------------------------------
 
   if (!m_mergeVolumes)
-    Raw2Pvl::savePvl(&m_volData,
-		     dmin, dmax, wmin, wmax, hmin, hmax,
-		     m_timeseriesFiles);
+    {
+      return Raw2Pvl::savePvl(m_volData.get(),
+			      dmin, dmax, wmin, wmax, hmin, hmax,
+			      m_timeseriesFiles);
+    }
   else
     {
-      m_volData.setVoxelInfo(m_vu, m_vx, m_vy, m_vz);
-      Raw2Pvl::mergeVolumes(&m_volData,
-			    dmin, dmax, wmin, wmax, hmin, hmax,
-			    m_timeseriesFiles);
+      m_volData->setVoxelInfo(m_vu, m_vx, m_vy, m_vz);
+      return Raw2Pvl::mergeVolumes(m_volData.get(),
+				   dmin, dmax, wmin, wmax, hmin, hmax,
+				   m_timeseriesFiles);
     }
 }
 
@@ -567,15 +681,15 @@ RemapWidget::saveIsosurface(int dmin, int dmax,
 {
   //-----------------------------------------------------
   // -- take care of RGB/A volumes
-  if (m_volData.voxelType() == _Rgb ||
-      m_volData.voxelType() == _Rgba)
+  if (m_volData->voxelType() == _Rgb ||
+      m_volData->voxelType() == _Rgba)
     {
       QMessageBox::information(0, "Save Isosurface for RGB Volume", "Not possible");
       return;
     }
   //-----------------------------------------------------
 
-  Raw2Pvl::saveIsosurface(&m_volData,
+  Raw2Pvl::saveIsosurface(m_volData.get(),
 			  dmin, dmax, wmin, wmax, hmin, hmax,
 			  m_timeseriesFiles);
 }
@@ -612,10 +726,15 @@ RemapWidget::handleTimeSeries(QString voltype,
   QFileInfo f(flnms[0]);
   Global::setPreviousDirectory(f.absolutePath());
 
+  const QStringList firstVolume = QStringList() << flnms.first();
+  bool loaded = false;
   if (plugin.contains("nc",Qt::CaseInsensitive))
-    setFile(flnms, plugin, true);
+    loaded = setFile(firstVolume, plugin, true);
   else
-    setFile(flnms, plugin, false);
+    loaded = setFile(firstVolume, plugin, false);
+
+  if (!loaded)
+    return;
 
   m_timeseriesFiles = flnms;
 
@@ -654,30 +773,44 @@ RemapWidget::handleMergeVolumes(QString voltype,
   QFileInfo f(flnms[0]);
   Global::setPreviousDirectory(f.absolutePath());
 
+  const QStringList firstVolume = QStringList() << flnms.first();
+  bool loaded = false;
   if (plugin.contains("nc",Qt::CaseInsensitive))
-    setFile(flnms, plugin, true);
+    loaded = setFile(firstVolume, plugin, true);
   else
-    setFile(flnms, plugin, false);
+    loaded = setFile(firstVolume, plugin, false);
+
+  if (!loaded)
+    return;
 
   m_timeseriesFiles = flnms;
 
   m_mergeVolumes = true;
 }
 
-void
+bool
 RemapWidget::mergeVolumes(QString voltype,
 			  QString plugin,
 			  QStringList flnms)
 {
+  if (flnms.isEmpty())
+    return false;
+
   QFileInfo f(flnms[0]);
   Global::setPreviousDirectory(f.absolutePath());
 
+  const QStringList firstVolume = QStringList() << flnms.first();
+  bool loaded = false;
   if (plugin.contains("nc",Qt::CaseInsensitive))
-    setFile(flnms, plugin, true, true);
+    loaded = setFile(firstVolume, plugin, true, true);
   else
-    setFile(flnms, plugin, false, true);
+    loaded = setFile(firstVolume, plugin, false, true);
+
+  if (!loaded)
+    return false;
 
   m_timeseriesFiles = flnms;
 
   m_mergeVolumes = true;
+  return true;
 }

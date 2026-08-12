@@ -39,6 +39,9 @@
 #ifndef __GRAPH_H__
 #define __GRAPH_H__
 
+#include <cstddef>
+#include <limits>
+#include <stdexcept>
 #include <string.h>
 #include "block.h"
 
@@ -72,7 +75,8 @@ public:
 	// to the graph, and the second argument is an estimate of the maximum number of edges.
 	// The last (optional) argument is the pointer to the function which will be called 
 	// if an error occurs; an error message is passed to this function. 
-	// If this argument is omitted, exit(1) will be called.
+	// Allocation and size failures are reported with C++ exceptions after the
+	// optional error callback is invoked.
 	//
 	// IMPORTANT: It is possible to add more nodes to the graph than node_num_max 
 	// (and node_num_max can be zero). However, if the count is exceeded, then 
@@ -81,6 +85,12 @@ public:
 	// Similarly for edges.
 	// If you wish to avoid this overhead, you can download version 2.2, where nodes and edges are stored in blocks.
 	Graph(int node_num_max, int edge_num_max, void (*err_function)(char *) = NULL);
+
+	// Returns the bytes reserved by the initial node and arc arrays. False means
+	// that the requested capacities cannot be represented safely.
+	static bool estimate_memory(int node_num_max,
+				    int edge_num_max,
+				    std::size_t &bytes);
 
 	// Destructor
 	~Graph();
@@ -302,7 +312,7 @@ private:
 
 	void	(*error_function)(char *);	// this function is called if a error occurs,
 										// with a corresponding error message
-										// (or exit(1) is called if it's NULL)
+										// before an exception is thrown
 
 	flowtype			flow;		// total flow
 
@@ -359,9 +369,12 @@ private:
 template <typename captype, typename tcaptype, typename flowtype> 
 	inline typename Graph<captype,tcaptype,flowtype>::node_id Graph<captype,tcaptype,flowtype>::add_node(int num)
 {
-	assert(num > 0);
+	if (num <= 0)
+		throw std::invalid_argument("Graph::add_node requires a positive node count");
+	if (node_num > std::numeric_limits<int>::max()-num)
+		throw std::length_error("Graph node count is too large");
 
-	if (node_last + num > node_max) reallocate_nodes(num);
+	if (num > node_max - node_last) reallocate_nodes(num);
 
 	if (num == 1)
 	{
@@ -375,7 +388,7 @@ template <typename captype, typename tcaptype, typename flowtype>
 	}
 	else
 	{
-		memset(node_last, 0, num*sizeof(node));
+		memset(node_last, 0, static_cast<std::size_t>(num)*sizeof(node));
 
 		node_id i = node_num;
 		node_num += num;
@@ -407,7 +420,7 @@ template <typename captype, typename tcaptype, typename flowtype>
 	//assert(cap >= 0);
 	//assert(rev_cap >= 0);
 
-	if (arc_last == arc_max) reallocate_arcs();
+	if (arc_max - arc_last < 2) reallocate_arcs();
 
 	arc *a = arc_last ++;
 	arc *a_rev = arc_last ++;

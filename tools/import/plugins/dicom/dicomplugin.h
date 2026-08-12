@@ -4,12 +4,7 @@
 #include <QObject>
 #include "volinterface.h"
 
-#include "itkImage.h"
-#include "itkGDCMImageIO.h"
-#include "itkGDCMSeriesFileNames.h"
-#include "itkImageFileReader.h"
-#include "itkImageSeriesReader.h"
-#include "itkExtractImageFilter.h"
+#include "itkDataObject.h"
 
 class DicomPlugin : public QObject, VolInterface
 {
@@ -42,6 +37,8 @@ class DicomPlugin : public QObject, VolInterface
   float rawMax();
    
   void getDepthSlice(int, uchar*);
+  Q_INVOKABLE QString lastError() const;
+  Q_INVOKABLE bool wasCanceled() const;
   //void getWidthSlice(int, uchar*);
   //void getHeightSlice(int, uchar*);
 
@@ -52,11 +49,7 @@ class DicomPlugin : public QObject, VolInterface
   void generateHistogram();
   void set4DVolume(bool);
  private :
-  typedef itk::Image<short, 3> ImageType;
-  typedef itk::ImageSeriesReader<ImageType> ReaderType;
-
-  ReaderType::Pointer m_reader;
-  ImageType::Pointer m_dimg;
+  itk::DataObject::Pointer m_dimg;
 
   QStringList m_fileName;
   bool m_4dvol;
@@ -73,10 +66,11 @@ class DicomPlugin : public QObject, VolInterface
   QList<uint> m_histogram;
 
   int m_bytesPerVoxel;
+  QString m_lastError;
+  bool m_lastOperationCanceled;
 
   QList<QString> m_imageList;
 
-  void findMinMaxandGenerateHistogram();
 };
 
 #endif

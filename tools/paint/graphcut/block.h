@@ -90,7 +90,11 @@
 #ifndef __BLOCK_H__
 #define __BLOCK_H__
 
+#include <cstddef>
+#include <limits>
+#include <new>
 #include <stdlib.h>
+#include <stdexcept>
 
 /***********************************************************************/
 /***********************************************************************/
@@ -103,10 +107,17 @@ public:
 	   (optionally) the pointer to the function which
 	   will be called if allocation failed; the message
 	   passed to this function is "Not enough memory!" */
-	Block(int size, void (*err_function)(char *) = NULL) { first = last = NULL; block_size = size; error_function = err_function; }
+	Block(int size, void (*err_function)(char *) = NULL)
+	{
+		if (size <= 0)
+			throw std::invalid_argument("Block size must be positive");
+		first = last = NULL;
+		block_size = size;
+		error_function = err_function;
+	}
 
 	/* Destructor. Deallocates all items added so far */
-	~Block() { while (first) { block *next = first -> next; delete first; first = next; } }
+	~Block() { while (first) { block *next = first -> next; delete [] reinterpret_cast<char *>(first); first = next; } }
 
 	/* Allocates 'num' consecutive items; returns pointer
 	   to the first item. 'num' cannot be greater than the
@@ -114,14 +125,24 @@ public:
 	Type *New(int num = 1)
 	{
 		Type *t;
+		if (num <= 0 || num > block_size)
+			throw std::invalid_argument("Block allocation count is out of range");
 
 		if (!last || last->current + num > last->last)
 		{
 			if (last && last->next) last = last -> next;
 			else
 			{
-				block *next = (block *) new char [sizeof(block) + (block_size-1)*sizeof(Type)];
-				if (!next) { if (error_function) (*error_function)((char*)"Not enough memory!"); exit(1); }
+				const std::size_t item_count = static_cast<std::size_t>(block_size-1);
+				if (item_count > (std::numeric_limits<std::size_t>::max()-sizeof(block))/sizeof(Type))
+					throw std::length_error("Block allocation size overflow");
+				const std::size_t bytes = sizeof(block) + item_count*sizeof(Type);
+				block *next = reinterpret_cast<block *>(new (std::nothrow) char [bytes]);
+				if (!next)
+				{
+					if (error_function) (*error_function)(const_cast<char *>("Not enough memory!"));
+					throw std::bad_alloc();
+				}
 				if (last) last -> next = next;
 				else first = next;
 				last = next;
@@ -206,10 +227,18 @@ public:
 	   (optionally) the pointer to the function which
 	   will be called if allocation failed; the message
 	   passed to this function is "Not enough memory!" */
-	DBlock(int size, void (*err_function)(char *) = NULL) { first = NULL; first_free = NULL; block_size = size; error_function = err_function; }
+	DBlock(int size, void (*err_function)(char *) = NULL)
+	{
+		if (size <= 0)
+			throw std::invalid_argument("DBlock size must be positive");
+		first = NULL;
+		first_free = NULL;
+		block_size = size;
+		error_function = err_function;
+	}
 
 	/* Destructor. Deallocates all items added so far */
-	~DBlock() { while (first) { block *next = first -> next; delete first; first = next; } }
+	~DBlock() { while (first) { block *next = first -> next; delete [] reinterpret_cast<char *>(first); first = next; } }
 
 	/* Allocates one item */
 	Type *New()
@@ -219,8 +248,17 @@ public:
 		if (!first_free)
 		{
 			block *next = first;
-			first = (block *) new char [sizeof(block) + (block_size-1)*sizeof(block_item)];
-			if (!first) { if (error_function) (*error_function)((char*)"Not enough memory!"); exit(1); }
+			const std::size_t item_count = static_cast<std::size_t>(block_size-1);
+			if (item_count > (std::numeric_limits<std::size_t>::max()-sizeof(block))/sizeof(block_item))
+				throw std::length_error("DBlock allocation size overflow");
+			const std::size_t bytes = sizeof(block) + item_count*sizeof(block_item);
+			first = reinterpret_cast<block *>(new (std::nothrow) char [bytes]);
+			if (!first)
+			{
+				first = next;
+				if (error_function) (*error_function)(const_cast<char *>("Not enough memory!"));
+				throw std::bad_alloc();
+			}
 			first_free = & (first -> data[0] );
 			for (item=first_free; item<first_free+block_size-1; item++)
 				item -> next_free = item + 1;

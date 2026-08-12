@@ -1,7 +1,10 @@
 #ifndef TIFFPLUGIN_H
 #define TIFFPLUGIN_H
 
+#include <atomic>
+
 #include <QObject>
+#include <QVector>
 #include "volinterface.h"
 
 class TiffPlugin : public QObject, VolInterface
@@ -35,8 +38,10 @@ class TiffPlugin : public QObject, VolInterface
   float rawMax();
    
   void getDepthSlice(int, uchar*);
-  //void getWidthSlice(int, uchar*);
-  //void getHeightSlice(int, uchar*);
+  Q_INVOKABLE QString lastError() const;
+  Q_INVOKABLE bool wasCanceled() const;
+  void getWidthSlice(int, uchar*);
+  void getHeightSlice(int, uchar*);
 
   QVariant rawValue(int, int, int);
 
@@ -61,15 +66,35 @@ class TiffPlugin : public QObject, VolInterface
 
   int m_bytesPerVoxel;
 
-  int m_dirCount;
+  quint64 m_sliceBytes;
 
   QList<QString> m_imageList;
+  QVector<quint32> m_directoryList;
 
-  void findMinMaxandGenerateHistogram();
-  void findMinMax();
+  std::atomic_bool m_cancelRequested;
+  std::atomic_int m_progressValue;
+  QString m_lastError;
+  bool m_lastOperationCanceled;
 
-  void setImageFiles(QStringList);
-  void loadTiffImage(int, uchar*);
+  struct StatisticsResult
+  {
+    bool success;
+    bool canceled;
+    QString error;
+    float minimum;
+    float maximum;
+    QVector<quint64> histogram;
+
+    StatisticsResult();
+  };
+
+  bool setImageFiles(const QStringList&, QString*);
+  bool generateStatistics(QString*);
+  StatisticsResult calculateStatistics();
+
+  bool loadTiffImage(int, uchar*, quint64, QString*,
+                     const std::atomic_bool* = 0) const;
+  bool loadTiffRow(int, int, QByteArray*, QString*) const;
 };
 
 #endif

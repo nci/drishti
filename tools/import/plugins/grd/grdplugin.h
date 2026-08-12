@@ -47,6 +47,7 @@ class GrdPlugin : public QObject, VolInterface
 
   void generateHistogram();
   void set4DVolume(bool);
+  Q_INVOKABLE QString lastError() const;
  private :
   QStringList m_fileName;
   bool m_4dvol;
@@ -65,6 +66,7 @@ class GrdPlugin : public QObject, VolInterface
   int m_bytesPerVoxel;
 
   QList<QString> m_imageList;
+  QString m_lastError;
 
   void findMinMax();
   void findMinMaxandGenerateHistogram();

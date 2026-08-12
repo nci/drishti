@@ -375,7 +375,7 @@ class VR : public QObject
   void buildAxes();
   bool buildTeleport();
   void renderAxes(vr::Hmd_Eye);
-  void createShaders();
+  bool createShaders();
   void buildAxesVB();
 
 

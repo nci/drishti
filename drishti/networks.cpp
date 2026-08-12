@@ -6,6 +6,38 @@
 #include "propertyeditor.h"
 
 #include <QDomDocument>
+#include <QDebug>
+#include <QVector>
+
+
+namespace
+{
+void
+discardShaderProgram(GLhandleARB program)
+{
+  if (!program)
+    return;
+
+  GLint attachedCount = 0;
+  glGetObjectParameterivARB(program,
+			    GL_OBJECT_ATTACHED_OBJECTS_ARB,
+			    &attachedCount);
+
+  if (attachedCount > 0)
+    {
+      QVector<GLhandleARB> shaders(attachedCount);
+      GLsizei count = 0;
+      glGetAttachedObjectsARB(program,
+			      attachedCount,
+			      &count,
+			      shaders.data());
+      for (GLsizei i=0; i<count; ++i)
+	glDeleteObjectARB(shaders[i]);
+    }
+
+  glDeleteObjectARB(program);
+}
+}
 
 
 Networks::Networks()
@@ -452,29 +484,39 @@ Networks::keyPressEvent(QKeyEvent *event)
   return false;
 }
 
-void
+bool
 Networks::createSpriteShader()
 {
-  if (m_geoSpriteShader)
-    glDeleteObjectARB(m_geoSpriteShader);
-
   QString shaderString;
 
   shaderString = GeoShaderFactory::genSpriteShaderString();
-  m_geoSpriteShader = glCreateProgramObjectARB();
-  if (! GeoShaderFactory::loadShader(m_geoSpriteShader,
-				     shaderString))
-    exit(0);
+  GLhandleARB candidate = glCreateProgramObjectARB();
+  if (!candidate)
+    {
+      qWarning() << "Cannot create sprite shader program";
+      return false;
+    }
 
-  m_spriteParm[0] = glGetUniformLocationARB(m_geoSpriteShader, "spriteTex");
+  if (! GeoShaderFactory::loadShader(candidate, shaderString))
+    {
+      discardShaderProgram(candidate);
+      qWarning() << "Cannot load sprite shader";
+      return false;
+    }
+
+  GLint spriteTex = glGetUniformLocationARB(candidate, "spriteTex");
+
+  if (m_geoSpriteShader)
+    glDeleteObjectARB(m_geoSpriteShader);
+
+  m_geoSpriteShader = candidate;
+  m_spriteParm[0] = spriteTex;
+  return true;
 }
 
-void
+bool
 Networks::createShadowShader(Vec attenuation)
 {
-  if (m_geoShadowShader)
-    glDeleteObjectARB(m_geoShadowShader);
-
   float r = attenuation.x;
   float g = attenuation.y;
   float b = attenuation.z;
@@ -482,12 +524,28 @@ Networks::createShadowShader(Vec attenuation)
   QString shaderString;
 
   shaderString = GeoShaderFactory::genSpriteShadowShaderString(r,g,b);
-  m_geoShadowShader = glCreateProgramObjectARB();
-  if (! GeoShaderFactory::loadShader(m_geoShadowShader,
-				     shaderString))
-    exit(0);
+  GLhandleARB candidate = glCreateProgramObjectARB();
+  if (!candidate)
+    {
+      qWarning() << "Cannot create shadow shader program";
+      return false;
+    }
 
-  m_shadowParm[0] = glGetUniformLocationARB(m_geoShadowShader, "spriteTex");
+  if (! GeoShaderFactory::loadShader(candidate, shaderString))
+    {
+      discardShaderProgram(candidate);
+      qWarning() << "Cannot load shadow shader";
+      return false;
+    }
+
+  GLint spriteTex = glGetUniformLocationARB(candidate, "spriteTex");
+
+  if (m_geoShadowShader)
+    glDeleteObjectARB(m_geoShadowShader);
+
+  m_geoShadowShader = candidate;
+  m_shadowParm[0] = spriteTex;
+  return true;
 }
 
 void

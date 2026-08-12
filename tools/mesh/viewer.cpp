@@ -15,12 +15,55 @@
 #include <stdio.h>
 #include <math.h>
 #include <fstream>
+#include <limits>
+#include <memory>
+#include <new>
 #include <time.h>
 
 #include <QInputDialog>
 #include <QFileDialog>
+#include <QPainter>
 
 using namespace std;
+
+namespace
+{
+bool framebufferComplete(QGLFramebufferObject *buffer, QString &error)
+{
+  if (!buffer || !buffer->isValid())
+    {
+      error = QStringLiteral("OpenGL could not create the required RGBA16F framebuffer.");
+      return false;
+    }
+
+  if (!buffer->bind())
+    {
+      error = QStringLiteral("OpenGL could not bind the required RGBA16F framebuffer.");
+      return false;
+    }
+
+  GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  buffer->release();
+  if (status != GL_FRAMEBUFFER_COMPLETE)
+    {
+      error = QStringLiteral("Required RGBA16F framebuffer is incomplete (0x%1).")
+	.arg(QString::number(status, 16));
+      return false;
+    }
+
+  return true;
+}
+
+bool programLinked(GLuint program)
+{
+  if (!program || !glIsProgram(program))
+    return false;
+
+  GLint linked = GL_FALSE;
+  glGetProgramiv(program, GL_LINK_STATUS, &linked);
+  return linked == GL_TRUE;
+}
+}
 
 
 //------------------------------------------------------------------
@@ -242,19 +285,36 @@ Viewer::resizeGL(int width, int height)
   if (m_messageDisplayer->showingMessage())
     m_messageDisplayer->turnOffMessage();
 
-  QGLViewer::resizeGL(wd, ht);
+  if (m_rendererInitAttempted && !m_rendererReady)
+    return;
 
-  createImageBuffers();
+  QGLViewer::resizeGL(wd, ht);
+  m_backBufferImageValid = false;
+
+  if (!m_rendererReady)
+    return;
+
+  if (!createImageBuffers())
+    {
+      qApp->restoreOverrideCursor();
+      return;
+    }
 
   if (GeometryObjects::trisets()->count() > 0)
     GeometryObjects::trisets()->resize(wd, ht);
 }
 
-void
+bool
 Viewer::createImageBuffers()
 {
-  int ibw = m_origWidth;
-  int ibh = m_origHeight;
+  if (!GlewInit::initialised() ||
+      (!m_rendererReady && !m_rendererInitialising))
+    return false;
+
+  makeCurrent();
+
+  int ibw = qMax(1, m_origWidth);
+  int ibh = qMax(1, m_origHeight);
 
 
   QGLFramebufferObjectFormat fbFormat;
@@ -263,16 +323,25 @@ Viewer::createImageBuffers()
   //fbFormat.setSamples(2);
   fbFormat.setTextureTarget(GL_TEXTURE_RECTANGLE_EXT);
 
-  if (m_imageBuffer) delete m_imageBuffer;
-  m_imageBuffer = new QGLFramebufferObject(ibw, ibh, fbFormat);
+  QGLFramebufferObject *imageBuffer =
+    new QGLFramebufferObject(ibw, ibh, fbFormat);
+  QString error;
+  if (!framebufferComplete(imageBuffer, error))
+    {
+      delete imageBuffer;
+      failRenderer(error);
+      return false;
+    }
 
-  if (! m_imageBuffer->isValid())
-    QMessageBox::information(0, "", "invalid imageBuffer");
+  delete m_imageBuffer;
+  m_imageBuffer = imageBuffer;
 
 
   if (m_movieFrame)
     delete [] m_movieFrame;
   m_movieFrame = new unsigned char[4*m_imageWidth*m_imageHeight];
+
+  return true;
 }
 
 void
@@ -299,18 +368,30 @@ Viewer::setImageSize(int wd, int ht)
       m_imageHeight = ht/4;
     }
 
-  if (m_imageBuffer) delete m_imageBuffer;
+  if (!m_rendererReady)
+    return;
+
+  makeCurrent();
+
   QGLFramebufferObjectFormat fbFormat;
   fbFormat.setInternalTextureFormat(GL_RGBA16F_ARB);
   fbFormat.setAttachment(QGLFramebufferObject::Depth);
   //fbFormat.setSamples(8);
   fbFormat.setTextureTarget(GL_TEXTURE_RECTANGLE_EXT);
-  m_imageBuffer = new QGLFramebufferObject(m_imageWidth,
-					   m_imageHeight,
-					   fbFormat);
+  QGLFramebufferObject *imageBuffer =
+    new QGLFramebufferObject(qMax(1, m_imageWidth),
+			     qMax(1, m_imageHeight),
+			     fbFormat);
+  QString error;
+  if (!framebufferComplete(imageBuffer, error))
+    {
+      delete imageBuffer;
+      failRenderer(error);
+      return;
+    }
 
-  if (! m_imageBuffer->isValid())
-    QMessageBox::information(0, "", "invalid imageBuffer");
+  delete m_imageBuffer;
+  m_imageBuffer = imageBuffer;
 
   float ratio = qMax(1.0f, qMax((float)m_imageWidth/(float)m_origWidth,
 			       (float)m_imageHeight/(float)m_origHeight));
@@ -367,6 +448,10 @@ Viewer::Viewer(QWidget *parent) :
 
   m_imageSizeFlag = false;
   m_imageBuffer = 0;
+  m_rendererReady = false;
+  m_rendererInitAttempted = false;
+  m_rendererInitialising = false;
+  m_rendererError = QStringLiteral("Renderer initialization has not completed.");
   m_imageWidth = 128;
   m_imageHeight = 128;
 
@@ -376,6 +461,7 @@ Viewer::Viewer(QWidget *parent) :
   m_backBufferImage = 0;
   m_backBufferWidth = 0;
   m_backBufferHeight = 0;
+  m_backBufferImageValid = false;
 
   connect(this, SIGNAL(showMessage(QString, bool)),
 	  m_messageDisplayer, SLOT(holdMessage(QString, bool)));
@@ -561,6 +647,12 @@ Viewer::checkPointSelected(const QMouseEvent *event)
 
 Viewer::~Viewer()
 {
+  if (isValid() && GlewInit::initialised())
+    {
+      makeCurrent();
+      cleanupRendererResources();
+    }
+
   delete m_messageDisplayer;
 
   if (m_paintTex)
@@ -574,27 +666,110 @@ Viewer::~Viewer()
 void
 Viewer::GlewInit()
 {
-  GlewInit::initialise();
+  if (m_rendererReady || m_rendererInitAttempted)
+    return;
 
-  Global::setUseFBO(QGLFramebufferObject::hasOpenGLFramebufferObjects());
+  m_rendererInitAttempted = true;
+  m_rendererInitialising = true;
+  m_rendererError.clear();
+
+  makeCurrent();
+
+  if (!GlewInit::initialise())
+    {
+      failRenderer(tr("The requested desktop OpenGL context is unavailable or unsupported."));
+      return;
+    }
+
+  Global::setUseFBO(false);
 						
   //createBlurShader();
   //createCopyShader();
 
-  if (GlewInit::initialised())
-    MainWindowUI::mainWindowUI()->statusBar->showMessage(tr("Ready"));
-  else
-    MainWindowUI::mainWindowUI()->statusBar->showMessage(tr("Error : Cannot Initialize Renderer"));
+  // create shaders
+  if (!programLinked(ShaderFactory::ptShader()) ||
+      !programLinked(ShaderFactory::pnShader()))
+    {
+      failRenderer(tr("A required geometry shader could not be compiled or linked."));
+      return;
+    }
+
+  // resizeGL can run before the delayed capability check.
+  if (!createImageBuffers())
+    return;
+
+  m_rendererInitialising = false;
+  m_rendererReady = true;
+  Global::setUseFBO(true);
+
+  MainWindowUI::mainWindowUI()->statusBar->showMessage(tr("Ready"));
 
   update();
 
   if (format().stereo())
     setStereoDisplay(true);
+}
 
-  
-  // create shaders
-  ShaderFactory::ptShader();
-  ShaderFactory::pnShader();
+void
+Viewer::cleanupRendererResources()
+{
+  delete m_imageBuffer;
+  m_imageBuffer = 0;
+  delete [] m_movieFrame;
+  m_movieFrame = 0;
+}
+
+void
+Viewer::failRenderer(const QString &error)
+{
+  cleanupRendererResources();
+  m_rendererReady = false;
+  m_rendererInitialising = false;
+  m_rendererError = error;
+  Global::setUseFBO(false);
+  MainWindowUI::mainWindowUI()->statusBar->showMessage(
+    tr("Renderer unavailable: %1").arg(error));
+  qWarning().noquote() << tr("Renderer unavailable: %1").arg(error);
+  update();
+}
+
+void
+Viewer::paintRendererError()
+{
+  QPainter painter(this);
+  painter.fillRect(rect(), QColor(24, 24, 24));
+  painter.setRenderHint(QPainter::TextAntialiasing, true);
+  painter.setPen(QColor(235, 235, 235));
+
+  QFont titleFont = painter.font();
+  titleFont.setPointSize(qMax(14, titleFont.pointSize()+4));
+  titleFont.setBold(true);
+  painter.setFont(titleFont);
+
+  QRect textRect = rect().adjusted(32, 32, -32, -32);
+  painter.drawText(textRect, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap,
+		   tr("Renderer unavailable"));
+
+  QFont detailFont = painter.font();
+  detailFont.setPointSize(qMax(10, detailFont.pointSize()-4));
+  detailFont.setBold(false);
+  painter.setFont(detailFont);
+  textRect.adjust(0, 48, 0, 0);
+  painter.drawText(textRect, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap,
+		   m_rendererError);
+}
+
+void
+Viewer::paintEvent(QPaintEvent *event)
+{
+  if (m_rendererInitAttempted && !m_rendererReady)
+    {
+      Q_UNUSED(event);
+      paintRendererError();
+      return;
+    }
+
+  QGLViewer::paintEvent(event);
 }
 
 //void
@@ -694,6 +869,9 @@ Viewer::splashScreen()
 bool
 Viewer::bindFBOs(int imagequality)
 {
+  if (!m_rendererReady || !m_imageBuffer)
+    return false;
+
   bool fboBound = false;
 
   if (!format().stereo())
@@ -704,16 +882,26 @@ Viewer::bindFBOs(int imagequality)
 	  if (m_imageBuffer->width() != m_imageWidth ||
 	      m_imageBuffer->height() != m_imageHeight)
 	    {
-	      delete m_imageBuffer;
 	      QGLFramebufferObjectFormat fbFormat;
 	      fbFormat.setInternalTextureFormat(GL_RGBA16F_ARB);
 	      fbFormat.setAttachment(QGLFramebufferObject::Depth);
 	      //fbFormat.setSamples(8);
 	      fbFormat.setTextureTarget(GL_TEXTURE_RECTANGLE_EXT);
 
-	      m_imageBuffer = new QGLFramebufferObject(m_imageWidth,
-						       m_imageHeight,
-						       fbFormat);
+	      QGLFramebufferObject *imageBuffer =
+		new QGLFramebufferObject(qMax(1, m_imageWidth),
+				     qMax(1, m_imageHeight),
+				     fbFormat);
+	      QString error;
+	      if (!framebufferComplete(imageBuffer, error))
+		{
+		  delete imageBuffer;
+		  failRenderer(error);
+		  return false;
+		}
+
+	      delete m_imageBuffer;
+	      m_imageBuffer = imageBuffer;
 	      forceInitShadowBuffers = true;
 	    }
 	}
@@ -729,9 +917,14 @@ Viewer::bindFBOs(int imagequality)
 					    m_imageBuffer->height());
 	  camera()->loadProjectionMatrix(true);
 	  camera()->loadModelViewMatrix(true);
- 	  glViewport(0,0,
+	  glViewport(0,0,
 		     m_imageBuffer->width(),
 		     m_imageBuffer->height());
+	}
+      else
+	{
+	  failRenderer(tr("The image framebuffer could not be bound."));
+	  return false;
 	}
     }
 
@@ -750,6 +943,9 @@ Viewer::bindFBOs(int imagequality)
 void
 Viewer::releaseFBOs(int imagequality)
 {
+  if (!m_imageBuffer)
+    return;
+
   if(!m_imageBuffer->isBound())
     return;
 
@@ -789,7 +985,17 @@ Viewer::releaseFBOs(int imagequality)
       //glUseProgramObjectARB(m_copyShader);
       //glUniform1iARB(m_copyParm[0], 0); // copy image from imageBuffer into frameBuffer
       
-      glUseProgramObjectARB(ShaderFactory::copyShader());
+      const GLuint copyShader = ShaderFactory::copyShader();
+      if (!copyShader)
+	{
+	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
+	  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+	  glUseProgramObjectARB(0);
+	  failRenderer(tr("The framebuffer copy shader could not be compiled or linked."));
+	  return;
+	}
+
+      glUseProgramObjectARB(copyShader);
       glUniform1iARB(ShaderFactory::copyShaderParm()[0], 0); // copy image from imageBuffer into frameBuffer
     }
 
@@ -872,6 +1078,9 @@ Viewer::renderVolume(int imagequality)
 {
   if (m_saveSnapshots || m_saveMovie)
     bindFBOs(imagequality);
+
+  if (!m_rendererReady)
+    return;
     
 
   glClearDepth(1);
@@ -896,9 +1105,32 @@ Viewer::startMovie(QString flnm, int fps)
   m_videoEncoder.init();
   m_videoEncoderR.init();
 
-  int gop = fps;
-  //int bitrate = m_imageWidth * m_imageHeight * fps * 0.07 * 2;
-  int bitrate = m_imageWidth * m_imageHeight * fps;
+  const qint64 bitrate64 = static_cast<qint64>(m_imageWidth)*
+                           static_cast<qint64>(m_imageHeight)*fps;
+  const qint64 frameBytes = static_cast<qint64>(m_imageWidth)*
+                            static_cast<qint64>(m_imageHeight)*4;
+  if (fps <= 0 || m_imageWidth <= 0 || m_imageHeight <= 0 ||
+      bitrate64 <= 0 ||
+      bitrate64 > std::numeric_limits<unsigned>::max() ||
+      frameBytes <= 0 ||
+      static_cast<quint64>(frameBytes) >
+        static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    {
+      QMessageBox::critical(this, "Save Movie",
+                            "The movie dimensions or frame rate are unsupported.");
+      return false;
+    }
+  std::unique_ptr<unsigned char[]> replacement(
+    new (std::nothrow) unsigned char[static_cast<size_t>(frameBytes)]);
+  if (!replacement)
+    {
+      QMessageBox::critical(this, "Save Movie",
+                            "There is not enough memory for the movie frame buffer.");
+      return false;
+    }
+
+  const int gop = fps;
+  const unsigned bitrate = static_cast<unsigned>(bitrate64);
 
   //---------------------------------------------------------
   // mono movie or left-eye movie
@@ -914,7 +1146,12 @@ Viewer::startMovie(QString flnm, int fps)
 	f.completeSuffix();
     }
 
-  m_videoEncoder.createFile(movieFile, m_imageWidth, m_imageHeight, bitrate, gop, fps);
+  if (!m_videoEncoder.createFile(movieFile, m_imageWidth, m_imageHeight,
+                                 bitrate, gop, fps))
+    {
+      QMessageBox::critical(this, "Save Movie", m_videoEncoder.lastError());
+      return false;
+    }
   //---------------------------------------------------------
 
 
@@ -928,7 +1165,14 @@ Viewer::startMovie(QString flnm, int fps)
 	          f.baseName() + QString("_right.") +
 	          f.completeSuffix();
 
-      m_videoEncoderR.createFile(movieFile, m_imageWidth, m_imageHeight, bitrate, gop, fps);
+      if (!m_videoEncoderR.createFile(movieFile, m_imageWidth, m_imageHeight,
+                                     bitrate, gop, fps))
+        {
+          const QString error = m_videoEncoderR.lastError();
+          m_videoEncoder.close();
+          QMessageBox::critical(this, "Save Movie", error);
+          return false;
+        }
     }
   //---------------------------------------------------------
 
@@ -936,7 +1180,7 @@ Viewer::startMovie(QString flnm, int fps)
 
   if (m_movieFrame)
     delete [] m_movieFrame;
-  m_movieFrame = new unsigned char[4*m_imageWidth*m_imageHeight];
+  m_movieFrame = replacement.release();
 
   // change the widget size
   setWidgetSizeToImageSize();
@@ -947,9 +1191,16 @@ Viewer::startMovie(QString flnm, int fps)
 bool
 Viewer::endMovie()
 {
-  m_videoEncoder.close();
-  m_videoEncoderR.close();
-
+  const bool leftClosed = m_videoEncoder.close();
+  const QString leftError = m_videoEncoder.lastError();
+  const bool rightClosed = m_videoEncoderR.close();
+  if (!leftClosed || !rightClosed)
+    {
+      const QString error = !leftClosed ? leftError :
+                            m_videoEncoderR.lastError();
+      QMessageBox::critical(this, "Save Movie", error);
+      return false;
+    }
   return true;
 }
 
@@ -988,6 +1239,8 @@ Viewer::fboToMovieFrame()
 void
 Viewer::saveMovie()
 {
+  bool encoded = true;
+  QString encodeError;
   if (m_imageMode == Enums::MonoImageMode)
     {
       Global::setSaveImageType(Global::MonoImage);
@@ -999,7 +1252,11 @@ Viewer::saveMovie()
       else
 	screenToMovieFrame();
 
-      m_videoEncoder.encodeImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);
+      encoded = m_videoEncoder.encodeImage(
+        m_movieFrame, m_imageWidth, m_imageHeight,
+        m_imageWidth*4, QImage::Format_ARGB32);
+      if (!encoded)
+        encodeError = m_videoEncoder.lastError();
     }
   else if (m_imageMode == Enums::StereoImageMode)
     {
@@ -1013,19 +1270,36 @@ Viewer::saveMovie()
       else
 	screenToMovieFrame();
 
-      m_videoEncoder.encodeImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);
+      encoded = m_videoEncoder.encodeImage(
+        m_movieFrame, m_imageWidth, m_imageHeight,
+        m_imageWidth*4, QImage::Format_ARGB32);
+      if (!encoded)
+        encodeError = m_videoEncoder.lastError();
 
       // --- right image
-      Global::setSaveImageType(Global::RightImage);
-      drawImageOnScreen();
-      glFinish();
+      if (encoded)
+        {
+          Global::setSaveImageType(Global::RightImage);
+          drawImageOnScreen();
+          glFinish();
 
-      if (m_useFBO)
-	fboToMovieFrame();
-      else
-	screenToMovieFrame();
+          if (m_useFBO)
+	    fboToMovieFrame();
+          else
+	    screenToMovieFrame();
 
-      m_videoEncoderR.encodeImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);
+          encoded = m_videoEncoderR.encodeImage(
+            m_movieFrame, m_imageWidth, m_imageHeight,
+            m_imageWidth*4, QImage::Format_ARGB32);
+          if (!encoded)
+            encodeError = m_videoEncoderR.lastError();
+        }
+    }
+  if (!encoded)
+    {
+      m_saveMovie = false;
+      endMovie();
+      QMessageBox::critical(this, "Save Movie", encodeError);
     }
 }
 
@@ -1491,12 +1765,15 @@ Viewer::fastDraw()
 
   Global::setPlayFrames(false);
 
-  grabBackBufferImage();
+  m_backBufferImageValid = false;
 }
 
 void 
 Viewer::dummydraw()
 {
+  if (!m_rendererReady)
+    return;
+
   //bool fboBound = bindFBOs(Enums::StillImage);
   m_hiresVolume->drawDragImage();
   //if (fboBound) releaseFBOs(Enums::StillImage);
@@ -1521,6 +1798,13 @@ Viewer::paintGL()
 void 
 Viewer::draw()
 {
+  if (!m_rendererReady)
+    {
+      if (!m_rendererInitAttempted)
+	splashScreen();
+      return;
+    }
+
   if (!m_hiresVolume->raised())
     {
       splashScreen();
@@ -1553,12 +1837,9 @@ Viewer::draw()
 
   m_messageDisplayer->drawMessage(size());
 
-  glFinish();
-
-
   Global::setPlayFrames(false);
 
-  grabBackBufferImage();
+  m_backBufferImageValid = false;
 
 }
 
@@ -1733,20 +2014,39 @@ Viewer::mouseReleaseEvent(QMouseEvent *event)
   m_undo.append(camera()->position(), camera()->orientation());
 }
 
-void
-Viewer::grabBackBufferImage()
+bool
+Viewer::grabBackBufferImage(GLenum readBuffer)
 {
-  glReadBuffer(GL_BACK);
-
-  if (m_backBufferWidth != camera()->screenWidth() &&
-      m_backBufferHeight != camera()->screenHeight())
+  const int width = camera()->screenWidth();
+  const int height = camera()->screenHeight();
+  if (width <= 0 || height <= 0)
     {
-      m_backBufferWidth = camera()->screenWidth();
-      m_backBufferHeight = camera()->screenHeight();
-      delete [] m_backBufferImage;
-      m_backBufferImage = new uchar[4*m_backBufferWidth*m_backBufferHeight];
+      m_backBufferImageValid = false;
+      return false;
     }
 
+  if (!m_backBufferImage ||
+      m_backBufferWidth != width ||
+      m_backBufferHeight != height)
+    {
+      const size_t byteCount = 4ULL*static_cast<size_t>(width)*
+	                              static_cast<size_t>(height);
+      uchar *image = new (std::nothrow) uchar[byteCount];
+      if (!image)
+	{
+	  m_backBufferImageValid = false;
+	  return false;
+	}
+
+      delete [] m_backBufferImage;
+      m_backBufferImage = image;
+      m_backBufferWidth = width;
+      m_backBufferHeight = height;
+    }
+
+  GLint previousReadBuffer = GL_BACK;
+  glGetIntegerv(GL_READ_BUFFER, &previousReadBuffer);
+  glReadBuffer(readBuffer);
   glReadPixels(0,
 	       0,
 	       m_backBufferWidth,
@@ -1754,13 +2054,23 @@ Viewer::grabBackBufferImage()
 	       GL_RGBA,
 	       GL_UNSIGNED_BYTE,
 	       m_backBufferImage);
+  glReadBuffer(previousReadBuffer);
+
+  m_backBufferImageValid = true;
+  return true;
 }
 
 void
 Viewer::showBackBufferImage()
 {
-  if (!m_backBufferImage)
-    grabBackBufferImage();
+  if (!m_backBufferImageValid ||
+      m_backBufferWidth != camera()->screenWidth() ||
+      m_backBufferHeight != camera()->screenHeight())
+    {
+      // The front buffer is the last frame presented before updates were frozen.
+      if (!grabBackBufferImage(GL_FRONT))
+	return;
+    }
 
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();

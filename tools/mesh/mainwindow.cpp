@@ -19,6 +19,7 @@
 //#include <QNetworkReply>
 #include <QTabWidget>
 #include <QUdpSocket>
+#include <QStandardPaths>
 
 //#include <qt_windows.h>
 //#include <netlistmgr.h>
@@ -159,6 +160,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
   //--------------
   m_Viewer = new Viewer();
+  m_rendererServicesStarted = false;
   setCentralWidget(m_Viewer);
   //--------------
 
@@ -645,38 +647,18 @@ MainWindow::setTextureMemory()
   texlist << "128 Mb";
   texlist << "256 Mb";
   texlist << "512 Mb";
-  texlist << "768 Mb";
-  texlist << "1 Gb";
-  texlist << "1.5 Gb";
-  texlist << "2.0 Gb";
-  texlist << "4.0 Gb";
-  texlist << "6.0 Gb";
-  texlist << "8.0 Gb";
-  texlist << "10.0 Gb";
-  texlist << "12.0 Gb";
-  texlist << "16.0 Gb";
   QString texstr = QInputDialog::getItem(0,
 					 QWidget::tr("Texture Memory"),
 					 QWidget::tr("Texture Memory Size"),
-					 texlist, 0, false,
+					 texlist, 2, false,
 					 &ok);
-  int texmem = 128;
+  int texmem = 512;
   if (ok && !texstr.isEmpty())
     {
       QStringList lst = texstr.split(" ");
       if (lst[0] == "128") texmem = 128;
       if (lst[0] == "256") texmem = 256;
       if (lst[0] == "512") texmem = 512;
-      if (lst[0] == "768") texmem = 768;
-      if (lst[0] == "1") texmem = 1024;
-      if (lst[0] == "1.5") texmem = 1536;
-      if (lst[0] == "2.0") texmem = 2*1024;
-      if (lst[0] == "4.0") texmem = 4*1024;
-      if (lst[0] == "6.0") texmem = 6*1024;
-      if (lst[0] == "8.0") texmem = 8*1024;
-      if (lst[0] == "10.0") texmem = 10*1024;
-      if (lst[0] == "12.0") texmem = 12*1024;
-      if (lst[0] == "16.0") texmem = 16*1024;
     }
   Global::setTextureMemorySize(texmem);
   Global::calculate3dTextureSize();
@@ -686,7 +668,15 @@ MainWindow::setTextureMemory()
 void
 MainWindow::GlewInit()
 {
+  if (m_rendererServicesStarted)
+    return;
+
   m_Viewer->GlewInit();
+
+  if (!m_Viewer->rendererReady())
+    return;
+
+  m_rendererServicesStarted = true;
 
   //registerPlugins();
 
@@ -731,7 +721,7 @@ MainWindow::GlewInit()
 		  Global::addRecentFile(arguments[i]);
 		  updateRecentFileAction();
 		  createHiresLowresWindows();
-		  loadProject(arguments[i].toLatin1().data());
+		  loadProject(arguments[i]);
 		}
 	    }
 	  else if (StaticFunctions::checkExtension(arguments[i], meshformats))
@@ -763,33 +753,14 @@ MainWindow::GlewInit()
   
   // Prayog Mode
   if (!m_projectFileName.isEmpty())
-    loadProject(m_projectFileName.toLatin1().data());
+    loadProject(m_projectFileName);
 }
 
 
 void
 MainWindow::closeEvent(QCloseEvent *event)
 {
-  if (Global::batchMode()) // don't ask this extra stuff
-    return;
-
-
-  //---------------
-  if (m_scriptProcess && m_scriptProcess->processId() != 0)
-    {
-      //QMessageBox::information(0, "", "kill script");
-
-      QByteArray Data;
-      QString mesg = "exit";
-      Data.append(mesg);
-      qint64 res = QUdpSocket().writeDatagram(Data, QHostAddress::LocalHost, 7770);
-
-      delete m_scriptProcess;
-      m_scriptProcess = 0;
-
-      //QMessageBox::information(0, "", "script killed");
-    }
-  //---------------
+  stopScriptProcess();
   
   
   Global::removeBackgroundTexture();
@@ -805,6 +776,8 @@ MainWindow::closeEvent(QCloseEvent *event)
   GeometryObjects::hitpoints()->clear();
   GeometryObjects::paths()->clear();
   GeometryObjects::trisets()->clear();
+
+  QMainWindow::closeEvent(event);
 }
 
 
@@ -1183,6 +1156,12 @@ MainWindow::dragEnterEvent(QDragEnterEvent *event)
 void
 MainWindow::openRecentFile()
 {
+  if (!m_Viewer->rendererReady())
+    {
+      QMessageBox::information(0, "DrishtiMesh", tr("Renderer is not ready to load data."));
+      return;
+    }
+
   QStringList meshformats;
   meshformats << ".fbx";
   meshformats << ".dae";
@@ -1213,7 +1192,7 @@ MainWindow::openRecentFile()
 	  Global::addRecentFile(filename);
 	  updateRecentFileAction();
 	  createHiresLowresWindows();
-	  loadProject(filename.toLatin1().data());
+	  loadProject(filename);
 	}
       else if (StaticFunctions::checkExtension(filename, meshformats))
 	{
@@ -1248,7 +1227,7 @@ MainWindow::openRecentFile()
 void
 MainWindow::dropEvent(QDropEvent *event)
 {
-  if (! GlewInit::initialised())
+  if (!m_Viewer->rendererReady())
     {
       QMessageBox::information(0, "DrishtiMesh", tr("Not yet ready to start work!"));
       return;
@@ -1279,7 +1258,7 @@ MainWindow::dropEvent(QDropEvent *event)
 		  Global::addRecentFile(url.toLocalFile());
 		  updateRecentFileAction();
 		  createHiresLowresWindows();
-		  loadProject(url.toLocalFile().toLatin1().data());
+		  loadProject(url.toLocalFile());
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), meshformats))
 		{
@@ -1447,7 +1426,7 @@ MainWindow::saveSettings()
   QFileInfo settingsFile(homePath, ".drishtimesh.xml");
   QString flnm = settingsFile.absoluteFilePath();  
 
-  QFile f(flnm.toLatin1().data());
+  QFile f(flnm);
   if (f.open(QIODevice::WriteOnly))
     {
       QTextStream out(&f);
@@ -1471,7 +1450,7 @@ MainWindow::loadSettings()
 
 
   QDomDocument document;
-  QFile f(flnm.toLatin1().data());
+  QFile f(flnm);
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -1529,13 +1508,19 @@ MainWindow::loadSettings()
 	  Global::setBackgroundColor(Vec(x,y,z));
 	}
     }
+
+  if (Global::textureMemorySize() < 256)
+    {
+      Global::setTextureMemorySize(512);
+      Global::calculate3dTextureSize();
+    }
   updateRecentFileAction();
 }
 
 void
-MainWindow::loadProject(const char* flnm)
+MainWindow::loadProject(const QString& flnm)
 {
-  if (! GlewInit::initialised())
+  if (!m_Viewer->rendererReady())
     {
       QMessageBox::information(0, "DrishtiMesh", tr("Not yet ready to start work!"));
       return;
@@ -1546,7 +1531,7 @@ MainWindow::loadProject(const char* flnm)
 
   bool keyframesVisible = m_dockKeyframe->isVisible();
 
-  Global::setCurrentProjectFile(QString(flnm));
+  Global::setCurrentProjectFile(flnm);
 
   QFileInfo f(flnm);
   Global::setPreviousDirectory(f.absolutePath());
@@ -1622,12 +1607,6 @@ MainWindow::saveProject(QString dmflnm)
 
   
 
-  int flnmlen = dmflnm.length()+1;
-  char *flnm = new char[flnmlen];
-  memset(flnm, 0, flnmlen);
-  memcpy(flnm, dmflnm.toLatin1().data(), flnmlen);
-
-
   QImage image = m_Viewer->grabFrameBuffer();
   image = image.scaled(100, 100);
 
@@ -1639,10 +1618,10 @@ MainWindow::saveProject(QString dmflnm)
 			  image);
 
 
-  //saveVolumeIntoProject(flnm, QString());
+  //saveVolumeIntoProject(dmflnm, QString());
 
 
-  saveKeyFrames(flnm);
+  saveKeyFrames(dmflnm);
 
   emit showMessage(tr("Saved Project ...."), false);
 }
@@ -1664,7 +1643,7 @@ MainWindow::on_actionLoad_Project_triggered()
 
   Global::addRecentFile(flnm);
   updateRecentFileAction();
-  loadProject(flnm.toLatin1().data());
+  loadProject(flnm);
 }
 
 void
@@ -1706,7 +1685,7 @@ MainWindow::on_actionSave_ProjectAs_triggered()
   if (!StaticFunctions::checkExtension(flnm, ".dm"))
     flnm += ".dm";
       
-  saveProject(flnm.toLatin1().data());
+  saveProject(flnm);
 }
 
 void
@@ -1848,9 +1827,9 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
 }
 
 void
-MainWindow::loadKeyFrames(const char* flnm)
+MainWindow::loadKeyFrames(const QString& flnm)
 {
-  QString sflnm(flnm);
+  const QString sflnm(flnm);
   //sflnm.replace(QString(".dm"), QString(".keyframes"));
 
 
@@ -1861,7 +1840,20 @@ MainWindow::loadKeyFrames(const char* flnm)
       return;
     }
 
-  fstream fin(sflnm.toLatin1().data(), ios::binary|ios::in);
+  fstream fin;
+#ifdef Q_OS_WIN
+  const std::wstring nativePath = sflnm.toStdWString();
+  fin.open(nativePath.c_str(), ios::binary|ios::in);
+#else
+  const QByteArray nativePath = QFile::encodeName(sflnm);
+  fin.open(nativePath.constData(), ios::binary|ios::in);
+#endif
+  if (!fin)
+    {
+      QMessageBox::information(0, tr("Load Keyframes"),
+			       QString(tr("Cannot open %1")).arg(sflnm));
+      return;
+    }
 
   char keyword[100];
   fin.getline(keyword, 100, 0);
@@ -1883,11 +1875,24 @@ MainWindow::loadKeyFrames(const char* flnm)
 }
 
 void
-MainWindow::saveKeyFrames(const char* flnm)
+MainWindow::saveKeyFrames(const QString& flnm)
 {
-  QString sflnm(flnm);
+  const QString sflnm(flnm);
 
-  fstream fout(sflnm.toLatin1().data(), ios::binary|ios::out);
+  fstream fout;
+#ifdef Q_OS_WIN
+  const std::wstring nativePath = sflnm.toStdWString();
+  fout.open(nativePath.c_str(), ios::binary|ios::out);
+#else
+  const QByteArray nativePath = QFile::encodeName(sflnm);
+  fout.open(nativePath.constData(), ios::binary|ios::out);
+#endif
+  if (!fout)
+    {
+      QMessageBox::critical(0, tr("Save Keyframes"),
+			    QString(tr("Cannot open %1")).arg(sflnm));
+      return;
+    }
 
   QString keyword;
   keyword = "DrishtiMesh Keyframes";
@@ -2299,8 +2304,6 @@ MainWindow::on_actionSplitBinarySTL_triggered()
 void
 MainWindow::registerScripts()
 {
-  m_scriptProcess = 0;
-  
   m_scriptsTitle.clear();
   m_scriptsList.clear();
   m_jsonFileList.clear();
@@ -2478,6 +2481,31 @@ MainWindow::registerScripts()
 }
 
 void
+MainWindow::stopScriptProcess()
+{
+  if (!m_scriptProcess)
+    return;
+
+  if (m_scriptProcess->state() != QProcess::NotRunning)
+    {
+      QUdpSocket().writeDatagram(QByteArray("exit"),
+                                 QHostAddress::LocalHost, 7770);
+      if (!m_scriptProcess->waitForFinished(1500))
+	{
+	  m_scriptProcess->terminate();
+	  if (!m_scriptProcess->waitForFinished(1500))
+	    {
+	      m_scriptProcess->kill();
+	      m_scriptProcess->waitForFinished(1500);
+	    }
+	}
+    }
+
+  delete m_scriptProcess;
+  m_scriptProcess = nullptr;
+}
+
+void
 MainWindow::showRequiredPackages()
 {
   QAction *action = qobject_cast<QAction *>(sender());
@@ -2549,6 +2577,15 @@ MainWindow::loadScript()
 void
 MainWindow::runScript(int idx, bool batchMode)
 {
+  Q_UNUSED(batchMode);
+
+  if (idx < 0 || idx >= m_jsonFileList.size() ||
+      idx >= m_scriptsList.size())
+    {
+      QMessageBox::critical(0, "Script Error", "The selected script is invalid.");
+      return;
+    }
+
   QString script;
   QString executable;
   QString interpreter;
@@ -2624,52 +2661,77 @@ MainWindow::runScript(int idx, bool batchMode)
   QStringList selected;
   for(int i=0; i<indices.count(); i++)
     {
-      selected << QString("\"%1\"").arg(GeometryObjects::trisets()->filename(indices[i]));
+      selected << GeometryObjects::trisets()->filename(indices[i]);
     }
-
-  QString meshes = selected.join(" ");
   //-----------------------
 
-  
-  QString cmd;
-  
+  QString program;
+  QStringList arguments;
   if (!executable.isEmpty())
-    cmd = QString("\"%1\"").arg(executable)+" "+meshes;
-  else if (!interpreter.isEmpty() &&
-	   !script.isEmpty())
-    cmd = interpreter+" "+script+" "+meshes;
-  
+    {
+      program = executable;
+      if (!QFileInfo(program).isAbsolute())
+	{
+	  const QString located = QStandardPaths::findExecutable(program);
+	  if (!located.isEmpty())
+	    program = located;
+	}
+      arguments = selected;
+    }
+  else if (!interpreter.isEmpty() && !script.isEmpty())
+    {
+      program = interpreter;
+      if (program.compare("python", Qt::CaseInsensitive) == 0)
+	program = QStandardPaths::findExecutable("python");
+      else if (!QFileInfo(program).isAbsolute())
+	{
+	  const QString located = QStandardPaths::findExecutable(program);
+	  if (!located.isEmpty())
+	    program = located;
+	}
+
+      if (program.isEmpty())
+	{
+	  QMessageBox::critical(
+	    0, "Python Not Found",
+	    "This optional Mesh script requires an external Python installation "
+	    "on PATH and the packages listed by the script.");
+	  return;
+	}
+      if (!QFileInfo::exists(script))
+	{
+	  QMessageBox::critical(0, "Script Error",
+				QString("Script file not found:\n%1").arg(script));
+	  return;
+	}
+
+      arguments << script;
+      arguments.append(selected);
+    }
+  else
+    {
+      QMessageBox::critical(0, "Script Error",
+			    "The selected script has no executable command.");
+      return;
+    }
 
   
   if (m_scriptProcess == 0)
     m_scriptProcess = new QProcess(this);
     
-  if (m_scriptProcess->processId() != 0)
+  if (m_scriptProcess->state() != QProcess::NotRunning)
     {
-      QByteArray Data;
-      QString mesg = "exit";
-      Data.append(mesg);
-      qint64 res = QUdpSocket().writeDatagram(Data, QHostAddress::LocalHost, 7770);
-
-      delete m_scriptProcess;
-
-      m_scriptProcess = new QProcess();
+      stopScriptProcess();
+      m_scriptProcess = new QProcess(this);
     }
 
-  QStringList args;
-  args << cmd.toLatin1();
-  
-  //----------
-#if defined(Q_OS_WIN32)
-  m_scriptProcess->start("cmd.exe ");
-#else
-  m_scriptProcess->start("/bin/bash ");
-#endif  
-  
-  QMessageBox::information(0, "CMD", cmd);
-  
-  m_scriptProcess->write(cmd.toLatin1() + "\n");
-  qApp->processEvents();
+  m_scriptProcess->setWorkingDirectory(QFileInfo(jsonfile).absolutePath());
+  m_scriptProcess->start(program, arguments);
+  if (!m_scriptProcess->waitForStarted(3000))
+    QMessageBox::critical(
+      0, "Script Launch Error",
+      QString("Cannot start:\n%1\n\n%2")
+	.arg(QDir::toNativeSeparators(program), m_scriptProcess->errorString()));
 }
 
 

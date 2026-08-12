@@ -10,9 +10,12 @@ CONFIG += release staticlib
 
 TARGET = vdb
 
-DESTDIR = ..\..\lib
+isEmpty(DRISHTI_COMMON_LIB_DIR): DRISHTI_COMMON_LIB_DIR = $$clean_path($$PWD/../../lib)
+DESTDIR = $$DRISHTI_COMMON_LIB_DIR
   
 win32 {
+     TARGET = $$section(DRISHTI_VDB_LIB, ., 0, 0)
+
       INCLUDEPATH += ..\..\..\drishti
       INCLUDEPATH += $$VCPKG_INCLUDE_PATH
       QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
@@ -20,7 +23,7 @@ win32 {
      ### /std:c++17 added because openvdb requires this
      QMAKE_CXXFLAGS*=/std:c++17 /bigobj
   
-     LIBS += Imath-3_2.lib openvdb.lib  
+     LIBS += $$DRISHTI_IMATH_LIB $$DRISHTI_OPENVDB_LIB
 }
 
 

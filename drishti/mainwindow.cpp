@@ -143,6 +143,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 
   m_Viewer = new Viewer();
+  m_rendererServicesStarted = false;
   setCentralWidget(m_Viewer);
 
   
@@ -613,10 +614,10 @@ void MainWindow::runPlugin(int idx, bool batchMode)
     }
   
 
-  plod = dragTextureInfo.z;
-  px = subvolumeSize.x/plod;
-  py = subvolumeSize.y/plod;
-  pz = subvolumeSize.z/plod;
+  plod = qMax(1, static_cast<int>(dragTextureInfo.z));
+  px = qMax(1, static_cast<int>(subvolumeSize.x)/plod);
+  py = qMax(1, static_cast<int>(subvolumeSize.y)/plod);
+  pz = qMax(1, static_cast<int>(subvolumeSize.z)/plod);
   prune = new uchar[3*px*py*pz];
 
   
@@ -710,47 +711,18 @@ MainWindow::setTextureMemory(bool bruteforce)
   texlist << "128 Mb";
   texlist << "256 Mb";
   texlist << "512 Mb";
-  texlist << "768 Mb";
-  texlist << "1 Gb";
-  texlist << "1.5 Gb";
-  texlist << "2.0 Gb";
-  texlist << "4.0 Gb";
-  texlist << "6.0 Gb";
-  texlist << "8.0 Gb";
-  texlist << "10.0 Gb";
-  texlist << "12.0 Gb";
-  texlist << "16.0 Gb";
-  texlist << "24.0 Gb";
-  texlist << "32.0 Gb";
-  texlist << "40.0 Gb";
-  texlist << "64.0 Gb";
-  texlist << "80.0 Gb";
   QString texstr = QInputDialog::getItem(0,
 					 QWidget::tr("Texture Memory"),
 					 QWidget::tr("Texture Memory Size"),
-					 texlist, 0, false,
+					 texlist, 2, false,
 					 &ok);
-  int texmem = 128;
+  int texmem = 512;
   if (ok && !texstr.isEmpty())
     {
       QStringList lst = texstr.split(" ");
       if (lst[0] == "128") texmem = 128;
       if (lst[0] == "256") texmem = 256;
       if (lst[0] == "512") texmem = 512;
-      if (lst[0] == "768") texmem = 768;
-      if (lst[0] == "1") texmem = 1024;
-      if (lst[0] == "1.5") texmem = 1536;
-      if (lst[0] == "2.0") texmem = 2*1024;
-      if (lst[0] == "4.0") texmem = 4*1024;
-      if (lst[0] == "6.0") texmem = 6*1024;
-      if (lst[0] == "8.0") texmem = 8*1024;
-      if (lst[0] == "10.0") texmem = 10*1024;
-      if (lst[0] == "12.0") texmem = 12*1024;
-      if (lst[0] == "16.0") texmem = 16*1024;
-      if (lst[0] == "32.0") texmem = 16*1024;
-      if (lst[0] == "40.0") texmem = 16*1024;
-      if (lst[0] == "64.0") texmem = 16*1024;
-      if (lst[0] == "80.0") texmem = 16*1024;
     }
   Global::setTextureMemorySize(texmem);
   Global::calculate3dTextureSize();
@@ -760,7 +732,15 @@ MainWindow::setTextureMemory(bool bruteforce)
 void
 MainWindow::GlewInit()
 {
+  if (m_rendererServicesStarted)
+    return;
+
   m_Viewer->GlewInit();
+
+  if (!m_Viewer->rendererReady())
+    return;
+
+  m_rendererServicesStarted = true;
 
   registerPlugins();
 
@@ -2047,6 +2027,12 @@ MainWindow::dragEnterEvent(QDragEnterEvent *event)
 void
 MainWindow::openRecentFile()
 {
+  if (!m_Viewer->rendererReady())
+    {
+      QMessageBox::information(0, "Drishti", "Renderer is not ready to load data.");
+      return;
+    }
+
   QAction *action = qobject_cast<QAction *>(sender());
   if (action)
     {
@@ -2080,7 +2066,7 @@ MainWindow::openRecentFile()
 void
 MainWindow::dropEvent(QDropEvent *event)
 {
-  if (! GlewInit::initialised())
+  if (!m_Viewer->rendererReady())
     {
       QMessageBox::information(0, "Drishti", "Not yet ready to start work!");
       return;
@@ -2288,7 +2274,13 @@ MainWindow::loadDummyVolume(int nx, int ny, int nz)
 
   m_keyFrameEditor->setHiresMode(false);
 
-  m_Volume->loadDummyVolume(nx, ny, nz);
+  if (!m_Volume->loadDummyVolume(nx, ny, nz))
+    {
+      recoverFromFailedVolumeLoad("Dummy volume allocation failed");
+      QMessageBox::warning(0, "Error",
+                           "Cannot allocate the requested dummy volume.");
+      return;
+    }
 
   postLoadVolume();
 
@@ -2394,6 +2386,8 @@ MainWindow::loadVolumeList(QList<QString> files, bool flag)
     }
 
   loadVolume(files);
+  if (!m_Volume->valid())
+    return;
 
   Global::setVolumeNumber(0);
 
@@ -2519,6 +2513,20 @@ MainWindow::postLoadVolume()
 }
 
 void
+MainWindow::recoverFromFailedVolumeLoad(const QString &message)
+{
+  m_Volume->clearVolumes();
+  Global::hideProgressBar();
+  MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+    setWindowTitle(QString("Drishti"));
+  MainWindowUI::mainWindowUI()->statusBar->showMessage(message);
+  m_tfManager->clearManager();
+  m_tfManager->setEnabled(false);
+  Global::enableViewerUpdate();
+  MainWindowUI::changeDrishtiIcon(true);
+}
+
+void
 MainWindow::loadVolumeRGBFromUrls(QList<QUrl> urls)
 {
   Global::setSaveImageType(Global::NoImage);
@@ -2543,7 +2551,13 @@ MainWindow::loadVolumeRGB(char *flnm)
  
   preLoadVolume();
 
-  m_Volume->loadVolumeRGB(flnm, false);
+  if (!m_Volume->loadVolumeRGB(flnm, false))
+    {
+      recoverFromFailedVolumeLoad("RGB/RGBA volume loading failed");
+      QMessageBox::warning(0, "Error",
+			   "Cannot load RGB/RGBA volume within the available CPU memory.");
+      return;
+    }
 
   postLoadVolume();
 
@@ -2577,7 +2591,13 @@ MainWindow::loadVolume(QList<QString> flnm)
  
   preLoadVolume();
 
-  m_Volume->loadVolume(flnm, false);
+  if (!m_Volume->loadVolume(flnm, false))
+    {
+      recoverFromFailedVolumeLoad("Volume loading failed");
+      QMessageBox::warning(0, "Error",
+			   "Cannot load volume within the available CPU memory.");
+      return;
+    }
 
   postLoadVolume();
 
@@ -2660,7 +2680,10 @@ MainWindow::loadVolume2(QList<QString> flnm1,
   preLoadVolume();
 
   if (!m_Volume->loadVolume(flnm1, flnm2, false))
-    return false;
+    {
+      recoverFromFailedVolumeLoad("Two-volume loading failed");
+      return false;
+    }
 
   postLoadVolume();
 
@@ -2768,7 +2791,10 @@ MainWindow::loadVolume3(QList<QString> flnm1,
   preLoadVolume();
   
   if (!m_Volume->loadVolume(flnm1, flnm2, flnm3, false))
-    return false;
+    {
+      recoverFromFailedVolumeLoad("Three-volume loading failed");
+      return false;
+    }
 
   postLoadVolume();
 
@@ -2895,7 +2921,10 @@ MainWindow::loadVolume4(QList<QString> flnm1,
   preLoadVolume();
 
   if (!m_Volume->loadVolume(flnm1, flnm2, flnm3, flnm4, false))
-    return false;
+    {
+      recoverFromFailedVolumeLoad("Four-volume loading failed");
+      return false;
+    }
 
   postLoadVolume();
 
@@ -3168,7 +3197,7 @@ MainWindow::loadTransferFunctionsOnly(const char* flnm)
 void
 MainWindow::loadProject(const char* flnm)
 {
-  if (! GlewInit::initialised())
+  if (!m_Viewer->rendererReady())
     {
       QMessageBox::information(0, "Drishti", "Not yet ready to start work!");
       return;
@@ -3460,10 +3489,18 @@ MainWindow::on_actionSave_InformationForDrishtiPrayog_triggered()
 //				      0,
 //				      QFileDialog::DontUseNativeDialog);
 
+  if (flnm.isEmpty())
+    return;
+
   if (!StaticFunctions::checkExtension(flnm, ".drishtiprayog"))
     flnm += ".drishtiprayog";
-      
-  m_Hires->saveForDrishtiPrayog(flnm);
+
+  if (!m_Hires->saveForDrishtiPrayog(flnm))
+    {
+      QMessageBox::warning(0, "Drishti-Prayog information not saved",
+			   "A complete single-slab texture is not available.");
+      return;
+    }
   
   QMessageBox::information(0, "Drishti-Prayog information saved",
 			   "Drishti-Prayog information data saved to " + flnm);

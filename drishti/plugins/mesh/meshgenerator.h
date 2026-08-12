@@ -77,7 +77,7 @@ class MeshGenerator
   bool m_batchMode;
   
   
-  void generateMesh(int, int,
+  bool generateMesh(int, int,
 		    QString,
 		    int, int,
 		    QGradientStops,

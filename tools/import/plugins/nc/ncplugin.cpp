@@ -2,6 +2,80 @@
 #include <netcdfcpp.h>
 #include "common.h"
 #include "ncplugin.h"
+#include "../rawfileutils.h"
+
+#include <cmath>
+#include <cstring>
+#include <limits>
+#include <memory>
+#include <new>
+
+namespace
+{
+int nc3VoxelType(NcType type)
+{
+  if (type == ncByte || type == ncChar) return _Char;
+  if (type == ncShort) return _Short;
+  if (type == ncInt) return _Int;
+  if (type == ncFloat) return _Float;
+  return -1;
+}
+
+bool supportedNc3Layout(NcVar *variable, int& depth, int& width, int& height,
+                        int& voxelType, QString& error)
+{
+  if (!variable || variable->num_dims() != 3)
+    {
+      error = "The selected NetCDF variable is missing or is not 3D.";
+      return false;
+    }
+  voxelType = nc3VoxelType(variable->type());
+  if (voxelType < 0)
+    {
+      error = QString("Unsupported NetCDF variable type %1.")
+                .arg(static_cast<int>(variable->type()));
+      return false;
+    }
+  const long d = variable->get_dim(0)->size();
+  const long w = variable->get_dim(1)->size();
+  const long h = variable->get_dim(2)->size();
+  if (d <= 0 || w <= 0 || h <= 0 ||
+      d > std::numeric_limits<int>::max() ||
+      w > std::numeric_limits<int>::max() ||
+      h > std::numeric_limits<int>::max())
+    {
+      error = "The NetCDF dimensions exceed the supported integer range.";
+      return false;
+    }
+  depth = static_cast<int>(d);
+  width = static_cast<int>(w);
+  height = static_cast<int>(h);
+  RawFileUtils::Layout layout;
+  return RawFileUtils::makeLayout(depth, width, height, voxelType, 0,
+                                  layout, error);
+}
+
+bool readNc3Slice(NcVar *variable, int slice, int width, int height,
+                  int voxelType, uchar *destination)
+{
+  if (!variable || !destination || slice < 0 ||
+      !variable->set_cur(slice, 0, 0))
+    return false;
+  if (voxelType == _Char)
+    return variable->get(reinterpret_cast<ncbyte*>(destination),
+                         1, width, height);
+  if (voxelType == _Short)
+    return variable->get(reinterpret_cast<short*>(destination),
+                         1, width, height);
+  if (voxelType == _Int)
+    return variable->get(reinterpret_cast<int*>(destination),
+                         1, width, height);
+  if (voxelType == _Float)
+    return variable->get(reinterpret_cast<float*>(destination),
+                         1, width, height);
+  return false;
+}
+}
 
 QStringList
 NcPlugin::registerPlugin()
@@ -27,26 +101,33 @@ NcPlugin::init()
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
+  m_depthList.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
 NcPlugin::clear()
 {
   m_fileName.clear();
+  m_varName.clear();
   m_description.clear();
   m_depth = m_width = m_height = 0;
   m_voxelType = _UChar;
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
+  m_depthList.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
@@ -83,6 +164,7 @@ NcPlugin::setMinMax(float rmin, float rmax)
 float NcPlugin::rawMin() { return m_rawMin; }
 float NcPlugin::rawMax() { return m_rawMax; }
 QList<uint> NcPlugin::histogram() { return m_histogram; }
+QString NcPlugin::lastError() const { return m_lastError; }
 
 void
 NcPlugin::gridSize(int& d, int& w, int& h)
@@ -169,15 +251,45 @@ NcPlugin::listAllAttributes()
 void
 NcPlugin::replaceFile(QString flnm)
 {
-  m_fileName.clear();
-  m_fileName << flnm;
+  m_lastError.clear();
+  if (flnm.trimmed().isEmpty())
+    {
+      m_lastError = "The replacement NetCDF filename is empty.";
+      return;
+    }
+
+  const QString candidate = QFileInfo(flnm).absoluteFilePath();
+  NcError errors(NcError::silent_nonfatal);
+  NcFile file(candidate.toLocal8Bit().constData(), NcFile::ReadOnly);
+  NcVar *variable = file.is_valid() ?
+    file.get_var(m_varName.toLocal8Bit().constData()) : NULL;
+  int depth = 0, width = 0, height = 0, voxelType = -1;
+  QString error;
+  if (!file.is_valid() ||
+      !supportedNc3Layout(variable, depth, width, height, voxelType, error) ||
+      depth != m_depth || width != m_width || height != m_height ||
+      voxelType != m_voxelType)
+    {
+      m_lastError = error.isEmpty() ?
+        QString("Replacement NetCDF volume is incompatible with the current "
+                "%1 x %2 x %3, voxel-type %4 volume.")
+          .arg(m_depth).arg(m_width).arg(m_height).arg(m_voxelType) : error;
+      return;
+    }
+  file.close();
+  m_fileName = QStringList() << candidate;
+  m_depthList = QList<int>() << depth;
 }
 
 bool
 NcPlugin::setFile(QStringList files)
 {  
-  if (files.size() == 0)
-    return false;
+  m_lastError.clear();
+  if (files.isEmpty() || files.first().trimmed().isEmpty())
+    {
+      m_lastError = "No NetCDF file or directory was selected.";
+      return false;
+    }
 
   QFileInfo f(files[0]);
   if (f.isDir())
@@ -192,7 +304,11 @@ NcPlugin::setFile(QStringList files)
 						    QDir::Files);
 
       if (ncfiles.size() == 0)
-	return false;
+	{
+	  m_lastError = QString("No readable .nc files were found in %1.")
+	                  .arg(files.first());
+	  return false;
+	}
       
       m_fileName.clear();
       for(uint i=0; i<ncfiles.size(); i++)
@@ -203,7 +319,14 @@ NcPlugin::setFile(QStringList files)
 	}
     }
   else
-    m_fileName = files;
+    {
+      m_fileName.clear();
+      for (const QString& file : files)
+        m_fileName << QFileInfo(file).absoluteFilePath();
+    }
+
+  if (m_4dvol && m_fileName.size() > 1)
+    m_fileName = QStringList() << m_fileName.first();
 
 
   QList<QString> varNames;
@@ -234,12 +357,12 @@ NcPlugin::setFile(QStringList files)
     {
       NcVar *ncvar;
       ncvar = dataFile.get_var((char *)allVars[i].toUtf8().data());
-      if (ncvar->num_dims() == 3)
+      if (ncvar && ncvar->num_dims() == 3 && nc3VoxelType(ncvar->type()) >= 0)
 	varNames.append(allVars[i]);
     }
   if (varNames.size() == 0)
     {
-      QMessageBox::information(0, "Error", "No 3D variables found in the file");
+      m_lastError = "No supported scalar 3D variables were found in the NetCDF file.";
       return false;
     }
 
@@ -271,26 +394,14 @@ NcPlugin::setFile(QStringList files)
 
   NcVar *ncvar;
   ncvar = dataFile.get_var((char *)m_varName.toUtf8().data());
-
-  m_voxelType = _UChar;
-  switch (ncvar->type())
-    {	  
-    case ncByte :
-      m_voxelType = _UChar; break;
-    case ncChar :
-      m_voxelType = _Char; break;
-    case ncShort :
-      m_voxelType = _UShort; break;
-    case ncInt :
-      m_voxelType = _Int; break;
-    case ncFloat :
-      m_voxelType = _Float; break;
+  int firstDepth = 0;
+  QString layoutError;
+  if (!supportedNc3Layout(ncvar, firstDepth, m_width, m_height,
+                          m_voxelType, layoutError))
+    {
+      m_lastError = layoutError;
+      return false;
     }
-
-  long sizes[100];
-  memset(sizes, 0, 400);
-  for(uint i=0; i<ncvar->num_dims(); i++)
-    sizes[i] = ncvar->get_dim(i)->size();
 
   // ---------------------
   // get voxel size and unit if available
@@ -344,11 +455,6 @@ NcPlugin::setFile(QStringList files)
 
   dataFile.close();
 
-  //m_depth = sizes[0];
-  m_width = sizes[1];
-  m_height = sizes[2];
-
-
   m_bytesPerVoxel = 1;
   if (m_voxelType == _UChar) m_bytesPerVoxel = 1;
   else if (m_voxelType == _Char) m_bytesPerVoxel = 1;
@@ -357,33 +463,35 @@ NcPlugin::setFile(QStringList files)
   else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
 
-  // ---------------------
-  if (m_4dvol)
-    m_depth = sizes[0];
-  else
+  if (!std::isfinite(m_voxelSizeX) || m_voxelSizeX <= 0) m_voxelSizeX = 1;
+  if (!std::isfinite(m_voxelSizeY) || m_voxelSizeY <= 0) m_voxelSizeY = 1;
+  if (!std::isfinite(m_voxelSizeZ) || m_voxelSizeZ <= 0) m_voxelSizeZ = 1;
+
+  m_depth = 0;
+  m_depthList.clear();
+  for(int i=0; i<m_fileName.size(); i++)
     {
-      m_depth = 0;
-      m_depthList.clear();
-      for(uint i=0; i<m_fileName.size(); i++)
-	{
-	  NcFile ncfile((char*)m_fileName[i].toUtf8().data(),
-			NcFile::ReadOnly);
-	  
-	  if (!ncfile.is_valid())
-	    {
-	      QMessageBox::information(0, "Error",
-				       QString("%1 is not a valid NetCDF file"). \
-				       arg(m_fileName[i]));
-	      return false;
-	    }
-	  NcVar *ncvar;
-	  ncvar = ncfile.get_var((char *)m_varName.toUtf8().data());
-	  m_depth += ncvar->get_dim(0)->size();
-	  m_depthList.append(m_depth);
-	  ncfile.close();
-	}
+      NcFile ncfile(m_fileName[i].toLocal8Bit().constData(), NcFile::ReadOnly);
+      NcVar *fileVariable = ncfile.is_valid() ?
+        ncfile.get_var(m_varName.toLocal8Bit().constData()) : NULL;
+      int fileDepth = 0, fileWidth = 0, fileHeight = 0, fileType = -1;
+      QString fileError;
+      if (!ncfile.is_valid() ||
+          !supportedNc3Layout(fileVariable, fileDepth, fileWidth, fileHeight,
+                              fileType, fileError) ||
+          fileWidth != m_width || fileHeight != m_height ||
+          fileType != m_voxelType ||
+          fileDepth > std::numeric_limits<int>::max()-m_depth)
+        {
+          m_lastError = fileError.isEmpty() ?
+            QString("NetCDF file %1 does not match the selected variable layout.")
+              .arg(m_fileName[i]) : fileError;
+          return false;
+        }
+      m_depth += fileDepth;
+      m_depthList.append(m_depth);
+      ncfile.close();
     }
-  // ---------------------
 
   if (m_voxelType == _UChar ||
       m_voxelType == _Char ||
@@ -398,7 +506,7 @@ NcPlugin::setFile(QStringList files)
       generateHistogram();
     }
 
-  return true;
+  return m_lastError.isEmpty() && !m_histogram.isEmpty();
 }
 
 
@@ -432,7 +540,7 @@ NcPlugin::findMinMaxandGenerateHistogram()
       m_voxelType == _Char)
     {
       if (m_voxelType == _UChar) rMin = 0;
-      if (m_voxelType == _Char) rMin = -127;
+      if (m_voxelType == _Char) rMin = -128;
       rSize = 255;
       for(uint i=0; i<256; i++)
 	m_histogram.append(0);
@@ -441,7 +549,7 @@ NcPlugin::findMinMaxandGenerateHistogram()
       m_voxelType == _Short)
     {
       if (m_voxelType == _UShort) rMin = 0;
-      if (m_voxelType == _Short) rMin = -32767;
+      if (m_voxelType == _Short) rMin = -32768;
       rSize = 65535;
       for(uint i=0; i<65536; i++)
 	m_histogram.append(0);
@@ -458,10 +566,18 @@ NcPlugin::findMinMaxandGenerateHistogram()
   nZ = m_height;
 
   int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  std::unique_ptr<uchar[]> storage(new (std::nothrow) uchar[nbytes]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for a NetCDF slice.")
+                      .arg(nbytes);
+      m_histogram.clear();
+      return;
+    }
+  uchar *tmp = storage.get();
 
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
 
   NcError err(NcError::verbose_nonfatal);
   int nfls = m_fileName.size();
@@ -474,8 +590,13 @@ NcPlugin::findMinMaxandGenerateHistogram()
       NcFile dataFile((char *)m_fileName[nf].toUtf8().data(),
 		      NcFile::ReadOnly);
 
-      NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toUtf8().data());
+      if (!dataFile.is_valid())
+        {
+          m_lastError = QString("Cannot read NetCDF file %1.").arg(m_fileName[nf]);
+          m_histogram.clear();
+          return;
+        }
+      NcVar *ncvar = dataFile.get_var((char *)m_varName.toUtf8().data());
       
       int iEnd = ncvar->get_dim(0)->size();
       for(uint i=0; i<iEnd; i++)
@@ -483,17 +604,13 @@ NcPlugin::findMinMaxandGenerateHistogram()
 	  progress.setValue((int)(100.0*(float)i/(float)iEnd));
 	  qApp->processEvents();
 
-	  ncvar->set_cur(i, 0, 0);
-	  if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-	    ncvar->get((ncbyte*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncShort)
-	    ncvar->get((short*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncInt)
-	    ncvar->get((int*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncFloat)
-	    ncvar->get((float*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncDouble)
-	    ncvar->get((double*)tmp, 1, m_width, m_height);
+	  if (!readNc3Slice(ncvar, i, m_width, m_height, m_voxelType, tmp))
+	    {
+	      m_lastError = QString("Cannot decode slice %1 from %2.")
+	                      .arg(i).arg(m_fileName[nf]);
+	      m_histogram.clear();
+	      return;
+	    }
 	  
 	  
 	  if (m_voxelType == _UChar)
@@ -531,8 +648,6 @@ NcPlugin::findMinMaxandGenerateHistogram()
       dataFile.close();
     }
 
-  delete [] tmp;
-
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
 //  while(m_histogram.first() == 0)
@@ -548,8 +663,11 @@ NcPlugin::findMinMaxandGenerateHistogram()
     for(uint j=0; j<nY*nZ; j++)				\
       {							\
 	float val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, val);			\
-	m_rawMax = qMax(m_rawMax, val);			\
+	if (std::isfinite(static_cast<double>(val)))		\
+	  {						\
+	    m_rawMin = qMin(m_rawMin, val);		\
+	    m_rawMax = qMax(m_rawMax, val);		\
+	  }						\
       }							\
   }
 
@@ -568,10 +686,17 @@ NcPlugin::findMinMax()
   nZ = m_height;
 
   int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  std::unique_ptr<uchar[]> storage(new (std::nothrow) uchar[nbytes]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for a NetCDF slice.")
+                      .arg(nbytes);
+      return;
+    }
+  uchar *tmp = storage.get();
 
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
 
   NcError err(NcError::verbose_nonfatal);
   int nfls = m_fileName.size();
@@ -582,8 +707,12 @@ NcPlugin::findMinMax()
       NcFile dataFile((char *)m_fileName[nf].toUtf8().data(),
 		      NcFile::ReadOnly);
 
-      NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toUtf8().data());
+      if (!dataFile.is_valid())
+        {
+          m_lastError = QString("Cannot read NetCDF file %1.").arg(m_fileName[nf]);
+          return;
+        }
+      NcVar *ncvar = dataFile.get_var((char *)m_varName.toUtf8().data());
 
       int iEnd = ncvar->get_dim(0)->size();
       for(uint i=0; i<iEnd; i++)
@@ -591,17 +720,12 @@ NcPlugin::findMinMax()
 	  progress.setValue((int)(100.0*(float)i/(float)iEnd));
 	  qApp->processEvents();
 	  
-	  ncvar->set_cur(i, 0, 0);
-	  if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-	    ncvar->get((ncbyte*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncShort)
-	    ncvar->get((short*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncInt)
-	    ncvar->get((int*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncFloat)
-	    ncvar->get((float*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncDouble)
-	    ncvar->get((double*)tmp, 1, m_width, m_height);
+	  if (!readNc3Slice(ncvar, i, m_width, m_height, m_voxelType, tmp))
+	    {
+	      m_lastError = QString("Cannot decode slice %1 from %2.")
+	                      .arg(i).arg(m_fileName[nf]);
+	      return;
+	    }
 
 	  if (m_voxelType == _UChar)
 	    {
@@ -637,8 +761,8 @@ NcPlugin::findMinMax()
       dataFile.close();
     }
 
-  delete [] tmp;
-
+  if (m_rawMin > m_rawMax)
+    m_rawMin = m_rawMax = 0;
   progress.setValue(100);
   qApp->processEvents();
 }
@@ -647,10 +771,10 @@ NcPlugin::findMinMax()
   {							\
     for(uint j=0; j<nY*nZ; j++)				\
       {							\
-	float fidx = (ptr[j]-m_rawMin)/rSize;		\
-	fidx = qBound(0.0f, fidx, 1.0f);		\
-	int idx = fidx*histogramSize;			\
-	m_histogram[idx]+=1;				\
+	int idx = RawFileUtils::scaledHistogramIndex(		\
+	  static_cast<float>(ptr[j]), m_rawMin, m_rawMax, \
+	  histogramSize);					\
+	if (idx >= 0) m_histogram[idx]+=1;			\
       }							\
   }
 
@@ -663,21 +787,9 @@ NcPlugin::generateHistogram()
 			   0);
   progress.setMinimumDuration(0);
 
-  float rSize = m_rawMax-m_rawMin;
   m_histogram.clear();
-  if (m_voxelType == _UChar ||
-      m_voxelType == _Char ||
-      m_voxelType == _UShort ||
-      m_voxelType == _Short)
-    {
-      for(uint i=0; i<rSize+1; i++)
-	m_histogram.append(0);
-    }
-  else
-    {      
-      for(uint i=0; i<65536; i++)
-	m_histogram.append(0);
-    }
+  for(uint i=0; i<65536; i++)
+    m_histogram.append(0);
 
   int nX, nY, nZ;
   nX = m_depth;
@@ -685,7 +797,15 @@ NcPlugin::generateHistogram()
   nZ = m_height;
 
   int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  std::unique_ptr<uchar[]> storage(new (std::nothrow) uchar[nbytes]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for a NetCDF slice.")
+                      .arg(nbytes);
+      m_histogram.clear();
+      return;
+    }
+  uchar *tmp = storage.get();
 
   NcError err(NcError::verbose_nonfatal);
   int histogramSize = m_histogram.size()-1;
@@ -698,8 +818,13 @@ NcPlugin::generateHistogram()
       NcFile dataFile((char *)m_fileName[nf].toUtf8().data(),
 		      NcFile::ReadOnly);
 
-      NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toUtf8().data());
+      if (!dataFile.is_valid())
+        {
+          m_lastError = QString("Cannot read NetCDF file %1.").arg(m_fileName[nf]);
+          m_histogram.clear();
+          return;
+        }
+      NcVar *ncvar = dataFile.get_var((char *)m_varName.toUtf8().data());
       
       int iEnd = ncvar->get_dim(0)->size();
       for(uint i=0; i<iEnd; i++)
@@ -707,17 +832,13 @@ NcPlugin::generateHistogram()
 	  progress.setValue((int)(100.0*(float)i/(float)iEnd));
 	  qApp->processEvents();
 
-	  ncvar->set_cur(i, 0, 0);
-	  if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-	    ncvar->get((ncbyte*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncShort)
-	    ncvar->get((short*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncInt)
-	    ncvar->get((int*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncFloat)
-	    ncvar->get((float*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncDouble)
-	    ncvar->get((double*)tmp, 1, m_width, m_height);
+	  if (!readNc3Slice(ncvar, i, m_width, m_height, m_voxelType, tmp))
+	    {
+	      m_lastError = QString("Cannot decode slice %1 from %2.")
+	                      .arg(i).arg(m_fileName[nf]);
+	      m_histogram.clear();
+	      return;
+	    }
 	  
 	  
 	  if (m_voxelType == _UChar)
@@ -753,8 +874,6 @@ NcPlugin::generateHistogram()
 	}
       dataFile.close();
     }
-
-  delete [] tmp;
 
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
@@ -773,38 +892,40 @@ void
 NcPlugin::getDepthSlice(int slc,
 			     uchar* slice)
 {
-  NcError err(NcError::verbose_nonfatal);
-
-  int nf = 0;
-  int slcno = slc;
-  for(uint fl=0; fl<m_fileName.size(); fl++)
+  RawFileUtils::Layout layout;
+  QString layoutError;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height, m_voxelType, 0,
+                                layout, layoutError) || !slice)
+    return;
+  if (slc < 0 || slc >= m_depth || m_fileName.isEmpty() ||
+      m_depthList.size() != m_fileName.size())
     {
-      if (m_depthList[fl] > slc)
-	{
-	  nf = fl;
-	  if (fl == 0)
-	    slcno = slc;
-	  else
-	    slcno = slc-m_depthList[fl-1];
-	  break;
-	}
+      std::memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      m_lastError = QString("Invalid NetCDF depth slice %1.").arg(slc);
+      return;
     }
 
-  NcFile dataFile((char *)m_fileName[nf].toUtf8().data(),
-		  NcFile::ReadOnly);
-  NcVar *ncvar;
-  ncvar = dataFile.get_var((char *)m_varName.toUtf8().data());
-  ncvar->set_cur(slcno, 0, 0);
-  if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-    ncvar->get((ncbyte*)slice, 1, m_width, m_height);
-  else if (ncvar->type() == ncShort)
-    ncvar->get((short*)slice, 1, m_width, m_height);
-  else if (ncvar->type() == ncInt)
-    ncvar->get((int*)slice, 1, m_width, m_height);
-  else if (ncvar->type() == ncFloat)
-    ncvar->get((float*)slice, 1, m_width, m_height);
-  else if (ncvar->type() == ncDouble)
-    ncvar->get((double*)slice, 1, m_width, m_height);
+  int fileIndex = 0;
+  while (fileIndex < m_depthList.size() && m_depthList[fileIndex] <= slc)
+    ++fileIndex;
+  if (fileIndex >= m_fileName.size())
+    {
+      std::memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      m_lastError = QString("Cannot map NetCDF depth slice %1 to a file.").arg(slc);
+      return;
+    }
+  const int localSlice = fileIndex == 0 ? slc : slc-m_depthList[fileIndex-1];
+
+  NcError err(NcError::silent_nonfatal);
+  NcFile dataFile(m_fileName[fileIndex].toLocal8Bit().constData(),
+                  NcFile::ReadOnly);
+  NcVar *ncvar = dataFile.is_valid() ?
+    dataFile.get_var(m_varName.toLocal8Bit().constData()) : NULL;
+  if (!readNc3Slice(ncvar, localSlice, m_width, m_height, m_voxelType, slice))
+    {
+      std::memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      m_lastError = QString("Cannot decode NetCDF depth slice %1.").arg(slc);
+    }
   dataFile.close();
 }
 
@@ -893,202 +1014,65 @@ NcPlugin::getHeightSlice(int slc,
 QVariant
 NcPlugin::rawValue(int d, int w, int h)
 {
-  QVariant v;
-
   if (d < 0 || d >= m_depth ||
       w < 0 || w >= m_width ||
       h < 0 || h >= m_height)
-    {
-      v = QVariant("OutOfBounds");
-      return v;
-    }
+    return QVariant("OutOfBounds");
+  if (m_fileName.isEmpty() || m_depthList.size() != m_fileName.size())
+    return QVariant("ReadError");
 
+  int fileIndex = 0;
+  while (fileIndex < m_depthList.size() && m_depthList[fileIndex] <= d)
+    ++fileIndex;
+  if (fileIndex >= m_fileName.size())
+    return QVariant("ReadError");
+  const int localSlice = fileIndex == 0 ? d : d-m_depthList[fileIndex-1];
 
-  //------ cater for multiple netCDF files ------
-  int nf = 0;
-  int slcno = d;
-  for(uint fl=0; fl<m_fileName.size(); fl++)
-    {
-      if (m_depthList[fl] > d)
-	{
-	  nf = fl;
-	  if (fl == 0)
-	    slcno = d;
-	  else
-	    slcno = d-m_depthList[fl-1];
-	  break;
-	}
-    }
-  //----------------------------------------
+  NcError err(NcError::silent_nonfatal);
+  NcFile dataFile(m_fileName[fileIndex].toLocal8Bit().constData(),
+                  NcFile::ReadOnly);
+  NcVar *ncvar = dataFile.is_valid() ?
+    dataFile.get_var(m_varName.toLocal8Bit().constData()) : NULL;
+  if (!ncvar || !ncvar->set_cur(localSlice, w, h))
+    return QVariant("ReadError");
 
-
-  NcError err(NcError::verbose_nonfatal);
-  NcFile dataFile((char *)m_fileName[nf].toUtf8().data(),
-		  NcFile::ReadOnly);
-  NcVar *ncvar;
-  ncvar = dataFile.get_var((char *)m_varName.toUtf8().data());
-  ncvar->set_cur(slcno, w, h);
-
-  if (m_voxelType == _UChar)
-    {
-      unsigned char a;
-      ncvar->get((ncbyte*)&a, 1, 1, 1);
-      v = QVariant((uint)a);
-    }
-  else if (m_voxelType == _Char)
-    {
-      char a;
-      ncvar->get((ncbyte*)&a, 1, 1, 1);
-      v = QVariant((int)a);
-    }
-  else if (m_voxelType == _UShort)
-    {
-      unsigned short a;
-      ncvar->get((short*)&a, 1, 1, 1);
-      v = QVariant((uint)a);
-    }
+  alignas(4) uchar bytes[4] = { 0, 0, 0, 0 };
+  bool ok = false;
+  if (m_voxelType == _Char)
+    ok = ncvar->get(reinterpret_cast<ncbyte*>(bytes), 1, 1, 1);
   else if (m_voxelType == _Short)
-    {
-      short a;
-      ncvar->get((short*)&a, 1, 1, 1);
-      v = QVariant((int)a);
-    }
+    ok = ncvar->get(reinterpret_cast<short*>(bytes), 1, 1, 1);
   else if (m_voxelType == _Int)
-    {
-      int a;
-      ncvar->get((int*)&a, 1, 1, 1);
-      v = QVariant((int)a);
-    }
+    ok = ncvar->get(reinterpret_cast<int*>(bytes), 1, 1, 1);
   else if (m_voxelType == _Float)
-    {
-      float a;
-      ncvar->get((float*)&a, 1, 1, 1);
-      v = QVariant((double)a);
-    }
+    ok = ncvar->get(reinterpret_cast<float*>(bytes), 1, 1, 1);
   dataFile.close();
+  if (!ok)
+    return QVariant("ReadError");
 
-  return v;
-}
-
-void
-NcPlugin::saveTrimmed(QString trimFile,
-		      int dmin, int dmax,
-		      int wmin, int wmax,
-		      int hmin, int hmax)
-{
-  QProgressDialog progress("Saving trimmed volume",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int mX, mY, mZ;
-  mX = dmax-dmin+1;
-  mY = wmax-wmin+1;
-  mZ = hmax-hmin+1;
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  uchar vt;
-  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-  if (m_voxelType == _Char) vt = 1; // signed byte
-  if (m_voxelType == _UShort) vt = 2; // unsigned short
-  if (m_voxelType == _Short) vt = 3; // signed short
-  if (m_voxelType == _Int) vt = 4; // int
-  if (m_voxelType == _Float) vt = 8; // float
-  
-  QFile fout(trimFile);
-  fout.open(QFile::WriteOnly);
-
-  fout.write((char*)&vt, 1);
-  fout.write((char*)&mX, 4);
-  fout.write((char*)&mY, 4);
-  fout.write((char*)&mZ, 4);
-
-
-  NcError err(NcError::verbose_nonfatal);
-
-  int nfStart, nfEnd;
-  int slcStart, slcEnd;
-  //------ cater for multiple netCDF files ------
-  for(uint fl=0; fl<m_fileName.size(); fl++)
+  if (m_voxelType == _Char)
     {
-      if (m_depthList[fl] > dmin)
-	{
-	  nfStart = fl;
-	  if (fl == 0)
-	    slcStart = dmin;
-	  else
-	    slcStart = dmin-m_depthList[fl-1];
-	  break;
-	}
+      signed char value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<int>(value));
     }
-  for(uint fl=0; fl<m_fileName.size(); fl++)
+  if (m_voxelType == _Short)
     {
-      if (m_depthList[fl] > dmax)
-	{
-	  nfEnd = fl;
-	  if (fl == 0)
-	    slcEnd = dmax;
-	  else
-	    slcEnd = dmax-m_depthList[fl-1];
-	  break;
-	}
+      short value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<int>(value));
     }
-  //----------------------------------------
-
-  uint nslc = 0;
-  for(uint nf=nfStart; nf<=nfEnd; nf++)
+  if (m_voxelType == _Int)
     {
-      NcFile dataFile((char *)m_fileName[nf].toUtf8().data(),
-		      NcFile::ReadOnly);
-      NcVar *ncvar;
-      ncvar = dataFile.get_var((char *)m_varName.toUtf8().data());
-
-      uint dStart, dEnd;
-      dStart = 0;
-      dEnd = ncvar->get_dim(0)->size()-1;
-
-      if (nf == nfStart) dStart = slcStart;
-      if (nf == nfEnd) dEnd = slcEnd;
-
-      for(uint i=dStart; i<=dEnd; i++)
-	{
-	  ncvar->set_cur(i, 0, 0);
-	  if (ncvar->type() == ncByte || ncvar->type() == ncChar)
-	    ncvar->get((ncbyte*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncShort)
-	    ncvar->get((short*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncInt)
-	    ncvar->get((int*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncFloat)
-	    ncvar->get((float*)tmp, 1, m_width, m_height);
-	  else if (ncvar->type() == ncDouble)
-	    ncvar->get((double*)tmp, 1, m_width, m_height);
-	  
-	  for(uint j=wmin; j<=wmax; j++)
-	    {
-	      memcpy(tmp+(j-wmin)*mZ*m_bytesPerVoxel,
-		     tmp+(j*nZ + hmin)*m_bytesPerVoxel,
-		     mZ*m_bytesPerVoxel);
-	    }
-	  fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
-	  progress.setValue((int)(100*(float)nslc/(float)mX));
-	  qApp->processEvents();
-	  nslc++;
-	}
-      dataFile.close();
+      int value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(value);
     }
-
-  fout.close();  
-
-  delete [] tmp;
-
-  m_headerBytes = 13; // to be used in applyMapping
+  if (m_voxelType == _Float)
+    {
+      float value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<double>(value));
+    }
+  return QVariant("ReadError");
 }

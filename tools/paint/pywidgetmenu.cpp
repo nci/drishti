@@ -4,6 +4,15 @@
 #include <QJsonObject>
 #include <QMessageBox>
 #include <QDir>
+#include <QStandardPaths>
+
+namespace
+{
+QString quotedCommandArgument(const QString &value)
+{
+  return QStringLiteral("\"") + value + QStringLiteral("\"");
+}
+}
 
 
 PyWidgetMenu::PyWidgetMenu(QWidget *parent) :
@@ -214,10 +223,31 @@ PyWidgetMenu::on_runScript_pressed()
     }
 
   if (!m_executable.isEmpty())
-    cmd = m_executable+" "+cmd;
-  else if (!m_interpreter.isEmpty() &&
-	   !m_script.isEmpty())
-    cmd = m_interpreter+" "+m_script+" "+cmd;
+    cmd = quotedCommandArgument(m_executable)+" "+cmd;
+  else if (!m_interpreter.isEmpty() && !m_script.isEmpty())
+    {
+      QString interpreter = m_interpreter;
+      if (interpreter.compare("python", Qt::CaseInsensitive) == 0)
+	{
+	  interpreter = QStandardPaths::findExecutable("python");
+	  if (interpreter.isEmpty())
+	    {
+	      QMessageBox::critical(
+		0, "Python Not Found",
+		"This optional Paint script requires an external Python "
+		"installation on PATH and the packages listed by the script.");
+	      return;
+	    }
+	}
+      cmd = quotedCommandArgument(interpreter)+" "+
+	    quotedCommandArgument(m_script)+" "+cmd;
+    }
+  else
+    {
+      QMessageBox::critical(0, "Script Error",
+			    "The selected script has no executable command.");
+      return;
+    }
 
   emit runCommand(cmd);
 }

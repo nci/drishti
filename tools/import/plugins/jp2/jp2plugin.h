@@ -36,6 +36,8 @@ class Jp2Plugin : public QObject, VolInterface
   float rawMax();
    
   void getDepthSlice(int, uchar*);
+  Q_INVOKABLE QString lastError() const;
+  Q_INVOKABLE bool wasCanceled() const;
   //void getWidthSlice(int, uchar*);
   //void getHeightSlice(int, uchar*);
 
@@ -61,6 +63,8 @@ class Jp2Plugin : public QObject, VolInterface
   QList<uint> m_histogram;
 
   int m_bytesPerVoxel;
+  QString m_lastError;
+  bool m_lastOperationCanceled;
 
   QList<QString> m_imageList;
   
@@ -70,7 +74,7 @@ class Jp2Plugin : public QObject, VolInterface
 
   bool setImageFiles(QStringList);
   bool loadJp2ImageProperties(QString);
-  void loadJp2Image(int, uchar*);
+  bool loadJp2Image(int, uchar*);
 
   bool readJP2Image(char*);
 };

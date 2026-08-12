@@ -1,9 +1,207 @@
 #include "common.h"
+#include "importmemoryadmission.h"
 #include "volumedata.h"
+#include "pluginoperationstatus.h"
+#include "volumepluginvalidation.h"
+#include "volumevaluemapping.h"
 
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <exception>
 #include <iostream>
+#include <limits>
+#include <memory>
+#include <new>
 
 using namespace std;
+
+namespace
+{
+const std::uint64_t kPreviewSafetyBytes = 64ULL*1024ULL*1024ULL;
+
+QString previewMemoryAmount(std::uint64_t bytes)
+{
+  const double mib = static_cast<double>(bytes)/(1024.0*1024.0);
+  if (mib < 1024.0)
+    return QStringLiteral("%1 MiB").arg(mib, 0, 'f', 1);
+  return QStringLiteral("%1 GiB").arg(mib/1024.0, 0, 'f', 2);
+}
+
+QString previewAdmissionError(const QString& operation,
+                              const ImportMemoryAdmission& admission)
+{
+  QString reason;
+  switch (admission.reason)
+    {
+    case ImportMemoryAdmissionReason::MemoryStatusUnavailable:
+      reason = QStringLiteral(
+        "Current physical-memory or Windows Commit headroom is unavailable.");
+      break;
+    case ImportMemoryAdmissionReason::InsufficientPhysicalMemory:
+      reason = QStringLiteral(
+        "The preview would consume reserved physical-memory headroom.");
+      break;
+    case ImportMemoryAdmissionReason::InsufficientCommit:
+      reason = QStringLiteral(
+        "The preview would consume reserved Windows Commit headroom.");
+      break;
+    case ImportMemoryAdmissionReason::AddressSpaceLimit:
+      reason = QStringLiteral("The preview exceeds this process address space.");
+      break;
+    case ImportMemoryAdmissionReason::ArithmeticOverflow:
+    case ImportMemoryAdmissionReason::InvalidRequest:
+      reason = QStringLiteral("The preview buffer request is invalid.");
+      break;
+    case ImportMemoryAdmissionReason::Approved:
+      reason = QStringLiteral("The preview allocation was approved.");
+      break;
+    }
+  return QStringLiteral(
+    "%1 was stopped before decoding. Required peak increment: %2; "
+    "usable physical budget: %3; usable Commit budget: %4. %5")
+    .arg(operation,
+         previewMemoryAmount(admission.requiredBytes),
+         admission.physicalMemoryChecked ?
+           previewMemoryAmount(admission.availablePhysicalBudgetBytes) :
+           QStringLiteral("unavailable"),
+         admission.commitMemoryChecked ?
+           previewMemoryAmount(admission.availableCommitBudgetBytes) :
+           QStringLiteral("unavailable"),
+         reason);
+}
+
+bool alignedPreviewStride(std::uint64_t rowBytes, std::uint64_t& stride)
+{
+  if (!checkedImportAdd(rowBytes, 3, stride))
+    return false;
+  stride &= ~std::uint64_t(3);
+  return true;
+}
+
+bool preparePreviewBuffers(const QString& operation,
+                           int width, int height,
+                           int sourceBytesPerPixel,
+                           int displayBytesPerPixel,
+                           std::unique_ptr<uchar[]>& source,
+                           std::unique_ptr<uchar[]>& display,
+                           std::uint64_t& pixels,
+                           std::uint64_t& sourceBytes,
+                           std::uint64_t& displayBytes,
+                           std::uint64_t& displayStride,
+                           QString& error)
+{
+  pixels = sourceBytes = displayBytes = displayStride = 0;
+  std::uint64_t requiredBytes = 0;
+  std::uint64_t displayRowBytes = 0;
+  if (width <= 0 || height <= 0 || sourceBytesPerPixel <= 0 ||
+      displayBytesPerPixel <= 0 ||
+      !checkedImportMultiply(static_cast<std::uint64_t>(width),
+                             static_cast<std::uint64_t>(height), pixels) ||
+      pixels > static_cast<std::uint64_t>(
+                 std::numeric_limits<int>::max()) ||
+      !checkedImportMultiply(pixels,
+                             static_cast<std::uint64_t>(sourceBytesPerPixel),
+                             sourceBytes) ||
+      !checkedImportMultiply(static_cast<std::uint64_t>(width),
+                             static_cast<std::uint64_t>(displayBytesPerPixel),
+                             displayRowBytes) ||
+      !alignedPreviewStride(displayRowBytes, displayStride) ||
+      !checkedImportMultiply(displayStride,
+                             static_cast<std::uint64_t>(height),
+                             displayBytes) ||
+      displayRowBytes > static_cast<std::uint64_t>(
+                          std::numeric_limits<int>::max()) ||
+      displayStride > static_cast<std::uint64_t>(
+                        std::numeric_limits<int>::max()) ||
+      !checkedImportAdd(sourceBytes, displayBytes, requiredBytes) ||
+      !checkedImportAdd(requiredBytes, kPreviewSafetyBytes, requiredBytes))
+    {
+      error = operation + QStringLiteral(
+        " was stopped because its dimensions or buffer size are invalid.");
+      return false;
+    }
+
+  const ImportMemoryAdmission admission =
+    evaluateImportMemoryAdmission(requiredBytes);
+  if (!admission.approved)
+    {
+      error = previewAdmissionError(operation, admission);
+      return false;
+    }
+
+  if (sourceBytes > static_cast<std::uint64_t>(
+                      std::numeric_limits<std::size_t>::max()) ||
+      displayBytes > static_cast<std::uint64_t>(
+                       std::numeric_limits<std::size_t>::max()))
+    {
+      error = operation + QStringLiteral(
+        " exceeds this process address space.");
+      return false;
+    }
+
+  source.reset(new (std::nothrow) uchar[
+    static_cast<std::size_t>(sourceBytes)]);
+  display.reset(new (std::nothrow) uchar[
+    static_cast<std::size_t>(displayBytes)]);
+  if (!source || !display)
+    {
+      error = operation + QStringLiteral(
+        " could not allocate its admitted buffers. The system memory state "
+        "changed; decoding was not started.");
+      return false;
+    }
+  std::memset(source.get(), 0, static_cast<std::size_t>(sourceBytes));
+  std::memset(display.get(), 0, static_cast<std::size_t>(displayBytes));
+  return true;
+}
+
+std::uint64_t previewDisplayOffset(std::uint64_t pixel,
+                                   int width,
+                                   std::uint64_t stride,
+                                   int bytesPerPixel)
+{
+  const std::uint64_t row = pixel/static_cast<std::uint64_t>(width);
+  const std::uint64_t column = pixel%static_cast<std::uint64_t>(width);
+  return row*stride+column*static_cast<std::uint64_t>(bytesPerPixel);
+}
+
+bool expandPackedColorSlice(const uchar *source,
+                            int voxelType,
+                            std::uint64_t pixelCount,
+                            uchar *destination)
+{
+  if (!source || !destination ||
+      (voxelType != _Rgb && voxelType != _Rgba))
+    return false;
+
+  const std::uint64_t bytesPerPixel = voxelType == _Rgb ? 3 : 4;
+  QRgb *pixels = reinterpret_cast<QRgb*>(destination);
+  for (std::uint64_t i=0; i<pixelCount; ++i)
+    {
+      const uchar *input = source + i*bytesPerPixel;
+      pixels[i] = voxelType == _Rgb ?
+        qRgb(input[0], input[1], input[2]) :
+        qRgba(input[0], input[1], input[2], input[3]);
+    }
+  return true;
+}
+
+bool mapPreviewValue(double value,
+                     const QList<float>& rawMap,
+                     const QList<int>& pvlMap,
+                     int pvlMapMax,
+                     uchar& destination)
+{
+  int mapped = 0;
+  if (!mapImportValueToPvl(value, rawMap, pvlMap, mapped))
+    return false;
+  if (pvlMapMax > 255)
+    mapped /= 256;
+  destination = static_cast<uchar>(qBound(0, mapped, 255));
+  return true;
+}
+}
 
 VolumeData::VolumeData()
 {
@@ -20,8 +218,13 @@ VolumeData::~VolumeData()
 void
 VolumeData::clear()
 {
+  m_scriptsPlugin.clear();
+
   if (m_volInterface)
-    delete m_volInterface;
+    {
+      delete m_volInterface;
+      m_volInterface = 0;
+    }
 
   m_scriptsPluginActive = false;
 
@@ -30,11 +233,14 @@ VolumeData::clear()
   m_depth = m_width = m_height = 0;
   m_voxelType = _UChar;
   m_voxelUnit = _Micron;
+  m_headerBytes = 0;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 
   m_pvlMapMax = 255;
   m_rawMap.clear();
@@ -63,51 +269,97 @@ VolumeData::voxelSize(float& vx, float& vy, float& vz)
     vz = m_voxelSizeZ;
   }
 QString VolumeData::description()
-{ 
-  if (m_scriptsPluginActive)
-    return m_scriptsPlugin.description();
-  else
-    return m_volInterface->description(); 
-}
-int VolumeData::voxelType()
-{
-  if (m_scriptsPluginActive)
-    return m_scriptsPlugin.voxelType();
-  else
-    return m_volInterface->voxelType(); 
-}
-int VolumeData::voxelUnit() 
-{ 
-  if (m_scriptsPluginActive)
-    return m_scriptsPlugin.voxelUnit();
-  else
-    return m_volInterface->voxelUnit(); 
-}
-int VolumeData::headerBytes()
-{
-  if (m_scriptsPluginActive)
-    return m_scriptsPlugin.headerBytes();
-  else
-    return m_volInterface->headerBytes(); 
-}
+{ return m_description; }
+int VolumeData::voxelType() { return m_voxelType; }
+int VolumeData::voxelUnit() { return m_voxelUnit; }
+int VolumeData::headerBytes() { return m_headerBytes; }
 int VolumeData::bytesPerVoxel() { return m_bytesPerVoxel; }
 
-void
+bool
 VolumeData::setMinMax(float rmin, float rmax)
 {
-  m_rawMin = rmin;
-  m_rawMax = rmax;
-  
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
+  if (!std::isfinite(rmin) || !std::isfinite(rmax) || rmin > rmax)
+    {
+      m_lastError = "The requested histogram range is invalid.";
+      return false;
+    }
+
+  QList<uint> candidateHistogram;
   if (m_scriptsPluginActive)
     {
-      m_scriptsPlugin.setMinMax(rmin, rmax);
-      m_histogram = m_scriptsPlugin.histogram();
+      try
+        {
+          m_scriptsPlugin.setMinMax(rmin, rmax);
+          candidateHistogram = m_scriptsPlugin.histogram();
+          m_lastError = m_scriptsPlugin.lastError();
+        }
+      catch (const std::bad_alloc&)
+        {
+          m_lastError = "The Python volume decoder ran out of memory while "
+                        "regenerating its histogram.";
+        }
+      catch (const std::exception& exception)
+        {
+          m_lastError = QString("The Python volume decoder raised an exception "
+                                "while regenerating its histogram: %1")
+            .arg(QString::fromLocal8Bit(exception.what()));
+        }
+      catch (...)
+        {
+          m_lastError = "The Python volume decoder raised an unknown exception "
+                        "while regenerating its histogram.";
+        }
     }
   else
     {
-      m_volInterface->setMinMax(m_rawMin, m_rawMax);
-      m_histogram = m_volInterface->histogram();
+      VolumePluginOperationStatus status;
+      if (!updateNativeVolumePluginRange(m_volInterface, rmin, rmax,
+                                         &candidateHistogram, &status))
+        {
+          m_lastError = status.error;
+          m_lastOperationCanceled = status.canceled;
+
+          QList<uint> ignoredHistogram;
+          VolumePluginOperationStatus rollbackStatus;
+          if (!updateNativeVolumePluginRange(
+                m_volInterface, m_rawMin, m_rawMax,
+                &ignoredHistogram, &rollbackStatus))
+            {
+              const QString rollbackError = rollbackStatus.error.isEmpty() ?
+                QStringLiteral("unknown rollback failure") :
+                rollbackStatus.error;
+              m_lastError += QString(" The previous decoder range could not "
+                                     "be restored: %1").arg(rollbackError);
+            }
+        }
     }
+
+  if (!m_lastError.isEmpty() || m_lastOperationCanceled)
+    return false;
+
+  VolumePluginMetadata candidate;
+  candidate.description = m_description;
+  candidate.depth = m_depth;
+  candidate.width = m_width;
+  candidate.height = m_height;
+  candidate.voxelType = m_voxelType;
+  candidate.voxelUnit = m_voxelUnit;
+  candidate.headerBytes = m_headerBytes;
+  candidate.voxelSizeX = m_voxelSizeX;
+  candidate.voxelSizeY = m_voxelSizeY;
+  candidate.voxelSizeZ = m_voxelSizeZ;
+  candidate.rawMinimum = rmin;
+  candidate.rawMaximum = rmax;
+  candidate.histogram = candidateHistogram;
+  if (!validateVolumePluginMetadata(candidate, &m_lastError))
+    return false;
+
+  m_rawMin = rmin;
+  m_rawMax = rmax;
+  m_histogram = candidateHistogram;
+  return true;
 }
 float VolumeData::rawMin() { return m_rawMin; }
 float VolumeData::rawMax() { return m_rawMax; }
@@ -119,6 +371,13 @@ void
 VolumeData::setMap(QList<float> rm,
 		   QList<int> pm)
 {
+  int ignored = 0;
+  if (!mapImportValueToPvl(0.0, rm, pm, ignored))
+    {
+      m_lastError = "The raw-to-preview value map is invalid.";
+      return;
+    }
+
   m_rawMap = rm;
   m_pvlMap = pm;
 
@@ -133,13 +392,82 @@ VolumeData::gridSize(int& d, int& w, int& h)
   h = m_height;
 }
 
-void
+bool
 VolumeData::replaceFile(QString flnm)
 {
-  if (m_scriptsPluginActive)
-    m_scriptsPlugin.replaceFile(flnm);
-  else
-    m_volInterface->replaceFile(flnm);
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
+  if (flnm.isEmpty())
+    {
+      m_lastError = "The replacement volume filename is empty.";
+      return false;
+    }
+
+  try
+    {
+      if (m_scriptsPluginActive)
+	{
+	  if (!m_scriptsPlugin.replaceFile(flnm))
+	    {
+	      m_lastError = m_scriptsPlugin.lastError();
+	      if (m_lastError.isEmpty())
+		m_lastError = "The Python volume decoder rejected the replacement file.";
+	      return false;
+	    }
+	  m_scriptsPlugin.gridSize(m_depth, m_width, m_height);
+	  m_voxelType = m_scriptsPlugin.voxelType();
+	}
+	else
+	{
+	  if (!m_volInterface)
+	    {
+	      m_lastError = "No volume decoder is loaded.";
+	      return false;
+	    }
+	  m_volInterface->replaceFile(flnm);
+	  QObject *pluginObject = dynamic_cast<QObject*>(m_volInterface);
+	  m_lastError = importPluginLastError(pluginObject);
+	  m_lastOperationCanceled = importPluginWasCanceled(pluginObject);
+	  if (m_lastOperationCanceled && m_lastError.isEmpty())
+	    m_lastError = "The volume decoder canceled replacement-file loading.";
+	  if (!m_lastError.isEmpty() || m_lastOperationCanceled)
+	    return false;
+	  m_volInterface->gridSize(m_depth, m_width, m_height);
+	  m_voxelType = m_volInterface->voxelType();
+	}
+    }
+  catch (const std::exception& exception)
+    {
+      m_lastError = QString("The volume decoder raised an exception while "
+			    "replacing the input: %1")
+	.arg(QString::fromLocal8Bit(exception.what()));
+      return false;
+    }
+  catch (...)
+    {
+      m_lastError = "The volume decoder raised an unknown exception while "
+	            "replacing the input.";
+      return false;
+    }
+
+  if (m_depth <= 0 || m_width <= 0 || m_height <= 0)
+    {
+      m_lastError = "The replacement volume has invalid dimensions.";
+      return false;
+    }
+
+  m_bytesPerVoxel = 1;
+  if (m_voxelType == _UShort || m_voxelType == _Short)
+    m_bytesPerVoxel = 2;
+  else if (m_voxelType == _Int || m_voxelType == _Float)
+    m_bytesPerVoxel = 4;
+  else if (m_voxelType == _Rgb)
+    m_bytesPerVoxel = 3;
+  else if (m_voxelType == _Rgba)
+    m_bytesPerVoxel = 4;
+
+  m_fileName = QStringList() << flnm;
+  return true;
 }
 
 bool
@@ -148,6 +476,11 @@ VolumeData::loadPlugin(QString pluginflnm)
   QStringList s = pluginflnm.split(" : ");
   if (s[0] == "script")
     {
+      if (s.size() < 3 || s[2].trimmed().isEmpty())
+	{
+	  m_lastError = "The script plugin descriptor is malformed.";
+	  return false;
+	}
       QString jsonflnm = s[2];
       
       if (m_scriptsPlugin.start(jsonflnm))
@@ -194,21 +527,48 @@ VolumeData::setFile(QStringList files,
       m_scriptsPlugin.init();
       m_scriptsPlugin.set4DVolume(false);
       if (! m_scriptsPlugin.setFile(m_fileName))
-        return false;
+	{
+	  m_lastError = m_scriptsPlugin.lastError();
+	  if (m_lastError.isEmpty())
+	    m_lastError = "The Python volume decoder rejected the selected input.";
+	  return false;
+	}
 
       m_scriptsPlugin.gridSize(m_depth, m_width, m_height);
       m_voxelType = m_scriptsPlugin.voxelType();
+      m_description = m_scriptsPlugin.description();
     }
   else
     {
-      m_volInterface->init();
-      m_volInterface->set4DVolume(false);
-      if (! m_volInterface->setFile(m_fileName))
-        return false;
+      VolumePluginMetadata metadata;
+      if (!loadNativeVolumePlugin(m_volInterface, m_fileName,
+                                  false, false, &metadata))
+	{
+	  m_lastError = metadata.error;
+	  m_lastOperationCanceled = metadata.canceled;
+	  return false;
+	}
+      m_depth = metadata.depth;
+      m_width = metadata.width;
+      m_height = metadata.height;
+      m_voxelType = metadata.voxelType;
+      m_voxelUnit = metadata.voxelUnit;
+      m_headerBytes = metadata.headerBytes;
+      m_voxelSizeX = metadata.voxelSizeX;
+      m_voxelSizeY = metadata.voxelSizeY;
+      m_voxelSizeZ = metadata.voxelSizeZ;
+      m_rawMin = metadata.rawMinimum;
+      m_rawMax = metadata.rawMaximum;
+      m_histogram = metadata.histogram;
+      m_description = metadata.description;
+    }
 
-      m_volInterface->gridSize(m_depth, m_width, m_height);
-      m_voxelType = m_volInterface->voxelType();
-      } 
+  if (m_depth <= 0 || m_width <= 0 || m_height <= 0 ||
+      m_voxelType < _UChar || m_voxelType > _Rgba)
+    {
+      m_lastError = "The volume decoder returned invalid dimensions or voxel type.";
+      return false;
+    }
 
   m_bytesPerVoxel = 1;
   if (m_voxelType == _UChar) m_bytesPerVoxel = 1;
@@ -217,28 +577,48 @@ VolumeData::setFile(QStringList files,
   else if (m_voxelType == _Short) m_bytesPerVoxel = 2;
   else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
+  else if (m_voxelType == _Rgb) m_bytesPerVoxel = 3;
+  else if (m_voxelType == _Rgba) m_bytesPerVoxel = 4;
 
   float vx, vy, vz;
   if (m_scriptsPluginActive)
-    m_scriptsPlugin.voxelSize(vx, vy, vz);
-  else
-    m_volInterface->voxelSize(vx, vy, vz);
-  m_voxelSizeX = vx;
-  m_voxelSizeY = vy;
-  m_voxelSizeZ = vz;
+    {
+      m_scriptsPlugin.voxelSize(vx, vy, vz);
+      m_voxelSizeX = vx;
+      m_voxelSizeY = vy;
+      m_voxelSizeZ = vz;
+      m_voxelUnit = m_scriptsPlugin.voxelUnit();
+      m_headerBytes = m_scriptsPlugin.headerBytes();
+    }
   
   if (m_scriptsPluginActive)
     {
       m_rawMin = m_scriptsPlugin.rawMin();
       m_rawMax = m_scriptsPlugin.rawMax();
       m_histogram = m_scriptsPlugin.histogram();
+      if (m_histogram.isEmpty())
+	{
+	  m_lastError = m_scriptsPlugin.lastError();
+	  if (m_lastError.isEmpty())
+	    m_lastError = "The Python volume decoder returned an empty histogram.";
+	  return false;
+	}
     }
-  else
-    {
-      m_rawMin = m_volInterface->rawMin();
-      m_rawMax = m_volInterface->rawMax();
-      m_histogram = m_volInterface->histogram();
-    }
+  VolumePluginMetadata validatedMetadata;
+  validatedMetadata.depth = m_depth;
+  validatedMetadata.width = m_width;
+  validatedMetadata.height = m_height;
+  validatedMetadata.voxelType = m_voxelType;
+  validatedMetadata.voxelUnit = m_voxelUnit;
+  validatedMetadata.headerBytes = m_headerBytes;
+  validatedMetadata.voxelSizeX = m_voxelSizeX;
+  validatedMetadata.voxelSizeY = m_voxelSizeY;
+  validatedMetadata.voxelSizeZ = m_voxelSizeZ;
+  validatedMetadata.rawMinimum = m_rawMin;
+  validatedMetadata.rawMaximum = m_rawMax;
+  validatedMetadata.histogram = m_histogram;
+  if (!validateVolumePluginMetadata(validatedMetadata, &m_lastError))
+    return false;
 
   m_rawMap.append(m_rawMin);
   m_rawMap.append(m_rawMax);
@@ -271,24 +651,47 @@ VolumeData::setFile(QStringList files,
       m_scriptsPlugin.set4DVolume(vol4d);
 
       if (! m_scriptsPlugin.setFile(m_fileName))
-        return false;
+	{
+	  m_lastError = m_scriptsPlugin.lastError();
+	  if (m_lastError.isEmpty())
+	    m_lastError = "The Python volume decoder rejected the selected input.";
+	  return false;
+	}
 
       m_scriptsPlugin.gridSize(m_depth, m_width, m_height);
       m_voxelType = m_scriptsPlugin.voxelType();
+      m_description = m_scriptsPlugin.description();
     }
   else
     {
-      m_volInterface->init();
-      m_volInterface->set4DVolume(vol4d);
+      VolumePluginMetadata metadata;
+      if (!loadNativeVolumePlugin(m_volInterface, m_fileName,
+                                  vol4d, skipRawDialog, &metadata))
+	{
+	  m_lastError = metadata.error;
+	  m_lastOperationCanceled = metadata.canceled;
+	  return false;
+	}
+      m_depth = metadata.depth;
+      m_width = metadata.width;
+      m_height = metadata.height;
+      m_voxelType = metadata.voxelType;
+      m_voxelUnit = metadata.voxelUnit;
+      m_headerBytes = metadata.headerBytes;
+      m_voxelSizeX = metadata.voxelSizeX;
+      m_voxelSizeY = metadata.voxelSizeY;
+      m_voxelSizeZ = metadata.voxelSizeZ;
+      m_rawMin = metadata.rawMinimum;
+      m_rawMax = metadata.rawMaximum;
+      m_histogram = metadata.histogram;
+      m_description = metadata.description;
+    }
 
-      if (skipRawDialog)
-        m_volInterface->setValue("skiprawdialog", skipRawDialog);
-
-      if (! m_volInterface->setFile(m_fileName))
-        return false;
-
-      m_volInterface->gridSize(m_depth, m_width, m_height);
-      m_voxelType = m_volInterface->voxelType();
+  if (m_depth <= 0 || m_width <= 0 || m_height <= 0 ||
+      m_voxelType < _UChar || m_voxelType > _Rgba)
+    {
+      m_lastError = "The volume decoder returned invalid dimensions or voxel type.";
+      return false;
     }
 
   m_bytesPerVoxel = 1;
@@ -298,15 +701,19 @@ VolumeData::setFile(QStringList files,
   else if (m_voxelType == _Short) m_bytesPerVoxel = 2;
   else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
+  else if (m_voxelType == _Rgb) m_bytesPerVoxel = 3;
+  else if (m_voxelType == _Rgba) m_bytesPerVoxel = 4;
 
   float vx, vy, vz;
   if (m_scriptsPluginActive)
-    m_scriptsPlugin.voxelSize(vx, vy, vz);
-  else
-    m_volInterface->voxelSize(vx, vy, vz);
-  m_voxelSizeX = vx;
-  m_voxelSizeY = vy;
-  m_voxelSizeZ = vz;
+    {
+      m_scriptsPlugin.voxelSize(vx, vy, vz);
+      m_voxelSizeX = vx;
+      m_voxelSizeY = vy;
+      m_voxelSizeZ = vz;
+      m_voxelUnit = m_scriptsPlugin.voxelUnit();
+      m_headerBytes = m_scriptsPlugin.headerBytes();
+    }
   
 
   if (m_scriptsPluginActive)
@@ -314,13 +721,29 @@ VolumeData::setFile(QStringList files,
       m_rawMin = m_scriptsPlugin.rawMin();
       m_rawMax = m_scriptsPlugin.rawMax();
       m_histogram = m_scriptsPlugin.histogram();
+      if (m_histogram.isEmpty())
+	{
+	  m_lastError = m_scriptsPlugin.lastError();
+	  if (m_lastError.isEmpty())
+	    m_lastError = "The Python volume decoder returned an empty histogram.";
+	  return false;
+	}
     }
-  else
-    {
-      m_rawMin = m_volInterface->rawMin();
-      m_rawMax = m_volInterface->rawMax();
-      m_histogram = m_volInterface->histogram();
-    }
+  VolumePluginMetadata validatedMetadata;
+  validatedMetadata.depth = m_depth;
+  validatedMetadata.width = m_width;
+  validatedMetadata.height = m_height;
+  validatedMetadata.voxelType = m_voxelType;
+  validatedMetadata.voxelUnit = m_voxelUnit;
+  validatedMetadata.headerBytes = m_headerBytes;
+  validatedMetadata.voxelSizeX = m_voxelSizeX;
+  validatedMetadata.voxelSizeY = m_voxelSizeY;
+  validatedMetadata.voxelSizeZ = m_voxelSizeZ;
+  validatedMetadata.rawMinimum = m_rawMin;
+  validatedMetadata.rawMaximum = m_rawMax;
+  validatedMetadata.histogram = m_histogram;
+  if (!validateVolumePluginMetadata(validatedMetadata, &m_lastError))
+    return false;
 
   m_rawMap.append(m_rawMin);
   m_rawMap.append(m_rawMax);
@@ -383,13 +806,64 @@ VolumeData::printVolumeInfo()
     cout << mesg.toStdString() << endl;
 }
 
-void
+bool
 VolumeData::getDepthSlice(int slc, uchar *slice)
 {
-  if (m_scriptsPluginActive)
-    m_scriptsPlugin.getDepthSlice(slc, slice);
-  else
-    m_volInterface->getDepthSlice(slc, slice);
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
+  if (!slice || slc < 0 || slc >= m_depth)
+    {
+      m_lastError = QString("Slice index %1 is outside [0, %2), or the output "
+			    "buffer is null.").arg(slc).arg(m_depth);
+      return false;
+    }
+
+  try
+    {
+      if (m_scriptsPluginActive)
+	{
+	  if (!m_scriptsPlugin.getDepthSlice(slc, slice))
+	    {
+	      m_lastError = m_scriptsPlugin.lastError();
+	      if (m_lastError.isEmpty())
+		m_lastError = "The Python volume decoder rejected the slice.";
+	      return false;
+	    }
+	  return true;
+	}
+	else
+	{
+	  VolumePluginOperationStatus status;
+	  if (!readNativeVolumePluginSlice(
+	        m_volInterface, VolumePluginSliceAxis::Depth,
+	        slc, slice, &status))
+	    {
+	      m_lastError = status.error;
+	      m_lastOperationCanceled = status.canceled;
+	      return false;
+	    }
+	  return true;
+	}
+    }
+  catch (const std::exception& exception)
+    {
+      m_lastError = QString("The volume decoder raised an exception while "
+			    "reading slice %1: %2")
+	.arg(slc).arg(QString::fromLocal8Bit(exception.what()));
+      return false;
+    }
+  catch (...)
+    {
+      m_lastError = QString("The volume decoder raised an unknown exception "
+			    "while reading slice %1.").arg(slc);
+      return false;
+    }
+}
+
+QString VolumeData::lastError() const { return m_lastError; }
+bool VolumeData::lastOperationCanceled() const
+{
+  return m_lastOperationCanceled;
 }
 
 QImage
@@ -400,100 +874,95 @@ VolumeData::getDepthSliceImage(int slc)
   nY = m_width;
   nZ = m_height;
 
-  if (m_image)
-    delete [] m_image;
+  if (slc < 0 || slc >= nX)
+    return QImage(100, 100, QImage::Format_Indexed8);
 
-  int nbytes;
-
-  if (m_voxelType != _Rgb && m_voxelType != _Rgba)
+  const bool color = m_voxelType == _Rgb || m_voxelType == _Rgba;
+  if (!color && m_rawMap.size() < 2)
     {
-      nbytes = nY*nZ*m_bytesPerVoxel;
-      m_image = new uchar[nY*nZ];
-    }
-  else
-    {
-      nbytes = nY*nZ*4;
-      m_image = new uchar[4*nY*nZ];
+      QMessageBox::warning(0, "Depth Preview",
+                           "The raw-to-preview value map is invalid.");
+      return QImage();
     }
 
-  uchar *tmp = new uchar[nbytes];
+  std::unique_ptr<uchar[]> sourceStorage;
+  std::unique_ptr<uchar[]> imageStorage;
+  std::uint64_t pixelCount = 0;
+  std::uint64_t sourceBytes = 0;
+  std::uint64_t imageBytes = 0;
+  std::uint64_t imageStride = 0;
+  QString bufferError;
+  if (!preparePreviewBuffers(
+        QStringLiteral("Depth preview"), nZ, nY,
+        m_bytesPerVoxel, color ? 4 : 1,
+        sourceStorage, imageStorage,
+        pixelCount, sourceBytes, imageBytes, imageStride, bufferError))
+    {
+      QMessageBox::warning(0, "Depth Preview", bufferError);
+      return QImage();
+    }
+  uchar *tmp = sourceStorage.get();
+  uchar *image = imageStorage.get();
 
-  if (m_scriptsPluginActive)
-    m_scriptsPlugin.getDepthSlice(slc, tmp);
-  else
-    m_volInterface->getDepthSlice(slc, tmp);
+  if (!getDepthSlice(slc, tmp))
+    {
+      QMessageBox::warning(0, "Depth Preview", m_lastError);
+      return QImage();
+    }
 
   if (m_voxelType == _Rgb || m_voxelType == _Rgba)
     {  
-      memcpy(m_image, tmp, 4*m_height*m_width);
+      if (!expandPackedColorSlice(tmp, m_voxelType, pixelCount, image))
+        return QImage();
+      if (m_image)
+        delete [] m_image;
+      m_image = imageStorage.release();
       QImage img = QImage(m_image,
-			  m_height, m_width,
+			  m_height, m_width, static_cast<int>(imageStride),
 			  QImage::Format_ARGB32);
-
-      delete [] tmp;
-
       return img;
     }
 
-  int rawSize = m_rawMap.size()-1;
-  for(int i=0; i<nY*nZ; i++)
+  for(int i=0; i<static_cast<int>(pixelCount); i++)
     {
-      int idx = 0;
-      float frc = 0;
-      float v;
+      double v = 0.0;
 
       if (m_voxelType == _UChar)
-	        v = ((uchar *)tmp)[i];
+	v = ((uchar *)tmp)[i];
       else if (m_voxelType == _Char)
-	        v = ((char *)tmp)[i];
+	v = ((char *)tmp)[i];
       else if (m_voxelType == _UShort)
-	        v = ((ushort *)tmp)[i];
+	v = ((ushort *)tmp)[i];
       else if (m_voxelType == _Short)
-	        v = ((short *)tmp)[i];
+	v = ((short *)tmp)[i];
       else if (m_voxelType == _Int)
-	        v = ((int *)tmp)[i];
+	v = ((int *)tmp)[i];
       else if (m_voxelType == _Float)
-	        v = ((float *)tmp)[i];
+	v = ((float *)tmp)[i];
 
-      if (v < m_rawMap[0])
-	    {
-	      idx = 0;
-	      frc = 0;
-	    }
-      else if (v > m_rawMap[rawSize])
-	    {
-	      idx = rawSize-1;
-	      frc = 1;
-	    }
-      else
-	    {
-	      for(int m=0; m<rawSize; m++)
-	        {
-	          if (v >= m_rawMap[m] &&
-	    	  v <= m_rawMap[m+1])
-	    	{
-	    	  idx = m;
-	    	  frc = ((float)v-(float)m_rawMap[m])/
-	    	    ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
-	    	}
-	        }
-	    }
-
-      int pv = m_pvlMap[idx] + frc*(m_pvlMap[idx+1]-m_pvlMap[idx]);
-      if (m_pvlMapMax > 255)
-	      pv/=256;
-      m_image[i] = pv;
+      uchar& destination = image[previewDisplayOffset(
+        static_cast<std::uint64_t>(i), nZ, imageStride, 1)];
+      if (!mapPreviewValue(v, m_rawMap, m_pvlMap,
+			   m_pvlMapMax, destination))
+	{
+	  QMessageBox::warning(0, "Depth Preview",
+			       "The raw-to-preview value map is invalid.");
+	  return QImage();
+	}
     }
-  QImage img = QImage(m_image, nZ, nY, nZ, QImage::Format_Indexed8);
-
-  delete [] tmp;
-
+  if (m_image)
+    delete [] m_image;
+  m_image = imageStorage.release();
+  QImage img = QImage(m_image, nZ, nY, static_cast<int>(imageStride),
+                      QImage::Format_Indexed8);
   return img;
 }
 
 QImage
 VolumeData::getWidthSliceImage(int slc)
 {
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
   int nX, nY, nZ;
   nX = m_depth;
   nY = m_width;
@@ -505,43 +974,68 @@ VolumeData::getWidthSliceImage(int slc)
       return img;
     }
 
-  if (m_image)
-    delete [] m_image;
-
-  int nbytes;
-  if (m_voxelType != _Rgb && m_voxelType != _Rgba)
+  const bool color = m_voxelType == _Rgb || m_voxelType == _Rgba;
+  if (!color && m_rawMap.size() < 2)
     {
-      nbytes = nX*nZ*m_bytesPerVoxel;
-      m_image = new uchar[nX*nZ];
-    }
-  else
-    {
-      nbytes = nX*nZ*4;
-      m_image = new uchar[nX*nZ*4];
+      QMessageBox::warning(0, "Width Preview",
+                           "The raw-to-preview value map is invalid.");
+      return QImage();
     }
 
-  uchar *tmp = new uchar[nbytes];
+  std::unique_ptr<uchar[]> sourceStorage;
+  std::unique_ptr<uchar[]> imageStorage;
+  std::uint64_t pixelCount = 0;
+  std::uint64_t sourceBytes = 0;
+  std::uint64_t imageBytes = 0;
+  std::uint64_t imageStride = 0;
+  QString bufferError;
+  if (!preparePreviewBuffers(
+        QStringLiteral("Width preview"), nZ, nX,
+        m_bytesPerVoxel, color ? 4 : 1,
+        sourceStorage, imageStorage,
+        pixelCount, sourceBytes, imageBytes, imageStride, bufferError))
+    {
+      QMessageBox::warning(0, "Width Preview", bufferError);
+      return QImage();
+    }
+  uchar *tmp = sourceStorage.get();
+  uchar *image = imageStorage.get();
 
-  m_volInterface->getWidthSlice(slc, tmp);
+  if (m_scriptsPluginActive || !m_volInterface)
+    {
+      m_lastError = m_scriptsPluginActive ?
+	"Width-oriented previews are unavailable for Python volume scripts." :
+	"No volume decoder is loaded.";
+      QMessageBox::warning(0, "Width Preview", m_lastError);
+      return QImage();
+    }
+  VolumePluginOperationStatus widthStatus;
+  if (!readNativeVolumePluginSlice(
+        m_volInterface, VolumePluginSliceAxis::Width,
+        slc, tmp, &widthStatus))
+    {
+      m_lastError = widthStatus.error;
+      m_lastOperationCanceled = widthStatus.canceled;
+      QMessageBox::warning(0, "Width Preview", m_lastError);
+      return QImage();
+    }
 
   if (m_voxelType == _Rgb || m_voxelType == _Rgba)
     {  
-      memcpy(m_image, tmp, 4*m_depth*m_height);
+      if (!expandPackedColorSlice(tmp, m_voxelType, pixelCount, image))
+        return QImage();
+      if (m_image)
+        delete [] m_image;
+      m_image = imageStorage.release();
       QImage img = QImage(m_image,
-			  m_height, m_depth,
+			  m_height, m_depth, static_cast<int>(imageStride),
 			  QImage::Format_ARGB32);
-
-      delete [] tmp;
-
       return img;
     }
 
-  int rawSize = m_rawMap.size()-1;
-  for(int i=0; i<nX*nZ; i++)
+  for(int i=0; i<static_cast<int>(pixelCount); i++)
     {
-      int idx = m_rawMap.size()-1;
-      float frc = 0;
-      float v;
+      double v = 0.0;
 
       if (m_voxelType == _UChar)
 	      v = ((uchar *)tmp)[i];
@@ -556,45 +1050,29 @@ VolumeData::getWidthSliceImage(int slc)
       else if (m_voxelType == _Float)
       	v = ((float *)tmp)[i];
 
-      if (v < m_rawMap[0])
-	    {
-	      idx = 0;
-	      frc = 0;
-	    }
-      else if (v > m_rawMap[rawSize])
-	    {
-	      idx = rawSize-1;
-	      frc = 1;
-	    }
-      else
-	    {
-	      for(int m=0; m<rawSize; m++)
-	        {
-	          if (v >= m_rawMap[m] &&
-	    	  v <= m_rawMap[m+1])
-	    	{
-	    	  idx = m;
-	    	  frc = ((float)v-(float)m_rawMap[m])/
-	    	    ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
-	    	}
-	        }
-	    }
-
-      int pv = m_pvlMap[idx] + frc*(m_pvlMap[idx+1]-m_pvlMap[idx]);
-      if (m_pvlMapMax > 255)
-	      pv/=256;
-      m_image[i] = pv;
+      uchar& destination = image[previewDisplayOffset(
+        static_cast<std::uint64_t>(i), nZ, imageStride, 1)];
+      if (!mapPreviewValue(v, m_rawMap, m_pvlMap,
+			   m_pvlMapMax, destination))
+	{
+	  QMessageBox::warning(0, "Width Preview",
+			       "The raw-to-preview value map is invalid.");
+	  return QImage();
+	}
     }
-  QImage img = QImage(m_image, nZ, nX, nZ, QImage::Format_Indexed8);
-
-  delete [] tmp;
-
+  if (m_image)
+    delete [] m_image;
+  m_image = imageStorage.release();
+  QImage img = QImage(m_image, nZ, nX, static_cast<int>(imageStride),
+                      QImage::Format_Indexed8);
   return img;
 }
 
 QImage
 VolumeData::getHeightSliceImage(int slc)
 {
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
   int nX, nY, nZ;
   nX = m_depth;
   nY = m_width;
@@ -606,43 +1084,68 @@ VolumeData::getHeightSliceImage(int slc)
       return img;
     }
 
-  if (m_image)
-    delete [] m_image;
-
-  int nbytes;
-  if (m_voxelType != _Rgb && m_voxelType != _Rgba)
+  const bool color = m_voxelType == _Rgb || m_voxelType == _Rgba;
+  if (!color && m_rawMap.size() < 2)
     {
-      nbytes = nX*nY*m_bytesPerVoxel;
-      m_image = new uchar[nX*nY];
-    }
-  else
-    {
-      nbytes = nX*nY*4;
-      m_image = new uchar[4*nX*nY];
+      QMessageBox::warning(0, "Height Preview",
+                           "The raw-to-preview value map is invalid.");
+      return QImage();
     }
 
-  uchar *tmp = new uchar[nbytes];
+  std::unique_ptr<uchar[]> sourceStorage;
+  std::unique_ptr<uchar[]> imageStorage;
+  std::uint64_t pixelCount = 0;
+  std::uint64_t sourceBytes = 0;
+  std::uint64_t imageBytes = 0;
+  std::uint64_t imageStride = 0;
+  QString bufferError;
+  if (!preparePreviewBuffers(
+        QStringLiteral("Height preview"), nY, nX,
+        m_bytesPerVoxel, color ? 4 : 1,
+        sourceStorage, imageStorage,
+        pixelCount, sourceBytes, imageBytes, imageStride, bufferError))
+    {
+      QMessageBox::warning(0, "Height Preview", bufferError);
+      return QImage();
+    }
+  uchar *tmp = sourceStorage.get();
+  uchar *image = imageStorage.get();
 
-  m_volInterface->getHeightSlice(slc, tmp);
+  if (m_scriptsPluginActive || !m_volInterface)
+    {
+      m_lastError = m_scriptsPluginActive ?
+	"Height-oriented previews are unavailable for Python volume scripts." :
+	"No volume decoder is loaded.";
+      QMessageBox::warning(0, "Height Preview", m_lastError);
+      return QImage();
+    }
+  VolumePluginOperationStatus heightStatus;
+  if (!readNativeVolumePluginSlice(
+        m_volInterface, VolumePluginSliceAxis::Height,
+        slc, tmp, &heightStatus))
+    {
+      m_lastError = heightStatus.error;
+      m_lastOperationCanceled = heightStatus.canceled;
+      QMessageBox::warning(0, "Height Preview", m_lastError);
+      return QImage();
+    }
 
   if (m_voxelType == _Rgb || m_voxelType == _Rgba)
     {  
-      memcpy(m_image, tmp, 4*nX*nY);
+      if (!expandPackedColorSlice(tmp, m_voxelType, pixelCount, image))
+        return QImage();
+      if (m_image)
+        delete [] m_image;
+      m_image = imageStorage.release();
       QImage img = QImage(m_image,
-			  nY, nX,
+			  nY, nX, static_cast<int>(imageStride),
 			  QImage::Format_ARGB32);
-
-      delete [] tmp;
-
       return img;
     }
 
-  int rawSize = m_rawMap.size()-1;
-  for(int i=0; i<nX*nY; i++)
+  for(int i=0; i<static_cast<int>(pixelCount); i++)
     {
-      int idx = m_rawMap.size()-1;
-      float frc = 0;
-      float v;
+      double v = 0.0;
 
       if (m_voxelType == _UChar)
 	      v = ((uchar *)tmp)[i];
@@ -657,39 +1160,21 @@ VolumeData::getHeightSliceImage(int slc)
       else if (m_voxelType == _Float)
       	v = ((float *)tmp)[i];
 
-      if (v < m_rawMap[0])
-	    {
-	      idx = 0;
-	      frc = 0;
-	    }
-      else if (v > m_rawMap[rawSize])
-	    {
-	      idx = rawSize-1;
-	      frc = 1;
-	    }
-      else
-	    {
-	      for(int m=0; m<rawSize; m++)
-	        {
-	          if (v >= m_rawMap[m] &&
-	    	  v <= m_rawMap[m+1])
-	    	{
-	    	  idx = m;
-	    	  frc = ((float)v-(float)m_rawMap[m])/
-	    	    ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
-	    	}
-	        }
-	    }
-
-      int pv = m_pvlMap[idx] + frc*(m_pvlMap[idx+1]-m_pvlMap[idx]);
-      if (m_pvlMapMax > 255)
-	      pv/=256;
-      m_image[i] = pv;
+      uchar& destination = image[previewDisplayOffset(
+        static_cast<std::uint64_t>(i), nY, imageStride, 1)];
+      if (!mapPreviewValue(v, m_rawMap, m_pvlMap,
+			   m_pvlMapMax, destination))
+	{
+	  QMessageBox::warning(0, "Height Preview",
+			       "The raw-to-preview value map is invalid.");
+	  return QImage();
+	}
     }
-  QImage img = QImage(m_image, nY, nX, nY, QImage::Format_Indexed8);
-
-  delete [] tmp;
-
+  if (m_image)
+    delete [] m_image;
+  m_image = imageStorage.release();
+  QImage img = QImage(m_image, nY, nX, static_cast<int>(imageStride),
+                      QImage::Format_Indexed8);
   return img;
 }
 
@@ -697,6 +1182,8 @@ QPair<QVariant, QVariant>
 VolumeData::rawValue(int d, int w, int h)
 {
   QPair<QVariant, QVariant> pair;
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 
   if (d < 0 || d >= m_depth ||
       w < 0 || w >= m_width ||
@@ -709,9 +1196,30 @@ VolumeData::rawValue(int d, int w, int h)
 
   QVariant v;
   if (m_scriptsPluginActive)
-    v = m_scriptsPlugin.rawValue(d, w, h);
+    {
+      v = m_scriptsPlugin.rawValue(d, w, h);
+      m_lastError = m_scriptsPlugin.lastError();
+      if (!m_lastError.isEmpty())
+        {
+          pair.first = QVariant(m_lastError);
+          pair.second = QVariant("DecoderError");
+          return pair;
+        }
+    }
   else
-    v = m_volInterface->rawValue(d, w, h);
+    {
+      VolumePluginOperationStatus status;
+      if (!readNativeVolumePluginRawValue(
+            m_volInterface, d, w, h, &v, &status))
+        {
+          m_lastError = status.error;
+          m_lastOperationCanceled = status.canceled;
+          pair.first = QVariant(m_lastError);
+          pair.second = QVariant(m_lastOperationCanceled ?
+                                 "Canceled" : "DecoderError");
+          return pair;
+        }
+    }
 
 
   if (v.type() == QVariant::String)
@@ -726,10 +1234,7 @@ VolumeData::rawValue(int d, int w, int h)
       return pair;
     }
 
-  int rawSize = m_rawMap.size()-1;
-  int idx = rawSize;
-  float frc = 0;
-  float val;
+  double val = std::numeric_limits<double>::quiet_NaN();
 
   if (v.type() == QVariant::UInt)
     val = v.toUInt();
@@ -737,47 +1242,79 @@ VolumeData::rawValue(int d, int w, int h)
     val = v.toInt();
   else if (v.type() == QVariant::Double ||
           v.type() == QMetaType::Float)
-    val = v.toFloat();
+    val = v.toDouble();
 
-  if (val <= m_rawMap[0])
+  int pv = 0;
+  if (!mapImportValueToPvl(val, m_rawMap, m_pvlMap, pv))
     {
-      idx = 0;
-      frc = 0;
+      pair.first = v;
+      pair.second = QVariant("InvalidMap");
+      return pair;
     }
-  else if (val >= m_rawMap[rawSize])
-    {
-      idx = rawSize-1;
-      frc = 1;
-    }
-  else
-    {
-      for(int m=0; m<rawSize; m++)
-	    {
-	      if (val >= m_rawMap[m] &&
-	          val <= m_rawMap[m+1])
-	        {
-	          idx = m;
-	          frc = ((float)val-(float)m_rawMap[m])/
-	    	          ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
-	        }
-	    }
-    }
-  
-  int pv = m_pvlMap[idx] + frc*(m_pvlMap[idx+1]-m_pvlMap[idx]);
 
   pair.first = v;
   pair.second = QVariant((uint)pv);
   return pair;
 }
 
-void
+bool
 VolumeData::saveTrimmed(QString trimFile,
 		       int dmin, int dmax,
 		       int wmin, int wmax,
 		       int hmin, int hmax)
 {
-  m_volInterface->saveTrimmed(trimFile,
-			      dmin, dmax,
-			      wmin, wmax,
-			      hmin, hmax);
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
+
+  if (m_scriptsPluginActive)
+    {
+      m_lastError =
+	"Direct trimmed-volume export is unavailable for Python volume scripts.";
+      QMessageBox::warning(0, "Save Trimmed Volume", m_lastError);
+      return false;
+    }
+  if (!m_volInterface)
+    {
+      m_lastError = "No volume decoder is loaded.";
+      QMessageBox::warning(0, "Save Trimmed Volume", m_lastError);
+      return false;
+    }
+
+  QObject *pluginObject = dynamic_cast<QObject*>(m_volInterface);
+  if (!importPluginReportsOperationStatus(pluginObject))
+    {
+      m_lastError =
+	"The loaded volume decoder cannot report trimmed-export success or "
+	"cancellation. Export was not started.";
+      QMessageBox::warning(0, "Save Trimmed Volume", m_lastError);
+      return false;
+    }
+
+  try
+    {
+      m_volInterface->saveTrimmed(trimFile,
+				  dmin, dmax,
+				  wmin, wmax,
+				  hmin, hmax);
+
+      m_lastError = importPluginLastError(pluginObject);
+      m_lastOperationCanceled = importPluginWasCanceled(pluginObject);
+    }
+  catch (const std::exception& exception)
+    {
+      m_lastError = QString("The volume decoder raised an exception during "
+			    "trimmed export: %1")
+	.arg(QString::fromLocal8Bit(exception.what()));
+      return false;
+    }
+  catch (...)
+    {
+      m_lastError = "The volume decoder raised an unknown exception during "
+	            "trimmed export.";
+      return false;
+    }
+
+  if (m_lastOperationCanceled && m_lastError.isEmpty())
+    m_lastError = "The volume decoder canceled trimmed export.";
+  return m_lastError.isEmpty() && !m_lastOperationCanceled;
 }

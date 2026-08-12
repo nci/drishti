@@ -115,7 +115,7 @@ CaptionObject::createImage()
   int mde = metric.descent();
   int fwd = m_width;
   int fht = m_height;  
-  if (drawPi > 0)
+  if (drawPi)
     fwd += fht;
 
   QImage bImage = QImage(fwd, fht, QImage::Format_ARGB32);

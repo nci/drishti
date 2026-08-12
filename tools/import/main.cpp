@@ -1,21 +1,11 @@
-//  Boot order is important:
-//    1. Initialise pybind11 interpreter (scoped_interpreter owns lifetime)
-//    2. Import the embedded 'vsgbox' module (defined in PyModule.cpp via
-//       PYBIND11_EMBEDDED_MODULE) and wire up the global SceneController ptr
-//    3. Create the Qt application + main window
-//    4. Run the Qt event loop
-//    5. ~scoped_interpreter() finalises Python on exit
-#include "pythonengine.h"
-
-#include <filesystem>
+// Python is initialized lazily when a Python-backed import script is selected.
+// Native import plugins must remain usable without an installed Python runtime.
 #include <iostream>
-
-//namespace py = pybind11;
-namespace fs = std::filesystem;
 
 #include "drishtiimport.h"
 #include <QMessageBox>
 #include <QDockWidget>
+#include "../../portableqtruntime.h"
 
 // Custom Qt message handler to redirect python output, cout, cerr, qDebug, qWarning, etc. to a QTextEdit
 #include "streamredirect.h" 
@@ -25,27 +15,22 @@ namespace fs = std::filesystem;
 int main(int argc, char **argv)
 {
 #if defined(Q_OS_WIN32)
-  //QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-  int MYargc = 3;
-  char *MYargv[] = {(char*)"Appname", (char*)"--platform", (char*)"windows:dpiawareness=0"};
-  QApplication app(MYargc, MYargv);
+  configurePortableQtRuntime();
+  QApplication app(argc, argv);
 #else
   QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
   QApplication app(argc, argv);   
 #endif
-
-  // Embedded Python interpreter 
-  PythonEngine &pythonGuard = PythonEngine::instance();
 
   //-----------------------------------------
   QDockWidget *dock = new QDockWidget("Messages", nullptr, Qt::Widget);
   dock->setAllowedAreas(Qt::AllDockWidgetAreas);
 
   // Redirect std::cout and std::cerr
-  static QtStreamRedirect coutRedirect(QtStreamRedirect::logWidget(), Qt::black);
-  static QtStreamRedirect cerrRedirect(QtStreamRedirect::logWidget(), Qt::red);
-  std::cout.rdbuf(&coutRedirect);
-  std::cerr.rdbuf(&cerrRedirect);
+  QtStreamRedirect coutRedirect(QtStreamRedirect::logWidget(), Qt::black);
+  QtStreamRedirect cerrRedirect(QtStreamRedirect::logWidget(), Qt::red);
+  std::streambuf *const originalCout = std::cout.rdbuf(&coutRedirect);
+  std::streambuf *const originalCerr = std::cerr.rdbuf(&cerrRedirect);
   
   // Install Qt message handler
   qInstallMessageHandler(QtStreamRedirect::qtMessageHandler);
@@ -57,5 +42,9 @@ int main(int argc, char **argv)
   mainWindow.addDockWidget(Qt::BottomDockWidgetArea, dock);
   mainWindow.show();
     
-  return app.exec();
+  const int result = app.exec();
+  qInstallMessageHandler(nullptr);
+  std::cout.rdbuf(originalCout);
+  std::cerr.rdbuf(originalCerr);
+  return result;
 }

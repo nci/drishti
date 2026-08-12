@@ -14,7 +14,7 @@ class VolumeData : public QObject
 
   bool setFile(QStringList, QString);
   bool setFile(QStringList, QString, bool, bool);
-  void replaceFile(QString);
+  bool replaceFile(QString);
 
   void setVoxelInfo(int, float, float, float);
 
@@ -28,7 +28,7 @@ class VolumeData : public QObject
 
   QList<uint> histogram();
   
-  void setMinMax(float, float);
+  bool setMinMax(float, float);
   float rawMin();
   float rawMax();
    
@@ -38,7 +38,9 @@ class VolumeData : public QObject
   QList<float> rawMap();
   QList<int> pvlMap();
 
-  void getDepthSlice(int, uchar*);
+  bool getDepthSlice(int, uchar*);
+  QString lastError() const;
+  bool lastOperationCanceled() const;
 
   QImage getDepthSliceImage(int);
   QImage getWidthSliceImage(int);
@@ -46,7 +48,7 @@ class VolumeData : public QObject
 
   QPair<QVariant,QVariant> rawValue(int, int, int);
 
-  void saveTrimmed(QString, int, int, int, int, int, int);
+  bool saveTrimmed(QString, int, int, int, int, int, int);
 
  private :
   VolInterface *m_volInterface;
@@ -74,6 +76,8 @@ class VolumeData : public QObject
 
   int m_skipBytes;
   int m_bytesPerVoxel;
+  QString m_lastError;
+  bool m_lastOperationCanceled;
     
   void clear();
   bool loadPlugin(QString);

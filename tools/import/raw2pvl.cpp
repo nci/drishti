@@ -2,8 +2,16 @@
 //#include "vdbvolume.h"
 
 #include "global.h"
+#include "importmemoryadmission.h"
+#include "metaimagepathutils.h"
 #include "staticfunctions.h"
 #include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <new>
+#include <limits>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -12,6 +20,10 @@
 
 #include <QtXml>
 #include <QFile>
+#include <QSaveFile>
+#include <QTemporaryFile>
+#include <QTextCodec>
+#include <QUuid>
 
 #include <QtConcurrentMap>
 #include <QTableWidget>
@@ -23,26 +35,448 @@
 #include "meshtools.h"
 
 
-// To jointly use QT and OpenVDB use the following preprocessor instruction
-// before including openvdb.h.  The problem arises because Qt defines a Q_FOREACH
-// macro which conflicts with the foreach methods in 'openvdb/util/NodeMask.h'.
-// To remove this conflict, just un-define this macro wherever both openvdb and Qt
-// are being included together. 
-#ifdef foreach
-  #undef foreach
-#endif
-// tbb/profiling.h has a function called emit()
-// hence need to undef emit keyword in Qt
-#undef emit
-// a workaround to avoid imath_half_to_float_table linker error
-#define IMATH_HALF_NO_LOOKUP_TABLE
-#include <openvdb/openvdb.h>
-#include <openvdb/tools/GridTransformer.h>
-#include <openvdb/tools/Filter.h>
-#include <openvdb/Grid.h>
-
-
 using namespace std;
+
+
+namespace
+{
+const std::uint64_t kImportStageSafetyBytes = 64ULL*1024ULL*1024ULL;
+const int kMaximumFilterSpread = 48;
+QString g_pvlHeaderWriteError;
+
+void calculateGaussianWeights(int spread, float (&weights)[100])
+{
+  std::fill(weights, weights+100, 0.0f);
+  if (spread <= 0)
+    {
+      weights[0] = 1.0f;
+      weights[2] = 1.0f;
+      return;
+    }
+
+  const double variance = static_cast<double>(spread)*spread;
+  float sum = 0.0f;
+  for (int offset=-spread; offset<=spread; ++offset)
+    {
+      const double distance = static_cast<double>(offset)*offset;
+      const float weight = static_cast<float>(qExp(-distance/(2.0*variance)));
+      weights[offset+spread] = weight;
+      sum += weight;
+    }
+  weights[2*spread+2] = sum;
+}
+
+QString importMemoryAmount(std::uint64_t bytes)
+{
+  const double mib = static_cast<double>(bytes)/(1024.0*1024.0);
+  if (mib < 1024.0)
+    return QStringLiteral("%1 MiB").arg(mib, 0, 'f', 1);
+  return QStringLiteral("%1 GiB").arg(mib/1024.0, 0, 'f', 2);
+}
+
+QString importAdmissionError(const QString& operation,
+                             const ImportMemoryAdmission& admission)
+{
+  QString reason;
+  switch (admission.reason)
+    {
+    case ImportMemoryAdmissionReason::InvalidRequest:
+      reason = QStringLiteral("The buffer request is invalid.");
+      break;
+    case ImportMemoryAdmissionReason::ArithmeticOverflow:
+      reason = QStringLiteral("The buffer size calculation overflowed.");
+      break;
+    case ImportMemoryAdmissionReason::AddressSpaceLimit:
+      reason = QStringLiteral("The buffer exceeds this process address space.");
+      break;
+    case ImportMemoryAdmissionReason::MemoryStatusUnavailable:
+      reason = QStringLiteral(
+        "Current physical-memory or Windows Commit headroom could not be read.");
+      break;
+    case ImportMemoryAdmissionReason::InsufficientPhysicalMemory:
+      reason = QStringLiteral(
+        "There is not enough physical-memory headroom without paging.");
+      break;
+    case ImportMemoryAdmissionReason::InsufficientCommit:
+      reason = QStringLiteral("There is not enough Windows Commit headroom.");
+      break;
+    case ImportMemoryAdmissionReason::Approved:
+      reason = QStringLiteral("The allocation was approved.");
+      break;
+    }
+
+  return QStringLiteral(
+    "%1 was stopped before allocating memory. Required peak increment: %2; "
+    "usable physical budget: %3; usable Commit budget: %4. %5")
+    .arg(operation,
+         importMemoryAmount(admission.requiredBytes),
+         admission.physicalMemoryChecked ?
+           importMemoryAmount(admission.availablePhysicalBudgetBytes) :
+           QStringLiteral("unavailable"),
+         admission.commitMemoryChecked ?
+           importMemoryAmount(admission.availableCommitBudgetBytes) :
+           QStringLiteral("unavailable"),
+         reason);
+}
+
+bool checkedPlaneLayout(int width, int height,
+                        std::uint64_t bytesPerElement,
+                        std::uint64_t& pixels,
+                        std::uint64_t& bytes)
+{
+  pixels = 0;
+  bytes = 0;
+  if (width <= 0 || height <= 0 || bytesPerElement == 0 ||
+      !checkedImportMultiply(static_cast<std::uint64_t>(width),
+                             static_cast<std::uint64_t>(height), pixels) ||
+      pixels > static_cast<std::uint64_t>(
+                 std::numeric_limits<int>::max()) ||
+      !checkedImportMultiply(pixels, bytesPerElement, bytes))
+    return false;
+  return bytes <= static_cast<std::uint64_t>(
+                    std::numeric_limits<std::size_t>::max());
+}
+
+bool addImportBytes(std::uint64_t bytes, std::uint64_t& total)
+{
+  return checkedImportAdd(total, bytes, total);
+}
+
+bool admitImportBuffers(const QString& operation,
+                        std::uint64_t allocationBytes,
+                        QString& error)
+{
+  std::uint64_t requiredBytes = allocationBytes;
+  if (!checkedImportAdd(requiredBytes, kImportStageSafetyBytes,
+                        requiredBytes))
+    {
+      error = operation + QStringLiteral(
+        " was stopped because its peak-memory calculation overflowed.");
+      return false;
+    }
+
+  const ImportMemoryAdmission admission =
+    evaluateImportMemoryAdmission(requiredBytes);
+  if (!admission.approved)
+    {
+      error = importAdmissionError(operation, admission);
+      return false;
+    }
+  return true;
+}
+
+template <typename T>
+bool allocateImportArray(std::uint64_t count,
+                         std::unique_ptr<T[]>& storage)
+{
+  if (count == 0 ||
+      count > static_cast<std::uint64_t>(
+                std::numeric_limits<std::size_t>::max()/sizeof(T)))
+    return false;
+  storage.reset(new (std::nothrow) T[static_cast<std::size_t>(count)]);
+  return storage.get() != 0;
+}
+
+struct ConversionBuffers
+{
+  std::uint64_t rawPixels;
+  std::uint64_t outputPixels;
+  std::uint64_t finalPixels;
+  std::uint64_t rawBytes;
+  std::uint64_t filterBytes;
+  std::uint64_t pvlBytes;
+  std::uint64_t finalBytes;
+  int filterSliceCount;
+  std::unique_ptr<double[]> filter;
+  std::unique_ptr<uchar[]> pvl;
+  std::unique_ptr<uchar[]> raw;
+  std::unique_ptr<uchar[]> finalSlice;
+  std::unique_ptr<uchar[]> filterWindow;
+  std::unique_ptr<uchar*[]> filterSlices;
+
+  ConversionBuffers()
+    : rawPixels(0), outputPixels(0), finalPixels(0), rawBytes(0),
+      filterBytes(0), pvlBytes(0), finalBytes(0), filterSliceCount(0)
+  {
+  }
+};
+
+struct IsosurfaceBuffers
+{
+  std::uint64_t rawBytes;
+  std::uint64_t valuePixels;
+  std::unique_ptr<uchar[]> raw;
+  std::unique_ptr<float[]> values;
+
+  IsosurfaceBuffers() : rawBytes(0), valuePixels(0) {}
+};
+
+bool prepareIsosurfaceBuffers(const QString& operation,
+                              int rawWidth, int rawHeight,
+                              int rawBytesPerVoxel,
+                              int depth, int width, int height,
+                              float resample,
+                              IsosurfaceBuffers& buffers,
+                              QString& error)
+{
+  std::uint64_t rawPixels = 0;
+  std::uint64_t valueBytes = 0;
+  std::uint64_t sourceVoxels = 0;
+  std::uint64_t resampledVoxels = 0;
+  std::uint64_t vdbWorkingBytes = 0;
+  std::uint64_t allocationBytes = 0;
+
+  const double safeResample = static_cast<double>(resample);
+  const std::uint64_t rd = safeResample > 0.0 ?
+    static_cast<std::uint64_t>(std::ceil(
+      static_cast<double>(depth)/safeResample)) : 0;
+  const std::uint64_t rw = safeResample > 0.0 ?
+    static_cast<std::uint64_t>(std::ceil(
+      static_cast<double>(width)/safeResample)) : 0;
+  const std::uint64_t rh = safeResample > 0.0 ?
+    static_cast<std::uint64_t>(std::ceil(
+      static_cast<double>(height)/safeResample)) : 0;
+
+  if (!checkedPlaneLayout(rawWidth, rawHeight, rawBytesPerVoxel,
+                          rawPixels, buffers.rawBytes) ||
+      !checkedPlaneLayout(width, height, sizeof(float),
+                          buffers.valuePixels, valueBytes) ||
+      depth <= 0 || rd == 0 || rw == 0 || rh == 0 ||
+      !checkedImportMultiply(static_cast<std::uint64_t>(depth),
+                             static_cast<std::uint64_t>(width),
+                             sourceVoxels) ||
+      !checkedImportMultiply(sourceVoxels,
+                             static_cast<std::uint64_t>(height),
+                             sourceVoxels) ||
+      !checkedImportMultiply(rd, rw, resampledVoxels) ||
+      !checkedImportMultiply(resampledVoxels, rh, resampledVoxels) ||
+      !checkedImportAdd(sourceVoxels, resampledVoxels, vdbWorkingBytes) ||
+      !checkedImportMultiply(vdbWorkingBytes, 96, vdbWorkingBytes) ||
+      !addImportBytes(buffers.rawBytes, allocationBytes) ||
+      !addImportBytes(valueBytes, allocationBytes) ||
+      !addImportBytes(vdbWorkingBytes, allocationBytes))
+    {
+      error = operation + QStringLiteral(
+        " was stopped because its worst-case VDB/mesh working-set "
+        "calculation overflowed or exceeds the supported slice layout.");
+      return false;
+    }
+
+  if (!admitImportBuffers(operation, allocationBytes, error))
+    return false;
+  if (!allocateImportArray(buffers.rawBytes, buffers.raw) ||
+      !allocateImportArray(buffers.valuePixels, buffers.values))
+    {
+      error = operation + QStringLiteral(
+        " could not allocate its admitted slice buffers. The system memory "
+        "state changed; no VDB processing was started.");
+      return false;
+    }
+  return true;
+}
+
+bool prepareMeshColorBuffer(const QString& operation,
+                            int vertexCount,
+                            QVector<QVector3D>& colors,
+                            QString& error)
+{
+  if (vertexCount < 0)
+    {
+      error = operation + QStringLiteral(
+        " was stopped because the mesh vertex count is invalid.");
+      return false;
+    }
+  if (vertexCount == 0)
+    return true;
+
+  std::uint64_t colorBytes = 0;
+  if (!checkedImportMultiply(static_cast<std::uint64_t>(vertexCount),
+                             sizeof(QVector3D), colorBytes) ||
+      !admitImportBuffers(operation, colorBytes, error))
+    {
+      if (error.isEmpty())
+        error = operation + QStringLiteral(
+          " was stopped because the mesh-color buffer size overflowed.");
+      return false;
+    }
+
+  try
+    {
+      colors.resize(vertexCount);
+    }
+  catch (const std::bad_alloc&)
+    {
+      error = operation + QStringLiteral(
+        " could not allocate its admitted mesh-color buffer.");
+      return false;
+    }
+  return true;
+}
+
+bool prepareConversionBuffers(const QString& operation,
+                              int rawWidth, int rawHeight, int rawBytesPerVoxel,
+                              int outputWidth, int outputHeight,
+                              int pvlBytesPerVoxel,
+                              int finalWidth, int finalHeight,
+                              int spread, bool saveRawFile,
+                              ConversionBuffers& buffers,
+                              QString& error)
+{
+  if (rawBytesPerVoxel <= 0 || pvlBytesPerVoxel <= 0 ||
+      spread < 0 || spread > kMaximumFilterSpread ||
+      !checkedPlaneLayout(rawWidth, rawHeight, rawBytesPerVoxel,
+                          buffers.rawPixels, buffers.rawBytes) ||
+      !checkedPlaneLayout(outputWidth, outputHeight, sizeof(double),
+                          buffers.outputPixels, buffers.filterBytes))
+    {
+      error = operation + QStringLiteral(
+        " was stopped because dimensions, voxel size, or filter radius are "
+        "outside the supported 32-bit slice layout.");
+      return false;
+    }
+
+  std::uint64_t unusedPixels = 0;
+  std::uint64_t managerRawBytes = 0;
+  if (!checkedPlaneLayout(outputWidth, outputHeight, pvlBytesPerVoxel,
+                           unusedPixels, buffers.pvlBytes) ||
+      !checkedPlaneLayout(outputWidth, outputHeight, rawBytesPerVoxel,
+                          unusedPixels, managerRawBytes))
+    {
+      error = operation + QStringLiteral(
+        " was stopped because the processed slice size is invalid.");
+      return false;
+    }
+
+  if (finalWidth > 0 || finalHeight > 0)
+    {
+      if (!checkedPlaneLayout(finalWidth, finalHeight, pvlBytesPerVoxel,
+                              buffers.finalPixels, buffers.finalBytes))
+        {
+          error = operation + QStringLiteral(
+            " was stopped because the padded slice size is invalid.");
+          return false;
+        }
+    }
+
+  std::uint64_t allocationBytes = 0;
+  const std::uint64_t managerPvlBytes =
+    buffers.finalBytes > 0 ? buffers.finalBytes : buffers.pvlBytes;
+  if (!addImportBytes(buffers.rawBytes, allocationBytes) ||
+      !addImportBytes(buffers.filterBytes, allocationBytes) ||
+      !addImportBytes(buffers.pvlBytes, allocationBytes) ||
+      !addImportBytes(buffers.finalBytes, allocationBytes) ||
+      !addImportBytes(managerPvlBytes, allocationBytes) ||
+      (saveRawFile &&
+       !addImportBytes(managerRawBytes, allocationBytes)))
+    {
+      error = operation + QStringLiteral(
+        " was stopped because its buffer total overflowed.");
+      return false;
+    }
+
+  std::uint64_t filterWindowBytes = 0;
+  std::uint64_t filterPointerBytes = 0;
+  if (spread > 0)
+    {
+      buffers.filterSliceCount = 2*spread+1;
+      if (!checkedImportMultiply(
+            buffers.rawBytes,
+            static_cast<std::uint64_t>(buffers.filterSliceCount),
+            filterWindowBytes) ||
+          !checkedImportMultiply(
+            static_cast<std::uint64_t>(buffers.filterSliceCount),
+            sizeof(uchar*), filterPointerBytes) ||
+          !addImportBytes(filterWindowBytes, allocationBytes) ||
+          !addImportBytes(filterPointerBytes, allocationBytes))
+        {
+          error = operation + QStringLiteral(
+            " was stopped because the filter-window size overflowed.");
+          return false;
+        }
+    }
+
+  if (!admitImportBuffers(operation, allocationBytes, error))
+    return false;
+
+  if (!allocateImportArray(buffers.outputPixels, buffers.filter) ||
+      !allocateImportArray(buffers.pvlBytes, buffers.pvl) ||
+      !allocateImportArray(buffers.rawBytes, buffers.raw) ||
+      (buffers.finalBytes > 0 &&
+       !allocateImportArray(buffers.finalBytes, buffers.finalSlice)) ||
+      (filterWindowBytes > 0 &&
+       !allocateImportArray(filterWindowBytes, buffers.filterWindow)) ||
+      (buffers.filterSliceCount > 0 &&
+       !allocateImportArray(
+         static_cast<std::uint64_t>(buffers.filterSliceCount),
+         buffers.filterSlices)))
+    {
+      error = operation + QStringLiteral(
+        " could not allocate its admitted buffers. The system memory state "
+        "changed; no processing was started.");
+      return false;
+    }
+
+  for (int i=0; i<buffers.filterSliceCount; ++i)
+    buffers.filterSlices[i] = buffers.filterWindow.get() +
+      static_cast<std::size_t>(i*buffers.rawBytes);
+  return true;
+}
+
+bool validVolumeRange(int depth, int width, int height,
+                      int dmin, int dmax,
+                      int wmin, int wmax,
+                      int hmin, int hmax)
+{
+  return depth > 0 && width > 0 && height > 0 &&
+    dmin >= 0 && dmax >= dmin && dmax < depth &&
+    wmin >= 0 && wmax >= wmin && wmax < width &&
+    hmin >= 0 && hmax >= hmin && hmax < height;
+}
+
+bool currentVolumeLayoutMatches(VolumeData *volume,
+                                int depth, int width, int height,
+                                int voxelType)
+{
+  if (!volume)
+    return false;
+  int currentDepth = 0;
+  int currentWidth = 0;
+  int currentHeight = 0;
+  volume->gridSize(currentDepth, currentWidth, currentHeight);
+  return currentDepth == depth && currentWidth == width &&
+    currentHeight == height && volume->voxelType() == voxelType;
+}
+
+bool readExportSlice(VolumeData *volume, int sliceIndex,
+                     uchar *destination, QString& error)
+{
+  error.clear();
+  if (!volume || !destination)
+    {
+      error = QStringLiteral("The volume or output slice buffer is null.");
+      return false;
+    }
+
+  try
+    {
+      if (volume->getDepthSlice(sliceIndex, destination))
+        return true;
+      error = volume->lastError();
+      if (error.isEmpty())
+        error = QStringLiteral("The volume decoder rejected the slice.");
+    }
+  catch (const std::exception& exception)
+    {
+      error = QStringLiteral("The volume decoder raised an exception: %1")
+        .arg(QString::fromLocal8Bit(exception.what()));
+    }
+  catch (...)
+    {
+      error = QStringLiteral("The volume decoder raised an unknown exception.");
+    }
+  return false;
+}
+}
 
 
 #ifdef Q_OS_WIN
@@ -52,9 +486,9 @@ using namespace std;
 #define ISNAN(v) isnan(v)
 #endif
 
-#define REMAPVOLUME()							\
+#define REMAPVOLUME(pixelCount)						\
   {									\
-    for(uint j=0; j<width*height; j++)					\
+    for(std::uint64_t j=0; j<(pixelCount); j++)				\
       {									\
 	float v = ptr[j];						\
 	int idx;							\
@@ -96,6 +530,15 @@ Raw2Pvl::applyMapping(uchar *raw, int voxelType,
 		      QList<int> pvlMap,
 		      int width, int height)
 {
+  std::uint64_t pixelCount = 0;
+  std::uint64_t outputBytes = 0;
+  if (!raw || !pvlslice ||
+      rawMap.count() < 2 || rawMap.count() != pvlMap.count() ||
+      (pvlbpv != 1 && pvlbpv != 2) ||
+      !checkedPlaneLayout(width, height, pvlbpv,
+                          pixelCount, outputBytes))
+    return;
+
   int rawSize = rawMap.size()-1;
 
   if (rawMap.count() == pvlMap.count())
@@ -105,9 +548,12 @@ Raw2Pvl::applyMapping(uchar *raw, int voxelType,
 	if (rawMap[i] != pvlMap[i])
 	  same = false;
 
-      if (same)
+      const bool storageCompatible =
+	(voxelType == _UChar && pvlbpv == 1) ||
+	(voxelType == _UShort && pvlbpv == 2);
+      if (same && storageCompatible)
 	{
-	  memcpy(pvlslice, raw, width*height*pvlbpv);
+	  memcpy(pvlslice, raw, static_cast<std::size_t>(outputBytes));
 	  return;
 	}
     }
@@ -119,32 +565,32 @@ Raw2Pvl::applyMapping(uchar *raw, int voxelType,
       if (voxelType == _UChar)
 	{
 	  uchar *ptr = raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
       else if (voxelType == _Char)
 	{
 	  char *ptr = (char*)raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
       else if (voxelType == _UShort)
 	{
 	  ushort *ptr = (ushort*)raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
       else if (voxelType == _Short)
 	{
 	  short *ptr = (short*)raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
       else if (voxelType == _Int)
 	{
 	  int *ptr = (int*)raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
       else if (voxelType == _Float)
 	{
 	  float *ptr = (float*)raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
     }
   else
@@ -153,32 +599,32 @@ Raw2Pvl::applyMapping(uchar *raw, int voxelType,
       if (voxelType == _UChar)
 	{
 	  uchar *ptr = raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
       else if (voxelType == _Char)
 	{
 	  char *ptr = (char*)raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
       else if (voxelType == _UShort)
 	{
 	  ushort *ptr = (ushort*)raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
       else if (voxelType == _Short)
 	{
 	  short *ptr = (short*)raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
       else if (voxelType == _Int)
 	{
 	  int *ptr = (int*)raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
       else if (voxelType == _Float)
 	{
 	  float *ptr = (float*)raw;
-	  REMAPVOLUME();
+	  REMAPVOLUME(pixelCount);
 	}
     }
 }
@@ -225,52 +671,15 @@ getPvlNcFilename()
 bool
 checkParIsoGen()
 {
-  bool pariso = false;
-  bool ok = false;
-  QStringList type;
-  type << "No (default) - Do one after another";
-  type << "Yes - Try to cram as many as possible";  
-  QString option = QInputDialog::getItem(0,
-		   "Parallel Isosurface generation",
-		   "Fire multiple isosurface generation threads ?\nFor large surfaces or NetCDF files you might be better off sequential",
-		    type,
-		    0,
-		    false,
-		    &ok);
-  if (ok)
-    {
-      QStringList op = option.split(' ');
-      if (op[0] == "No")
-	{
-	  pariso = false;
-	  QMessageBox::information(0, "Isosurface generation", "Generating one after another");
-	}
-      else
-	{
-	  pariso = true;
-	  QMessageBox::information(0, "Isosurface generation", "Will generate multiple surfaces in parallel");
-
-//	  int maxThreads = QInputDialog::getInt(0, "Max Thread Count",
-//						QString("Maximum threads (%1)\nthat can be used").\
-//						arg(QThread::idealThreadCount()),
-//						QThread::idealThreadCount(),
-//						1,
-//						QThread::idealThreadCount());
-//	  QThreadPool::globalInstance()->setMaxThreadCount(maxThreads);
-	}
-    }
-  else
-    {
-      pariso = false;
-      QMessageBox::information(0, "Isosurface generation", "Generating one after another");
-    }
-
-  return pariso;
+  // VolumeData and its decoder plugins are stateful and not thread-safe.
+  // Sharing one instance across concurrent isosurface jobs can mix slices and
+  // multiplies the admitted VDB working set by the worker count.
+  return false;
 }
 
 
 bool
-saveSliceZeroAtTop()
+saveSliceZeroAtTop(bool *accepted = 0)
 {
   bool save0attop = true;
   bool ok = false;
@@ -284,6 +693,8 @@ saveSliceZeroAtTop()
 			  0,
 		      false,
 		       &ok);
+  if (accepted)
+    *accepted = ok;
   if (ok)
     {
       QStringList op = option.split(' ');
@@ -298,7 +709,7 @@ saveSliceZeroAtTop()
 }
 
 bool
-getSaveRawFile()
+getSaveRawFile(bool *accepted = 0)
 {
   bool saveRawFile = false;
   bool ok = false;
@@ -312,13 +723,15 @@ getSaveRawFile()
 			  1,
 		      false,
 		       &ok);
+  if (accepted)
+    *accepted = ok;
   if (ok)
     {
       QStringList op = option.split(' ');
       if (op[0] == "Yes")
 	saveRawFile = true;
     }
-  else
+  else if (!accepted)
     QMessageBox::information(0, "RAW Volume", "Will not save raw volume");
 
   return saveRawFile;
@@ -337,18 +750,16 @@ getRawFilename(QString pvlFilename)
 }
 
 int
-getZSubsampling(int dsz, int wsz, int hsz)
+getZSubsampling(int dsz, int wsz, int hsz, bool *accepted = 0)
 {
   bool ok = false;
   QStringList slevels;
 
   slevels.clear();
   slevels << "No subsampling in Z";
-  slevels << QString("2 [Z(%1) %2 %3]").arg(dsz/2).arg(wsz).arg(hsz);
-  slevels << QString("3 [Z(%1) %2 %3]").arg(dsz/3).arg(wsz).arg(hsz);
-  slevels << QString("4 [Z(%1) %2 %3]").arg(dsz/4).arg(wsz).arg(hsz);
-  slevels << QString("5 [Z(%1) %2 %3]").arg(dsz/5).arg(wsz).arg(hsz);
-  slevels << QString("6 [Z(%1) %2 %3]").arg(dsz/6).arg(wsz).arg(hsz);
+  for (int factor=2; factor<=qMin(6, dsz); ++factor)
+    slevels << QString("%1 [Z(%2) %3 %4]")
+      .arg(factor).arg(dsz/factor).arg(wsz).arg(hsz);
   QString option = QInputDialog::getItem(0,
 					 "Volume Size",
 					 "Z subsampling",
@@ -356,6 +767,8 @@ getZSubsampling(int dsz, int wsz, int hsz)
 					 0,
 					 false,
 					 &ok);
+  if (accepted)
+    *accepted = ok;
   int svslz = 1;
   if (ok)
     {   
@@ -366,18 +779,19 @@ getZSubsampling(int dsz, int wsz, int hsz)
 }
 
 int
-getXYSubsampling(int svslz, int dsz, int wsz, int hsz)
+getXYSubsampling(int svslz, int dsz, int wsz, int hsz,
+		 bool *accepted = 0)
 {
   bool ok = false;
   QStringList slevels;
 
   slevels.clear();
   slevels << "No subsampling in XY";
-  slevels << QString("2 [%1 Y(%2) X(%3)]").arg(dsz/svslz).arg(wsz/2).arg(hsz/2);
-  slevels << QString("3 [%1 Y(%2) X(%3)]").arg(dsz/svslz).arg(wsz/3).arg(hsz/3);
-  slevels << QString("4 [%1 Y(%2) X(%3)]").arg(dsz/svslz).arg(wsz/4).arg(hsz/4);
-  slevels << QString("5 [%1 Y(%2) X(%3)]").arg(dsz/svslz).arg(wsz/5).arg(hsz/5);
-  slevels << QString("6 [%1 Y(%2) X(%3)]").arg(dsz/svslz).arg(wsz/6).arg(hsz/6);
+  const int maxFactor = qMin(6, qMin(wsz, hsz));
+  for (int factor=2; factor<=maxFactor; ++factor)
+    slevels << QString("%1 [%2 Y(%3) X(%4)]")
+      .arg(factor).arg(dsz/qMax(1, svslz))
+      .arg(wsz/factor).arg(hsz/factor);
   QString option = QInputDialog::getItem(0,
 					 "Volume Size",
 					 "XY subsampling",
@@ -385,6 +799,8 @@ getXYSubsampling(int svslz, int dsz, int wsz, int hsz)
 					 0,
 					 false,
 					 &ok);
+  if (accepted)
+    *accepted = ok;
   int svsl = 1;
   if (ok)
     {   
@@ -615,7 +1031,7 @@ Raw2Pvl::applyMeanFilterToSlice(uchar *val, uchar *vg,
     }
 }
 
-void
+bool
 Raw2Pvl::savePvlHeader(QString pvlFilename,
 		       bool saveRawFile, QString rawfile,
 		       int voxelType, int pvlVoxelType, int voxelUnit,
@@ -626,6 +1042,7 @@ Raw2Pvl::savePvlHeader(QString pvlFilename,
 		       int slabSize)
 {
   QString xmlfile = pvlFilename;
+  g_pvlHeaderWriteError.clear();
 
   QDomDocument doc("Drishti_Header");
 
@@ -762,23 +1179,48 @@ Raw2Pvl::savePvlHeader(QString pvlFilename,
     topElement.appendChild(de0);
   }
   
-  QFile f(xmlfile.toUtf8().data());
-  if (f.open(QIODevice::WriteOnly))
+  QSaveFile f(xmlfile);
+  if (!f.open(QIODevice::WriteOnly))
     {
-      QTextStream out(&f);
-      doc.save(out, 2);
-      f.close();
+      g_pvlHeaderWriteError =
+        QString("Cannot open PVL header '%1': %2")
+        .arg(xmlfile).arg(f.errorString());
+      return false;
     }
+
+  QTextStream out(&f);
+  doc.save(out, 2);
+  out.flush();
+  if (out.status() != QTextStream::Ok)
+    {
+      g_pvlHeaderWriteError =
+        QString("Cannot write PVL header '%1': %2")
+        .arg(xmlfile).arg(f.errorString());
+      f.cancelWriting();
+      return false;
+    }
+  if (!f.commit())
+    {
+      g_pvlHeaderWriteError =
+        QString("Cannot commit PVL header '%1': %2")
+        .arg(xmlfile).arg(f.errorString());
+      return false;
+    }
+  return true;
 }
 
-void
+bool
 Raw2Pvl::savePvl(VolumeData* volData,
 		 int dmin, int dmax,
 		 int wmin, int wmax,
 		 int hmin, int hmax,
 		 QStringList timeseriesFiles)
 {
-
+  if (!volData)
+    {
+      QMessageBox::warning(0, "Save", "No volume data is loaded.");
+      return false;
+    }
   QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
   QWidget *mainWidget = 0;
   for(QWidget *w : topLevelWidgets)
@@ -791,8 +1233,16 @@ Raw2Pvl::savePvl(VolumeData* volData,
     }
 
   //------------------------------------------------------
-  int rvdepth, rvwidth, rvheight;    
+  int rvdepth, rvwidth, rvheight;
   volData->gridSize(rvdepth, rvwidth, rvheight);
+
+  if (!validVolumeRange(rvdepth, rvwidth, rvheight,
+                        dmin, dmax, wmin, wmax, hmin, hmax))
+    {
+      QMessageBox::warning(0, "Save",
+                           "The selected volume range is invalid.");
+      return false;
+    }
 
   int dsz=dmax-dmin+1;
   int wsz=wmax-wmin+1;
@@ -800,6 +1250,14 @@ Raw2Pvl::savePvl(VolumeData* volData,
 
   uchar voxelType = volData->voxelType();  
   int headerBytes = volData->headerBytes();
+
+  if (voxelType > _Float)
+    {
+      QMessageBox::warning(0, "Save",
+                           "PVL, MHD, and VDB conversion support scalar "
+                           "volumes only. Use the RGB/RGBA export instead.");
+      return false;
+    }
 
   int bpv = 1;
   if (voxelType == _UChar) bpv = 1;
@@ -809,7 +1267,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
   else if (voxelType == _Int) bpv = 4;
   else if (voxelType == _Float) bpv = 4;
 
-  int slabSize = (1024*1024*1024)/(bpv*wsz*hsz);
+  int slabSize = dsz;
 //  if (slabSize < dsz)
 //    {  
 //      QStringList items;
@@ -823,18 +1281,16 @@ Raw2Pvl::savePvl(VolumeData* volData,
 //      if (yn != "yes") // put all in a single file
 //	slabSize = dsz+1;
 //    }
-  slabSize = dsz+1;
   //------------------------------------------------------
 
   QString pvlFilename = getPvlNcFilename();
   if (pvlFilename.endsWith(".mhd"))
     {
-      saveMHD(pvlFilename,
-	      volData,
-	      dmin, dmax,
-	      wmin, wmax,
-	      hmin, hmax);
-      return;
+      return saveMHD(pvlFilename,
+		     volData,
+		     dmin, dmax,
+		     wmin, wmax,
+		     hmin, hmax);
     }
 
     if (pvlFilename.endsWith(".vdb"))
@@ -842,7 +1298,8 @@ Raw2Pvl::savePvl(VolumeData* volData,
       int tsfcount = qMax(1, timeseriesFiles.count());
       if (tsfcount == 1)
 	{
-	  saveVDB(-1, pvlFilename, volData);
+	  if (!saveVDB(-1, pvlFilename, volData))
+	    return false;
 	  QMessageBox::information(0, "Save VDB", "Volume save to "+pvlFilename);
 	}
       else
@@ -857,41 +1314,59 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		  pvlflnm = QFileInfo(ftpvl.absolutePath(),
 				      ftraw.completeBaseName() + ".vdb").absoluteFilePath();
 		  
-		  volData->replaceFile(timeseriesFiles[tsf]);
+		  if (!volData->replaceFile(timeseriesFiles[tsf]))
+		    {
+		      QMessageBox::warning(0, "Save VDB", volData->lastError());
+		      return false;
+		    }
 		}
 	      
 	      if (!saveVDB(tsf, pvlflnm, volData))
-		return;
+		return false;
 		  
 	    }
 	  QMessageBox::information(0, "Save VDB", "Volumes saved to VDB files");
 	}
-      return;
+      return true;
     }
 
     
   if (pvlFilename.count() < 4)
     {
       QMessageBox::information(0, "pvl.nc", "No .pvl.nc filename chosen.");
-      return;
+      return false;
     }
 
-  bool save0AtTop = saveSliceZeroAtTop();;
+  bool choiceAccepted = false;
+  bool save0AtTop = saveSliceZeroAtTop(&choiceAccepted);
+  if (!choiceAccepted)
+    return false;
 
-  bool saveRawFile = getSaveRawFile();
+  bool saveRawFile = getSaveRawFile(&choiceAccepted);
+  if (!choiceAccepted)
+    return false;
 
   QString rawfile;
-  if (saveRawFile) rawfile = getRawFilename(pvlFilename);
-  if (rawfile.isEmpty())
-    saveRawFile = false;
+  if (saveRawFile)
+    {
+      rawfile = getRawFilename(pvlFilename);
+      if (rawfile.isEmpty())
+	return false;
+    }
 
-  int svslz = getZSubsampling(dsz, wsz, hsz);
-  int svsl = getXYSubsampling(svslz, dsz, wsz, hsz);
+  int svslz = getZSubsampling(dsz, wsz, hsz, &choiceAccepted);
+  if (!choiceAccepted)
+    return false;
+  int svsl = getXYSubsampling(svslz, dsz, wsz, hsz, &choiceAccepted);
+  if (!choiceAccepted)
+    return false;
+  svslz = qBound(1, svslz, dsz);
+  svsl = qBound(1, svsl, qMin(wsz, hsz));
 
   int dsz2 = dsz/svslz;
   int wsz2 = wsz/svsl;
   int hsz2 = hsz/svsl;
-  int svsl3 = svslz*svsl*svsl;
+  const double svsl3 = static_cast<double>(svslz)*svsl*svsl;
   //------------------------------------------------------
 
   //------------------------------------------------------
@@ -918,14 +1393,40 @@ Raw2Pvl::savePvl(VolumeData* volData,
 				 arg(final_wsz2).\
 				 arg(final_hsz2),
 				 &ok);
+    if (!ok)
+      return false;
+    if (text.trimmed().isEmpty())
+      {
+        QMessageBox::warning(0, "Save",
+                             "The final volume grid size cannot be empty.");
+        return false;
+      }
     if (ok && !text.isEmpty())
       {
 	QStringList list = text.split(" ", QString::SkipEmptyParts);
+	if (list.count() != 3)
+	  {
+	    QMessageBox::warning(0, "Save",
+	      "The final volume grid size must contain depth, width, and height.");
+	    return false;
+	  }
 	if (list.count() == 3)
 	  {
-	    final_dsz2 = qMax(dsz2, list[0].toInt());
-	    final_wsz2 = qMax(wsz2, list[1].toInt());
-	    final_hsz2 = qMax(hsz2, list[2].toInt());
+	    bool depthOk = false;
+	    bool widthOk = false;
+	    bool heightOk = false;
+	    const int requestedDepth = list[0].toInt(&depthOk);
+	    const int requestedWidth = list[1].toInt(&widthOk);
+	    const int requestedHeight = list[2].toInt(&heightOk);
+	    if (!depthOk || !widthOk || !heightOk)
+	      {
+		QMessageBox::warning(0, "Save",
+		  "The final volume grid dimensions must be integers.");
+		return false;
+	      }
+	    final_dsz2 = qMax(dsz2, requestedDepth);
+	    final_wsz2 = qMax(wsz2, requestedWidth);
+	    final_hsz2 = qMax(hsz2, requestedHeight);
 
 	    int td = final_dsz2 - dsz2;
 	    int tw = final_wsz2 - wsz2;
@@ -949,13 +1450,22 @@ Raw2Pvl::savePvl(VolumeData* volData,
 					     QLineEdit::Normal,
 					     "0",
 					     &ok);
-		if (ok && !text.isEmpty())
-		  pad_value = text.toInt();
+		if (!ok)
+		  return false;
+		bool valueOk = false;
+		const int value = text.toInt(&valueOk);
+		if (!valueOk)
+		  {
+		    QMessageBox::warning(0, "Save",
+		      "The padding value must be an integer.");
+		    return false;
+		  }
+		pad_value = value;
 	      }
 	  }
       }
 
-    slabSize = final_dsz2+1;
+    slabSize = final_dsz2;
   }
   //------------------------------------------------------
 
@@ -970,7 +1480,8 @@ Raw2Pvl::savePvl(VolumeData* volData,
   // scale the voxelsize according to subsampling used
   savePvlDialog.setVoxelSize(vx*svsl, vy*svsl, vz*svslz);
   savePvlDialog.setDescription(desc);
-  savePvlDialog.exec();
+  if (savePvlDialog.exec() != QDialog::Accepted)
+    return false;
 
   int spread = savePvlDialog.volumeFilter();
   bool dilateFilter = savePvlDialog.dilateFilter();
@@ -982,6 +1493,13 @@ Raw2Pvl::savePvl(VolumeData* volData,
 
   QList<float> rawMap = volData->rawMap();
   QList<int> pvlMap = volData->pvlMap();
+
+  if (rawMap.count() < 2 || rawMap.count() != pvlMap.count())
+    {
+      QMessageBox::warning(0, "Save",
+                           "The raw-to-PVL value map is invalid.");
+      return false;
+    }
 
   int pvlbpv = 1;
   if (pvlMap[pvlMap.count()-1] > 255)
@@ -1008,6 +1526,8 @@ Raw2Pvl::savePvl(VolumeData* volData,
 					   0,
 					   false,
 					   &ok);
+      if (!ok)
+	return false;
       if (ok && !item.isEmpty())
 	{
 	  QStringList op = item.split(' ');
@@ -1020,17 +1540,25 @@ Raw2Pvl::savePvl(VolumeData* volData,
     }
   //--------------------------
   
-  int nbytes = rvwidth*rvheight*bpv;
-  double *filtervol = new double[wsz2*hsz2];
-  uchar *pvlslice = new uchar[pvlbpv*wsz2*hsz2];
-  uchar *raw = new uchar[nbytes];
-  uchar **val;
-  if (spread > 0)
+  ConversionBuffers conversionBuffers;
+  QString bufferError;
+  if (!prepareConversionBuffers(
+        QStringLiteral("PVL conversion"),
+        rvwidth, rvheight, bpv,
+        wsz2, hsz2, pvlbpv,
+        final_wsz2, final_hsz2, spread, saveRawFile,
+        conversionBuffers, bufferError))
     {
-      val = new uchar*[2*spread+1];
-      for (int i=0; i<2*spread+1; i++)
-	val[i] = new uchar[nbytes];
+      QMessageBox::warning(0, "Save", bufferError);
+      return false;
     }
+
+  const std::size_t nbytes =
+    static_cast<std::size_t>(conversionBuffers.rawBytes);
+  double *filtervol = conversionBuffers.filter.get();
+  uchar *pvlslice = conversionBuffers.pvl.get();
+  uchar *raw = conversionBuffers.raw.get();
+  uchar **val = conversionBuffers.filterSlices.get();
   int rawSize = rawMap.size()-1;
   int width = wsz2;
   int height = hsz2;
@@ -1041,7 +1569,18 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	       wsz2 != rvwidth ||
 	       hsz2 != rvheight);
 
-  uchar *final_val = new uchar[pvlbpv*final_wsz2*final_hsz2];
+  uchar *final_val = conversionBuffers.finalSlice.get();
+
+  const auto readSlice = [volData](int sliceIndex, uchar *destination)
+    {
+      QString error;
+      if (readExportSlice(volData, sliceIndex, destination, error))
+	return true;
+      QMessageBox::critical(0, "Save",
+	QString("Cannot decode input slice %1: %2")
+	.arg(sliceIndex).arg(error));
+      return false;
+    };
 
   VolumeFileManager rawFileManager;
   VolumeFileManager pvlFileManager;
@@ -1065,7 +1604,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	{
 	  progress.setValue(100);  
 	  QMessageBox::information(0, "Save", "-----Aborted-----");
-	  break;
+	  return false;
 	}
 	  
       QString pvlflnm = pvlFilename;
@@ -1081,7 +1620,20 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	  rawflnm = QFileInfo(ftpvl.absolutePath(),
 			      ftraw.completeBaseName() + ".raw").absoluteFilePath();
 
-	  volData->replaceFile(timeseriesFiles[tsf]);
+	  if (!volData->replaceFile(timeseriesFiles[tsf]))
+	    {
+	      QMessageBox::warning(0, "Save", volData->lastError());
+	      return false;
+	    }
+	  if (!currentVolumeLayoutMatches(volData,
+	                                  rvdepth, rvwidth, rvheight,
+	                                  voxelType))
+	    {
+	      QMessageBox::warning(0, "Save",
+	        "A time-series volume has a different grid or voxel type. "
+	        "Conversion was stopped before reading into the fixed slice buffer.");
+	      return false;
+	    }
 	}
 
       pvlFileManager.setBaseFilename(pvlflnm);
@@ -1095,7 +1647,11 @@ Raw2Pvl::savePvl(VolumeData* volData,
       pvlFileManager.setHeaderSize(13);
       pvlFileManager.setSlabSize(slabSize);
       pvlFileManager.setSliceZeroAtTop(save0AtTop);
-      pvlFileManager.createFile(true);
+      if (!pvlFileManager.createFile(true))
+	{
+	  QMessageBox::critical(0, "Save", pvlFileManager.lastError());
+	  return false;
+	}
       
       if (saveRawFile)
 	{
@@ -1122,38 +1678,37 @@ Raw2Pvl::savePvl(VolumeData* volData,
 						     false,
 						     &ok);
 	      if (!ok)
-		return;
+		return false;
 	      
 	      QStringList op = option.split(' ');
 	      if (op[0] != "Yes")
 		{
 		  QMessageBox::information(0, "Save",
 	        QString("Please choose a different name for the preprocessed volume - RAW file not overwritten"));
-		  return;
+		  return false;
 		}
 	    }
-	  rawFileManager.createFile(true);
+	  if (!rawFileManager.createFile(true))
+	    {
+	      QMessageBox::critical(0, "Save", rawFileManager.lastError());
+	      return false;
+	    }
 	}
       //------------------------------------------------------
-
-
-      savePvlHeader(pvlflnm,
-		    saveRawFile, rawflnm+".001",
-		    voxelType, pvlVoxelType, voxelUnit,
-		    final_dsz2, final_wsz2, final_hsz2,
-		    vx, vy, vz,
-		    rawMap, pvlMap,
-		    description,
-		    slabSize);
 
 
       // ------------------
       // add padding
       if (sfd > 0)
 	{
-	  memset(final_val, pad_value, pvlbpv*final_wsz2*final_hsz2);
+	  memset(final_val, pad_value,
+                 static_cast<std::size_t>(conversionBuffers.finalBytes));
 	  for(int esl=0; esl<sfd; esl++)
-	    pvlFileManager.setSlice(esl, final_val);
+	    if (!pvlFileManager.setSlice(esl, final_val))
+	      {
+		QMessageBox::critical(0, "Save", pvlFileManager.lastError());
+		return false;
+	      }
 	}
       // ------------------
 	
@@ -1161,14 +1716,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
       // ------------------
       // calculate weights for Gaussian filter
       float weights[100];
-      float wsum = 0.0;
-      for(int i=-spread; i<=spread; i++)
-	{
-	  float wgt = qExp(-qAbs(i)/(2.0*spread*spread))/(M_PI*2*spread*spread);
-	  wsum +=  wgt;
-	  weights[i+spread] = wgt;
-	}
-      weights[2*spread+2] = wsum;
+      calculateGaussianWeights(spread, weights);
       // ------------------
       
       
@@ -1179,7 +1727,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	    {
 	      progress.setValue(100);  
 	      QMessageBox::information(0, "Save", "-----Aborted-----");
-	      break;
+	      return false;
 	    }
 
 	  int d0 = dmin + dd*svslz; 
@@ -1194,14 +1742,15 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	  progress.setValue((int)(100*(float)dd/(float)dsz2));
 	  qApp->processEvents();
 	  
-	  memset(filtervol, 0, 8*wsz2*hsz2);
+	  memset(filtervol, 0,
+                 static_cast<std::size_t>(conversionBuffers.filterBytes));
 	  for (int d=d0; d<=d1; d++)
 	    {
 	      if (spread > 0)
 		{
 		  if (d == d0)
 		    {
-		      volData->getDepthSlice(d, val[spread]);
+		      if (!readSlice(d, val[spread])) return false;
 		      applyMeanFilterToSlice(val[spread], raw,
 					     voxelType, rvwidth, rvheight,
 					     spread, dilateFilter, weights);
@@ -1209,9 +1758,9 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		      for(int i=-spread; i<0; i++)
 			{
 			  if (d+i >= 0)
-			    volData->getDepthSlice(d+i, val[spread+i]);
+			    { if (!readSlice(d+i, val[spread+i])) return false; }
 			  else
-			    volData->getDepthSlice(0, val[spread+i]);
+			    { if (!readSlice(0, val[spread+i])) return false; }
 
 			  applyMeanFilterToSlice(val[spread+i], raw,
 						 voxelType, rvwidth, rvheight,
@@ -1221,9 +1770,9 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		      for(int i=1; i<=spread; i++)
 			{
 			  if (d+i < rvdepth)
-			    volData->getDepthSlice(d+i, val[spread+i]);
+			    { if (!readSlice(d+i, val[spread+i])) return false; }
 			  else
-			    volData->getDepthSlice(rvdepth-1, val[spread+i]);
+			    { if (!readSlice(rvdepth-1, val[spread+i])) return false; }
 
 			  applyMeanFilterToSlice(val[spread+i], raw,
 						 voxelType, rvwidth, rvheight,
@@ -1232,24 +1781,24 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		    }
 		  else if (d < rvdepth-spread)
 		    {
-		      volData->getDepthSlice(d+spread, val[2*spread]);
+		      if (!readSlice(d+spread, val[2*spread])) return false;
 		      applyMeanFilterToSlice(val[2*spread], raw,
 					     voxelType, rvwidth, rvheight,
 					     spread, dilateFilter, weights);
 		    }		  
 		  else
 		    {
-		      volData->getDepthSlice(rvdepth-1, val[2*spread]);
+		      if (!readSlice(rvdepth-1, val[2*spread])) return false;
 		      applyMeanFilterToSlice(val[2*spread], raw,
 					     voxelType, rvwidth, rvheight,
 					     spread, dilateFilter, weights);
 		    }		  
 		  // smoothed data is now in val[2*spread]
 		  // copy that into raw
-		  memcpy(raw, val[2*spread], rvwidth*rvheight*bpv);
+		  memcpy(raw, val[2*spread], nbytes);
 		}
 	      else // spread == 0
-		volData->getDepthSlice(d, raw);
+		{ if (!readSlice(d, raw)) return false; }
 	      
 	      if (spread > 0)
 		{
@@ -1362,7 +1911,11 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	    } // trim || subsample
 	  
 	  if (saveRawFile)
-	    rawFileManager.setSlice(dd, raw);
+	    if (!rawFileManager.setSlice(dd, raw))
+	      {
+		QMessageBox::critical(0, "Save", rawFileManager.lastError());
+		return false;
+	      }
 	  
 	  applyMapping(raw, voxelType, rawMap,
 		       pvlslice, pvlbpv, pvlMap,
@@ -1384,10 +1937,17 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	    }
 	  
 	  if (sfw == 0 && sfh == 0)
-	    pvlFileManager.setSlice(sfd+dd, pvlslice);
+	    {
+	      if (!pvlFileManager.setSlice(sfd+dd, pvlslice))
+		{
+		  QMessageBox::critical(0, "Save", pvlFileManager.lastError());
+		  return false;
+		}
+	    }
 	  else // add padding if required
 	    {
-	      memset(final_val, pad_value, pvlbpv*final_wsz2*final_hsz2);
+	      memset(final_val, pad_value,
+                     static_cast<std::size_t>(conversionBuffers.finalBytes));
 	      if (pvlbpv == 1)
 		{
 		  for(int wi=0; wi<wsz2; wi++)
@@ -1400,33 +1960,56 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		    for(int hi=0; hi<hsz2; hi++)
 		      ((ushort*)final_val)[(wi+sfw)*final_hsz2+(hi+sfh)] = ((ushort*)pvlslice)[wi*hsz2+hi];
 		}
-	      pvlFileManager.setSlice(sfd+dd, final_val);
+	      if (!pvlFileManager.setSlice(sfd+dd, final_val))
+		{
+		  QMessageBox::critical(0, "Save", pvlFileManager.lastError());
+		  return false;
+		}
 	    }
+	}
+
+      // -------------------------
+      // add padding if required
+      if (efd > 0)
+	{
+	  memset(final_val, pad_value,
+                 static_cast<std::size_t>(conversionBuffers.finalBytes));
+	  for(int esl=0; esl<efd; esl++)
+	    if (!pvlFileManager.setSlice(dsz2+sfd+esl, final_val))
+	      {
+		QMessageBox::critical(0, "Save", pvlFileManager.lastError());
+		return false;
+	      }
+	}
+      // -------------------------
+
+      if (!savePvlHeader(pvlflnm,
+			 saveRawFile, rawflnm+".001",
+			 voxelType, pvlVoxelType, voxelUnit,
+			 final_dsz2, final_wsz2, final_hsz2,
+			 vx, vy, vz,
+			 rawMap, pvlMap,
+			 description,
+			 slabSize))
+	{
+	  QMessageBox::critical(0, "Save", g_pvlHeaderWriteError);
+	  return false;
+	}
+      const bool pvlCommitted = pvlFileManager.commitFileCreation();
+      const bool rawCommitted = !saveRawFile ||
+	                        rawFileManager.commitFileCreation();
+      if (!pvlCommitted)
+	{
+	  QMessageBox::critical(0, "Save", pvlFileManager.lastError());
+	  return false;
+	}
+      if (!rawCommitted)
+	{
+	  QMessageBox::critical(0, "Save", rawFileManager.lastError());
+	  return false;
 	}
     }
 
-  // -------------------------
-  // add padding if required
-  if (efd > 0)
-    {
-      memset(final_val, pad_value, pvlbpv*final_wsz2*final_hsz2);
-      for(int esl=0; esl<efd; esl++)
-	pvlFileManager.setSlice(dsz2+sfd+esl, final_val);
-    }
-  // -------------------------
-
-  delete [] final_val;
-
-  delete [] filtervol;
-  delete [] pvlslice;
-  delete [] raw;
-  if (spread > 0)
-    {
-      for (int i=0; i<2*spread+1; i++)
-	delete [] val[i];
-      delete [] val;
-    }
-  
   progress.setValue(100);
 
 
@@ -1438,6 +2021,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
   
 //QMessageBox::information(0, "Save", "-----Done-----");
 
+  return true;
 }
 
 void
@@ -1556,7 +2140,6 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 
   int svslz = getZSubsampling(1024, 1024, 1024);
   int svsl = getXYSubsampling(svslz, 1024, 1024, 1024);
-  int svsl3 = svslz*svsl*svsl;
   //------------------------------------------------------
 
   //------------------------------------------------------
@@ -1568,7 +2151,8 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   savePvlDialog.setVoxelUnit(Raw2Pvl::_Micron);
   savePvlDialog.setVoxelSize(vx, vy, vz);
   savePvlDialog.setDescription(desc);
-  savePvlDialog.exec();
+  if (savePvlDialog.exec() != QDialog::Accepted)
+    return;
 
   int spread = savePvlDialog.volumeFilter();
   bool dilateFilter = savePvlDialog.dilateFilter();
@@ -1603,6 +2187,13 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   //------------------------------
   int rvdepth, rvwidth, rvheight;    
   volData->gridSize(rvdepth, rvwidth, rvheight);
+  if (!validVolumeRange(rvdepth, rvwidth, rvheight,
+                        0, rvdepth-1, 0, rvwidth-1, 0, rvheight-1))
+    {
+      QMessageBox::warning(0, "Batch Processing",
+                           "The source volume dimensions are invalid.");
+      return;
+    }
   int dmin = 0;
   int wmin = 0;
   int hmin = 0;
@@ -1613,9 +2204,20 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   int wsz=rvwidth;
   int hsz=rvheight;
 
+  svslz = qBound(1, svslz, dsz);
+  svsl = qBound(1, svsl, qMin(wsz, hsz));
+  const double svsl3 = static_cast<double>(svslz)*svsl*svsl;
+
   uchar voxelType = volData->voxelType();  
   int headerBytes = volData->headerBytes();
-      
+
+  if (voxelType > _Float)
+    {
+      QMessageBox::warning(0, "Batch Process",
+                           "Batch conversion supports scalar volumes only.");
+      return;
+    }
+
   int bpv = 1;
   if (voxelType == _UChar) bpv = 1;
   else if (voxelType == _Char) bpv = 1;
@@ -1624,16 +2226,18 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   else if (voxelType == _Int) bpv = 4;
   else if (voxelType == _Float) bpv = 4;
   
-  //*** max 1Gb per slab
-  int slabSize;
-  slabSize = (1024*1024*1024)/(bpv*wsz*hsz);
-  
   int dsz2 = dsz/svslz;
   int wsz2 = wsz/svsl;
   int hsz2 = hsz/svsl;
 
   QList<float> rawMap = volData->rawMap();
   QList<int> pvlMap = volData->pvlMap();
+  if (rawMap.count() < 2 || rawMap.count() != pvlMap.count())
+    {
+      QMessageBox::warning(0, "Batch Processing",
+                           "The raw-to-PVL value map is invalid.");
+      return;
+    }
   
   int pvlbpv = 1;
   if (pvlMap[pvlMap.count()-1] > 255)
@@ -1642,17 +2246,40 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   int pvlVoxelType = 0;
   if (pvlbpv == 2) pvlVoxelType = 2;
 
-  int nbytes = rvwidth*rvheight*bpv;
-  double *filtervol = new double[wsz2*hsz2];
-  uchar *pvlslice = new uchar[pvlbpv*wsz2*hsz2];
-  uchar *raw = new uchar[nbytes];
-  uchar **val;
-  if (spread > 0)
+  ConversionBuffers conversionBuffers;
+  QString bufferError;
+  if (!prepareConversionBuffers(
+        QStringLiteral("Batch PVL conversion"),
+        rvwidth, rvheight, bpv,
+        wsz2, hsz2, pvlbpv,
+        0, 0, spread, saveRawFile,
+        conversionBuffers, bufferError))
     {
-      val = new uchar*[2*spread+1];
-      for (int i=0; i<2*spread+1; i++)
-	val[i] = new uchar[nbytes];
+      QMessageBox::warning(0, "Batch Processing", bufferError);
+      return;
     }
+
+  double *filtervol = conversionBuffers.filter.get();
+  uchar *pvlslice = conversionBuffers.pvl.get();
+  uchar *raw = conversionBuffers.raw.get();
+  uchar **val = conversionBuffers.filterSlices.get();
+
+  const auto readSlice = [volData](int sliceIndex, uchar *destination)
+    {
+      QString error;
+      if (readExportSlice(volData, sliceIndex, destination, error))
+	return true;
+      QMessageBox::critical(0, "Batch Processing",
+	QString("Cannot decode input slice %1: %2")
+	.arg(sliceIndex).arg(error));
+      return false;
+    };
+
+  const std::uint64_t oneGiB = 1024ULL*1024ULL*1024ULL;
+  const std::uint64_t slabCapacity = qMax<std::uint64_t>(
+    1, oneGiB/conversionBuffers.rawBytes);
+  const int slabSize = static_cast<int>(qMin<std::uint64_t>(
+    static_cast<std::uint64_t>(dsz2), slabCapacity));
   int rawSize = rawMap.size()-1;
   int width = wsz2;
   int height = hsz2;
@@ -1669,7 +2296,7 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 	{
 	  progress.setValue(100);  
 	  QMessageBox::information(0, "Save", "-----Aborted-----");
-	  break;
+	  return;
 	}
 
       QString pvlflnm = pvlFilename;
@@ -1685,7 +2312,20 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 	  rawflnm = QFileInfo(ftpvl.absolutePath(),
 			      ftraw.completeBaseName() + ".raw").absoluteFilePath();
 
-	  volData->replaceFile(timeseriesFiles[tsf]);
+	  if (!volData->replaceFile(timeseriesFiles[tsf]))
+	    {
+	      QMessageBox::warning(0, "Batch Processing", volData->lastError());
+	      return;
+	    }
+	  if (!currentVolumeLayoutMatches(volData,
+	                                  rvdepth, rvwidth, rvheight,
+	                                  voxelType))
+	    {
+	      QMessageBox::warning(0, "Batch Processing",
+	        "A time-series volume has a different grid or voxel type. "
+	        "Batch conversion was stopped before decoding it.");
+	      return;
+	    }
 	  //QStringList flnms;
 	  //flnms << timeseriesFiles[tsf];
 	  //volData->setFile(flnms, (tsf>0));
@@ -1703,7 +2343,12 @@ Raw2Pvl::batchProcess(VolumeData* volData,
       pvlFileManager.setHeaderSize(13);
       pvlFileManager.setSlabSize(slabSize);
       pvlFileManager.setSliceZeroAtTop(save0AtTop);
-      pvlFileManager.createFile(true);
+      if (!pvlFileManager.createFile(true))
+	{
+	  QMessageBox::critical(0, "Batch Processing",
+				pvlFileManager.lastError());
+	  return;
+	}
       
       if (saveRawFile)
 	{
@@ -1715,33 +2360,21 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 	  rawFileManager.setHeaderSize(13);
 	  rawFileManager.setSlabSize(slabSize);
 	  rawFileManager.setSliceZeroAtTop(save0AtTop);
-	  rawFileManager.createFile(true);
+	  if (!rawFileManager.createFile(true))
+	    {
+	      QMessageBox::critical(0, "Batch Processing",
+				    rawFileManager.lastError());
+	      return;
+	    }
 	}
       //------------------------------------------------------
-
-
-      savePvlHeader(pvlflnm,
-		    saveRawFile, rawflnm,
-		    voxelType, pvlVoxelType, voxelUnit,
-		    dsz/svslz, wsz/svsl, hsz/svsl,
-		    vx, vy, vz,
-		    rawMap, pvlMap,
-		    description,
-		    slabSize);
 
       progress.setLabelText(pvlflnm);
       
       // ------------------
       // calculate weights for Gaussian filter
       float weights[100];
-      float wsum = 0.0;
-      for(int i=-spread; i<=spread; i++)
-	{
-	  float wgt = qExp(-i/(2.0*spread*spread))/(M_PI*2*spread*spread);
-	  wsum +=  wgt;
-	  weights[i+spread] = wgt;
-	}
-      weights[2*spread+2] = wsum;
+      calculateGaussianWeights(spread, weights);
       // ------------------
       
       for(int dd=0; dd<dsz2; dd++)
@@ -1751,7 +2384,7 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 	    {
 	      progress.setValue(100);  
 	      QMessageBox::information(0, "Save", "-----Aborted-----");
-	      break;
+	      return;
 	    }
 
 	  int d0 = dmin + dd*svslz; 
@@ -1760,14 +2393,15 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 	  progress.setValue((int)(100*(float)dd/(float)dsz2));
 	  qApp->processEvents();
 	  
-	  memset(filtervol, 0, 8*wsz2*hsz2);
+	  memset(filtervol, 0,
+                 static_cast<std::size_t>(conversionBuffers.filterBytes));
 	  for (int d=d0; d<=d1; d++)
 	    {
 	      if (spread > 0)
 		{
 		  if (d == d0)
 		    {
-		      volData->getDepthSlice(d, val[spread]);
+		      if (!readSlice(d, val[spread])) return;
 		      applyMeanFilterToSlice(val[spread], raw,
 					     voxelType, rvwidth, rvheight,
 					     spread, dilateFilter, weights);
@@ -1775,9 +2409,9 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 		      for(int i=-spread; i<0; i++)
 			{
 			  if (d+i >= 0)
-			    volData->getDepthSlice(d+i, val[spread+i]);
+			    { if (!readSlice(d+i, val[spread+i])) return; }
 			  else
-			    volData->getDepthSlice(0, val[spread+i]);
+			    { if (!readSlice(0, val[spread+i])) return; }
 
 			  applyMeanFilterToSlice(val[spread+i], raw,
 						 voxelType, rvwidth, rvheight,
@@ -1787,9 +2421,9 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 		      for(int i=1; i<=spread; i++)
 			{
 			  if (d+i < rvdepth)
-			    volData->getDepthSlice(d+i, val[spread+i]);
+			    { if (!readSlice(d+i, val[spread+i])) return; }
 			  else
-			    volData->getDepthSlice(rvdepth-1, val[spread+i]);
+			    { if (!readSlice(rvdepth-1, val[spread+i])) return; }
 
 			  applyMeanFilterToSlice(val[spread+i], raw,
 						 voxelType, rvwidth, rvheight,
@@ -1798,21 +2432,21 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 		    }
 		  else if (d < rvdepth-spread)
 		    {
-		      volData->getDepthSlice(d+spread, val[2*spread]);
+		      if (!readSlice(d+spread, val[2*spread])) return;
 		      applyMeanFilterToSlice(val[2*spread], raw,
 					     voxelType, rvwidth, rvheight,
 					     spread, dilateFilter, weights);
 		    }
 		  else
 		    {
-		      volData->getDepthSlice(rvdepth-1, val[2*spread]);
+		      if (!readSlice(rvdepth-1, val[2*spread])) return;
 		      applyMeanFilterToSlice(val[2*spread], raw,
 					     voxelType, rvwidth, rvheight,
 					     spread, dilateFilter, weights);
 		    }
 		}
 	      else
-		volData->getDepthSlice(d, raw);
+		{ if (!readSlice(d, raw)) return; }
 	      
 	      if (spread > 0)
 		{
@@ -1907,26 +2541,55 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 	    } // trim || subsample
 	  
 	  if (saveRawFile)
-	    rawFileManager.setSlice(dd, raw);
+	    if (!rawFileManager.setSlice(dd, raw))
+	      {
+		QMessageBox::critical(0, "Batch Processing",
+				      rawFileManager.lastError());
+		return;
+	      }
 	  
 	  applyMapping(raw, voxelType, rawMap,
 		       pvlslice, pvlbpv, pvlMap,
 		       width, height);
 	  
-	  pvlFileManager.setSlice(dd, pvlslice);
+	  if (!pvlFileManager.setSlice(dd, pvlslice))
+	    {
+	      QMessageBox::critical(0, "Batch Processing",
+				    pvlFileManager.lastError());
+	      return;
+	    }
 	} // end of dd loop
 
-      progress.setLabelText(QString("Processed %1 of %2").arg(tsf).arg(tsfcount));
-    }
+      if (!savePvlHeader(pvlflnm,
+			 saveRawFile, rawflnm+".001",
+			 voxelType, pvlVoxelType, voxelUnit,
+			 dsz/svslz, wsz/svsl, hsz/svsl,
+			 vx, vy, vz,
+			 rawMap, pvlMap,
+			 description,
+			 slabSize))
+	{
+	  QMessageBox::critical(0, "Batch Processing",
+				g_pvlHeaderWriteError);
+	  return;
+	}
+      const bool pvlCommitted = pvlFileManager.commitFileCreation();
+      const bool rawCommitted = !saveRawFile ||
+	                        rawFileManager.commitFileCreation();
+      if (!pvlCommitted)
+	{
+	  QMessageBox::critical(0, "Batch Processing",
+				pvlFileManager.lastError());
+	  return;
+	}
+      if (!rawCommitted)
+	{
+	  QMessageBox::critical(0, "Batch Processing",
+				rawFileManager.lastError());
+	  return;
+	}
 
-  delete [] filtervol;
-  delete [] pvlslice;
-  delete [] raw;
-  if (spread > 0)
-    {
-      for (int i=0; i<2*spread+1; i++)
-	delete [] val[i];
-      delete [] val;
+      progress.setLabelText(QString("Processed %1 of %2").arg(tsf).arg(tsfcount));
     }
 
   progress.setValue(100);
@@ -1934,13 +2597,19 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   QMessageBox::information(0, "Batch Processing", "-----Done-----");
 }
 
-void
+bool
 Raw2Pvl::saveMHD(QString mhdFilename,
 		 VolumeData* volData,
 		 int dmin, int dmax,
 		 int wmin, int wmax,
 		 int hmin, int hmax)
 {
+  if (!volData)
+    {
+      QMessageBox::warning(0, "Save MetaImage", "No volume data is loaded.");
+      return false;
+    }
+
   bool saveByteData = false;
   bool ok = false;
   QStringList slevels;
@@ -1953,24 +2622,38 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 			  0,
 		      false,
 		       &ok);
-  if (ok)
-    {
-      QStringList op = option.split(' ');
-      if (op[0] == "No")
-	saveByteData = true;
-    }
+  if (!ok)
+    return false;
+  QStringList op = option.split(' ');
+  if (op[0] == "No")
+    saveByteData = true;
   
 
   //------------------------------------------------------
   int rvdepth, rvwidth, rvheight;    
   volData->gridSize(rvdepth, rvwidth, rvheight);
 
+  if (!validVolumeRange(rvdepth, rvwidth, rvheight,
+                        dmin, dmax, wmin, wmax, hmin, hmax))
+    {
+      QMessageBox::warning(0, "Save MetaImage",
+                           "The selected volume range is invalid.");
+      return false;
+    }
+
   int dsz=dmax-dmin+1;
   int wsz=wmax-wmin+1;
   int hsz=hmax-hmin+1;
 
-  int svslz = getZSubsampling(dsz, wsz, hsz);
-  int svsl = getXYSubsampling(svslz, dsz, wsz, hsz);
+  bool choiceAccepted = false;
+  int svslz = getZSubsampling(dsz, wsz, hsz, &choiceAccepted);
+  if (!choiceAccepted)
+    return false;
+  int svsl = getXYSubsampling(svslz, dsz, wsz, hsz, &choiceAccepted);
+  if (!choiceAccepted)
+    return false;
+  svslz = qBound(1, svslz, dsz);
+  svsl = qBound(1, svsl, qMin(wsz, hsz));
 
   int dsz2 = dsz/svslz;
   int wsz2 = wsz/svsl;
@@ -1979,6 +2662,13 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 
   uchar voxelType = volData->voxelType();  
   int headerBytes = volData->headerBytes();
+
+  if (voxelType > _Float)
+    {
+      QMessageBox::warning(0, "Save MHD",
+                           "MHD conversion supports scalar volumes only.");
+      return false;
+    }
 
   int bpv = 1;
   if (voxelType == _UChar) bpv = 1;
@@ -1998,7 +2688,8 @@ Raw2Pvl::saveMHD(QString mhdFilename,
   savePvlDialog.setVoxelUnit(Raw2Pvl::_Micron);
   savePvlDialog.setVoxelSize(vx, vy, vz);
   savePvlDialog.setDescription(desc);
-  savePvlDialog.exec();
+  if (savePvlDialog.exec() != QDialog::Accepted)
+    return false;
 
   int spread = savePvlDialog.volumeFilter();
   bool dilateFilter = savePvlDialog.dilateFilter();
@@ -2034,7 +2725,7 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 					       false,
 					       &ok);
 	  if (item == "No" || !ok)
-	    return;
+	    return false;
 	}
       else
 	zrawFilename = zfl;
@@ -2043,12 +2734,67 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 	zrawFilename += ".raw";
     }
 
+  QList<float> rawMap = volData->rawMap();
+  QList<int> pvlMap = volData->pvlMap();
+  if (rawMap.count() < 2 || rawMap.count() != pvlMap.count())
+    {
+      QMessageBox::warning(0, "Save MetaImage",
+                           "The raw-to-PVL value map is invalid.");
+      return false;
+    }
+
+  ConversionBuffers conversionBuffers;
+  QString bufferError;
+  if (!prepareConversionBuffers(
+        QStringLiteral("MetaImage conversion"),
+        rvwidth, rvheight, bpv,
+        wsz2, hsz2, 1,
+        0, 0, spread, false,
+        conversionBuffers, bufferError))
+    {
+      QMessageBox::warning(0, "Save MetaImage", bufferError);
+      return false;
+    }
+
+  std::uint64_t outputPixels = 0;
+  std::uint64_t outputRawBytes = 0;
+  if (!checkedPlaneLayout(wsz2, hsz2, bpv,
+                          outputPixels, outputRawBytes))
+    {
+      QMessageBox::warning(0, "Save MetaImage",
+                           "The output slice size is invalid.");
+      return false;
+    }
+
+  double *filtervol = conversionBuffers.filter.get();
+  uchar *pvl = conversionBuffers.pvl.get();
+  uchar *raw = conversionBuffers.raw.get();
+  uchar **val = conversionBuffers.filterSlices.get();
+  const int rawSize = rawMap.size()-1;
+
+  const auto readSlice = [volData](int sliceIndex, uchar *destination)
+    {
+      QString error;
+      if (readExportSlice(volData, sliceIndex, destination, error))
+	return true;
+      QMessageBox::critical(0, "Save MetaImage",
+	QString("Cannot decode input slice %1: %2")
+	.arg(sliceIndex).arg(error));
+      return false;
+    };
+
   
+  QSaveFile mhd(mhdFilename);
+  if (!mhd.open(QFile::WriteOnly | QFile::Text))
+    {
+      QMessageBox::critical(0, "Save MetaImage",
+	QString("Cannot open temporary MHD output for '%1': %2")
+	.arg(mhdFilename).arg(mhd.errorString()));
+      return false;
+    }
   {
-    QFile mhd;
-    mhd.setFileName(mhdFilename);
-    mhd.open(QFile::WriteOnly | QFile::Text);
     QTextStream out(&mhd);
+    out.setCodec(QTextCodec::codecForLocale());
     out << "ObjectType = Image\n";
     out << "NDims = 3\n";
     out << "BinaryData = True\n";
@@ -2072,26 +2818,30 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 	else if (voxelType == _Int)   out << "ElementType = MET_INT\n";
 	else if (voxelType == _Float) out << "ElementType = MET_FLOAT\n";
       }
-    QString rflnm = QFileInfo(zrawFilename).fileName();
+    const QString rflnm = MetaImagePathUtils::elementDataFileReference(
+      mhdFilename, zrawFilename);
     out << QString("ElementDataFile = %1\n").arg(rflnm);
+    out.flush();
+    if (out.status() != QTextStream::Ok)
+      {
+	mhd.cancelWriting();
+	QMessageBox::critical(0, "Save MetaImage",
+	  QString("Cannot write MHD header '%1': %2")
+	  .arg(mhdFilename).arg(mhd.errorString()));
+	return false;
+      }
   }
 
-  {
-    QFile zraw;
-    zraw.setFileName(zrawFilename);
-    zraw.open(QFile::WriteOnly);
+  QSaveFile zraw(zrawFilename);
+  if (!zraw.open(QFile::WriteOnly))
+    {
+      mhd.cancelWriting();
+      QMessageBox::critical(0, "Save MetaImage",
+	QString("Cannot open temporary RAW output for '%1': %2")
+	.arg(zrawFilename).arg(zraw.errorString()));
+      return false;
+    }
 
-    int nbytes = rvwidth*rvheight*bpv;
-    double *filtervol = new double[wsz2*hsz2];
-    uchar *pvl = new uchar[wsz2*hsz2];
-    uchar *raw = new uchar[nbytes];
-    uchar **val;
-    if (spread > 0)
-      {
-	val = new uchar*[2*spread+1];
-	for (int i=0; i<2*spread+1; i++)
-	  val[i] = new uchar[nbytes];
-      }
     int width = wsz2;
     int height = hsz2;
     bool subsample = (svsl > 1 || svslz > 1);
@@ -2102,11 +2852,6 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 		 wsz2 != rvwidth ||
 		 hsz2 != rvheight);
 
-    QList<float> rawMap = volData->rawMap();
-    QList<int> pvlMap = volData->pvlMap();
-    int rawSize = rawMap.size()-1;
-
-    
     QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
     QWidget *mainWidget = 0;
     for(QWidget *w : topLevelWidgets)
@@ -2131,14 +2876,7 @@ Raw2Pvl::saveMHD(QString mhdFilename,
     // ------------------
     // calculate weights for Gaussian filter
     float weights[100];
-    float wsum = 0.0;
-    for(int i=-spread; i<=spread; i++)
-      {
-	float wgt = qExp(-i/(2.0*spread*spread))/(M_PI*2*spread*spread);
-	wsum +=  wgt;
-	weights[i+spread] = wgt;
-      }
-    weights[2*spread+2] = wsum;
+    calculateGaussianWeights(spread, weights);
     // ------------------
       
     for(int dd=0; dd<dsz2; dd++)
@@ -2146,9 +2884,10 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 
 	if (progress.wasCanceled())
 	  {
-	    progress.setValue(100);  
+	    zraw.cancelWriting();
+	    mhd.cancelWriting();
 	    QMessageBox::information(0, "Save", "-----Aborted-----");
-	    break;
+	    return false;
 	  }
 
 	int d0 = dmin + dd*svslz; 
@@ -2157,14 +2896,15 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 	progress.setValue((int)(100*(float)dd/(float)dsz2));
 	qApp->processEvents();
 	  
-	memset(filtervol, 0, 8*wsz2*hsz2);
+	memset(filtervol, 0,
+               static_cast<std::size_t>(conversionBuffers.filterBytes));
 	for (int d=d0; d<=d1; d++)
 	  {
 	    if (spread > 0)
 	      {
 		if (d == d0)
 		  {
-		    volData->getDepthSlice(d, val[spread]);
+		    if (!readSlice(d, val[spread])) return false;
 		    applyMeanFilterToSlice(val[spread], raw,
 					   voxelType, rvwidth, rvheight,
 					   spread, dilateFilter, weights);
@@ -2172,9 +2912,9 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 		    for(int i=-spread; i<0; i++)
 		      {
 			if (d+i >= 0)
-			  volData->getDepthSlice(d+i, val[spread+i]);
+			  { if (!readSlice(d+i, val[spread+i])) return false; }
 			else
-			  volData->getDepthSlice(0, val[spread+i]);
+			  { if (!readSlice(0, val[spread+i])) return false; }
 			
 			applyMeanFilterToSlice(val[spread+i], raw,
 					       voxelType, rvwidth, rvheight,
@@ -2184,9 +2924,9 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 		    for(int i=1; i<=spread; i++)
 		      {
 			if (d+i < rvdepth)
-			  volData->getDepthSlice(d+i, val[spread+i]);
+			  { if (!readSlice(d+i, val[spread+i])) return false; }
 			else
-			  volData->getDepthSlice(rvdepth-1, val[spread+i]);
+			  { if (!readSlice(rvdepth-1, val[spread+i])) return false; }
 			
 			applyMeanFilterToSlice(val[spread+i], raw,
 					       voxelType, rvwidth, rvheight,
@@ -2195,21 +2935,21 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 		  }
 		else if (d < rvdepth-spread)
 		  {
-		    volData->getDepthSlice(d+spread, val[2*spread]);
+		    if (!readSlice(d+spread, val[2*spread])) return false;
 		    applyMeanFilterToSlice(val[2*spread], raw,
 					   voxelType, rvwidth, rvheight,
 					   spread, dilateFilter, weights);
 		  }		  
 		else
 		  {
-		    volData->getDepthSlice(rvdepth-1, val[2*spread]);
+		    if (!readSlice(rvdepth-1, val[2*spread])) return false;
 		    applyMeanFilterToSlice(val[2*spread], raw,
 					   voxelType, rvwidth, rvheight,
 					   spread, dilateFilter, weights);
 		  }		  
 	      }
 	    else
-	      volData->getDepthSlice(d, raw);
+	      { if (!readSlice(d, raw)) return false; }
 	    
 	    if (spread > 0)
 	      {
@@ -2304,61 +3044,151 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 	  } // trim || subsample
 	
 	if (!saveByteData) // save original volume
-	  zraw.write((char*)raw, wsz2*hsz2*bpv);
+	  {
+	    const qint64 requested = static_cast<qint64>(outputRawBytes);
+	    if (zraw.write((char*)raw, requested) != requested)
+	      {
+		zraw.cancelWriting();
+		mhd.cancelWriting();
+		QMessageBox::critical(0, "Save MetaImage",
+		  QString("Cannot write RAW output '%1': %2")
+		  .arg(zrawFilename).arg(zraw.errorString()));
+		return false;
+	      }
+	  }
 	else
 	  {
 	    if (voxelType == _UChar)
 	      {
 		uchar *ptr = raw;
-		REMAPVOLUME();
+		REMAPVOLUME(outputPixels);
 	      }
 	    else if (voxelType == _Char)
 	      {
 		char *ptr = (char*)raw;
-		REMAPVOLUME();
+		REMAPVOLUME(outputPixels);
 	      }
 	    else if (voxelType == _UShort)
 	      {
 		ushort *ptr = (ushort*)raw;
-		REMAPVOLUME();
+		REMAPVOLUME(outputPixels);
 	      }
 	    else if (voxelType == _Short)
 	      {
 		short *ptr = (short*)raw;
-		REMAPVOLUME();
+		REMAPVOLUME(outputPixels);
 	      }
 	    else if (voxelType == _Int)
 	      {
 		int *ptr = (int*)raw;
-		REMAPVOLUME();
+		REMAPVOLUME(outputPixels);
 	      }
 	    else if (voxelType == _Float)
 	      {
 		float *ptr = (float*)raw;
-		REMAPVOLUME();
+		REMAPVOLUME(outputPixels);
 	      }
 	  
-	    zraw.write((char*)pvl, wsz2*hsz2);
+	    const qint64 requested =
+	      static_cast<qint64>(conversionBuffers.pvlBytes);
+	    if (zraw.write((char*)pvl, requested) != requested)
+	      {
+		zraw.cancelWriting();
+		mhd.cancelWriting();
+		QMessageBox::critical(0, "Save MetaImage",
+		  QString("Cannot write RAW output '%1': %2")
+		  .arg(zrawFilename).arg(zraw.errorString()));
+		return false;
+	      }
 	  }
       }
     progress.setValue(100);
 
-    delete [] filtervol;
-    delete [] raw;
-    delete [] pvl;
-    if (spread > 0)
-      {
-	for (int i=0; i<2*spread+1; i++)
-	  delete [] val[i];
-	delete [] val;
-      }    
-  }
+  const QString rawBackup = zrawFilename + ".drishti-backup-" +
+    QUuid::createUuid().toString(QUuid::WithoutBraces);
+  const bool hadRaw = QFileInfo::exists(zrawFilename);
+  if (hadRaw && !QFile::rename(zrawFilename, rawBackup))
+    {
+      zraw.cancelWriting();
+      mhd.cancelWriting();
+      QMessageBox::critical(0, "Save MetaImage",
+	QString("Cannot preserve existing RAW output '%1'.")
+	.arg(zrawFilename));
+      return false;
+    }
+
+  if (!zraw.commit())
+    {
+      const QString commitError = zraw.errorString();
+      QStringList rollbackIssues;
+      const bool failedOutputRemoved =
+	!QFileInfo::exists(zrawFilename) || QFile::remove(zrawFilename);
+      if (!failedOutputRemoved)
+	rollbackIssues << QString("The uncommitted RAW output could not be "
+	                          "removed: %1").arg(zrawFilename);
+      if (hadRaw)
+	{
+	  if (failedOutputRemoved)
+	    {
+	      if (!QFile::rename(rawBackup, zrawFilename))
+		rollbackIssues << QString("The previous RAW file could not be "
+		                          "restored. Its backup remains at: %1")
+		                          .arg(rawBackup);
+	    }
+	  else
+	    rollbackIssues << QString("The previous RAW backup remains at: %1")
+	                      .arg(rawBackup);
+	}
+      mhd.cancelWriting();
+      QString message = QString("Cannot commit RAW output '%1': %2")
+	                  .arg(zrawFilename).arg(commitError);
+      if (!rollbackIssues.isEmpty())
+	message += "\n\nRollback warning:\n" + rollbackIssues.join("\n");
+      QMessageBox::critical(0, "Save MetaImage", message);
+      return false;
+    }
+
+  if (!mhd.commit())
+    {
+      const QString commitError = mhd.errorString();
+      QStringList rollbackIssues;
+      const bool newRawRemoved =
+	!QFileInfo::exists(zrawFilename) || QFile::remove(zrawFilename);
+      if (!newRawRemoved)
+	rollbackIssues << QString("The newly committed RAW file could not be "
+	                          "removed: %1").arg(zrawFilename);
+      if (hadRaw)
+	{
+	  if (newRawRemoved)
+	    {
+	      if (!QFile::rename(rawBackup, zrawFilename))
+		rollbackIssues << QString("The previous RAW file could not be "
+		                          "restored. Its backup remains at: %1")
+		                          .arg(rawBackup);
+	    }
+	  else
+	    rollbackIssues << QString("The previous RAW backup remains at: %1")
+	                      .arg(rawBackup);
+	}
+      QString message = QString("Cannot commit MHD header '%1': %2")
+	                  .arg(mhdFilename).arg(commitError);
+      if (!rollbackIssues.isEmpty())
+	message += "\n\nRollback warning:\n" + rollbackIssues.join("\n");
+      QMessageBox::critical(0, "Save MetaImage", message);
+      return false;
+    }
+
+  if (hadRaw && !QFile::remove(rawBackup))
+    QMessageBox::warning(0, "Save MetaImage",
+	QString("The output is complete, but the old RAW backup could not be "
+	        "removed: %1").arg(rawBackup));
   
   QMessageBox::information(0, "Save MetaImage Volume", "-----Done-----");
+  return true;
 }
 //================================
 //================================
-void
+bool
 Raw2Pvl::mergeVolumes(VolumeData* volData,
 		      int dmin, int dmax,
 		      int wmin, int wmax,
@@ -2369,12 +3199,28 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   int rvdepth, rvwidth, rvheight;    
   volData->gridSize(rvdepth, rvwidth, rvheight);
 
+  if (!validVolumeRange(rvdepth, rvwidth, rvheight,
+                        dmin, dmax, wmin, wmax, hmin, hmax) ||
+      timeseriesFiles.isEmpty())
+    {
+      QMessageBox::warning(0, "Merge Volumes",
+                           "The selected range or input volume list is invalid.");
+      return false;
+    }
+
   int dsz=dmax-dmin+1;
   int wsz=wmax-wmin+1;
   int hsz=hmax-hmin+1;
 
   uchar voxelType = volData->voxelType();  
   int headerBytes = volData->headerBytes();
+
+  if (voxelType > _Float)
+    {
+      QMessageBox::warning(0, "Merge Volumes",
+                           "Volume merge supports scalar volumes only.");
+      return false;
+    }
 
   int bpv = 1;
   if (voxelType == _UChar) bpv = 1;
@@ -2384,25 +3230,22 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   else if (voxelType == _Int) bpv = 4;
   else if (voxelType == _Float) bpv = 4;
 
-  int slabSize = (1024*1024*1024)/(bpv*wsz*hsz);
-  slabSize = dsz+1;
+  int slabSize = dsz;
   //------------------------------------------------------
 
   QString pvlFilename = getPvlNcFilename();
   if (pvlFilename.endsWith(".mhd"))
     {
-      saveMHD(pvlFilename,
-	      volData,
-	      dmin, dmax,
-	      wmin, wmax,
-	      hmin, hmax);
-      return;
+      QMessageBox::warning(0, "Merge Volumes",
+	"MetaImage output does not support multi-volume mask merging. "
+	"Choose a .pvl.nc output file.");
+      return false;
     }
 
   if (pvlFilename.count() < 4)
     {
       QMessageBox::information(0, "pvl.nc", "No .pvl.nc filename chosen.");
-      return;
+      return false;
     }
 
   //------------------------------------------------------
@@ -2415,7 +3258,8 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   savePvlDialog.setVoxelUnit(vu);
   savePvlDialog.setVoxelSize(vx, vy, vz);
   savePvlDialog.setDescription(desc);
-  savePvlDialog.exec();
+  if (savePvlDialog.exec() != QDialog::Accepted)
+    return false;
 
   int spread = savePvlDialog.volumeFilter();
   bool dilateFilter = savePvlDialog.dilateFilter();
@@ -2428,6 +3272,13 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   QList<float> rawMap = volData->rawMap();
   QList<int> pvlMap = volData->pvlMap();
 
+  if (rawMap.count() < 2 || rawMap.count() != pvlMap.count())
+    {
+      QMessageBox::warning(0, "Merge Volumes",
+                           "The raw-to-PVL value map is invalid.");
+      return false;
+    }
+
   int pvlbpv = 1;
   if (pvlMap[pvlMap.count()-1] > 255)
     pvlbpv = 2;
@@ -2436,10 +3287,46 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   if (pvlbpv == 2) pvlVoxelType = 2;
 
   
-  int nbytes = rvwidth*rvheight*bpv;
-  uchar *pvlslice = new uchar[pvlbpv*wsz*hsz];
-  uchar *Mpvlslice = new uchar[pvlbpv*wsz*hsz];
-  uchar *raw = new uchar[nbytes];
+  std::uint64_t rawPixels = 0;
+  std::uint64_t rawBytes = 0;
+  std::uint64_t pvlPixels = 0;
+  std::uint64_t pvlBytes = 0;
+  std::uint64_t allocationBytes = 0;
+  QString bufferError;
+  if (!checkedPlaneLayout(rvwidth, rvheight, bpv,
+                          rawPixels, rawBytes) ||
+      !checkedPlaneLayout(wsz, hsz, pvlbpv,
+                          pvlPixels, pvlBytes) ||
+      !addImportBytes(rawBytes, allocationBytes) ||
+      !addImportBytes(pvlBytes, allocationBytes) ||
+      !addImportBytes(pvlBytes, allocationBytes) ||
+      !admitImportBuffers(QStringLiteral("Volume merge"),
+                          allocationBytes, bufferError))
+    {
+      if (bufferError.isEmpty())
+        bufferError = QStringLiteral(
+          "Volume merge was stopped because a slice size overflowed.");
+      QMessageBox::warning(0, "Merge Volumes", bufferError);
+      return false;
+    }
+
+  std::unique_ptr<uchar[]> pvlStorage;
+  std::unique_ptr<uchar[]> mergedPvlStorage;
+  std::unique_ptr<uchar[]> rawStorage;
+  if (!allocateImportArray(pvlBytes, pvlStorage) ||
+      !allocateImportArray(pvlBytes, mergedPvlStorage) ||
+      !allocateImportArray(rawBytes, rawStorage))
+    {
+      QMessageBox::warning(0, "Merge Volumes",
+                           "Volume merge could not allocate its admitted "
+                           "buffers. No processing was started.");
+      return false;
+    }
+
+  const std::size_t nbytes = static_cast<std::size_t>(rawBytes);
+  uchar *pvlslice = pvlStorage.get();
+  uchar *Mpvlslice = mergedPvlStorage.get();
+  uchar *raw = rawStorage.get();
   int rawSize = rawMap.size()-1;
   int width = wsz;
   int height = hsz;
@@ -2478,17 +3365,12 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   pvlFileManager.setHeaderSize(13);
   pvlFileManager.setSlabSize(slabSize);
   pvlFileManager.setSliceZeroAtTop(false);
-  pvlFileManager.createFile(true); 
-
-
-  savePvlHeader(pvlFilename,
-		false, "",
-		voxelType, pvlVoxelType, voxelUnit,
-		dsz, wsz, hsz,
-		vx, vy, vz,
-		rawMap, pvlMap,
-		description,
-		slabSize);
+  if (!pvlFileManager.createFile(true))
+    {
+      QMessageBox::critical(0, "Merge Volumes",
+			    pvlFileManager.lastError());
+      return false;
+    }
 
 
   //------------------------------------------------------
@@ -2535,14 +3417,18 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   dg->setLayout(layout);
   QObject::connect(ok, SIGNAL(clicked()),
 		   dg, SLOT(accept()));
-  dg->exec();
+  if (dg->exec() != QDialog::Accepted)
+    {
+      delete dg;
+      return false;
+    }
   
   for (int i=0; i<timeseriesFiles.count(); i++)
     {
       tagValues[i] = tw->item(i, 1)->text().toInt();
 
     }
-  delete tw;
+  delete dg;
   //-----------------------
   
   for(int dd=0; dd<dsz; dd++)
@@ -2552,20 +3438,40 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
 	{
 	  progress.setValue(100);  
 	  QMessageBox::information(0, "Save", "-----Aborted-----");
-	  break;
+	  return false;
 	}
 
       progress.setValue((int)(100*(float)dd/(float)dsz));
       qApp->processEvents();
       
-      memset(Mpvlslice, 0, pvlbpv*wsz*hsz);
+      memset(Mpvlslice, 0, static_cast<std::size_t>(pvlBytes));
       
       for (int tsf=0; tsf<tsfcount; tsf++)
 	{
-	  volData->replaceFile(timeseriesFiles[tsf]);
+	  if (!volData->replaceFile(timeseriesFiles[tsf]))
+	    {
+	      QMessageBox::warning(0, "Merge Volumes", volData->lastError());
+	      return false;
+	    }
+	  if (!currentVolumeLayoutMatches(volData,
+	                                  rvdepth, rvwidth, rvheight,
+	                                  voxelType))
+	    {
+	      QMessageBox::warning(0, "Merge Volumes",
+	        "A source volume has a different grid or voxel type. "
+	        "Merge was stopped before decoding it.");
+	      return false;
+	    }
 	  
 	  memset(raw, 0, nbytes);
-	  volData->getDepthSlice(dd, raw);
+	  QString sliceError;
+	  if (!readExportSlice(volData, dd, raw, sliceError))
+	    {
+	      QMessageBox::critical(0, "Merge Volumes",
+		QString("Cannot decode input slice %1: %2")
+		.arg(dd).arg(sliceError));
+	      return false;
+	    }
 	  
 	  applyMapping(raw, voxelType, rawMap,
 		       pvlslice, pvlbpv, pvlMap,
@@ -2598,22 +3504,42 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
 	    }
 	  //-----------------
 	}
-      pvlFileManager.setSlice(dd, Mpvlslice);
+	if (!pvlFileManager.setSlice(dd, Mpvlslice))
+	  {
+	    QMessageBox::critical(0, "Merge Volumes",
+				  pvlFileManager.lastError());
+	    return false;
+	  }
     }
 
+  if (!savePvlHeader(pvlFilename,
+		     false, "",
+		     voxelType, pvlVoxelType, voxelUnit,
+		     dsz, wsz, hsz,
+		     vx, vy, vz,
+		     rawMap, pvlMap,
+		     description,
+		     slabSize))
+    {
+      QMessageBox::critical(0, "Merge Volumes", g_pvlHeaderWriteError);
+      return false;
+    }
+  if (!pvlFileManager.commitFileCreation())
+    {
+      QMessageBox::critical(0, "Merge Volumes",
+			    pvlFileManager.lastError());
+      return false;
+    }
 
-  delete [] Mpvlslice;
-  delete [] pvlslice;
-  delete [] raw;
-  
   progress.setValue(100);
   
   QMessageBox::information(0, "Save", "-----Done-----");
+  return true;
 }
 
 //================================
 //================================
-void
+bool
 Raw2Pvl::quickRaw(VolumeData* volData,
 		  QStringList fileNames)
 {
@@ -2621,12 +3547,29 @@ Raw2Pvl::quickRaw(VolumeData* volData,
   int rvdepth, rvwidth, rvheight;    
   volData->gridSize(rvdepth, rvwidth, rvheight);
 
+  if (!validVolumeRange(rvdepth, rvwidth, rvheight,
+                        0, rvdepth-1, 0, rvwidth-1, 0, rvheight-1) ||
+      fileNames.isEmpty())
+    {
+      QMessageBox::warning(0, "Quick RAW",
+                           "The source dimensions or file list is invalid.");
+      return false;
+    }
+
   int dsz=rvdepth;
   int wsz=rvwidth;
   int hsz=rvheight;
 
   uchar voxelType = volData->voxelType();  
   int headerBytes = volData->headerBytes();
+
+  if (voxelType > _Float)
+    {
+      QMessageBox::warning(0, "Quick RAW",
+                           "Quick RAW conversion supports scalar volumes only. "
+                           "Use the RGB/RGBA trimmed-volume export instead.");
+      return false;
+    }
 
   int bpv = 1;
   if (voxelType == _UChar) bpv = 1;
@@ -2636,12 +3579,15 @@ Raw2Pvl::quickRaw(VolumeData* volData,
   else if (voxelType == _Int) bpv = 4;
   else if (voxelType == _Float) bpv = 4;
 
-  int slabSize = (1024*1024*1024)/(bpv*wsz*hsz);
-  slabSize = dsz+1;
-  //------------------------------------------------------
-
   QList<float> rawMap = volData->rawMap();
   QList<int> pvlMap = volData->pvlMap();
+
+  if (rawMap.count() < 2 || rawMap.count() != pvlMap.count())
+    {
+      QMessageBox::warning(0, "Quick RAW",
+                           "The raw-to-PVL value map is invalid.");
+      return false;
+    }
 
   int pvlbpv = 1;
   if (pvlMap[pvlMap.count()-1] > 255)
@@ -2651,9 +3597,47 @@ Raw2Pvl::quickRaw(VolumeData* volData,
   if (pvlbpv == 2) pvlVoxelType = 2;
 
   
-  int nbytes = rvwidth*rvheight*bpv;
-  uchar *pvlslice = new uchar[pvlbpv*wsz*hsz];
-  uchar *raw = new uchar[nbytes];
+  std::uint64_t rawPixels = 0;
+  std::uint64_t rawBytes = 0;
+  std::uint64_t pvlPixels = 0;
+  std::uint64_t pvlBytes = 0;
+  std::uint64_t outputBytes = 0;
+  std::uint64_t allocationBytes = 0;
+  QString bufferError;
+  if (!checkedPlaneLayout(rvwidth, rvheight, bpv,
+                          rawPixels, rawBytes) ||
+      !checkedPlaneLayout(wsz, hsz, pvlbpv,
+                          pvlPixels, pvlBytes) ||
+      !checkedImportMultiply(static_cast<std::uint64_t>(dsz),
+                             pvlBytes, outputBytes) ||
+      outputBytes > static_cast<std::uint64_t>(
+                      std::numeric_limits<qint64>::max()-13) ||
+      !addImportBytes(rawBytes, allocationBytes) ||
+      !addImportBytes(pvlBytes, allocationBytes) ||
+      !admitImportBuffers(QStringLiteral("Quick RAW conversion"),
+                          allocationBytes, bufferError))
+    {
+      if (bufferError.isEmpty())
+        bufferError = QStringLiteral(
+          "Quick RAW conversion was stopped because its size overflowed.");
+      QMessageBox::warning(0, "Quick RAW", bufferError);
+      return false;
+    }
+
+  std::unique_ptr<uchar[]> pvlStorage;
+  std::unique_ptr<uchar[]> rawStorage;
+  if (!allocateImportArray(pvlBytes, pvlStorage) ||
+      !allocateImportArray(rawBytes, rawStorage))
+    {
+      QMessageBox::warning(0, "Quick RAW",
+                           "Quick RAW conversion could not allocate its "
+                           "admitted buffers. No output was opened.");
+      return false;
+    }
+
+  const std::size_t nbytes = static_cast<std::size_t>(rawBytes);
+  uchar *pvlslice = pvlStorage.get();
+  uchar *raw = rawStorage.get();
   int rawSize = rawMap.size()-1;
   int width = wsz;
   int height = hsz;
@@ -2663,13 +3647,23 @@ Raw2Pvl::quickRaw(VolumeData* volData,
   QString rawflnm = QFileInfo(fraw.absolutePath(),
 			      fraw.baseName() + ".raw").absoluteFilePath();
   
-  QFile m_qfile;
-  m_qfile.setFileName(rawflnm);
-  m_qfile.open(QFile::WriteOnly);
-  m_qfile.write((char*)&pvlVoxelType, 1);
-  m_qfile.write((char*)&dsz, 4);
-  m_qfile.write((char*)&wsz, 4);
-  m_qfile.write((char*)&hsz, 4);
+  QSaveFile m_qfile(rawflnm);
+  if (!m_qfile.open(QFile::WriteOnly))
+    {
+      QMessageBox::warning(0, "Quick RAW",
+                           "Cannot open the RAW output file for writing.");
+      return false;
+    }
+  if (m_qfile.write((char*)&pvlVoxelType, 1) != 1 ||
+      m_qfile.write((char*)&dsz, 4) != 4 ||
+      m_qfile.write((char*)&wsz, 4) != 4 ||
+      m_qfile.write((char*)&hsz, 4) != 4)
+    {
+      m_qfile.cancelWriting();
+      QMessageBox::critical(0, "Quick RAW",
+	QString("Cannot write the RAW header: %1").arg(m_qfile.errorString()));
+      return false;
+    }
 
 
   QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
@@ -2695,40 +3689,59 @@ Raw2Pvl::quickRaw(VolumeData* volData,
 
   //------------------------------------------------------
 
-  qint64 sliceSize = pvlbpv*wsz*hsz;
+  const qint64 sliceSize = static_cast<qint64>(pvlBytes);
   for(qint64 dd=0; dd<dsz; dd++)
     {
       if (progress.wasCanceled())
 	{
-	  progress.setValue(100);  
+	  m_qfile.cancelWriting();
 	  QMessageBox::information(0, "Save", "-----Aborted-----");
-	  break;
+	  return false;
 	}
       
       progress.setValue((int)(100*(float)dd/(float)dsz));
       qApp->processEvents();
       
       memset(raw, 0, nbytes);
-      volData->getDepthSlice(dd, raw);
+      QString sliceError;
+      if (!readExportSlice(volData, static_cast<int>(dd), raw, sliceError))
+	{
+	  m_qfile.cancelWriting();
+	  QMessageBox::critical(0, "Quick RAW",
+	    QString("Cannot decode input slice %1: %2")
+	    .arg(dd).arg(sliceError));
+	  return false;
+	}
 	  
       applyMapping(raw, voxelType, rawMap,
 		   pvlslice, pvlbpv, pvlMap,
 		   width, height);
 
 	  
-      m_qfile.seek(13 + (dsz-1-dd)*sliceSize);
-      m_qfile.write((char*)pvlslice);
+      const qint64 offset = 13 + (dsz-1-dd)*sliceSize;
+      if (!m_qfile.seek(offset) ||
+	  m_qfile.write((char*)pvlslice, sliceSize) != sliceSize)
+	{
+	  m_qfile.cancelWriting();
+	  QMessageBox::critical(0, "Quick RAW",
+	    QString("Cannot write output slice %1: %2")
+	    .arg(dd).arg(m_qfile.errorString()));
+	  return false;
+	}
     }
 
-
-  m_qfile.close();
-		    
-  delete [] pvlslice;
-  delete [] raw;
-  
+  const qint64 expectedSize = 13 + static_cast<qint64>(outputBytes);
+  if (m_qfile.size() != expectedSize || !m_qfile.commit())
+    {
+      QMessageBox::critical(0, "Quick RAW",
+	QString("Cannot commit RAW output '%1': %2")
+	.arg(rawflnm).arg(m_qfile.errorString()));
+      return false;
+    }
   progress.setValue(100);
   
   //QMessageBox::information(0, "Save", "-----Done-----");
+  return true;
 }
 
 
@@ -2820,6 +3833,17 @@ Raw2Pvl::saveVDB(int volIdx,
 		 QString vdbFileName,
 		 VolumeData* volData)
 {
+  if (!volData)
+    {
+      QMessageBox::warning(0, "Save VDB", "No volume data is loaded.");
+      return false;
+    }
+  if (vdbFileName.trimmed().isEmpty())
+    {
+      QMessageBox::warning(0, "Save VDB", "No VDB output filename was chosen.");
+      return false;
+    }
+
   int bType = -2;  
   float bValue1 = 0;
   float bValue2 = 0;
@@ -2845,6 +3869,13 @@ Raw2Pvl::saveVDB(int volIdx,
   
   int dsz, wsz, hsz;
   volData->gridSize(dsz, wsz, hsz);
+  if (!validVolumeRange(dsz, wsz, hsz,
+                        0, dsz-1, 0, wsz-1, 0, hsz-1))
+    {
+      QMessageBox::warning(0, "Save VDB",
+                           "The source volume dimensions are invalid.");
+      return false;
+    }
   
   float resample;
   if (volIdx <= 0)
@@ -2853,6 +3884,8 @@ Raw2Pvl::saveVDB(int volIdx,
       resample = QInputDialog::getDouble(0, "Resampling",
 					 "Resample\nValues greater than 1.0 means downsampling.\nValues less than 1.0 means upsampling.",
 					 1, 0.1, 10, 2, &ok, Qt::WindowFlags(), 0.1);
+      if (!ok)
+	return false;
       Raw2Pvl::m_vdb_resample = resample;
     }
   else
@@ -2860,6 +3893,13 @@ Raw2Pvl::saveVDB(int volIdx,
 
 
   uchar voxelType = volData->voxelType();  
+  if (voxelType > _Float)
+    {
+      QMessageBox::warning(0, "Save VDB",
+                           "VDB conversion supports scalar volumes only.");
+      return false;
+    }
+
   int bpv = 1;
   if (voxelType == _UChar) bpv = 1;
   else if (voxelType == _Char) bpv = 1;
@@ -2868,14 +3908,74 @@ Raw2Pvl::saveVDB(int volIdx,
   else if (voxelType == _Int) bpv = 4;
   else if (voxelType == _Float) bpv = 4;
 
-  int nbytes = wsz*hsz*bpv;
-  uchar *raw = new uchar[nbytes];
+  std::uint64_t rawPixels = 0;
+  std::uint64_t rawBytes = 0;
+  std::uint64_t sourceVoxels = 0;
+  std::uint64_t resampledVoxels = 0;
+  std::uint64_t vdbWorkingBytes = 0;
+  std::uint64_t allocationBytes = 0;
+  const double safeResample = static_cast<double>(resample);
+  const std::uint64_t rd = safeResample > 0.0 ?
+    static_cast<std::uint64_t>(std::ceil(
+      static_cast<double>(dsz)/safeResample)) : 0;
+  const std::uint64_t rw = safeResample > 0.0 ?
+    static_cast<std::uint64_t>(std::ceil(
+      static_cast<double>(wsz)/safeResample)) : 0;
+  const std::uint64_t rh = safeResample > 0.0 ?
+    static_cast<std::uint64_t>(std::ceil(
+      static_cast<double>(hsz)/safeResample)) : 0;
+  QString bufferError;
+  if (!checkedPlaneLayout(wsz, hsz, bpv, rawPixels, rawBytes) ||
+      rd == 0 || rw == 0 || rh == 0 ||
+      !checkedImportMultiply(static_cast<std::uint64_t>(dsz),
+                             static_cast<std::uint64_t>(wsz), sourceVoxels) ||
+      !checkedImportMultiply(sourceVoxels,
+                             static_cast<std::uint64_t>(hsz), sourceVoxels) ||
+      !checkedImportMultiply(rd, rw, resampledVoxels) ||
+      !checkedImportMultiply(resampledVoxels, rh, resampledVoxels) ||
+      !checkedImportAdd(sourceVoxels, resampledVoxels, vdbWorkingBytes) ||
+      !checkedImportMultiply(vdbWorkingBytes, 32, vdbWorkingBytes) ||
+      !addImportBytes(rawBytes, allocationBytes) ||
+      !addImportBytes(vdbWorkingBytes, allocationBytes) ||
+      !admitImportBuffers(QStringLiteral("VDB conversion"),
+                          allocationBytes, bufferError))
+    {
+      if (bufferError.isEmpty())
+        bufferError = QStringLiteral(
+          "VDB conversion was stopped because its worst-case working-set "
+          "calculation overflowed.");
+      QMessageBox::warning(0, "Save VDB", bufferError);
+      return false;
+    }
 
+  std::unique_ptr<uchar[]> rawStorage;
+  if (!allocateImportArray(rawBytes, rawStorage))
+    {
+      QMessageBox::warning(0, "Save VDB",
+                           "VDB conversion could not allocate its admitted "
+                           "slice buffer.");
+      return false;
+    }
+  uchar *raw = rawStorage.get();
 
-  
-  VdbVolume vdb;
-
-  unsigned short *rawUS = (unsigned short*)raw;
+  std::unique_ptr<VdbVolume> vdb;
+  try
+    {
+      vdb.reset(new VdbVolume);
+    }
+  catch (const std::exception& error)
+    {
+      QMessageBox::critical(0, "Save VDB",
+	QString("Cannot initialize OpenVDB output: %1")
+	.arg(QString::fromLocal8Bit(error.what())));
+      return false;
+    }
+  catch (...)
+    {
+      QMessageBox::critical(0, "Save VDB",
+	"Cannot initialize OpenVDB output: unknown OpenVDB error.");
+      return false;
+    }
   
   
   QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
@@ -2910,27 +4010,172 @@ Raw2Pvl::saveVDB(int volIdx,
       progress.setValue((int)(100*(float)d/(float)dsz));
       qApp->processEvents();
       
-      volData->getDepthSlice(d, raw);
+	QString sliceError;
+	if (!readExportSlice(volData, d, raw, sliceError))
+	{
+	  QMessageBox::critical(0, "Save VDB",
+	    QString("Cannot decode input slice %1: %2")
+	    .arg(d).arg(sliceError));
+	  return false;
+	}
 
-      if (bpv == 1)
-	vdb.addSliceToVDB(raw,
-			  d, wsz, hsz,
-			  bType, bValue1, bValue2);
-      else
-	vdb.addSliceToVDB((unsigned short*)raw,
-			  d, wsz, hsz,
-			  bType, bValue1, bValue2);
+      try
+	{
+	  if (voxelType == _UChar)
+	    vdb->addSliceToVDB(reinterpret_cast<uchar*>(raw),
+			       d, wsz, hsz,
+			       bType, bValue1, bValue2);
+	  else if (voxelType == _Char)
+	    vdb->addSliceToVDB(reinterpret_cast<char*>(raw),
+			       d, wsz, hsz,
+			       bType, bValue1, bValue2);
+	  else if (voxelType == _UShort)
+	    vdb->addSliceToVDB(reinterpret_cast<unsigned short*>(raw),
+			       d, wsz, hsz,
+			       bType, bValue1, bValue2);
+	  else if (voxelType == _Short)
+	    vdb->addSliceToVDB(reinterpret_cast<short*>(raw),
+			       d, wsz, hsz,
+			       bType, bValue1, bValue2);
+	  else if (voxelType == _Int)
+	    vdb->addSliceToVDB(reinterpret_cast<int*>(raw),
+			       d, wsz, hsz,
+			       bType, bValue1, bValue2);
+	  else if (voxelType == _Float)
+	    vdb->addSliceToVDB(reinterpret_cast<float*>(raw),
+			       d, wsz, hsz,
+			       bType, bValue1, bValue2);
+	  else
+	    {
+	      QMessageBox::critical(0, "Save VDB",
+		"The source voxel type cannot be written to OpenVDB.");
+	      return false;
+	    }
+	}
+      catch (const std::exception& error)
+	{
+	  QMessageBox::critical(0, "Save VDB",
+	    QString("OpenVDB failed while adding slice %1: %2")
+	    .arg(d).arg(QString::fromLocal8Bit(error.what())));
+	  return false;
+	}
+      catch (...)
+	{
+	  QMessageBox::critical(0, "Save VDB",
+	    QString("OpenVDB failed while adding slice %1: unknown error.")
+	    .arg(d));
+	  return false;
+	}
+    }
+
+  if (progress.wasCanceled())
+    {
+      progress.setValue(100);
+      QMessageBox::information(0, "Save", "-----Aborted-----");
+      return false;
     }
 
   if (qAbs(resample-1.0)>0.001)
-    vdb.resample(resample);
+    {
+      try
+	{
+	  vdb->resample(resample);
+	}
+      catch (const std::exception& error)
+	{
+	  QMessageBox::critical(0, "Save VDB",
+	    QString("OpenVDB resampling failed: %1")
+	    .arg(QString::fromLocal8Bit(error.what())));
+	  return false;
+	}
+      catch (...)
+	{
+	  QMessageBox::critical(0, "Save VDB",
+	    "OpenVDB resampling failed: unknown error.");
+	  return false;
+	}
+    }
 
   
   progress.setLabelText("Writing to disk - " + vdbFileName); 
   progress.setValue(50);
   qApp->processEvents();
 
-  vdb.save(vdbFileName);
+  if (progress.wasCanceled())
+    {
+      progress.setValue(100);
+      QMessageBox::information(0, "Save", "-----Aborted-----");
+      return false;
+    }
+
+  const QString targetFile = QFileInfo(vdbFileName).absoluteFilePath();
+  QTemporaryFile temporaryVdb(
+    QDir(QFileInfo(targetFile).absolutePath()).filePath(
+      ".drishti-vdb-XXXXXX.vdb"));
+  temporaryVdb.setAutoRemove(true);
+  if (!temporaryVdb.open())
+    {
+      QMessageBox::critical(0, "Save VDB",
+	QString("Cannot create a temporary VDB output beside '%1': %2")
+	.arg(targetFile, temporaryVdb.errorString()));
+      return false;
+    }
+  const QString temporaryFile = temporaryVdb.fileName();
+  temporaryVdb.close();
+
+  try
+    {
+      vdb->save(temporaryFile);
+    }
+  catch (const std::exception& error)
+    {
+      QMessageBox::critical(0, "Save VDB",
+	QString("Cannot write VDB output '%1': %2")
+	.arg(targetFile, QString::fromLocal8Bit(error.what())));
+      return false;
+    }
+  catch (...)
+    {
+      QMessageBox::critical(0, "Save VDB",
+	QString("Cannot write VDB output '%1': unknown OpenVDB error.")
+	.arg(targetFile));
+      return false;
+    }
+  const QFileInfo output(temporaryFile);
+  if (!output.exists() || !output.isFile() || output.size() <= 0)
+    {
+      QMessageBox::critical(0, "Save VDB",
+	QString("VDB output was not created or is empty: %1")
+	.arg(targetFile));
+      return false;
+    }
+
+  const bool hadTarget = QFileInfo::exists(targetFile);
+  const QString backupFile = targetFile + ".drishti-backup-" +
+    QUuid::createUuid().toString(QUuid::WithoutBraces);
+  if (hadTarget && !QFile::rename(targetFile, backupFile))
+    {
+      QMessageBox::critical(0, "Save VDB",
+	QString("Cannot preserve the existing VDB output '%1'.")
+	.arg(targetFile));
+      return false;
+    }
+  if (!QFile::rename(temporaryFile, targetFile))
+    {
+      const bool restored = !hadTarget || QFile::rename(backupFile, targetFile);
+      QMessageBox::critical(0, "Save VDB",
+	restored ?
+	  QString("Cannot commit VDB output '%1'; the previous file was restored.")
+	    .arg(targetFile) :
+	  QString("Cannot commit VDB output '%1', and the previous file remains "
+	          "at '%2'.").arg(targetFile, backupFile));
+      return false;
+    }
+  temporaryVdb.setAutoRemove(false);
+  if (hadTarget && !QFile::remove(backupFile))
+    QMessageBox::warning(0, "Save VDB",
+	QString("The VDB output is complete, but the previous-file backup could "
+	        "not be removed: %1").arg(backupFile));
   
   progress.setValue(100);
 
@@ -2998,6 +4243,13 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 
   // identify voxelType and set how many bytes per voxel to read
   uchar voxelType = volData->voxelType();  
+  if (voxelType > _Float)
+    {
+      QMessageBox::warning(0, "Export Mesh",
+                           "Isosurface generation supports scalar volumes only.");
+      return;
+    }
+
   int bpv = 1;
   if (voxelType == _UChar) bpv = 1;
   else if (voxelType == _Char) bpv = 1;
@@ -3005,6 +4257,17 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
   else if (voxelType == _Short) bpv = 2;
   else if (voxelType == _Int) bpv = 4;
   else if (voxelType == _Float) bpv = 4;
+
+
+  int rvdepth, rvwidth, rvheight;
+  volData->gridSize(rvdepth, rvwidth, rvheight);
+  if (!validVolumeRange(rvdepth, rvwidth, rvheight,
+                        dmin, dmax, wmin, wmax, hmin, hmax))
+    {
+      QMessageBox::warning(0, "Export Mesh",
+                           "The selected volume range is invalid.");
+      return;
+    }
 
 
 
@@ -3032,16 +4295,24 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
     }
   
 
-  int rvdepth, rvwidth, rvheight;
-  volData->gridSize(rvdepth, rvwidth, rvheight);
-
   int dsz=dmax-dmin+1;
   int wsz=wmax-wmin+1;
   int hsz=hmax-hmin+1;
 
   
-  uchar *raw = new uchar[rvwidth*rvheight*bpv];
-  float *val = new float[wsz*hsz];
+  IsosurfaceBuffers isosurfaceBuffers;
+  QString bufferError;
+  if (!prepareIsosurfaceBuffers(
+        QStringLiteral("Isosurface generation"),
+        rvwidth, rvheight, bpv,
+        dsz, wsz, hsz, resample,
+        isosurfaceBuffers, bufferError))
+    {
+      QMessageBox::warning(0, "Export Mesh", bufferError);
+      return;
+    }
+  uchar *raw = isosurfaceBuffers.raw.get();
+  float *val = isosurfaceBuffers.values.get();
 
   bool trim = (dmin != 0 ||
 	       wmin != 0 ||
@@ -3091,12 +4362,25 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 	{
 	  progress.setValue(100);  
 	  QMessageBox::information(0, "Save", "-----Aborted-----");
-	  break;
+	  return;
 	}
       
       if (tsfcount > 1)
 	{
-	  volData->replaceFile(timeseriesFiles[tsf]);
+	  if (!volData->replaceFile(timeseriesFiles[tsf]))
+	    {
+	      QMessageBox::warning(0, "Export Mesh", volData->lastError());
+	      return;
+	    }
+	  if (!currentVolumeLayoutMatches(volData,
+	                                  rvdepth, rvwidth, rvheight,
+	                                  voxelType))
+	    {
+	      QMessageBox::warning(0, "Export Mesh",
+	        "A time-series volume has a different grid or voxel type. "
+	        "Mesh generation was stopped before decoding it.");
+	      return;
+	    }
 	}
 
       for(int d=dmin; d<=dmax; d++)
@@ -3106,13 +4390,20 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 	    {
 	      progress.setValue(100);  
 	      QMessageBox::information(0, "Save", "-----Aborted-----");
-	      break;
+	      return;
 	    }
 	  	  
 	  progress.setValue((int)(100*(float)d/(float)dsz));
 	  qApp->processEvents();
 	  
-	  volData->getDepthSlice(d, raw);
+	  QString sliceError;
+	  if (!readExportSlice(volData, d, raw, sliceError))
+	    {
+	      QMessageBox::critical(0, "Export Mesh",
+		QString("Cannot decode input slice %1: %2")
+		.arg(d).arg(sliceError));
+	      return;
+	    }
 	  int vi = 0;
 	  for(int w=wmin; w<=wmax; w++)
 	    {
@@ -3252,30 +4543,50 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
       if (meshSmooth > 0)  
 	MeshTools::smoothMesh(V, VN, T, 5*meshSmooth);
 
+      bool meshSaved = false;
       if (tetMesh)
 	{
-	  MeshTools::saveToTetrahedralMesh(meshflnm, V, T);
+	  meshSaved = MeshTools::saveToTetrahedralMesh(meshflnm, V, T);
 	}
       else if (meshflnm.right(3).toLower() == "obj")
 	{
 	  QVector<QVector3D> C;
-	  C.resize(V.count());
+	  if (!prepareMeshColorBuffer(QStringLiteral("OBJ mesh export"),
+	                              V.count(), C, bufferError))
+	    {
+	      QMessageBox::warning(0, "Export Mesh", bufferError);
+	      return;
+	    }
 	  C.fill(QVector3D(meshColor.red(),
 			   meshColor.green(),
 			   meshColor.blue()));			   
-	  MeshTools::saveToOBJ(meshflnm, V, VN, C, T);
+	  meshSaved = MeshTools::saveToOBJ(meshflnm, V, VN, C, T);
 	}
       else if (meshflnm.right(3).toLower() == "ply")
 	{
 	  QVector<QVector3D> C;
-	  C.resize(V.count());
+	  if (!prepareMeshColorBuffer(QStringLiteral("PLY mesh export"),
+	                              V.count(), C, bufferError))
+	    {
+	      QMessageBox::warning(0, "Export Mesh", bufferError);
+	      return;
+	    }
 	  C.fill(QVector3D(meshColor.red(),
 			   meshColor.green(),
 			   meshColor.blue()));			   
-	  MeshTools::saveToPLY(meshflnm, V, VN, C, T);
+	  meshSaved = MeshTools::saveToPLY(meshflnm, V, VN, C, T);
 	}
       else if (meshflnm.right(3).toLower() == "stl")
-	MeshTools::saveToSTL(meshflnm, V, VN, T);
+	meshSaved = MeshTools::saveToSTL(meshflnm, V, VN, T);
+
+      if (!meshSaved)
+	{
+	  Global::statusBar()->clearMessage();
+	  QMessageBox::critical(0, "Export Mesh",
+	    QString("Mesh output could not be written completely: %1")
+	      .arg(meshflnm));
+	  return;
+	}
       
       Global::statusBar()->clearMessage();
     } // loop timeseries
@@ -3286,7 +4597,7 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 
 
 
-void
+bool
 Raw2Pvl::parIsoGen(VolumeData* volData,
 		   uchar voxelType,
 		   int rvheight, int rvwidth, int rvdepth,
@@ -3316,12 +4627,16 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
 
 
 
-  VdbVolume vdb;
-
   int dsz=dmax-dmin+1;
   int wsz=wmax-wmin+1;
   int hsz=hmax-hmin+1;
   
+  if (voxelType > _Float)
+    {
+      qWarning() << "Isosurface generation rejected a non-scalar volume";
+      return false;
+    }
+
   int bpv = 1;
   if (voxelType == _UChar) bpv = 1;
   else if (voxelType == _Char) bpv = 1;
@@ -3331,8 +4646,31 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
   else if (voxelType == _Float) bpv = 4;
 
   
-  uchar *raw = new uchar[rvwidth*rvheight*bpv];
-  float *val = new float[wsz*hsz];
+  if (!validVolumeRange(rvdepth, rvwidth, rvheight,
+                        dmin, dmax, wmin, wmax, hmin, hmax))
+    {
+      qWarning() << "Isosurface generation rejected an invalid volume range";
+      return false;
+    }
+
+  IsosurfaceBuffers isosurfaceBuffers;
+  QString bufferError;
+  if (!prepareIsosurfaceBuffers(
+        QStringLiteral("Isosurface generation"),
+        rvwidth, rvheight, bpv,
+        dsz, wsz, hsz, resample,
+        isosurfaceBuffers, bufferError))
+    {
+      if (showProgress)
+        QMessageBox::warning(0, "Export Mesh", bufferError);
+      else
+        qWarning() << bufferError;
+      return false;
+    }
+  uchar *raw = isosurfaceBuffers.raw.get();
+  float *val = isosurfaceBuffers.values.get();
+
+  VdbVolume vdb;
 
   
   //------------------------------------
@@ -3344,7 +4682,17 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
 	  qApp->processEvents();
 	}
 	  
-      volData->getDepthSlice(d, raw);
+      QString sliceError;
+      if (!readExportSlice(volData, d, raw, sliceError))
+	{
+	  const QString error = QString("Cannot decode input slice %1: %2")
+	    .arg(d).arg(sliceError);
+	  if (showProgress)
+	    QMessageBox::critical(0, "Export Mesh", error);
+	  else
+	    qWarning() << error;
+	  return false;
+	}
       int vi = 0;
       for(int w=wmin; w<=wmax; w++)
 	{
@@ -3490,7 +4838,7 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
 
   // don't generate file if no vertices found
   if (V.count() == 0)
-    return;
+    return false;
   
 
   // take voxel size into account
@@ -3520,27 +4868,56 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
       qApp->processEvents();
     }
   
+  bool meshSaved = false;
   if (iso_meshflnm.right(3).toLower() == "obj")
     {
       QVector<QVector3D> C;
-      C.resize(V.count());
+      if (!prepareMeshColorBuffer(QStringLiteral("OBJ mesh export"),
+                                  V.count(), C, bufferError))
+        {
+          if (showProgress)
+            QMessageBox::warning(0, "Export Mesh", bufferError);
+          else
+            qWarning() << bufferError;
+          return false;
+        }
       C.fill(QVector3D(meshColor.red(),
 		       meshColor.green(),
 		       meshColor.blue()));			   
-      MeshTools::saveToOBJ(iso_meshflnm, V, VN, C, T, false);
+      meshSaved = MeshTools::saveToOBJ(iso_meshflnm, V, VN, C, T, false);
     }
   else if (iso_meshflnm.right(3).toLower() == "ply")
     {
       QVector<QVector3D> C;
-      C.resize(V.count());
+      if (!prepareMeshColorBuffer(QStringLiteral("PLY mesh export"),
+                                  V.count(), C, bufferError))
+        {
+          if (showProgress)
+            QMessageBox::warning(0, "Export Mesh", bufferError);
+          else
+            qWarning() << bufferError;
+          return false;
+        }
       C.fill(QVector3D(meshColor.red(),
 		       meshColor.green(),
 		       meshColor.blue()));			   
-      MeshTools::saveToPLY(iso_meshflnm, V, VN, C, T, false);
+      meshSaved = MeshTools::saveToPLY(iso_meshflnm, V, VN, C, T, false);
     }
   else if (iso_meshflnm.right(3).toLower() == "stl")
-    MeshTools::saveToSTL(iso_meshflnm, V, VN, T, false);
+    meshSaved = MeshTools::saveToSTL(iso_meshflnm, V, VN, T, false);
   //------------------------------------
+
+  if (!meshSaved)
+    {
+      const QString message =
+        QString("Mesh output could not be written completely: %1")
+          .arg(iso_meshflnm);
+      if (showProgress)
+        QMessageBox::critical(0, "Export Mesh", message);
+      else
+        qWarning() << message;
+      return false;
+    }
 
 
   if (showProgress)
@@ -3548,7 +4925,8 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
       progress.setValue(100);
       qApp->processEvents();
     }
-  
+
+  return true;
 }
 
 void
@@ -3625,12 +5003,27 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
   int rvdepth, rvwidth, rvheight;
   volData->gridSize(rvdepth, rvwidth, rvheight);
 
+  if (!validVolumeRange(rvdepth, rvwidth, rvheight,
+                        dmin, dmax, wmin, wmax, hmin, hmax))
+    {
+      QMessageBox::warning(0, "Export Mesh Range",
+                           "The selected volume range is invalid.");
+      return;
+    }
+
   int dsz=dmax-dmin+1;
   int wsz=wmax-wmin+1;
   int hsz=hmax-hmin+1;
 
   
   uchar voxelType = volData->voxelType();  
+  if (voxelType > _Float)
+    {
+      QMessageBox::warning(0, "Export Mesh Range",
+                           "Isosurface generation supports scalar volumes only.");
+      return;
+    }
+
   int bpv = 1;
   if (voxelType == _UChar) bpv = 1;
   else if (voxelType == _Char) bpv = 1;
@@ -3638,9 +5031,6 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
   else if (voxelType == _Short) bpv = 2;
   else if (voxelType == _Int) bpv = 4;
   else if (voxelType == _Float) bpv = 4;
-
-  uchar *raw = new uchar[rvwidth*rvheight*bpv];
-  float *val = new float[wsz*hsz];
 
   bool trim = (dmin != 0 ||
 	       wmin != 0 ||
@@ -3666,7 +5056,20 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
       
       if (tsfcount > 1)
 	{
-	  volData->replaceFile(timeseriesFiles[tsf]);
+	  if (!volData->replaceFile(timeseriesFiles[tsf]))
+	    {
+	      QMessageBox::warning(0, "Export Mesh Range", volData->lastError());
+	      return;
+	    }
+	  if (!currentVolumeLayoutMatches(volData,
+	                                  rvdepth, rvwidth, rvheight,
+	                                  voxelType))
+	    {
+	      QMessageBox::warning(0, "Export Mesh Range",
+	        "A time-series volume has a different grid or voxel type. "
+	        "Range generation was stopped before decoding it.");
+	      return;
+	    }
 	}
 
 
@@ -3746,7 +5149,7 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
 	      progress.setValue((int)(100*(float)(iso-bValue1)/(float)(bValue2+1-bValue1)));
 	      qApp->processEvents();
 
-	      Raw2Pvl::parIsoGen(volData,
+	      if (!Raw2Pvl::parIsoGen(volData,
 				 voxelType,
 				 rvheight, rvwidth, rvdepth,
 				 dmin, dmax,
@@ -3760,7 +5163,8 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
 				 dataSmooth, meshSmooth,
 				 morphoType, morphoRadius,
 				 resample,
-				 true);
+				 true))
+		return;
 	      if (progress.wasCanceled())
 		{
 		  progress.setValue(100);  

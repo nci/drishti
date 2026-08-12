@@ -179,6 +179,9 @@ class Trisets : public QObject
   GLuint m_depthBuffer;
   GLuint m_rbo;
   GLuint m_depthTex[8];
+  int m_fboWidth, m_fboHeight;
+  int m_failedFboWidth, m_failedFboHeight;
+  bool m_basicRenderFallback;
   
   
   float m_blur, m_edges;
@@ -186,7 +189,7 @@ class Trisets : public QObject
 
   Vec m_probeStartPos;
   
-  void createFBO(int, int);
+  bool createFBO(int, int);
 
   void render(GLdouble*, Vec, int, int, int, bool, bool);
 

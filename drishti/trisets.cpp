@@ -5,10 +5,340 @@
 #include "trisets.h"
 #include "propertyeditor.h"
 #include "captiondialog.h"
+#include "../framebufferbudget.h"
 //#include "lighthandler.h"
 
+#include <QDebug>
 #include <QFileDialog>
 #include <QInputDialog>
+
+namespace
+{
+const std::uint64_t c_trisetFramebufferBudgetBytes =
+  512ULL*1024ULL*1024ULL;
+const std::uint64_t c_trisetFramebufferBytesPerPixel = 4ULL*16ULL+4ULL;
+
+class ScopedTrisetGlState
+{
+public:
+  explicit ScopedTrisetGlState(bool active = true)
+    : m_active(active),
+      m_drawFramebuffer(0),
+      m_readFramebuffer(0),
+      m_renderbuffer(0),
+      m_vertexArray(0),
+      m_arrayBuffer(0),
+      m_activeTexture(GL_TEXTURE0),
+      m_textureUnitCount(0),
+      m_program(0),
+      m_blendEnabled(GL_FALSE),
+      m_depthTestEnabled(GL_FALSE),
+      m_cullFaceEnabled(GL_FALSE),
+      m_depthWriteMask(GL_TRUE),
+      m_blendSourceRgb(GL_ONE),
+      m_blendDestinationRgb(GL_ZERO),
+      m_blendSourceAlpha(GL_ONE),
+      m_blendDestinationAlpha(GL_ZERO),
+      m_blendEquationRgb(GL_FUNC_ADD),
+      m_blendEquationAlpha(GL_FUNC_ADD),
+      m_depthFunction(GL_LESS),
+      m_cullFaceMode(GL_BACK),
+      m_frontFace(GL_CCW)
+  {
+    m_viewport[0] = m_viewport[1] = 0;
+    m_viewport[2] = m_viewport[3] = 0;
+    m_polygonMode[0] = m_polygonMode[1] = GL_FILL;
+    for (int i=0; i<4; ++i)
+      m_colorWriteMask[i] = GL_TRUE;
+    if (!m_active)
+      return;
+
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &m_drawFramebuffer);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &m_readFramebuffer);
+    glGetIntegerv(GL_RENDERBUFFER_BINDING, &m_renderbuffer);
+    glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &m_vertexArray);
+    glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &m_arrayBuffer);
+    glGetIntegerv(GL_ACTIVE_TEXTURE, &m_activeTexture);
+    glGetIntegerv(GL_VIEWPORT, m_viewport);
+    glGetIntegerv(GL_CURRENT_PROGRAM, &m_program);
+    glGetIntegerv(GL_BLEND_SRC_RGB, &m_blendSourceRgb);
+    glGetIntegerv(GL_BLEND_DST_RGB, &m_blendDestinationRgb);
+    glGetIntegerv(GL_BLEND_SRC_ALPHA, &m_blendSourceAlpha);
+    glGetIntegerv(GL_BLEND_DST_ALPHA, &m_blendDestinationAlpha);
+    glGetIntegerv(GL_BLEND_EQUATION_RGB, &m_blendEquationRgb);
+    glGetIntegerv(GL_BLEND_EQUATION_ALPHA, &m_blendEquationAlpha);
+    glGetIntegerv(GL_DEPTH_FUNC, &m_depthFunction);
+    glGetIntegerv(GL_CULL_FACE_MODE, &m_cullFaceMode);
+    glGetIntegerv(GL_FRONT_FACE, &m_frontFace);
+    glGetIntegerv(GL_POLYGON_MODE, m_polygonMode);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &m_depthWriteMask);
+    glGetBooleanv(GL_COLOR_WRITEMASK, m_colorWriteMask);
+    m_blendEnabled = glIsEnabled(GL_BLEND);
+    m_depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
+    m_cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+
+    GLint maximumTextureUnits = 0;
+    glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maximumTextureUnits);
+    const int standardTextureUnits = qMin(maximumTextureUnits, 8);
+    for (int i=0; i<standardTextureUnits; ++i)
+      captureTextureUnit(GL_TEXTURE0+i);
+    const int activeTextureUnit = m_activeTexture-GL_TEXTURE0;
+    if (activeTextureUnit >= standardTextureUnits &&
+        activeTextureUnit < maximumTextureUnits)
+      captureTextureUnit(static_cast<GLenum>(m_activeTexture));
+    glActiveTexture(static_cast<GLenum>(m_activeTexture));
+  }
+
+  ~ScopedTrisetGlState()
+  {
+    if (!m_active)
+      return;
+
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_drawFramebuffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, m_readFramebuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, m_renderbuffer);
+    for (int i=0; i<m_textureUnitCount; ++i)
+      {
+        glActiveTexture(static_cast<GLenum>(m_textureUnits[i].unit));
+        glBindTexture(GL_TEXTURE_2D,
+                      static_cast<GLuint>(m_textureUnits[i].texture2d));
+        glBindTexture(GL_TEXTURE_RECTANGLE,
+                      static_cast<GLuint>(m_textureUnits[i].rectangleTexture));
+        if (m_textureUnits[i].texture2dEnabled)
+          glEnable(GL_TEXTURE_2D);
+        else
+          glDisable(GL_TEXTURE_2D);
+        if (m_textureUnits[i].rectangleEnabled)
+          glEnable(GL_TEXTURE_RECTANGLE);
+        else
+          glDisable(GL_TEXTURE_RECTANGLE);
+      }
+    glActiveTexture(static_cast<GLenum>(m_activeTexture));
+    glBindVertexArray(static_cast<GLuint>(m_vertexArray));
+    glBindBuffer(GL_ARRAY_BUFFER, static_cast<GLuint>(m_arrayBuffer));
+    glViewport(m_viewport[0], m_viewport[1],
+               m_viewport[2], m_viewport[3]);
+    glUseProgram(static_cast<GLuint>(m_program));
+    glBlendFuncSeparate(static_cast<GLenum>(m_blendSourceRgb),
+                        static_cast<GLenum>(m_blendDestinationRgb),
+                        static_cast<GLenum>(m_blendSourceAlpha),
+                        static_cast<GLenum>(m_blendDestinationAlpha));
+    glBlendEquationSeparate(static_cast<GLenum>(m_blendEquationRgb),
+                            static_cast<GLenum>(m_blendEquationAlpha));
+    glDepthFunc(static_cast<GLenum>(m_depthFunction));
+    glDepthMask(m_depthWriteMask);
+    glColorMask(m_colorWriteMask[0], m_colorWriteMask[1],
+                m_colorWriteMask[2], m_colorWriteMask[3]);
+    glCullFace(static_cast<GLenum>(m_cullFaceMode));
+    glFrontFace(static_cast<GLenum>(m_frontFace));
+    glPolygonMode(GL_FRONT, static_cast<GLenum>(m_polygonMode[0]));
+    glPolygonMode(GL_BACK, static_cast<GLenum>(m_polygonMode[1]));
+    if (m_blendEnabled) glEnable(GL_BLEND); else glDisable(GL_BLEND);
+    if (m_depthTestEnabled) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
+    if (m_cullFaceEnabled) glEnable(GL_CULL_FACE); else glDisable(GL_CULL_FACE);
+  }
+
+  void replaceFramebuffer(GLuint oldFramebuffer, GLuint replacementFramebuffer)
+  {
+    if (!m_active || !oldFramebuffer)
+      return;
+    if (m_drawFramebuffer == static_cast<GLint>(oldFramebuffer))
+      m_drawFramebuffer = static_cast<GLint>(replacementFramebuffer);
+    if (m_readFramebuffer == static_cast<GLint>(oldFramebuffer))
+      m_readFramebuffer = static_cast<GLint>(replacementFramebuffer);
+  }
+
+  void replaceRenderbuffer(GLuint oldRenderbuffer,
+                           GLuint replacementRenderbuffer)
+  {
+    if (!m_active || !oldRenderbuffer)
+      return;
+    if (m_renderbuffer == static_cast<GLint>(oldRenderbuffer))
+      m_renderbuffer = static_cast<GLint>(replacementRenderbuffer);
+  }
+
+  void replaceTexture(GLuint oldTexture, GLuint replacementTexture)
+  {
+    if (!m_active || !oldTexture)
+      return;
+    for (int i=0; i<m_textureUnitCount; ++i)
+      {
+        if (m_textureUnits[i].texture2d == static_cast<GLint>(oldTexture))
+          m_textureUnits[i].texture2d = static_cast<GLint>(replacementTexture);
+        if (m_textureUnits[i].rectangleTexture == static_cast<GLint>(oldTexture))
+          m_textureUnits[i].rectangleTexture =
+            static_cast<GLint>(replacementTexture);
+      }
+  }
+
+private:
+  struct TextureUnitState
+  {
+    GLint unit;
+    GLint texture2d;
+    GLint rectangleTexture;
+    GLboolean texture2dEnabled;
+    GLboolean rectangleEnabled;
+  };
+
+  void captureTextureUnit(GLenum unit)
+  {
+    if (m_textureUnitCount >= 9)
+      return;
+    TextureUnitState& state = m_textureUnits[m_textureUnitCount++];
+    state.unit = static_cast<GLint>(unit);
+    glActiveTexture(unit);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &state.texture2d);
+    glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &state.rectangleTexture);
+    state.texture2dEnabled = glIsEnabled(GL_TEXTURE_2D);
+    state.rectangleEnabled = glIsEnabled(GL_TEXTURE_RECTANGLE);
+  }
+
+  bool m_active;
+  GLint m_drawFramebuffer;
+  GLint m_readFramebuffer;
+  GLint m_renderbuffer;
+  GLint m_vertexArray;
+  GLint m_arrayBuffer;
+  GLint m_activeTexture;
+  TextureUnitState m_textureUnits[9];
+  int m_textureUnitCount;
+  GLint m_viewport[4];
+  GLint m_program;
+  GLboolean m_blendEnabled;
+  GLboolean m_depthTestEnabled;
+  GLboolean m_cullFaceEnabled;
+  GLboolean m_depthWriteMask;
+  GLboolean m_colorWriteMask[4];
+  GLint m_blendSourceRgb;
+  GLint m_blendDestinationRgb;
+  GLint m_blendSourceAlpha;
+  GLint m_blendDestinationAlpha;
+  GLint m_blendEquationRgb;
+  GLint m_blendEquationAlpha;
+  GLint m_depthFunction;
+  GLint m_cullFaceMode;
+  GLint m_frontFace;
+  GLint m_polygonMode[2];
+};
+
+void clearFramebufferErrors()
+{
+  for (int i=0; i<32; ++i)
+    if (glGetError() == GL_NO_ERROR)
+      break;
+}
+
+void deleteTrisetFramebuffer(GLuint framebuffer,
+                             GLuint renderbuffer,
+                             GLuint *textures,
+                             int textureCount)
+{
+  if (framebuffer)
+    glDeleteFramebuffers(1, &framebuffer);
+  if (renderbuffer)
+    glDeleteRenderbuffers(1, &renderbuffer);
+  if (textures && textures[0])
+    glDeleteTextures(textureCount, textures);
+}
+
+QString framebufferAdmissionError(const FramebufferBudget::Admission& admission,
+                                  int width,
+                                  int height,
+                                  int maximumDimension)
+{
+  if (admission.reason ==
+      FramebufferBudget::RejectionReason::HardwareDimensionLimit)
+    return QString("mesh framebuffer %1x%2 exceeds the OpenGL dimension limit %3")
+      .arg(width).arg(height).arg(maximumDimension);
+  if (admission.reason ==
+      FramebufferBudget::RejectionReason::MemoryBudgetExceeded)
+    return QString("mesh framebuffer %1x%2 needs approximately %3 MiB, "
+                   "above the %4 MiB integrated-GPU safety budget")
+      .arg(width).arg(height)
+      .arg(static_cast<double>(admission.requiredBytes)/(1024.0*1024.0),
+           0, 'f', 1)
+      .arg(admission.budgetBytes/(1024ULL*1024ULL));
+  if (admission.reason ==
+      FramebufferBudget::RejectionReason::ArithmeticOverflow)
+    return QString("mesh framebuffer %1x%2 byte count overflowed")
+      .arg(width).arg(height);
+  return QString("mesh framebuffer dimensions or budget are invalid (%1x%2)")
+    .arg(width).arg(height);
+}
+
+bool createTrisetFramebuffer(int width,
+                             int height,
+                             GLuint& framebuffer,
+                             GLuint& renderbuffer,
+                             GLuint *textures,
+                             QString& error)
+{
+  ScopedTrisetGlState stateGuard;
+
+  framebuffer = 0;
+  renderbuffer = 0;
+  for (int i=0; i<4; ++i)
+    textures[i] = 0;
+
+  clearFramebufferErrors();
+  glGenFramebuffers(1, &framebuffer);
+  glGenRenderbuffers(1, &renderbuffer);
+  glGenTextures(4, textures);
+  GLenum glError = glGetError();
+  if (glError != GL_NO_ERROR || !framebuffer || !renderbuffer || !textures[0])
+    {
+      error = QString("OpenGL could not create mesh framebuffer objects (0x%1)")
+        .arg(QString::number(static_cast<qulonglong>(glError), 16));
+      deleteTrisetFramebuffer(framebuffer, renderbuffer, textures, 4);
+      framebuffer = renderbuffer = 0;
+      for (int i=0; i<4; ++i) textures[i] = 0;
+      return false;
+    }
+
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+  glBindRenderbuffer(GL_RENDERBUFFER, renderbuffer);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                            GL_RENDERBUFFER, renderbuffer);
+
+  GLenum drawBuffers[4];
+  for (int i=0; i<4; ++i)
+    {
+      drawBuffers[i] = GL_COLOR_ATTACHMENT0+i;
+      glBindTexture(GL_TEXTURE_RECTANGLE, textures[i]);
+      glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_RGBA32F,
+                   width, height, 0, GL_RGBA, GL_FLOAT, 0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, drawBuffers[i],
+                             GL_TEXTURE_RECTANGLE, textures[i], 0);
+    }
+  glDrawBuffers(2, drawBuffers);
+
+  glError = glGetError();
+  const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  const bool ok = glError == GL_NO_ERROR && status == GL_FRAMEBUFFER_COMPLETE;
+  if (!ok)
+    error = QString("OpenGL mesh framebuffer allocation failed "
+                    "(error 0x%1, status 0x%2)")
+      .arg(QString::number(static_cast<qulonglong>(glError), 16),
+           QString::number(static_cast<qulonglong>(status), 16));
+
+  glBindTexture(GL_TEXTURE_RECTANGLE, 0);
+  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  if (!ok)
+    {
+      deleteTrisetFramebuffer(framebuffer, renderbuffer, textures, 4);
+      framebuffer = renderbuffer = 0;
+      for (int i=0; i<4; ++i) textures[i] = 0;
+    }
+  return ok;
+}
+}
 
 
 Trisets::Trisets()
@@ -26,6 +356,8 @@ Trisets::Trisets()
   m_depthTex[2] = 0;
   m_depthTex[3] = 0;
   m_rbo = 0;
+  m_fboWidth = m_fboHeight = 0;
+  m_failedFboWidth = m_failedFboHeight = 0;
 
   m_vertexScreenBuffer = 0;
 
@@ -60,6 +392,7 @@ Trisets::~Trisets()
   m_depthTex[2] = 0;
   m_depthTex[3] = 0;
   m_rbo = 0;
+  m_fboWidth = m_fboHeight = 0;
 
   if (m_solidTexName.count() > 0)
     {
@@ -710,18 +1043,21 @@ Trisets::draw(QGLViewer *viewer,
   int wd = viewer->camera()->screenWidth();
   int ht = viewer->camera()->screenHeight();
 
-  if (!m_depthBuffer)
-    createFBO(wd, ht);
-
-
   float sceneRadius = trisetExtent;
 
   Vec vd = viewer->camera()->viewDirection();
   Vec rightVec = viewer->camera()->rightVector();
   Vec upVec = viewer->camera()->upVector();
-  
 
-  glUseProgram(ShaderFactory::meshShader());
+  const GLuint meshProgram = ShaderFactory::meshShader();
+  if (!meshProgram)
+    return;
+  const bool framebufferReady =
+    createFBO(wd, ht) && ShaderFactory::meshShadowShader();
+
+  ScopedTrisetGlState fallbackState(!framebufferReady);
+
+  glUseProgram(meshProgram);
 
   GLint *meshShaderParm = ShaderFactory::meshShaderParm();        
 
@@ -731,6 +1067,22 @@ Trisets::draw(QGLViewer *viewer,
   glUniform3f(meshShaderParm[1], vd.x, vd.y, vd.z); // view direction
   glUniform3f(meshShaderParm[25], rightVec.x, rightVec.y, rightVec.z);
   glUniform3f(meshShaderParm[26], upVec.x, upVec.y, upVec.z);
+
+  if (!framebufferReady)
+    {
+      glBindFramebuffer(GL_DRAW_FRAMEBUFFER, drawFboId);
+      glViewport(0, 0, wd, ht);
+      viewer->camera()->getModelViewProjectionMatrix(m_mvpShadow);
+      Vec cameraPosition = viewer->camera()->position();
+      glUniform3f(meshShaderParm[16],
+                  cameraPosition.x, cameraPosition.y, cameraPosition.z);
+      glUniform1i(meshShaderParm[22], true);
+      glDisable(GL_BLEND);
+      glEnable(GL_DEPTH_TEST);
+      render(viewer->camera(), nclip);
+      glUseProgram(0);
+      return;
+    }
 
 
   //--------------------------------------------
@@ -784,7 +1136,7 @@ Trisets::draw(QGLViewer *viewer,
   //--------------------------------------------
   viewer->camera()->getModelViewProjectionMatrix(m_mvpShadow);
 
-  glUseProgram(ShaderFactory::meshShadowShader());
+  glUseProgram(meshProgram);
   glUniform1i(meshShaderParm[22], true); // shadowRender  
   renderFromShadowCamera(viewer->camera(), nclip);
   //--------------------------------------------
@@ -800,7 +1152,7 @@ Trisets::draw(QGLViewer *viewer,
   //--------------------------------------------
   // now render from actual camera
   {
-    glUseProgram(ShaderFactory::meshShadowShader());
+    glUseProgram(meshProgram);
     glUniform1i(meshShaderParm[22], false); // shadowRender  
 
     glActiveTexture(GL_TEXTURE3);
@@ -2178,39 +2530,83 @@ Trisets::makeReadyForPainting()
 void
 Trisets::paint(Vec hitPt, float rad, Vec color, int blendType, float blendFraction, int blendOctave)
 {
-  GLuint paintShader = ShaderFactory::paintShader();
-  GLint* paintShaderParm = ShaderFactory::paintShaderParm();
-
-  glUseProgram(paintShader);
-
-  glUniform3f(paintShaderParm[0], hitPt.x, hitPt.y, hitPt.z);
-  glUniform1f(paintShaderParm[1], rad);
-  glUniform3f(paintShaderParm[2], color.x, color.y, color.z);
-  glUniform1i(paintShaderParm[3], blendType);
-  glUniform1f(paintShaderParm[4], blendFraction);
-  glUniform1i(paintShaderParm[5], blendOctave);
-
   Vec bmin, bmax;
   allEnclosingBox(bmin, bmax);
   float blen = qMax(bmax.x-bmin.x, qMax(bmax.y-bmin.y, bmax.z-bmin.z));
-  glUniform3f(paintShaderParm[6], bmin.x, bmin.y, bmin.z);
-  glUniform1f(paintShaderParm[7], blen);
 
   for (int i=0; i<m_trisets.count(); i++)
-    m_trisets[i]->paint(hitPt);
-    
-  glUseProgram(0);
+    m_trisets[i]->paint(hitPt, rad, color,
+			blendType, blendFraction, blendOctave,
+			bmin, blen);
 }
 
 void
 Trisets::resize(int wd, int ht)
 {
-  createFBO(wd, ht);
+  (void)createFBO(wd, ht);
 }
 
-void
+bool
 Trisets::createFBO(int wd, int ht)
 {
+  if (m_depthBuffer && m_fboWidth == wd && m_fboHeight == ht)
+    return true;
+  if (m_failedFboWidth == wd && m_failedFboHeight == ht)
+    return false;
+
+  ScopedTrisetGlState stateGuard;
+  const GLuint previousFramebuffer = m_depthBuffer;
+  const GLuint previousRenderbuffer = m_rbo;
+  GLuint previousTextures[4];
+  for (int i=0; i<4; ++i)
+    previousTextures[i] = m_depthTex[i];
+
+  GLint maximumTextureSize = 0;
+  GLint maximumRenderbufferSize = 0;
+  GLint maximumColorAttachments = 0;
+  GLint maximumDrawBuffers = 0;
+  glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE, &maximumTextureSize);
+  glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &maximumRenderbufferSize);
+  glGetIntegerv(GL_MAX_COLOR_ATTACHMENTS, &maximumColorAttachments);
+  glGetIntegerv(GL_MAX_DRAW_BUFFERS, &maximumDrawBuffers);
+  const int maximumDimension =
+    qMin(maximumTextureSize, maximumRenderbufferSize);
+  const FramebufferBudget::Admission admission =
+    FramebufferBudget::evaluate(wd, ht,
+                                c_trisetFramebufferBytesPerPixel,
+                                c_trisetFramebufferBudgetBytes,
+                                maximumDimension);
+  if (!admission.approved || maximumColorAttachments < 4 ||
+      maximumDrawBuffers < 2)
+    {
+      m_failedFboWidth = wd;
+      m_failedFboHeight = ht;
+      QString error = framebufferAdmissionError(admission, wd, ht,
+                                                maximumDimension);
+      if (admission.approved)
+        error = QString("mesh framebuffer requires 4 color attachments and "
+                        "2 draw buffers, but this context reports %1 and %2")
+          .arg(maximumColorAttachments).arg(maximumDrawBuffers);
+      qWarning() << error << "; using basic mesh rendering";
+      return false;
+    }
+
+  GLuint candidateFramebuffer = 0;
+  GLuint candidateRenderbuffer = 0;
+  GLuint candidateTextures[4] = {0, 0, 0, 0};
+  QString error;
+  if (!createTrisetFramebuffer(wd, ht,
+                               candidateFramebuffer,
+                               candidateRenderbuffer,
+                               candidateTextures,
+                               error))
+    {
+      m_failedFboWidth = wd;
+      m_failedFboHeight = ht;
+      qWarning() << error << "; using basic mesh rendering";
+      return false;
+    }
+
   //------------------
   m_scrGeo[0] = 0;
   m_scrGeo[1] = 0;
@@ -2229,43 +2625,19 @@ Trisets::createFBO(int wd, int ht)
 	       GL_STATIC_DRAW);
   //------------------
 
-
-  if (m_depthBuffer) glDeleteFramebuffers(1, &m_depthBuffer);
-  if (m_depthTex) glDeleteTextures(4, m_depthTex);
-  if (m_rbo) glDeleteRenderbuffers(1, &m_rbo);
-
-  glGenFramebuffers(1, &m_depthBuffer);
-  glGenTextures(4, m_depthTex);
-  glBindFramebuffer(GL_FRAMEBUFFER, m_depthBuffer);
-
-  glGenRenderbuffers(1, &m_rbo);
-  glBindRenderbuffer(GL_RENDERBUFFER, m_rbo);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, wd, ht);
-  // attach the renderbuffer to depth attachment point
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER,      // 1. fbo target: GL_FRAMEBUFFER
-			    GL_DEPTH_ATTACHMENT, // 2. attachment point
-			    GL_RENDERBUFFER,     // 3. rbo target: GL_RENDERBUFFER
-			    m_rbo);              // 4. rbo ID
-  glBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-  for(int dt=0; dt<4; dt++)
-    {
-      glBindTexture(GL_TEXTURE_RECTANGLE, m_depthTex[dt]);
-      glTexImage2D(GL_TEXTURE_RECTANGLE,
-		   0,
-		   GL_RGBA32F,
-		   wd, ht,
-		   0,
-		   GL_RGBA,
-		   GL_FLOAT,
-		   0);
-    }
-  glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR); 
-  glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  stateGuard.replaceFramebuffer(previousFramebuffer, candidateFramebuffer);
+  stateGuard.replaceRenderbuffer(previousRenderbuffer, candidateRenderbuffer);
+  for (int i=0; i<4; ++i)
+    stateGuard.replaceTexture(previousTextures[i], candidateTextures[i]);
+  deleteTrisetFramebuffer(m_depthBuffer, m_rbo, m_depthTex, 4);
+  m_depthBuffer = candidateFramebuffer;
+  m_rbo = candidateRenderbuffer;
+  for (int i=0; i<4; ++i)
+    m_depthTex[i] = candidateTextures[i];
+  m_fboWidth = wd;
+  m_fboHeight = ht;
+  m_failedFboWidth = m_failedFboHeight = 0;
+  return true;
 }
 
 void

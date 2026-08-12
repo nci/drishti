@@ -9,6 +9,12 @@
 #include <QFile>
 #include <QLabel>
 
+#include <algorithm>
+#include <exception>
+#include <limits>
+#include <new>
+#include <vector>
+
 void
 ImageWidget::getBox(int &minD, int &maxD, 
 		    int &minW, int &maxW, 
@@ -2540,89 +2546,170 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
 void
 ImageWidget::applyGraphCut()
 {
-  uchar *imageData = new uchar[m_imgWidth*m_imgHeight];
-  ushort *maskData = new ushort[m_imgWidth*m_imgHeight];
-
-
-  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
-    imageData[i] = m_sliceImage[4*i+0];
-
-
-  memset(maskData, 0, 2*m_imgWidth*m_imgHeight);
-  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
-    {
-      if (m_prevtags[i] > 0) // set as background so that we don't overwrite it
-	maskData[i] = 65535;
-
-      if (m_prevtags[i] == Global::tag()) // add seed points
-	maskData[i] = Global::tag();
-    }
-  for(int i=0; i<m_imgWidth*m_imgHeight; i++) // overwrite with usertags
-    {
-      if (m_usertags[i] > 0)
-	maskData[i] = m_usertags[i];
-    }
-
-  if (Global::copyPrev())
-    {
-      for(int i=0; i<m_imgWidth*m_imgHeight; i++) // apply prevslicetags
-	{
-	  if (maskData[i] == 0)
-	    maskData[i] = m_prevslicetags[i];
-	}
-    }
-
-  int size1, size2;
-  int imin, imax, jmin, jmax;
+  int size1 = 0;
+  int size2 = 0;
+  int imin = 0;
+  int imax = -1;
+  int jmin = 0;
+  int jmax = -1;
   getSliceLimits(size1, size2, imin, imax, jmin, jmax);
 
-  int idx=0;
-  for(int i=imin; i<=imax; i++)
-    for(int j=jmin; j<=jmax; j++)
-      {
-	maskData[idx] = maskData[i*m_imgWidth+j];
-	idx++;
-      }
-
-  idx=0;
-  for(int i=imin; i<=imax; i++)
-    for(int j=jmin; j<=jmax; j++)
-      {
-	imageData[idx] = imageData[i*m_imgWidth+j];
-	idx++;
-      }
-
-  MaxFlowMinCut mfmc;
-  memset(m_tags, 0, 2*size1*size2);
-  int tagged = mfmc.run(size1, size2,
-			Global::boxSize(),
-			Global::lambda()*0.1,
-			Global::tagSimilar(), // tag similar looking features
-			imageData, maskData,
-			Global::tag(), m_tags);
-
-  memcpy(maskData, m_tags, 2*size1*size2);
-  memset(m_tags, 0, 2*m_imgWidth*m_imgHeight);
-
-  idx=0;
-  for(int i=imin; i<=imax; i++)
-    for(int j=jmin; j<=jmax; j++)
-      {
-	m_tags[i*m_imgWidth+j] = maskData[idx];
-	idx++;
-      }
-
-  
-  for(int i=0; i<m_imgWidth*m_imgHeight; i++)
+  const auto failGraphCut = [this](const QString &error)
     {
-      if (m_tags[i] == 0)
-	m_tags[i] = m_prevtags[i];
+      if (m_applyRecursive)
+	{
+	  emit saveWork();
+	  m_applyRecursive = false;
+	  m_extraPressed = false;
+	  m_cslc = 0;
+	  m_maxslc = 0;
+	  m_key = 0;
+	  m_forward = true;
+	  emit reconnectSlider();
+	  emit sliceChanged(m_currSlice);
+	  emit setSliceNumber(m_currSlice);
+	}
+
+      QMessageBox::warning(this,
+			   QStringLiteral("Graph Cut"),
+			   QStringLiteral("%1\n\nThe current annotation was not changed.")
+			     .arg(error));
+    };
+
+  try
+    {
+  if (!m_sliceImage || !m_prevtags || !m_prevslicetags ||
+      !m_usertags || !m_tags ||
+      m_imgWidth <= 0 || m_imgHeight <= 0 ||
+      size1 <= 0 || size2 <= 0 ||
+      imin < 0 || jmin < 0 ||
+      imax < imin || jmax < jmin ||
+      imax >= m_imgHeight || jmax >= m_imgWidth ||
+      size1 != jmax-jmin+1 || size2 != imax-imin+1)
+    {
+      failGraphCut(QStringLiteral("The selected image region is invalid or unavailable."));
+      return;
     }
 
-  delete [] imageData;
-  delete [] maskData;
+  const quint64 regionCount64 = static_cast<quint64>(size1)*
+                                static_cast<quint64>(size2);
+  const quint64 fullCount64 = static_cast<quint64>(m_imgWidth)*
+                              static_cast<quint64>(m_imgHeight);
+  if (regionCount64 > static_cast<quint64>(std::numeric_limits<std::size_t>::max()) ||
+      fullCount64 > static_cast<quint64>(std::numeric_limits<std::size_t>::max()))
+    {
+      failGraphCut(QStringLiteral("The selected image region is too large to address safely."));
+      return;
+    }
 
-  
+  quint64 estimatedPeakBytes = 0;
+  QString graphCutError;
+  if (!MaxFlowMinCut::estimateInvocationMemoryBytes(
+        size1, size2, m_imgWidth, m_imgHeight,
+        estimatedPeakBytes, graphCutError))
+    {
+      failGraphCut(graphCutError);
+      return;
+    }
+  if (!MaxFlowMinCut::admitMemoryBytes(estimatedPeakBytes, graphCutError))
+    {
+      failGraphCut(graphCutError);
+      return;
+    }
+
+      const std::size_t regionCount = static_cast<std::size_t>(regionCount64);
+      const std::size_t fullCount = static_cast<std::size_t>(fullCount64);
+      std::vector<uchar> imageData(regionCount);
+      std::vector<ushort> maskData(regionCount, 0);
+      std::vector<ushort> graphTags(regionCount, 0);
+
+      std::size_t idx = 0;
+      for (int i=imin; i<=imax; ++i)
+	for (int j=jmin; j<=jmax; ++j, ++idx)
+	  {
+	    const std::size_t sourceIndex =
+	      static_cast<std::size_t>(i)*static_cast<std::size_t>(m_imgWidth)+
+	      static_cast<std::size_t>(j);
+	    imageData[idx] = m_sliceImage[4*sourceIndex];
+
+	    if (m_prevtags[sourceIndex] > 0)
+	      maskData[idx] = 65535;
+	    if (m_prevtags[sourceIndex] == Global::tag())
+	      maskData[idx] = static_cast<ushort>(Global::tag());
+	    if (m_usertags[sourceIndex] > 0)
+	      maskData[idx] = m_usertags[sourceIndex];
+	    if (Global::copyPrev() && maskData[idx] == 0)
+	      maskData[idx] = m_prevslicetags[sourceIndex];
+	  }
+
+      MaxFlowMinCut mfmc;
+      int tagged = 0;
+      if (!mfmc.run(size1, size2,
+		    Global::boxSize(),
+		    Global::lambda()*0.1f,
+		    Global::tagSimilar(),
+		    imageData.data(), maskData.data(),
+		    Global::tag(), graphTags.data(),
+		    tagged, graphCutError))
+	{
+	  failGraphCut(graphCutError);
+	  return;
+	}
+      Q_UNUSED(tagged);
+
+      std::vector<ushort> finalTags(fullCount);
+      std::copy(m_prevtags, m_prevtags+fullCount, finalTags.begin());
+
+      idx = 0;
+      for (int i=imin; i<=imax; ++i)
+	for (int j=jmin; j<=jmax; ++j, ++idx)
+	  if (graphTags[idx] != 0)
+	    {
+	      const std::size_t destinationIndex =
+		static_cast<std::size_t>(i)*static_cast<std::size_t>(m_imgWidth)+
+		static_cast<std::size_t>(j);
+	      finalTags[destinationIndex] = graphTags[idx];
+	    }
+
+      // Commit only after every allocation and the complete graph solve succeed.
+      memcpy(m_tags, finalTags.data(), fullCount*sizeof(ushort));
+    }
+  catch (const std::bad_alloc &)
+    {
+      try
+	{
+	  failGraphCut(QStringLiteral("Graph Cut could not allocate enough working memory. "
+					"Reduce the 2D box and try again."));
+	}
+      catch (...)
+	{
+	}
+      return;
+    }
+  catch (const std::exception &error)
+    {
+      try
+	{
+	  failGraphCut(QStringLiteral("Graph Cut failed: %1")
+			 .arg(QString::fromLocal8Bit(error.what())));
+	}
+      catch (...)
+	{
+	}
+      return;
+    }
+  catch (...)
+    {
+      try
+	{
+	  failGraphCut(QStringLiteral("Graph Cut failed because of an unexpected internal error."));
+	}
+      catch (...)
+	{
+	}
+      return;
+    }
+
   if (m_sliceType == DSlice)
     emit tagDSlice(m_currSlice, (uchar*)m_tags);
   else if (m_sliceType == WSlice)
@@ -2631,7 +2718,6 @@ ImageWidget::applyGraphCut()
     emit tagHSlice(m_currSlice, (uchar*)m_tags);
 
   setMaskImage(m_tags);
-
   checkRecursive();
 }
 

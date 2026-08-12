@@ -26,12 +26,15 @@ TEMPLATE = app
 DESTDIR = ../../bin
 
 TARGET = drishtimesh
+VERSION = 4.0.4.9
 DEPENDPATH += .
 
 include( ../../drishti.pri )
 
 win32 {
-  RC_ICONS += images/drishtimesh.ico
+    DESTDIR = $$DRISHTI_BIN_DIR
+    RC_ICONS += images/drishtimesh.ico
+    QMAKE_LFLAGS += /MANIFESTINPUT:$$shell_path($$PWD/../../windows_long_path.manifest)
 
   OPENVR_VERSION = 1.14.15
 
@@ -51,19 +54,14 @@ win32 {
     QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
                    
-    LIBS += -lQGLViewer2 \
-            -lglew32 \
-            -lopengl32 \
-            -lglu32 \
-            -lassimp-vc145-mt \
-            -liphlpapi
+    LIBS += $$DRISHTI_QGLVIEWER_LIB \
+            $$DRISHTI_GLEW_LIB \
+            $$DRISHTI_OPENGL_LIBS \
+            $$DRISHTI_ASSIMP_LIB \
+            iphlpapi.lib
 
     # Set list of required FFmpeg libraries
-    LIBS += -lavutil \
-            -lavcodec \
-            -lavformat \
-            -lswresample \
-            -lswscale 
+    LIBS += $$DRISHTI_FFMPEG_LIBS
   }
 }
 
@@ -105,7 +103,6 @@ HEADERS += boundingbox.h \
 	   clipobject.h \
 	   clipgrabber.h \
 	   coloreditor.h \
-           computeshaderfactory.h \
 	   connectbricks.h \
 	   connectbrickswidget.h \	
 	   connectclipplanes.h \
@@ -149,7 +146,7 @@ HEADERS += boundingbox.h \
 	   pathgrabber.h \
 	   paths.h \
 	   pathshaderfactory.h \
-	   ply.h \
+	   ../../common/src/mesh/binaryplywriter.h \
 	   plugininterface.h \
 	   pluginthread.h \
 	   scalebar.h \
@@ -161,6 +158,9 @@ HEADERS += boundingbox.h \
 	   trisets.h \
 	   trisetgrabber.h \
 	   trisetobject.h \
+	   ../../cpumeshpaint.h \
+	   ../../framebufferbudget.h \
+	   ../../meshvertexbuffer.h \
            viewer.h \
            xmlheaderfunctions.h \
            popupslider.h \
@@ -185,7 +185,6 @@ SOURCES += boundingbox.cpp \
 	   clipobject.cpp \
 	   clipgrabber.cpp \
 	   coloreditor.cpp \
-           computeshaderfactory.cpp \
            cube2sphere.cpp \
 	   doublespinboxdelegate.cpp \
 	   dialogs.cpp \
@@ -219,7 +218,7 @@ SOURCES += boundingbox.cpp \
 	   pathgrabber.cpp \
 	   paths.cpp \
 	   pathshaderfactory.cpp \
-	   ply.c \
+	   ../../common/src/mesh/binaryplywriter.cpp \
 	   pluginthread.cpp \
 	   scalebar.cpp \
 	   scalebargrabber.cpp \

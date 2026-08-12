@@ -3,15 +3,22 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QFileDialog>
+#include <QFileInfo>
+
+#include <limits>
+#include <new>
 
 VolumeFileManager::VolumeFileManager()
 {
   m_slice = 0;
+  m_sliceCapacity = 0;
   m_block = 0;
+  m_blockCapacity = 0;
   m_blockSlices = 10;
   m_startBlock = m_endBlock = 0;
   m_filenames.clear();
   m_volData = 0;
+  m_volDataCapacity = 0;
   m_memmapped = false;
   reset();
 }
@@ -25,6 +32,7 @@ void VolumeFileManager::setMemMapped(bool b)
   if (m_volData)
     delete [] m_volData;
   m_volData = 0;
+  m_volDataCapacity = 0;
 
   m_memChanged = false;
 }
@@ -42,6 +50,7 @@ VolumeFileManager::reset()
   m_depth = m_width = m_height = 0;
   m_voxelType = _UChar;
   m_bytesPerVoxel = 1;
+  m_lastError.clear();
 
   m_filename.clear();
   m_slabno = m_prevslabno = -1;
@@ -49,21 +58,349 @@ VolumeFileManager::reset()
   if (m_slice)
     delete [] m_slice;
   m_slice = 0;
+  m_sliceCapacity = 0;
 
   if (m_block)
     delete [] m_block;
   m_block = 0;
+  m_blockCapacity = 0;
   m_startBlock = m_endBlock = 0;
 
   if (m_volData)
     delete [] m_volData;
   m_volData = 0;
+  m_volDataCapacity = 0;
 
   if (m_qfile.isOpen())
     m_qfile.close();
 
   m_memmapped = false;
   m_memChanged = false;
+}
+
+QString
+VolumeFileManager::lastError() const
+{
+  return m_lastError;
+}
+
+bool
+VolumeFileManager::checkedMultiply(qint64 a, qint64 b, qint64& result)
+{
+  if (a < 0 || b < 0)
+    return false;
+
+  if (a == 0 || b == 0)
+    {
+      result = 0;
+      return true;
+    }
+
+  if (a > std::numeric_limits<qint64>::max()/b)
+    return false;
+
+  result = a*b;
+  return true;
+}
+
+bool
+VolumeFileManager::checkedAdd(qint64 a, qint64 b, qint64& result)
+{
+  if (a < 0 || b < 0 ||
+      a > std::numeric_limits<qint64>::max()-b)
+    return false;
+
+  result = a+b;
+  return true;
+}
+
+bool
+VolumeFileManager::setError(const QString& error)
+{
+  m_lastError = error;
+  return false;
+}
+
+void
+VolumeFileManager::clearError()
+{
+  m_lastError.clear();
+}
+
+bool
+VolumeFileManager::validateGeometry(const QString& operation)
+{
+  if (m_depth <= 0 || m_width <= 0 || m_height <= 0)
+    return setError(QString("%1: invalid volume dimensions %2 x %3 x %4")
+                    .arg(operation).arg(m_depth).arg(m_width).arg(m_height));
+
+  if (m_slabSize <= 0 || m_slabSize > std::numeric_limits<int>::max())
+    return setError(QString("%1: invalid slab size %2")
+                    .arg(operation).arg(m_slabSize));
+
+  if (m_header < 0)
+    return setError(QString("%1: invalid header size %2")
+                    .arg(operation).arg(m_header));
+
+  if (m_voxelType < _UChar || m_voxelType > _Float ||
+      (m_bytesPerVoxel != 1 &&
+       m_bytesPerVoxel != 2 &&
+       m_bytesPerVoxel != 4))
+    return setError(QString("%1: invalid voxel type %2")
+                    .arg(operation).arg(m_voxelType));
+
+  if (m_filenames.isEmpty() && m_baseFilename.isEmpty())
+    return setError(QString("%1: no volume filename is configured")
+                    .arg(operation));
+
+  const int slabSize = static_cast<int>(m_slabSize);
+  const int nslabs = 1 + (m_depth-1)/slabSize;
+  if (m_baseFilename.isEmpty() && m_filenames.count() < nslabs)
+    return setError(QString("%1: only %2 of %3 slab filenames are configured")
+                    .arg(operation).arg(m_filenames.count()).arg(nslabs));
+  for(int slab=0; slab<qMin(nslabs, m_filenames.count()); ++slab)
+    {
+      if (m_filenames[slab].isEmpty())
+        return setError(QString("%1: slab %2 has an empty filename")
+                        .arg(operation).arg(slab));
+    }
+
+  return true;
+}
+
+bool
+VolumeFileManager::sliceByteCount(qint64& bytes, const QString& operation)
+{
+  qint64 voxels = 0;
+  if (!checkedMultiply(static_cast<qint64>(m_width),
+                       static_cast<qint64>(m_height), voxels) ||
+      !checkedMultiply(voxels, m_bytesPerVoxel, bytes) ||
+      bytes <= 0)
+    return setError(QString("%1: slice byte count overflows")
+                    .arg(operation));
+
+  return true;
+}
+
+bool
+VolumeFileManager::volumeByteCount(qint64& bytes, const QString& operation)
+{
+  qint64 sliceBytes = 0;
+  if (!sliceByteCount(sliceBytes, operation) ||
+      !checkedMultiply(sliceBytes, static_cast<qint64>(m_depth), bytes) ||
+      bytes <= 0)
+    return setError(QString("%1: volume byte count overflows")
+                    .arg(operation));
+
+  return true;
+}
+
+bool
+VolumeFileManager::slabFileSize(int slab,
+                                qint64 sliceBytes,
+                                qint64& bytes,
+                                const QString& operation)
+{
+  const int slabSize = static_cast<int>(m_slabSize);
+  const int nslabs = 1 + (m_depth-1)/slabSize;
+  if (slab < 0 || slab >= nslabs)
+    return setError(QString("%1: slab index %2 is outside [0, %3)")
+                    .arg(operation).arg(slab).arg(nslabs));
+
+  const qint64 firstSlice = static_cast<qint64>(slab)*slabSize;
+  const int slices = qMin(slabSize,
+                          m_depth-static_cast<int>(firstSlice));
+  qint64 dataBytes = 0;
+  if (!checkedMultiply(static_cast<qint64>(slices),
+                       sliceBytes, dataBytes) ||
+      !checkedAdd(m_header, dataBytes, bytes))
+    return setError(QString("%1: slab file size overflows").arg(operation));
+
+  return true;
+}
+
+bool
+VolumeFileManager::ensureSliceCapacity(qint64 bytes,
+                                       const QString& operation)
+{
+  if (bytes <= 0 ||
+      static_cast<quint64>(bytes) >
+      static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    return setError(QString("%1: requested slice buffer is too large")
+                    .arg(operation));
+
+  const size_t requested = static_cast<size_t>(bytes);
+  if (m_slice && m_sliceCapacity >= requested)
+    return true;
+
+  uchar *replacement = new (std::nothrow) uchar[requested];
+  if (!replacement)
+    return setError(QString("%1: cannot allocate %2-byte slice buffer")
+                    .arg(operation).arg(bytes));
+
+  delete [] m_slice;
+  m_slice = replacement;
+  m_sliceCapacity = requested;
+  return true;
+}
+
+bool
+VolumeFileManager::ensureBlockCapacity(qint64 bytes,
+                                       const QString& operation)
+{
+  if (bytes <= 0 ||
+      static_cast<quint64>(bytes) >
+      static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    return setError(QString("%1: requested interpolation buffer is too large")
+                    .arg(operation));
+
+  const size_t requested = static_cast<size_t>(bytes);
+  if (m_block && m_blockCapacity >= requested)
+    return true;
+
+  uchar *replacement = new (std::nothrow) uchar[requested];
+  if (!replacement)
+    return setError(QString("%1: cannot allocate %2-byte interpolation buffer")
+                    .arg(operation).arg(bytes));
+
+  delete [] m_block;
+  m_block = replacement;
+  m_blockCapacity = requested;
+  m_startBlock = m_endBlock = 0;
+  return true;
+}
+
+QString
+VolumeFileManager::slabFilename(int slab) const
+{
+  if (slab >= 0 && slab < m_filenames.count())
+    return m_filenames[slab];
+
+  return m_baseFilename +
+         QString(".%1").arg(slab+1, 3, 10, QChar('0'));
+}
+
+bool
+VolumeFileManager::openSlab(int slab,
+                            QIODevice::OpenMode mode,
+                            const QString& operation)
+{
+  if (slab < 0)
+    return setError(QString("%1: invalid slab index %2")
+                    .arg(operation).arg(slab));
+
+  if (m_qfile.isOpen())
+    m_qfile.close();
+
+  m_filename = slabFilename(slab);
+  m_qfile.setFileName(m_filename);
+  if (!m_qfile.open(mode))
+    return setError(QString("%1: cannot open '%2': %3")
+                    .arg(operation).arg(m_filename).arg(m_qfile.errorString()));
+
+  return true;
+}
+
+bool
+VolumeFileManager::seekFile(QFile& file,
+                            qint64 offset,
+                            const QString& operation)
+{
+  if (offset < 0 || !file.seek(offset))
+    return setError(QString("%1: cannot seek '%2' to byte %3: %4")
+                    .arg(operation).arg(file.fileName()).arg(offset)
+                    .arg(file.errorString()));
+
+  return true;
+}
+
+bool
+VolumeFileManager::readExact(QFile& file,
+                             uchar *destination,
+                             qint64 bytes,
+                             const QString& operation)
+{
+  if (!destination || bytes < 0)
+    return setError(QString("%1: invalid read buffer")
+                    .arg(operation));
+
+  qint64 done = 0;
+  while (done < bytes)
+    {
+      const qint64 count = file.read(reinterpret_cast<char*>(destination) + done,
+                                     bytes-done);
+      if (count <= 0)
+        return setError(QString("%1: short read from '%2' (%3 of %4 bytes): %5")
+                        .arg(operation).arg(file.fileName()).arg(done).arg(bytes)
+                        .arg(file.errorString()));
+      done += count;
+    }
+
+  return true;
+}
+
+bool
+VolumeFileManager::writeExact(QFile& file,
+                              const uchar *source,
+                              qint64 bytes,
+                              const QString& operation)
+{
+  if (!source || bytes < 0)
+    return setError(QString("%1: invalid write buffer")
+                    .arg(operation));
+
+  qint64 done = 0;
+  while (done < bytes)
+    {
+      const qint64 count = file.write(reinterpret_cast<const char*>(source) + done,
+                                      bytes-done);
+      if (count <= 0)
+        return setError(QString("%1: short write to '%2' (%3 of %4 bytes): %5")
+                        .arg(operation).arg(file.fileName()).arg(done).arg(bytes)
+                        .arg(file.errorString()));
+      done += count;
+    }
+
+  return true;
+}
+
+bool
+VolumeFileManager::flushAndCheckSize(QFile& file,
+                                     qint64 expectedSize,
+                                     const QString& operation)
+{
+  if (!file.flush())
+    return setError(QString("%1: cannot flush '%2': %3")
+                    .arg(operation).arg(file.fileName()).arg(file.errorString()));
+
+  const qint64 actualSize = file.size();
+  if (actualSize != expectedSize)
+    return setError(QString("%1: '%2' has %3 bytes, expected %4")
+                    .arg(operation).arg(file.fileName())
+                    .arg(actualSize).arg(expectedSize));
+
+  return true;
+}
+
+void
+VolumeFileManager::cleanupPartialFiles(const QStringList& filenames)
+{
+  QStringList failures;
+  for(int i=0; i<filenames.count(); ++i)
+    {
+      if (QFileInfo::exists(filenames[i]) && !QFile::remove(filenames[i]))
+        failures << filenames[i];
+    }
+
+  if (!failures.isEmpty())
+    {
+      const QString cleanupError =
+        QString("cleanup failed for: %1").arg(failures.join(", "));
+      if (m_lastError.isEmpty())
+        m_lastError = cleanupError;
+      else
+        m_lastError += QString("; %1").arg(cleanupError);
+    }
 }
 
 void VolumeFileManager::closeQFile()
@@ -86,12 +423,13 @@ void VolumeFileManager::setSlabSize(int ss) { m_slabSize = ss; }
 void VolumeFileManager::setVoxelType(int vt)
 {
   m_voxelType = vt;
-  if (m_voxelType == _UChar) m_bytesPerVoxel = 1;
-  if (m_voxelType == _Char) m_bytesPerVoxel = 1;
-  if (m_voxelType == _UShort) m_bytesPerVoxel = 2;
-  if (m_voxelType == _Short) m_bytesPerVoxel = 2;
-  if (m_voxelType == _Int) m_bytesPerVoxel = 4;
-  if (m_voxelType == _Float) m_bytesPerVoxel = 4;
+  m_bytesPerVoxel = 0;
+  if (m_voxelType == _UChar || m_voxelType == _Char)
+    m_bytesPerVoxel = 1;
+  else if (m_voxelType == _UShort || m_voxelType == _Short)
+    m_bytesPerVoxel = 2;
+  else if (m_voxelType == _Int || m_voxelType == _Float)
+    m_bytesPerVoxel = 4;
 }
 
 QStringList VolumeFileManager::filenameList() { return m_filenames; }
@@ -103,12 +441,14 @@ QString VolumeFileManager::fileName() { return m_filename; }
 void
 VolumeFileManager::removeFile()
 {
-  int nslabs = m_depth/m_slabSize;
-  if (nslabs*m_slabSize < m_depth) nslabs++;
+  clearError();
+  if (!validateGeometry("remove volume files"))
+    return;
+
+  const int nslabs = 1 + (m_depth-1)/static_cast<int>(m_slabSize);
   for(int ns=0; ns<nslabs; ns++)
     {
-      m_filename = m_baseFilename +
-	QString(".%1").arg(ns+1, 3, 10, QChar('0'));
+      m_filename = slabFilename(ns);
 
       QFile::remove(m_filename);
     }
@@ -122,10 +462,17 @@ int VolumeFileManager::voxelType() { return m_voxelType; }
 int
 VolumeFileManager::readVoxelType()
 {
+  clearError();
   uchar vt = 0;
   if (m_qfile.isOpen())
     {
-      m_qfile.read((char*)&vt, 1);
+      if (!m_qfile.isReadable() ||
+          !seekFile(m_qfile, 0, "read voxel type") ||
+          !readExact(m_qfile, &vt, 1, "read voxel type"))
+        {
+          m_qfile.close();
+          return -1;
+        }
       m_qfile.close();
     }
   else
@@ -135,8 +482,17 @@ VolumeFileManager::readVoxelType()
       else
 	m_qfile.setFileName(m_baseFilename + ".001");
 
-      m_qfile.open(QFile::ReadWrite);	
-      m_qfile.read((char*)&vt, 1);
+      if (!m_qfile.open(QFile::ReadOnly))
+        {
+          setError(QString("read voxel type: cannot open '%1': %2")
+                   .arg(m_qfile.fileName()).arg(m_qfile.errorString()));
+          return -1;
+        }
+      if (!readExact(m_qfile, &vt, 1, "read voxel type"))
+        {
+          m_qfile.close();
+          return -1;
+        }
       m_qfile.close();
     }
   return vt;
@@ -145,55 +501,76 @@ VolumeFileManager::readVoxelType()
 bool
 VolumeFileManager::exists()
 {
-  int bps = m_width*m_height*m_bytesPerVoxel;
-  int nslabs = m_depth/m_slabSize;
-  if (nslabs*m_slabSize < m_depth) nslabs++;
+  clearError();
+  if (m_qfile.isOpen())
+    m_qfile.close();
+  if (!validateGeometry("check volume files"))
+    return false;
+
+  qint64 bps = 0;
+  if (!sliceByteCount(bps, "check volume files"))
+    return false;
+
+  const int slabSize = static_cast<int>(m_slabSize);
+  const int nslabs = 1 + (m_depth-1)/slabSize;
 
   for(int ns=0; ns<nslabs; ns++)
     {
-      if (ns < m_filenames.count())
-	m_filename = m_filenames[ns];
-      else
-	m_filename = m_baseFilename +
-	  QString(".%1").arg(ns+1, 3, 10, QChar('0'));
+      m_filename = slabFilename(ns);
 
-      int nslices = qMin(m_slabSize, m_depth-ns*m_slabSize);
-      qint64 fsize = nslices;
-      fsize *= bps;
+      const qint64 firstSlice = static_cast<qint64>(ns)*slabSize;
+      const int nslices = qMin(slabSize,
+                               m_depth-static_cast<int>(firstSlice));
+      qint64 fsize = 0;
+      qint64 expectedSize = 0;
+      if (!checkedMultiply(static_cast<qint64>(nslices), bps, fsize) ||
+          !checkedAdd(m_header, fsize, expectedSize))
+        return setError("check volume files: file size overflows");
 
       m_qfile.setFileName(m_filename);
 			       
       if (m_qfile.exists() == false ||
-	  m_qfile.size() != m_header+fsize)
-	return false;
+	  m_qfile.size() != expectedSize)
+	return setError(QString("check volume files: '%1' is missing or has an unexpected size")
+                        .arg(m_filename));
     }
 
   return true;
 }
 
-void
+bool
 VolumeFileManager::createFile(bool writeHeader, bool writeData)
 {
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
+  clearError();
+  if (!validateGeometry("create volume files"))
+    return false;
+
+  qint64 bps = 0;
+  if (!sliceByteCount(bps, "create volume files"))
+    return false;
+
+  if (writeData)
     {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
+      if (!ensureSliceCapacity(bps, "create volume files"))
+        return false;
+      memset(m_slice, 0, static_cast<size_t>(bps));
     }
 
-  memset(m_slice, 0, bps);
-
   m_slabno = m_prevslabno = -1;
-  int nslabs = m_depth/m_slabSize;
-  if (nslabs*m_slabSize < m_depth) nslabs++;
+  const int slabSize = static_cast<int>(m_slabSize);
+  const int nslabs = 1 + (m_depth-1)/slabSize;
   
-  uchar vt;
-  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-  if (m_voxelType == _Char) vt = 1; // signed byte
-  if (m_voxelType == _UShort) vt = 2; // unsigned short
-  if (m_voxelType == _Short) vt = 3; // signed short
-  if (m_voxelType == _Int) vt = 4; // int
-  if (m_voxelType == _Float) vt = 8; // float
+  uchar vt = 0;
+  if (m_voxelType == _Char) vt = 1;
+  else if (m_voxelType == _UShort) vt = 2;
+  else if (m_voxelType == _Short) vt = 3;
+  else if (m_voxelType == _Int) vt = 4;
+  else if (m_voxelType == _Float) vt = 8;
+
+  if (writeHeader)
+    m_header = 13;
+
+  QStringList touchedFiles;
 
   QProgressDialog progress(QString("Allocating space for\n%1\non disk").\
 			   arg(m_baseFilename),
@@ -205,86 +582,137 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 
   for(int ns=0; ns<nslabs; ns++)
     {
-      if (ns < m_filenames.count())
-	m_filename = m_filenames[ns];
-      else
-	m_filename = m_baseFilename +
-	  QString(".%1").arg(ns+1, 3, 10, QChar('0'));
+      m_filename = slabFilename(ns);
 
       progress.setLabelText(m_filename);
-      qApp->processEvents();
+      if (qApp)
+        qApp->processEvents();
 
       if (m_qfile.isOpen())
 	m_qfile.close();
 
       m_qfile.setFileName(m_filename);
-      m_qfile.open(QFile::WriteOnly);
+      if (!m_qfile.open(QFile::WriteOnly | QFile::Truncate))
+        {
+          setError(QString("create volume files: cannot open '%1': %2")
+                   .arg(m_filename).arg(m_qfile.errorString()));
+          break;
+        }
+      touchedFiles << m_filename;
 
-      int nslices = qMin(m_slabSize, m_depth-ns*m_slabSize);      
+      const qint64 firstSlice = static_cast<qint64>(ns)*slabSize;
+      const int nslices = qMin(slabSize,
+                               m_depth-static_cast<int>(firstSlice));
+      bool ok = true;
       if (writeHeader)
 	{
-	  m_qfile.write((char*)&vt, 1);
-	  m_qfile.write((char*)&nslices, 4);
-	  m_qfile.write((char*)&m_width, 4);
-	  m_qfile.write((char*)&m_height, 4);
-	  m_header = 13;
+	  const qint32 fileSlices = nslices;
+	  const qint32 fileWidth = m_width;
+	  const qint32 fileHeight = m_height;
+	  ok = writeExact(m_qfile, &vt, 1, "create volume header") &&
+	       writeExact(m_qfile,
+                          reinterpret_cast<const uchar*>(&fileSlices), 4,
+                          "create volume header") &&
+	       writeExact(m_qfile,
+                          reinterpret_cast<const uchar*>(&fileWidth), 4,
+                          "create volume header") &&
+	       writeExact(m_qfile,
+                          reinterpret_cast<const uchar*>(&fileHeight), 4,
+                          "create volume header");
 	}
 
       progress.setValue(10);
 
-      if (writeData)
+      if (ok && writeData)
 	{
-	  for(int t=0; t<nslices; t++)
+	  for(int t=0; t<nslices && ok; t++)
 	    {
-	      m_qfile.write((char*)m_slice, bps);
+	      ok = writeExact(m_qfile, m_slice, bps,
+                              "initialize volume data");
 	      progress.setValue((int)(100*(float)t/(float)nslices));
-	      qApp->processEvents();
+	      if (qApp)
+	        qApp->processEvents();
 	    }
 	}
+
+      qint64 dataBytes = 0;
+      qint64 expectedSize = writeHeader ? 13 : 0;
+      if (ok && writeData &&
+          (!checkedMultiply(static_cast<qint64>(nslices), bps, dataBytes) ||
+           !checkedAdd(expectedSize, dataBytes, expectedSize)))
+        ok = setError("create volume files: final file size overflows");
+
+      if (ok)
+        ok = flushAndCheckSize(m_qfile, expectedSize,
+                               "create volume files");
+
+      m_qfile.close();
+      if (!ok)
+        break;
     }
-  m_qfile.close();
+
+  if (!m_lastError.isEmpty())
+    {
+      if (m_qfile.isOpen())
+        m_qfile.close();
+      cleanupPartialFiles(touchedFiles);
+      return false;
+    }
 
   progress.setValue(100);
 
   if (m_memmapped)
-    createMemFile();
+    {
+      if (!createMemFile())
+        {
+          cleanupPartialFiles(touchedFiles);
+          return false;
+        }
+    }
+
+  return true;
 }
 
 uchar*
 VolumeFileManager::getSlice(int d)
 {
-  QString pflnm = m_filename;
-
-  int bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
+  const QString operation = "read depth slice";
+  clearError();
+  if (!validateGeometry(operation) || d < 0 || d >= m_depth)
     {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
+      if (m_lastError.isEmpty())
+        setError(QString("%1: depth index %2 is outside [0, %3)")
+                 .arg(operation).arg(d).arg(m_depth));
+      return 0;
     }
 
-  m_slabno = d/m_slabSize;
+  qint64 bps = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !ensureSliceCapacity(bps, operation))
+    return 0;
+  memset(m_slice, 0, static_cast<size_t>(bps));
 
-  if (m_slabno < m_filenames.count())
-    m_filename = m_filenames[m_slabno];
-  else
-    m_filename = m_baseFilename +
-	         QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
-
-  if (pflnm != m_filename ||
-      !m_qfile.isOpen() ||
-      !m_qfile.isReadable())
+  const int slabSize = static_cast<int>(m_slabSize);
+  m_slabno = d/slabSize;
+  qint64 localBytes = 0;
+  qint64 offset = 0;
+  if (!checkedMultiply(static_cast<qint64>(d-m_slabno*slabSize),
+                       bps, localBytes) ||
+      !checkedAdd(m_header, localBytes, offset))
     {
-      if (m_qfile.isOpen()) m_qfile.close();
-      m_qfile.setFileName(m_filename);
-
-      // if we cannot open file in readwrite mode
-      // then open it in readonly mode
-      if (! m_qfile.open(QFile::ReadWrite))
-	m_qfile.open(QFile::ReadOnly);
+      setError(QString("%1: file offset overflows").arg(operation));
+      return 0;
     }
-  m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
-  m_qfile.read((char*)m_slice, bps);
+
+  const bool ok = openSlab(m_slabno, QFile::ReadOnly, operation) &&
+                  seekFile(m_qfile, offset, operation) &&
+                  readExact(m_qfile, m_slice, bps, operation);
   m_qfile.close();
+  if (!ok)
+    {
+      memset(m_slice, 0, static_cast<size_t>(bps));
+      return 0;
+    }
 
   return m_slice;
 }
@@ -292,36 +720,72 @@ VolumeFileManager::getSlice(int d)
 uchar*
 VolumeFileManager::getWidthSlice(int w)
 {
-  int bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
+  const QString operation = "read width slice";
+  clearError();
+  if (!validateGeometry(operation) || w < 0 || w >= m_width)
     {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
+      if (m_lastError.isEmpty())
+        setError(QString("%1: width index %2 is outside [0, %3)")
+                 .arg(operation).arg(w).arg(m_width));
+      return 0;
     }
 
-  int pslab = -1;
-  for(int d=0; d<m_depth; d++)
+  qint64 bps = 0;
+  qint64 rowBytes = 0;
+  qint64 planeBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !checkedMultiply(static_cast<qint64>(m_height),
+                       m_bytesPerVoxel, rowBytes) ||
+      !checkedMultiply(static_cast<qint64>(m_depth),
+                       rowBytes, planeBytes) ||
+      !ensureSliceCapacity(planeBytes, operation))
     {
-      int slab = d/m_slabSize;
-      if (pslab != slab)
-	{
-	  if (pslab > -1) m_qfile.close();
+      if (m_lastError.isEmpty())
+        setError(QString("%1: plane byte count overflows").arg(operation));
+      return 0;
+    }
+  memset(m_slice, 0, static_cast<size_t>(planeBytes));
 
-	  if (slab < m_filenames.count())
-	    m_filename = m_filenames[slab];
-	  else
-	    m_filename = m_baseFilename +
-	      QString(".%1").arg(slab+1, 3, 10, QChar('0'));
+  const int slabSize = static_cast<int>(m_slabSize);
+  int previousSlab = -1;
+  for(int d=0; d<m_depth; ++d)
+    {
+      const int slab = d/slabSize;
+      if (previousSlab != slab)
+        {
+          if (m_qfile.isOpen())
+            m_qfile.close();
+          if (!openSlab(slab, QFile::ReadOnly, operation))
+            {
+              memset(m_slice, 0, static_cast<size_t>(planeBytes));
+              return 0;
+            }
+          previousSlab = slab;
+        }
 
-	  m_qfile.setFileName(m_filename);
-	  m_qfile.open(QFile::ReadWrite);
-	}
-
-      m_qfile.seek((qint64)(m_header +
-			    (d-slab*m_slabSize)*bps +
-			    w*m_height*m_bytesPerVoxel));
-      m_qfile.read((char*)(m_slice + d*m_height*m_bytesPerVoxel),
-		   m_height*m_bytesPerVoxel);
+      qint64 sliceOffset = 0;
+      qint64 widthOffset = 0;
+      qint64 dataOffset = 0;
+      qint64 fileOffset = 0;
+      qint64 outputOffset = 0;
+      if (!checkedMultiply(static_cast<qint64>(d-slab*slabSize),
+                           bps, sliceOffset) ||
+          !checkedMultiply(static_cast<qint64>(w),
+                           rowBytes, widthOffset) ||
+          !checkedAdd(sliceOffset, widthOffset, dataOffset) ||
+          !checkedAdd(m_header, dataOffset, fileOffset) ||
+          !checkedMultiply(static_cast<qint64>(d),
+                           rowBytes, outputOffset) ||
+          !seekFile(m_qfile, fileOffset, operation) ||
+          !readExact(m_qfile, m_slice+outputOffset,
+                     rowBytes, operation))
+        {
+          if (m_lastError.isEmpty())
+            setError(QString("%1: byte offset overflows").arg(operation));
+          m_qfile.close();
+          memset(m_slice, 0, static_cast<size_t>(planeBytes));
+          return 0;
+        }
     }
   m_qfile.close();
 
@@ -331,155 +795,353 @@ VolumeFileManager::getWidthSlice(int w)
 uchar*
 VolumeFileManager::getHeightSlice(int h)
 {
-  int bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
+  const QString operation = "read height slice";
+  clearError();
+  if (!validateGeometry(operation) || h < 0 || h >= m_height)
     {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
+      if (m_lastError.isEmpty())
+        setError(QString("%1: height index %2 is outside [0, %3)")
+                 .arg(operation).arg(h).arg(m_height));
+      return 0;
     }
 
-  int it = 0;
-  int pslab = -1;
-  for(int d=0; d<m_depth; d++)
+  qint64 bps = 0;
+  qint64 planeVoxels = 0;
+  qint64 planeBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !checkedMultiply(static_cast<qint64>(m_depth),
+                       static_cast<qint64>(m_width), planeVoxels) ||
+      !checkedMultiply(planeVoxels, m_bytesPerVoxel, planeBytes) ||
+      !ensureSliceCapacity(planeBytes, operation))
     {
-      int slab = d/m_slabSize;
-      if (pslab != slab)
-	{
-	  if (pslab > -1) m_qfile.close();
+      if (m_lastError.isEmpty())
+        setError(QString("%1: plane byte count overflows").arg(operation));
+      return 0;
+    }
+  memset(m_slice, 0, static_cast<size_t>(planeBytes));
 
-	  if (slab < m_filenames.count())
-	    m_filename = m_filenames[slab];
-	  else
-	    m_filename = m_baseFilename +
-	      QString(".%1").arg(slab+1, 3, 10, QChar('0'));
+  const int slabSize = static_cast<int>(m_slabSize);
+  int previousSlab = -1;
+  for(int d=0; d<m_depth; ++d)
+    {
+      const int slab = d/slabSize;
+      if (previousSlab != slab)
+        {
+          if (m_qfile.isOpen())
+            m_qfile.close();
+          if (!openSlab(slab, QFile::ReadOnly, operation))
+            {
+              memset(m_slice, 0, static_cast<size_t>(planeBytes));
+              return 0;
+            }
+          previousSlab = slab;
+        }
 
-	  m_qfile.setFileName(m_filename);
-	  m_qfile.open(QFile::ReadWrite);
-	}
-
-      for(int j=0; j<m_width; j++, it++)
-	{
-	  m_qfile.seek((qint64)(m_header +
-				(d-slab*m_slabSize)*bps +
-				(j*m_height + h)*m_bytesPerVoxel));
-	  m_qfile.read((char*)(m_slice + it*m_bytesPerVoxel),
-		       m_bytesPerVoxel);
-	}
+      for(int w=0; w<m_width; ++w)
+        {
+          qint64 sliceOffset = 0;
+          qint64 rowVoxel = 0;
+          qint64 voxelOffset = 0;
+          qint64 dataOffset = 0;
+          qint64 fileOffset = 0;
+          qint64 outputVoxel = 0;
+          qint64 outputOffset = 0;
+          if (!checkedMultiply(static_cast<qint64>(d-slab*slabSize),
+                               bps, sliceOffset) ||
+              !checkedMultiply(static_cast<qint64>(w),
+                               static_cast<qint64>(m_height), rowVoxel) ||
+              !checkedAdd(rowVoxel, static_cast<qint64>(h), voxelOffset) ||
+              !checkedMultiply(voxelOffset, m_bytesPerVoxel, dataOffset) ||
+              !checkedAdd(sliceOffset, dataOffset, dataOffset) ||
+              !checkedAdd(m_header, dataOffset, fileOffset) ||
+              !checkedMultiply(static_cast<qint64>(d),
+                               static_cast<qint64>(m_width), outputVoxel) ||
+              !checkedAdd(outputVoxel, static_cast<qint64>(w), outputVoxel) ||
+              !checkedMultiply(outputVoxel, m_bytesPerVoxel, outputOffset) ||
+              !seekFile(m_qfile, fileOffset, operation) ||
+              !readExact(m_qfile, m_slice+outputOffset,
+                         m_bytesPerVoxel, operation))
+            {
+              if (m_lastError.isEmpty())
+                setError(QString("%1: byte offset overflows").arg(operation));
+              m_qfile.close();
+              memset(m_slice, 0, static_cast<size_t>(planeBytes));
+              return 0;
+            }
+        }
     }
   m_qfile.close();
 
   return m_slice;
 }
 
-void
+bool
 VolumeFileManager::setSlice(int d, uchar *tmp)
 {
-  QString pflnm = m_filename;
-
-  int bps = m_width*m_height*m_bytesPerVoxel;
-  m_slabno = d/m_slabSize;
-  if (m_slabno < m_filenames.count())
-    m_filename = m_filenames[m_slabno];
-  else
-    m_filename = m_baseFilename +
-                 QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
-
-  if (pflnm != m_filename ||
-      !m_qfile.isOpen() ||
-      !m_qfile.isWritable())
+  const QString operation = "write depth slice";
+  clearError();
+  if (!tmp)
+    return setError(QString("%1: source buffer is null").arg(operation));
+  if (!validateGeometry(operation) || d < 0 || d >= m_depth)
     {
-      if (m_qfile.isOpen()) m_qfile.close();
-      m_qfile.setFileName(m_filename);
-      m_qfile.open(QFile::ReadWrite);
+      if (m_lastError.isEmpty())
+        setError(QString("%1: depth index %2 is outside [0, %3)")
+                 .arg(operation).arg(d).arg(m_depth));
+      return false;
     }
-  m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
-  m_qfile.write((char*)tmp, bps);
+
+  qint64 bps = 0;
+  if (!sliceByteCount(bps, operation))
+    return false;
+
+  const int slabSize = static_cast<int>(m_slabSize);
+  m_slabno = d/slabSize;
+  qint64 localBytes = 0;
+  qint64 offset = 0;
+  qint64 endOffset = 0;
+  qint64 maximumSize = 0;
+  if (!checkedMultiply(static_cast<qint64>(d-m_slabno*slabSize),
+                       bps, localBytes) ||
+      !checkedAdd(m_header, localBytes, offset) ||
+      !checkedAdd(offset, bps, endOffset) ||
+      !slabFileSize(m_slabno, bps, maximumSize, operation) ||
+      endOffset > maximumSize)
+    return setError(QString("%1: file offset overflows").arg(operation));
+
+  if (!openSlab(m_slabno, QFile::ReadWrite, operation))
+    return false;
+  const qint64 previousSize = m_qfile.size();
+  if (previousSize < 0 || previousSize > maximumSize)
+    {
+      m_qfile.close();
+      return setError(QString("%1: '%2' has invalid size %3 (maximum %4)")
+                      .arg(operation).arg(m_filename)
+                      .arg(previousSize).arg(maximumSize));
+    }
+  const qint64 expectedSize = qMax(previousSize, endOffset);
+  const bool ok = seekFile(m_qfile, offset, operation) &&
+                  writeExact(m_qfile, tmp, bps, operation) &&
+                  flushAndCheckSize(m_qfile, expectedSize, operation);
   m_qfile.close();
+  return ok;
 }
 
-void
+bool
 VolumeFileManager::setWidthSlice(int w, uchar *tmp)
 {
-  int bps = m_width*m_height*m_bytesPerVoxel;
+  const QString operation = "write width slice";
+  clearError();
+  if (!tmp)
+    return setError(QString("%1: source buffer is null").arg(operation));
+  if (!validateGeometry(operation) || w < 0 || w >= m_width)
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: width index %2 is outside [0, %3)")
+                 .arg(operation).arg(w).arg(m_width));
+      return false;
+    }
+
+  qint64 bps = 0;
+  qint64 rowBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !checkedMultiply(static_cast<qint64>(m_height),
+                       m_bytesPerVoxel, rowBytes))
+    return setError(QString("%1: row byte count overflows").arg(operation));
 
   if (m_qfile.isOpen())
     m_qfile.close();
-  
-  int pslab = -1;
-  for(int d=0; d<m_depth; d++)
+
+  const int slabSize = static_cast<int>(m_slabSize);
+  int previousSlab = -1;
+  qint64 expectedSize = 0;
+  qint64 maximumSize = 0;
+  for(int d=0; d<m_depth; ++d)
     {
-      int slab = d/m_slabSize;
-      if (pslab != slab)
-	{
-	  if (pslab > -1) m_qfile.close();
+      const int slab = d/slabSize;
+      if (previousSlab != slab)
+        {
+          if (m_qfile.isOpen())
+            {
+              if (!flushAndCheckSize(m_qfile, expectedSize, operation))
+                {
+                  m_qfile.close();
+                  return false;
+                }
+              m_qfile.close();
+            }
+          if (!openSlab(slab, QFile::ReadWrite, operation))
+            return false;
+          expectedSize = m_qfile.size();
+          if (!slabFileSize(slab, bps, maximumSize, operation) ||
+              expectedSize < 0 || expectedSize > maximumSize)
+            {
+              m_qfile.close();
+              if (m_lastError.isEmpty())
+                setError(QString("%1: '%2' has invalid size %3 (maximum %4)")
+                         .arg(operation).arg(m_filename)
+                         .arg(expectedSize).arg(maximumSize));
+              return false;
+            }
+          previousSlab = slab;
+        }
 
-	  if (slab < m_filenames.count())
-	    m_filename = m_filenames[slab];
-	  else
-	    m_filename = m_baseFilename +
-	      QString(".%1").arg(slab+1, 3, 10, QChar('0'));
+      qint64 sliceOffset = 0;
+      qint64 widthOffset = 0;
+      qint64 dataOffset = 0;
+      qint64 fileOffset = 0;
+      qint64 endOffset = 0;
+      qint64 inputOffset = 0;
+      if (!checkedMultiply(static_cast<qint64>(d-slab*slabSize),
+                           bps, sliceOffset) ||
+          !checkedMultiply(static_cast<qint64>(w),
+                           rowBytes, widthOffset) ||
+          !checkedAdd(sliceOffset, widthOffset, dataOffset) ||
+          !checkedAdd(m_header, dataOffset, fileOffset) ||
+          !checkedAdd(fileOffset, rowBytes, endOffset) ||
+          !checkedMultiply(static_cast<qint64>(d),
+                           rowBytes, inputOffset))
+        {
+          m_qfile.close();
+          return setError(QString("%1: byte offset overflows").arg(operation));
+        }
 
-	  m_qfile.setFileName(m_filename);
-	  m_qfile.open(QFile::ReadWrite);
-	}
+      if (endOffset > maximumSize)
+        {
+          m_qfile.close();
+          return setError(QString("%1: write exceeds the configured slab size")
+                          .arg(operation));
+        }
 
-      m_qfile.seek((qint64)(m_header +
-			    (d-slab*m_slabSize)*bps +
-			    w*m_height*m_bytesPerVoxel));
-      m_qfile.write((char*)(tmp + d*m_height*m_bytesPerVoxel),
-		    m_height*m_bytesPerVoxel);
+      expectedSize = qMax(expectedSize, endOffset);
+      if (!seekFile(m_qfile, fileOffset, operation) ||
+          !writeExact(m_qfile, tmp+inputOffset, rowBytes, operation))
+        {
+          m_qfile.close();
+          return false;
+        }
     }
+
+  const bool ok = !m_qfile.isOpen() ||
+                  flushAndCheckSize(m_qfile, expectedSize, operation);
   m_qfile.close();
+  return ok;
 }
 
-void
+bool
 VolumeFileManager::setHeightSlice(int h, uchar *tmp)
 {
-  int bps = m_width*m_height*m_bytesPerVoxel;
+  const QString operation = "write height slice";
+  clearError();
+  if (!tmp)
+    return setError(QString("%1: source buffer is null").arg(operation));
+  if (!validateGeometry(operation) || h < 0 || h >= m_height)
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: height index %2 is outside [0, %3)")
+                 .arg(operation).arg(h).arg(m_height));
+      return false;
+    }
 
+  qint64 bps = 0;
+  if (!sliceByteCount(bps, operation))
+    return false;
   if (m_qfile.isOpen())
     m_qfile.close();
-  
-  int it = 0;
-  int pslab = -1;
-  for(int d=0; d<m_depth; d++)
+
+  const int slabSize = static_cast<int>(m_slabSize);
+  int previousSlab = -1;
+  qint64 expectedSize = 0;
+  qint64 maximumSize = 0;
+  for(int d=0; d<m_depth; ++d)
     {
-      int slab = d/m_slabSize;
-      if (pslab != slab)
-	{
-	  if (pslab > -1) m_qfile.close();
+      const int slab = d/slabSize;
+      if (previousSlab != slab)
+        {
+          if (m_qfile.isOpen())
+            {
+              if (!flushAndCheckSize(m_qfile, expectedSize, operation))
+                {
+                  m_qfile.close();
+                  return false;
+                }
+              m_qfile.close();
+            }
+          if (!openSlab(slab, QFile::ReadWrite, operation))
+            return false;
+          expectedSize = m_qfile.size();
+          if (!slabFileSize(slab, bps, maximumSize, operation) ||
+              expectedSize < 0 || expectedSize > maximumSize)
+            {
+              m_qfile.close();
+              if (m_lastError.isEmpty())
+                setError(QString("%1: '%2' has invalid size %3 (maximum %4)")
+                         .arg(operation).arg(m_filename)
+                         .arg(expectedSize).arg(maximumSize));
+              return false;
+            }
+          previousSlab = slab;
+        }
 
-	  if (slab < m_filenames.count())
-	    m_filename = m_filenames[slab];
-	  else
-	    m_filename = m_baseFilename +
-	      QString(".%1").arg(slab+1, 3, 10, QChar('0'));
+      for(int w=0; w<m_width; ++w)
+        {
+          qint64 sliceOffset = 0;
+          qint64 rowVoxel = 0;
+          qint64 voxelOffset = 0;
+          qint64 dataOffset = 0;
+          qint64 fileOffset = 0;
+          qint64 endOffset = 0;
+          qint64 inputVoxel = 0;
+          qint64 inputOffset = 0;
+          if (!checkedMultiply(static_cast<qint64>(d-slab*slabSize),
+                               bps, sliceOffset) ||
+              !checkedMultiply(static_cast<qint64>(w),
+                               static_cast<qint64>(m_height), rowVoxel) ||
+              !checkedAdd(rowVoxel, static_cast<qint64>(h), voxelOffset) ||
+              !checkedMultiply(voxelOffset, m_bytesPerVoxel, dataOffset) ||
+              !checkedAdd(sliceOffset, dataOffset, dataOffset) ||
+              !checkedAdd(m_header, dataOffset, fileOffset) ||
+              !checkedAdd(fileOffset, m_bytesPerVoxel, endOffset) ||
+              !checkedMultiply(static_cast<qint64>(d),
+                               static_cast<qint64>(m_width), inputVoxel) ||
+              !checkedAdd(inputVoxel, static_cast<qint64>(w), inputVoxel) ||
+              !checkedMultiply(inputVoxel, m_bytesPerVoxel, inputOffset))
+            {
+              m_qfile.close();
+              return setError(QString("%1: byte offset overflows").arg(operation));
+            }
 
-	  m_qfile.setFileName(m_filename);
-	  m_qfile.open(QFile::ReadWrite);
-	}
+          if (endOffset > maximumSize)
+            {
+              m_qfile.close();
+              return setError(QString("%1: write exceeds the configured slab size")
+                              .arg(operation));
+            }
 
-      for(int j=0; j<m_width; j++, it++)
-	{
-	  m_qfile.seek((qint64)(m_header +
-				(d-slab*m_slabSize)*bps +
-				(j*m_height + h)*m_bytesPerVoxel));
-	  m_qfile.write((char*)(tmp + it*m_bytesPerVoxel),
-			m_bytesPerVoxel);
-	}
+          expectedSize = qMax(expectedSize, endOffset);
+          if (!seekFile(m_qfile, fileOffset, operation) ||
+              !writeExact(m_qfile, tmp+inputOffset,
+                          m_bytesPerVoxel, operation))
+            {
+              m_qfile.close();
+              return false;
+            }
+        }
     }
+
+  const bool ok = !m_qfile.isOpen() ||
+                  flushAndCheckSize(m_qfile, expectedSize, operation);
   m_qfile.close();
+  return ok;
 }
 
 uchar*
 VolumeFileManager::rawValue(int d, int w, int h)
 {
-  int bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
-    {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
-    }
+  const QString operation = "read voxel";
+  clearError();
+  if (!validateGeometry(operation) ||
+      !ensureSliceCapacity(8, operation))
+    return 0;
 
   // at most we will be reading an 8 byte value
   // initialize first 8 bytes to 0
@@ -490,28 +1152,39 @@ VolumeFileManager::rawValue(int d, int w, int h)
       h < 0 || h >= m_height)
     return m_slice;
 
-  QString pflnm = m_filename;
+  qint64 bps = 0;
+  if (!sliceByteCount(bps, operation))
+    return 0;
 
-  m_slabno = d/m_slabSize;
-  if (m_slabno < m_filenames.count())
-    m_filename = m_filenames[m_slabno];
-  else
-    m_filename = m_baseFilename +
-	         QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
-
-  if (pflnm != m_filename ||
-      !m_qfile.isOpen() ||
-      !m_qfile.isReadable())
+  const int slabSize = static_cast<int>(m_slabSize);
+  m_slabno = d/slabSize;
+  qint64 sliceOffset = 0;
+  qint64 rowVoxel = 0;
+  qint64 voxelOffset = 0;
+  qint64 dataOffset = 0;
+  qint64 fileOffset = 0;
+  if (!checkedMultiply(static_cast<qint64>(d-m_slabno*slabSize),
+                       bps, sliceOffset) ||
+      !checkedMultiply(static_cast<qint64>(w),
+                       static_cast<qint64>(m_height), rowVoxel) ||
+      !checkedAdd(rowVoxel, static_cast<qint64>(h), voxelOffset) ||
+      !checkedMultiply(voxelOffset, m_bytesPerVoxel, dataOffset) ||
+      !checkedAdd(sliceOffset, dataOffset, dataOffset) ||
+      !checkedAdd(m_header, dataOffset, fileOffset))
     {
-      if (m_qfile.isOpen()) m_qfile.close();
-      m_qfile.setFileName(m_filename);
-      m_qfile.open(QFile::ReadWrite);
+      setError(QString("%1: file offset overflows").arg(operation));
+      return 0;
     }
-  m_qfile.seek((qint64)(m_header +
-			(d-m_slabno*m_slabSize)*bps +
-			(w*m_height + h)*m_bytesPerVoxel));
-  m_qfile.read((char*)m_slice, m_bytesPerVoxel);
+
+  const bool ok = openSlab(m_slabno, QFile::ReadOnly, operation) &&
+                  seekFile(m_qfile, fileOffset, operation) &&
+                  readExact(m_qfile, m_slice, m_bytesPerVoxel, operation);
   m_qfile.close();
+  if (!ok)
+    {
+      memset(m_slice, 0, 8);
+      return 0;
+    }
   return m_slice;
 }
 
@@ -534,6 +1207,12 @@ VolumeFileManager::rawValue(int d, int w, int h)
 uchar*
 VolumeFileManager::interpolatedRawValue(float dv, float wv, float hv)
 {
+  const QString operation = "interpolate voxel";
+  clearError();
+  if (!validateGeometry(operation) ||
+      !ensureSliceCapacity(8, operation))
+    return 0;
+
   int d = dv;
   int w = wv;
   int h = hv;
@@ -544,13 +1223,6 @@ VolumeFileManager::interpolatedRawValue(float dv, float wv, float hv)
   float ww = wv-w;
   float hh = hv-h;
   
-  int bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
-    {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
-    }
-
   // at most we will be reading an 8 byte value
   // initialize first 8 bytes to 0
   memset(m_slice, 0, 8);
@@ -570,36 +1242,67 @@ VolumeFileManager::interpolatedRawValue(float dv, float wv, float hv)
   da[6]=d1; wa[6]=w1; ha[6]=h;
   da[7]=d1; wa[7]=w1; ha[7]=h1;
 
-  uchar *rv = new uchar[8*m_bytesPerVoxel];
+  qint64 bps = 0;
+  qint64 sampleBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !checkedMultiply(8, m_bytesPerVoxel, sampleBytes) ||
+      static_cast<quint64>(sampleBytes) >
+      static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    {
+      setError(QString("%1: sample byte count overflows").arg(operation));
+      return 0;
+    }
+
+  uchar *rv = new (std::nothrow) uchar[static_cast<size_t>(sampleBytes)];
+  if (!rv)
+    {
+      setError(QString("%1: cannot allocate sample buffer").arg(operation));
+      return 0;
+    }
+  memset(rv, 0, static_cast<size_t>(sampleBytes));
 
   int pslno = -1;
+  const int slabSize = static_cast<int>(m_slabSize);
   for(int i=0; i<8; i++)
     {
-      m_slabno = da[i]/m_slabSize;
+      m_slabno = da[i]/slabSize;
       if (m_slabno != pslno)
 	{
-	  QString pflnm = m_filename;
-
-	  if (m_slabno < m_filenames.count())
-	    m_filename = m_filenames[m_slabno];
-	  else
-	    m_filename = m_baseFilename +
-	      QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
-
-	  if (pflnm != m_filename ||
-	      !m_qfile.isOpen() ||
-	      !m_qfile.isReadable())
-	    {
-	      if (m_qfile.isOpen()) m_qfile.close();
-	      m_qfile.setFileName(m_filename);
-	      m_qfile.open(QFile::ReadWrite);
-	    }
+	  if (!openSlab(m_slabno, QFile::ReadOnly, operation))
+            {
+              delete [] rv;
+              memset(m_slice, 0, 8);
+              return 0;
+            }
 	}
 
-      m_qfile.seek((qint64)(m_header +
-			    (da[i]-m_slabno*m_slabSize)*bps +
-			    (wa[i]*m_height + ha[i])*m_bytesPerVoxel));
-      m_qfile.read((char*)(rv+i*m_bytesPerVoxel), m_bytesPerVoxel);
+      qint64 sliceOffset = 0;
+      qint64 rowVoxel = 0;
+      qint64 voxelOffset = 0;
+      qint64 dataOffset = 0;
+      qint64 fileOffset = 0;
+      qint64 sampleOffset = 0;
+      if (!checkedMultiply(static_cast<qint64>(da[i]-m_slabno*slabSize),
+                           bps, sliceOffset) ||
+          !checkedMultiply(static_cast<qint64>(wa[i]),
+                           static_cast<qint64>(m_height), rowVoxel) ||
+          !checkedAdd(rowVoxel, static_cast<qint64>(ha[i]), voxelOffset) ||
+          !checkedMultiply(voxelOffset, m_bytesPerVoxel, dataOffset) ||
+          !checkedAdd(sliceOffset, dataOffset, dataOffset) ||
+          !checkedAdd(m_header, dataOffset, fileOffset) ||
+          !checkedMultiply(static_cast<qint64>(i),
+                           m_bytesPerVoxel, sampleOffset) ||
+          !seekFile(m_qfile, fileOffset, operation) ||
+          !readExact(m_qfile, rv+sampleOffset,
+                     m_bytesPerVoxel, operation))
+        {
+          if (m_lastError.isEmpty())
+            setError(QString("%1: byte offset overflows").arg(operation));
+          delete [] rv;
+          m_qfile.close();
+          memset(m_slice, 0, 8);
+          return 0;
+        }
 
       pslno = m_slabno;
     }
@@ -639,12 +1342,24 @@ VolumeFileManager::interpolatedRawValue(float dv, float wv, float hv)
 void
 VolumeFileManager::startBlockInterpolation()
 {
-  if (m_block)
-    delete [] m_block;
+  const QString operation = "start block interpolation";
+  clearError();
+  if (!validateGeometry(operation))
+    return;
 
-  int bps = m_width*m_height*m_bytesPerVoxel;
-  m_block = new uchar[m_blockSlices*bps];
+  qint64 bps = 0;
+  qint64 blockBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !checkedMultiply(static_cast<qint64>(m_blockSlices),
+                       bps, blockBytes) ||
+      !ensureBlockCapacity(blockBytes, operation))
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: buffer byte count overflows").arg(operation));
+      return;
+    }
 
+  memset(m_block, 0, static_cast<size_t>(blockBytes));
   readBlocks(0);
 }
 
@@ -655,88 +1370,95 @@ VolumeFileManager::endBlockInterpolation()
     delete [] m_block;
 
   m_block = 0;
+  m_blockCapacity = 0;
   m_startBlock = m_endBlock = 0;
 }
 
-void
+bool
 VolumeFileManager::readBlocks(int d)
 {
-  int bps = m_width*m_height*m_bytesPerVoxel;
+  const QString operation = "read interpolation block";
+  if (!validateGeometry(operation))
+    return false;
+  if (d > std::numeric_limits<int>::max()-m_blockSlices)
+    return setError(QString("%1: block range overflows").arg(operation));
 
-  if (!m_block)
-      m_block = new uchar[m_blockSlices*bps];
-
-  int dstart = d;
-  int dend = d+m_blockSlices;
-
-  if (m_startBlock != m_endBlock)
+  qint64 bps = 0;
+  qint64 blockBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !checkedMultiply(static_cast<qint64>(m_blockSlices),
+                       bps, blockBytes) ||
+      !ensureBlockCapacity(blockBytes, operation))
     {
-      if (d >= m_startBlock && d < m_endBlock)
-	{
-	  for(int dd=d; dd<m_endBlock; dd++)
-	    memcpy(m_block + (dd-d)*bps,
-		   m_block + (dd-m_startBlock)*bps,
-		   bps);
-	  
-	  dstart = m_endBlock;
-	  dend = d+m_blockSlices;
-	}
-      else if (d < m_startBlock && dend > m_startBlock)
-	{
-	  for(int dd=dend-1; dd>=m_startBlock; dd--)
-	    memcpy(m_block + (m_blockSlices-(dend-dd))*bps,
-		   m_block + (dd-m_startBlock)*bps,
-		   bps);
-	  
-	  dstart = d;
-	  dend = m_startBlock;
-	}
+      if (m_lastError.isEmpty())
+        setError(QString("%1: buffer byte count overflows").arg(operation));
+      return false;
     }
+  memset(m_block, 0, static_cast<size_t>(blockBytes));
 
   m_startBlock = d;
   m_endBlock = d+m_blockSlices;
 
-  int pslno = -1;
-  for(int i=dstart; i<dend; i++)
+  const int slabSize = static_cast<int>(m_slabSize);
+  int previousSlab = -1;
+  for(int blockIndex=0; blockIndex<m_blockSlices; ++blockIndex)
     {
-      if (i>=0 && i<m_depth)
-	{
-	  m_slabno = i/m_slabSize;
-	  if (m_slabno != pslno)
-	    {
-	      QString pflnm = m_filename;
+      const qint64 volumeDepth = static_cast<qint64>(d)+blockIndex;
+      qint64 outputOffset = 0;
+      if (!checkedMultiply(static_cast<qint64>(blockIndex),
+                           bps, outputOffset))
+        {
+          setError(QString("%1: block offset overflows").arg(operation));
+          m_qfile.close();
+          memset(m_block, 0, static_cast<size_t>(blockBytes));
+          return false;
+        }
 
-	      if (m_slabno < m_filenames.count())
-		m_filename = m_filenames[m_slabno];
-	      else
-		m_filename = m_baseFilename +
-		  QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
-	      
-	      if (pflnm != m_filename ||
-		  !m_qfile.isOpen() ||
-		  !m_qfile.isReadable())
-		{
-		  if (m_qfile.isOpen()) m_qfile.close();
-		  m_qfile.setFileName(m_filename);
-		  m_qfile.open(QFile::ReadWrite);
-		}
-	    }
-	  
-	  m_qfile.seek((qint64)(m_header + (i-m_slabno*m_slabSize)*bps));
-	  m_qfile.read((char*)(m_block+(i-m_startBlock)*bps), bps);
-	  
-	  pslno = m_slabno;
-	}
-      else
-	memset(m_block + (i-m_startBlock)*bps, 0, bps);
+      if (volumeDepth < 0 || volumeDepth >= m_depth)
+        continue;
+
+      const int slab = static_cast<int>(volumeDepth)/slabSize;
+      if (slab != previousSlab)
+        {
+          if (m_qfile.isOpen())
+            m_qfile.close();
+          if (!openSlab(slab, QFile::ReadOnly, operation))
+            {
+              memset(m_block, 0, static_cast<size_t>(blockBytes));
+              return false;
+            }
+          previousSlab = slab;
+        }
+
+      qint64 sliceOffset = 0;
+      qint64 fileOffset = 0;
+      if (!checkedMultiply(volumeDepth-static_cast<qint64>(slab)*slabSize,
+                           bps, sliceOffset) ||
+          !checkedAdd(m_header, sliceOffset, fileOffset) ||
+          !seekFile(m_qfile, fileOffset, operation) ||
+          !readExact(m_qfile, m_block+outputOffset, bps, operation))
+        {
+          if (m_lastError.isEmpty())
+            setError(QString("%1: byte offset overflows").arg(operation));
+          m_qfile.close();
+          memset(m_block, 0, static_cast<size_t>(blockBytes));
+          return false;
+        }
     }
 
   m_qfile.close();
+  return true;
 }
 
 uchar*
 VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
 {
+  const QString operation = "interpolate voxel block";
+  clearError();
+  if (!validateGeometry(operation) ||
+      !ensureSliceCapacity(8, operation))
+    return 0;
+
   int d = dv;
   int w = wv;
   int h = hv;
@@ -747,13 +1469,6 @@ VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
   float ww = wv-w;
   float hh = hv-h;
   
-  int bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
-    {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
-    }
-
   // at most we will be reading an 8 byte value
   // initialize first 8 bytes to 0
   memset(m_slice, 0, 8);
@@ -773,21 +1488,71 @@ VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
   da[6]=d1; wa[6]=w1; ha[6]=h;
   da[7]=d1; wa[7]=w1; ha[7]=h1;
 
-  uchar *rv = new uchar[8*m_bytesPerVoxel];
+  qint64 bps = 0;
+  qint64 sampleBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !checkedMultiply(8, m_bytesPerVoxel, sampleBytes) ||
+      static_cast<quint64>(sampleBytes) >
+      static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    {
+      setError(QString("%1: sample byte count overflows").arg(operation));
+      return 0;
+    }
+
+  uchar *rv = new (std::nothrow) uchar[static_cast<size_t>(sampleBytes)];
+  if (!rv)
+    {
+      setError(QString("%1: cannot allocate sample buffer").arg(operation));
+      return 0;
+    }
+  memset(rv, 0, static_cast<size_t>(sampleBytes));
 
   if (!m_block)
-    readBlocks(da[0]);
+    {
+      if (!readBlocks(da[0]))
+        {
+          delete [] rv;
+          memset(m_slice, 0, 8);
+          return 0;
+        }
+    }
 
   for(int i=0; i<8; i++)
     {
       if (da[i] < m_startBlock ||
 	  da[i] >= m_endBlock)
-	readBlocks(da[i]);
+	{
+          if (!readBlocks(da[i]))
+            {
+              delete [] rv;
+              memset(m_slice, 0, 8);
+              return 0;
+            }
+        }
 
-      memcpy((char*)rv+i*m_bytesPerVoxel,
-	     m_block + (da[i]-m_startBlock)*bps +
-	               (wa[i]*m_height + ha[i])*m_bytesPerVoxel,
-	     m_bytesPerVoxel);      
+      qint64 blockSliceOffset = 0;
+      qint64 rowVoxel = 0;
+      qint64 voxelOffset = 0;
+      qint64 dataOffset = 0;
+      qint64 sampleOffset = 0;
+      if (!checkedMultiply(static_cast<qint64>(da[i]-m_startBlock),
+                           bps, blockSliceOffset) ||
+          !checkedMultiply(static_cast<qint64>(wa[i]),
+                           static_cast<qint64>(m_height), rowVoxel) ||
+          !checkedAdd(rowVoxel, static_cast<qint64>(ha[i]), voxelOffset) ||
+          !checkedMultiply(voxelOffset, m_bytesPerVoxel, dataOffset) ||
+          !checkedAdd(blockSliceOffset, dataOffset, dataOffset) ||
+          !checkedMultiply(static_cast<qint64>(i),
+                           m_bytesPerVoxel, sampleOffset))
+        {
+          delete [] rv;
+          memset(m_slice, 0, 8);
+          setError(QString("%1: byte offset overflows").arg(operation));
+          return 0;
+        }
+
+      memcpy(rv+sampleOffset, m_block+dataOffset,
+	     static_cast<size_t>(m_bytesPerVoxel));
     }
   
   if (m_voxelType == _UChar)
@@ -820,19 +1585,38 @@ VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
   return m_slice;
 }
 
-void
+bool
 VolumeFileManager::saveMemFile()
 {
+  const QString operation = "save memory volume";
+  clearError();
   if (!m_memChanged)
-    return;
+    return true;
 
-  uchar vt;
-  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-  if (m_voxelType == _Char) vt = 1; // signed byte
-  if (m_voxelType == _UShort) vt = 2; // unsigned short
-  if (m_voxelType == _Short) vt = 3; // signed short
-  if (m_voxelType == _Int) vt = 4; // int
-  if (m_voxelType == _Float) vt = 8; // float
+  if (!validateGeometry(operation))
+    return false;
+
+  qint64 bps = 0;
+  qint64 volumeBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !volumeByteCount(volumeBytes, operation))
+    return false;
+  if (static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    return setError(QString("%1: volume is too large for this process")
+                    .arg(operation));
+  if (!m_volData ||
+      static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(m_volDataCapacity))
+    return setError(QString("%1: memory volume is not allocated")
+                    .arg(operation));
+
+  uchar vt = 0;
+  if (m_voxelType == _Char) vt = 1;
+  else if (m_voxelType == _UShort) vt = 2;
+  else if (m_voxelType == _Short) vt = 3;
+  else if (m_voxelType == _Int) vt = 4;
+  else if (m_voxelType == _Float) vt = 8;
 
   QProgressDialog progress(QString("Saving %1").\
 			   arg(m_baseFilename),
@@ -842,59 +1626,110 @@ VolumeFileManager::saveMemFile()
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
 
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  int d = -1;
-  int nslabs = m_depth/m_slabSize;
-  if (nslabs*m_slabSize < m_depth) nslabs++;
+  m_header = 13;
+  const int slabSize = static_cast<int>(m_slabSize);
+  const int nslabs = 1 + (m_depth-1)/slabSize;
+  QStringList touchedFiles;
   for(int ns=0; ns<nslabs; ns++)
     {
-      if (ns < m_filenames.count())
-	m_filename = m_filenames[ns];
-      else
-	m_filename = m_baseFilename +
-	  QString(".%1").arg(ns+1, 3, 10, QChar('0'));
+      m_filename = slabFilename(ns);
 
       progress.setLabelText(m_filename);
-      qApp->processEvents();
+      if (qApp)
+        qApp->processEvents();
 
       if (m_qfile.isOpen())
 	m_qfile.close();
 
       m_qfile.setFileName(m_filename);
-      m_qfile.open(QFile::ReadWrite);
+      if (!m_qfile.open(QFile::WriteOnly | QFile::Truncate))
+        {
+          setError(QString("%1: cannot open '%2': %3")
+                   .arg(operation).arg(m_filename).arg(m_qfile.errorString()));
+          break;
+        }
+      touchedFiles << m_filename;
 
-      int nslices = qMin(m_slabSize, m_depth-ns*m_slabSize);      
-      m_qfile.write((char*)&vt, 1);
-      m_qfile.write((char*)&nslices, 4);
-      m_qfile.write((char*)&m_width, 4);
-      m_qfile.write((char*)&m_height, 4);
-      m_header = 13;
+      const qint64 firstSlice = static_cast<qint64>(ns)*slabSize;
+      const int nslices = qMin(slabSize,
+                               m_depth-static_cast<int>(firstSlice));
+      const qint32 fileSlices = nslices;
+      const qint32 fileWidth = m_width;
+      const qint32 fileHeight = m_height;
+      bool ok = writeExact(m_qfile, &vt, 1, operation) &&
+                writeExact(m_qfile,
+                           reinterpret_cast<const uchar*>(&fileSlices), 4,
+                           operation) &&
+                writeExact(m_qfile,
+                           reinterpret_cast<const uchar*>(&fileWidth), 4,
+                           operation) &&
+                writeExact(m_qfile,
+                           reinterpret_cast<const uchar*>(&fileHeight), 4,
+                           operation);
 
-      int slast = (m_depth-1-d);
-      for(int s=0; s<qMin(m_slabSize, (qint64)slast); s++)
-	{
-	  d++;
-	  m_qfile.write((char*)(m_volData + (qint64)d*bps), bps);
-
-	  progress.setValue((int)(100*(float)d/(float)m_depth));
-	  qApp->processEvents();
-	}
+      qint64 slabBytes = 0;
+      qint64 sourceOffset = 0;
+      qint64 expectedSize = 0;
+      if (ok &&
+          (!checkedMultiply(static_cast<qint64>(nslices), bps, slabBytes) ||
+           !checkedMultiply(firstSlice, bps, sourceOffset) ||
+           !checkedAdd(m_header, slabBytes, expectedSize)))
+        ok = setError(QString("%1: byte count overflows").arg(operation));
+      if (ok)
+        ok = writeExact(m_qfile, m_volData+sourceOffset,
+                        slabBytes, operation) &&
+             flushAndCheckSize(m_qfile, expectedSize, operation);
 
       m_qfile.close();
+      if (!ok)
+        break;
+
+      progress.setValue((int)(100.0*(firstSlice+nslices)/m_depth));
+      if (qApp)
+        qApp->processEvents();
+    }
+
+  if (!m_lastError.isEmpty())
+    {
+      if (m_qfile.isOpen())
+        m_qfile.close();
+      cleanupPartialFiles(touchedFiles);
+      return false;
     }
 
   progress.setValue(100);
 
   m_memChanged = false;
+  return true;
 }
 
-void
+bool
 VolumeFileManager::loadMemFile()
 {
+  const QString operation = "load memory volume";
+  clearError();
   if (!m_memmapped)
-    return;
+    return true;
 
-  createMemFile();
+  if (!validateGeometry(operation))
+    return false;
+
+  qint64 bps = 0;
+  qint64 volumeBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !volumeByteCount(volumeBytes, operation))
+    return false;
+  if (static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    return setError(QString("%1: volume is too large for this process")
+                    .arg(operation));
+
+  uchar *replacement =
+    new (std::nothrow) uchar[static_cast<size_t>(volumeBytes)];
+  if (!replacement)
+    return setError(QString("%1: cannot allocate %2-byte volume buffer")
+                    .arg(operation).arg(volumeBytes));
+  memset(replacement, 0, static_cast<size_t>(volumeBytes));
 
   QProgressDialog progress(QString("Loading %1").\
 			   arg(m_baseFilename),
@@ -904,54 +1739,95 @@ VolumeFileManager::loadMemFile()
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
 
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  int d = -1;
-  int nslabs = m_depth/m_slabSize;
-  if (nslabs*m_slabSize < m_depth) nslabs++;
+  const int slabSize = static_cast<int>(m_slabSize);
+  const int nslabs = 1 + (m_depth-1)/slabSize;
   for(int ns=0; ns<nslabs; ns++)
     {
-      if (ns < m_filenames.count())
-	m_filename = m_filenames[ns];
-      else
-	m_filename = m_baseFilename +
-	  QString(".%1").arg(ns+1, 3, 10, QChar('0'));
+      m_filename = slabFilename(ns);
 
       m_qfile.setFileName(m_filename);
-      m_qfile.open(QFile::ReadOnly);
-      m_qfile.seek((qint64)m_header);
+      if (!m_qfile.open(QFile::ReadOnly))
+        {
+          setError(QString("%1: cannot open '%2': %3")
+                   .arg(operation).arg(m_filename).arg(m_qfile.errorString()));
+          break;
+        }
+
+      const qint64 firstSlice = static_cast<qint64>(ns)*slabSize;
+      const int nslices = qMin(slabSize,
+                               m_depth-static_cast<int>(firstSlice));
+      qint64 slabBytes = 0;
+      qint64 destinationOffset = 0;
+      qint64 expectedSize = 0;
+      bool ok = checkedMultiply(static_cast<qint64>(nslices),
+                                bps, slabBytes) &&
+                checkedMultiply(firstSlice, bps, destinationOffset) &&
+                checkedAdd(m_header, slabBytes, expectedSize);
+      if (!ok)
+        setError(QString("%1: byte count overflows").arg(operation));
+      if (ok && m_qfile.size() != expectedSize)
+        ok = setError(QString("%1: '%2' has %3 bytes, expected %4")
+                      .arg(operation).arg(m_filename)
+                      .arg(m_qfile.size()).arg(expectedSize));
+      if (ok)
+        ok = seekFile(m_qfile, m_header, operation) &&
+             readExact(m_qfile, replacement+destinationOffset,
+                       slabBytes, operation);
       
-      int slast = (m_depth-1-d);
+      progress.setLabelText(QString("%1 : %2 %3")
+                            .arg(m_filename).arg(firstSlice)
+                            .arg(firstSlice+nslices-1));
 
-      progress.setLabelText(QString("%1 : %2 %3").arg(m_filename).\
-			    arg(d).arg(d+slast));
+      m_qfile.close();
+      if (!ok)
+        break;
 
-      for(int s=0; s<qMin(m_slabSize, (qint64)slast); s++)
-	{
-	  d++;
-	  m_qfile.read((char*)(m_volData + (qint64)d*bps), bps);
-
-	  
-	  progress.setValue((int)(100*(float)d/(float)m_depth));
-	  qApp->processEvents();
-	}
-
-      m_qfile.close(); 
+      progress.setValue((int)(100.0*(firstSlice+nslices)/m_depth));
+      if (qApp)
+        qApp->processEvents();
     }
+
+  if (!m_lastError.isEmpty())
+    {
+      if (m_qfile.isOpen())
+        m_qfile.close();
+      delete [] replacement;
+      return false;
+    }
+
+  delete [] m_volData;
+  m_volData = replacement;
+  m_volDataCapacity = static_cast<size_t>(volumeBytes);
   progress.setValue(100);
 
   m_memChanged = false;
+  return true;
 }
 
-void
+bool
 VolumeFileManager::createMemFile()
 {
-  if (m_volData)
-    delete [] m_volData;
+  const QString operation = "allocate memory volume";
+  qint64 volumeBytes = 0;
+  if (!validateGeometry(operation) ||
+      !volumeByteCount(volumeBytes, operation))
+    return false;
+  if (static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    return setError(QString("%1: volume is too large for this process")
+                    .arg(operation));
 
-  qint64 vsize = m_width*m_height*m_bytesPerVoxel;
-  vsize *= m_depth;
-  m_volData = new uchar[vsize];
-  memset(m_volData, 0, vsize);
+  uchar *replacement =
+    new (std::nothrow) uchar[static_cast<size_t>(volumeBytes)];
+  if (!replacement)
+    return setError(QString("%1: cannot allocate %2-byte volume buffer")
+                    .arg(operation).arg(volumeBytes));
+  memset(replacement, 0, static_cast<size_t>(volumeBytes));
+
+  delete [] m_volData;
+  m_volData = replacement;
+  m_volDataCapacity = static_cast<size_t>(volumeBytes);
+  return true;
 }
 
 uchar*
@@ -960,53 +1836,77 @@ VolumeFileManager::getSliceMem(int d)
   if (!m_memmapped)
     return getSlice(d);
 
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
+  const QString operation = "read memory depth slice";
+  clearError();
+  if (!validateGeometry(operation) || d < 0 || d >= m_depth)
     {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
+      if (m_lastError.isEmpty())
+        setError(QString("%1: depth index %2 is outside [0, %3)")
+                 .arg(operation).arg(d).arg(m_depth));
+      return 0;
     }
 
-  memcpy(m_slice, m_volData+d*bps, bps);
+  qint64 bps = 0;
+  qint64 volumeBytes = 0;
+  qint64 sourceOffset = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !volumeByteCount(volumeBytes, operation) ||
+      !checkedMultiply(static_cast<qint64>(d), bps, sourceOffset) ||
+      !m_volData ||
+      static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(m_volDataCapacity) ||
+      !ensureSliceCapacity(bps, operation))
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: memory volume is unavailable or too small")
+                 .arg(operation));
+      return 0;
+    }
+
+  memset(m_slice, 0, static_cast<size_t>(bps));
+  memcpy(m_slice, m_volData+sourceOffset, static_cast<size_t>(bps));
 
   return m_slice;
 }
-void
+bool
 VolumeFileManager::setSliceMem(int d, uchar *tmp)
 {
   if (!m_memmapped)
+    return setSlice(d, tmp);
+
+  const QString operation = "write memory depth slice";
+  clearError();
+  if (!tmp)
+    return setError(QString("%1: source buffer is null").arg(operation));
+  if (!validateGeometry(operation) || d < 0 || d >= m_depth)
     {
-      setSlice(d, tmp);
-      return;
-    }    
-
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  memcpy(m_volData+d*bps, tmp, bps);
-
-  //--------
-  // save to file straight away
-  QString pflnm = m_filename;
-  m_slabno = d/m_slabSize;
-  if (m_slabno < m_filenames.count())
-    m_filename = m_filenames[m_slabno];
-  else
-    m_filename = m_baseFilename +
-                 QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
-
-  if (pflnm != m_filename ||
-      !m_qfile.isOpen() ||
-      !m_qfile.isWritable())
-    {
-      if (m_qfile.isOpen()) m_qfile.close();
-      m_qfile.setFileName(m_filename);
-      m_qfile.open(QFile::ReadWrite);
+      if (m_lastError.isEmpty())
+        setError(QString("%1: depth index %2 is outside [0, %3)")
+                 .arg(operation).arg(d).arg(m_depth));
+      return false;
     }
-  m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
-  m_qfile.write((char*)tmp, bps);
-  m_qfile.close();
-  //--------
 
-  //m_memChanged = true;
+  qint64 bps = 0;
+  qint64 volumeBytes = 0;
+  qint64 destinationOffset = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !volumeByteCount(volumeBytes, operation) ||
+      !checkedMultiply(static_cast<qint64>(d), bps, destinationOffset) ||
+      !m_volData ||
+      static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(m_volDataCapacity))
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: memory volume is unavailable or too small")
+                 .arg(operation));
+      return false;
+    }
+
+  // Commit the in-memory copy only after the matching disk write succeeds.
+  if (!setSlice(d, tmp))
+    return false;
+  memcpy(m_volData+destinationOffset, tmp, static_cast<size_t>(bps));
+  return true;
 }
 
 uchar*
@@ -1015,36 +1915,113 @@ VolumeFileManager::getWidthSliceMem(int w)
   if (!m_memmapped)
     return getWidthSlice(w);
 
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
+  const QString operation = "read memory width slice";
+  clearError();
+  if (!validateGeometry(operation) || w < 0 || w >= m_width)
     {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
+      if (m_lastError.isEmpty())
+        setError(QString("%1: width index %2 is outside [0, %3)")
+                 .arg(operation).arg(w).arg(m_width));
+      return 0;
     }
 
-  for(int d=0; d<m_depth; d++)
-    memcpy(m_slice + d*m_height*m_bytesPerVoxel,
-	   m_volData + d*bps + w*m_height*m_bytesPerVoxel,
-	   m_height*m_bytesPerVoxel);
+  qint64 bps = 0;
+  qint64 volumeBytes = 0;
+  qint64 rowBytes = 0;
+  qint64 planeBytes = 0;
+  qint64 widthOffset = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !volumeByteCount(volumeBytes, operation) ||
+      !checkedMultiply(static_cast<qint64>(m_height),
+                       m_bytesPerVoxel, rowBytes) ||
+      !checkedMultiply(static_cast<qint64>(m_depth),
+                       rowBytes, planeBytes) ||
+      !checkedMultiply(static_cast<qint64>(w),
+                       rowBytes, widthOffset) ||
+      !m_volData ||
+      static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(m_volDataCapacity) ||
+      !ensureSliceCapacity(planeBytes, operation))
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: memory volume is unavailable or too small")
+                 .arg(operation));
+      return 0;
+    }
+
+  memset(m_slice, 0, static_cast<size_t>(planeBytes));
+  for(int d=0; d<m_depth; ++d)
+    {
+      qint64 volumeOffset = 0;
+      qint64 outputOffset = 0;
+      if (!checkedMultiply(static_cast<qint64>(d), bps, volumeOffset) ||
+          !checkedAdd(volumeOffset, widthOffset, volumeOffset) ||
+          !checkedMultiply(static_cast<qint64>(d),
+                           rowBytes, outputOffset))
+        {
+          memset(m_slice, 0, static_cast<size_t>(planeBytes));
+          setError(QString("%1: byte offset overflows").arg(operation));
+          return 0;
+        }
+      memcpy(m_slice+outputOffset, m_volData+volumeOffset,
+             static_cast<size_t>(rowBytes));
+    }
 
   return m_slice;
 }
-void
+bool
 VolumeFileManager::setWidthSliceMem(int w, uchar *tmp)
 {
   if (!m_memmapped)
-    {
-      setWidthSlice(w, tmp);
-      return;
-    }    
+    return setWidthSlice(w, tmp);
 
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  for(int d=0; d<m_depth; d++)
-    memcpy(m_volData + d*bps + w*m_height*m_bytesPerVoxel,
-	   tmp + d*m_height*m_bytesPerVoxel,
-	   m_height*m_bytesPerVoxel);
+  const QString operation = "write memory width slice";
+  clearError();
+  if (!tmp)
+    return setError(QString("%1: source buffer is null").arg(operation));
+  if (!validateGeometry(operation) || w < 0 || w >= m_width)
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: width index %2 is outside [0, %3)")
+                 .arg(operation).arg(w).arg(m_width));
+      return false;
+    }
+
+  qint64 bps = 0;
+  qint64 volumeBytes = 0;
+  qint64 rowBytes = 0;
+  qint64 widthOffset = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !volumeByteCount(volumeBytes, operation) ||
+      !checkedMultiply(static_cast<qint64>(m_height),
+                       m_bytesPerVoxel, rowBytes) ||
+      !checkedMultiply(static_cast<qint64>(w),
+                       rowBytes, widthOffset) ||
+      !m_volData ||
+      static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(m_volDataCapacity))
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: memory volume is unavailable or too small")
+                 .arg(operation));
+      return false;
+    }
+
+  for(int d=0; d<m_depth; ++d)
+    {
+      qint64 volumeOffset = 0;
+      qint64 inputOffset = 0;
+      if (!checkedMultiply(static_cast<qint64>(d), bps, volumeOffset) ||
+          !checkedAdd(volumeOffset, widthOffset, volumeOffset) ||
+          !checkedMultiply(static_cast<qint64>(d),
+                           rowBytes, inputOffset))
+        return setError(QString("%1: byte offset overflows").arg(operation));
+      memcpy(m_volData+volumeOffset, tmp+inputOffset,
+             static_cast<size_t>(rowBytes));
+    }
 
   m_memChanged = true;
+  return true;
 }
 
 uchar*
@@ -1053,44 +2030,131 @@ VolumeFileManager::getHeightSliceMem(int h)
   if (!m_memmapped)
     return getHeightSlice(h);
 
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
+  const QString operation = "read memory height slice";
+  clearError();
+  if (!validateGeometry(operation) || h < 0 || h >= m_height)
     {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
+      if (m_lastError.isEmpty())
+        setError(QString("%1: height index %2 is outside [0, %3)")
+                 .arg(operation).arg(h).arg(m_height));
+      return 0;
     }
 
-  int it = 0;
-  for(int d=0; d<m_depth; d++)
+  qint64 bps = 0;
+  qint64 volumeBytes = 0;
+  qint64 planeVoxels = 0;
+  qint64 planeBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !volumeByteCount(volumeBytes, operation) ||
+      !checkedMultiply(static_cast<qint64>(m_depth),
+                       static_cast<qint64>(m_width), planeVoxels) ||
+      !checkedMultiply(planeVoxels, m_bytesPerVoxel, planeBytes) ||
+      !m_volData ||
+      static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(m_volDataCapacity) ||
+      !ensureSliceCapacity(planeBytes, operation))
     {
-      for(int j=0; j<m_width; j++, it++)
-	memcpy(m_slice + it*m_bytesPerVoxel,
-	       m_volData + d*bps + (j*m_height + h)*m_bytesPerVoxel,
-	       m_bytesPerVoxel);
+      if (m_lastError.isEmpty())
+        setError(QString("%1: memory volume is unavailable or too small")
+                 .arg(operation));
+      return 0;
+    }
+
+  memset(m_slice, 0, static_cast<size_t>(planeBytes));
+  for(int d=0; d<m_depth; ++d)
+    {
+      for(int w=0; w<m_width; ++w)
+        {
+          qint64 volumeSliceOffset = 0;
+          qint64 rowVoxel = 0;
+          qint64 voxelOffset = 0;
+          qint64 dataOffset = 0;
+          qint64 outputVoxel = 0;
+          qint64 outputOffset = 0;
+          if (!checkedMultiply(static_cast<qint64>(d),
+                               bps, volumeSliceOffset) ||
+              !checkedMultiply(static_cast<qint64>(w),
+                               static_cast<qint64>(m_height), rowVoxel) ||
+              !checkedAdd(rowVoxel, static_cast<qint64>(h), voxelOffset) ||
+              !checkedMultiply(voxelOffset, m_bytesPerVoxel, dataOffset) ||
+              !checkedAdd(volumeSliceOffset, dataOffset, dataOffset) ||
+              !checkedMultiply(static_cast<qint64>(d),
+                               static_cast<qint64>(m_width), outputVoxel) ||
+              !checkedAdd(outputVoxel, static_cast<qint64>(w), outputVoxel) ||
+              !checkedMultiply(outputVoxel, m_bytesPerVoxel, outputOffset))
+            {
+              memset(m_slice, 0, static_cast<size_t>(planeBytes));
+              setError(QString("%1: byte offset overflows").arg(operation));
+              return 0;
+            }
+          memcpy(m_slice+outputOffset, m_volData+dataOffset,
+                 static_cast<size_t>(m_bytesPerVoxel));
+        }
     }
   
   return m_slice;
 }
-void
+bool
 VolumeFileManager::setHeightSliceMem(int h, uchar *tmp)
 {
   if (!m_memmapped)
-    {
-      setHeightSlice(h, tmp);
-      return;
-    }    
+    return setHeightSlice(h, tmp);
 
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  int it = 0;
-  for(int d=0; d<m_depth; d++)
+  const QString operation = "write memory height slice";
+  clearError();
+  if (!tmp)
+    return setError(QString("%1: source buffer is null").arg(operation));
+  if (!validateGeometry(operation) || h < 0 || h >= m_height)
     {
-      for(int j=0; j<m_width; j++, it++)
-	memcpy(m_volData + d*bps + (j*m_height + h)*m_bytesPerVoxel,
-	       tmp + it*m_bytesPerVoxel,
-	       m_bytesPerVoxel);
+      if (m_lastError.isEmpty())
+        setError(QString("%1: height index %2 is outside [0, %3)")
+                 .arg(operation).arg(h).arg(m_height));
+      return false;
+    }
+
+  qint64 bps = 0;
+  qint64 volumeBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !volumeByteCount(volumeBytes, operation) ||
+      !m_volData ||
+      static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(m_volDataCapacity))
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: memory volume is unavailable or too small")
+                 .arg(operation));
+      return false;
+    }
+
+  for(int d=0; d<m_depth; ++d)
+    {
+      for(int w=0; w<m_width; ++w)
+        {
+          qint64 volumeSliceOffset = 0;
+          qint64 rowVoxel = 0;
+          qint64 voxelOffset = 0;
+          qint64 dataOffset = 0;
+          qint64 inputVoxel = 0;
+          qint64 inputOffset = 0;
+          if (!checkedMultiply(static_cast<qint64>(d),
+                               bps, volumeSliceOffset) ||
+              !checkedMultiply(static_cast<qint64>(w),
+                               static_cast<qint64>(m_height), rowVoxel) ||
+              !checkedAdd(rowVoxel, static_cast<qint64>(h), voxelOffset) ||
+              !checkedMultiply(voxelOffset, m_bytesPerVoxel, dataOffset) ||
+              !checkedAdd(volumeSliceOffset, dataOffset, dataOffset) ||
+              !checkedMultiply(static_cast<qint64>(d),
+                               static_cast<qint64>(m_width), inputVoxel) ||
+              !checkedAdd(inputVoxel, static_cast<qint64>(w), inputVoxel) ||
+              !checkedMultiply(inputVoxel, m_bytesPerVoxel, inputOffset))
+            return setError(QString("%1: byte offset overflows").arg(operation));
+          memcpy(m_volData+dataOffset, tmp+inputOffset,
+                 static_cast<size_t>(m_bytesPerVoxel));
+        }
     }
 
   m_memChanged = true;
+  return true;
 }
 
 uchar*
@@ -1099,12 +2163,11 @@ VolumeFileManager::rawValueMem(int d, int w, int h)
   if (!m_memmapped)
     return rawValue(d,w,h);
 
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
-    {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
-    }
+  const QString operation = "read memory voxel";
+  clearError();
+  if (!validateGeometry(operation) ||
+      !ensureSliceCapacity(8, operation))
+    return 0;
 
   // at most we will be reading an 8 byte value
   // initialize first 8 bytes to 0
@@ -1115,9 +2178,32 @@ VolumeFileManager::rawValueMem(int d, int w, int h)
       h < 0 || h >= m_height)
     return m_slice;
 
-  memcpy(m_slice,
-	 m_volData + (d*bps + (w*m_height + h)*m_bytesPerVoxel),
-	 m_bytesPerVoxel);
+  qint64 bps = 0;
+  qint64 volumeBytes = 0;
+  qint64 sliceOffset = 0;
+  qint64 rowVoxel = 0;
+  qint64 voxelOffset = 0;
+  qint64 dataOffset = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !volumeByteCount(volumeBytes, operation) ||
+      !checkedMultiply(static_cast<qint64>(d), bps, sliceOffset) ||
+      !checkedMultiply(static_cast<qint64>(w),
+                       static_cast<qint64>(m_height), rowVoxel) ||
+      !checkedAdd(rowVoxel, static_cast<qint64>(h), voxelOffset) ||
+      !checkedMultiply(voxelOffset, m_bytesPerVoxel, dataOffset) ||
+      !checkedAdd(sliceOffset, dataOffset, dataOffset) ||
+      !m_volData ||
+      static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(m_volDataCapacity))
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: memory volume is unavailable or too small")
+                 .arg(operation));
+      return 0;
+    }
+
+  memcpy(m_slice, m_volData+dataOffset,
+	 static_cast<size_t>(m_bytesPerVoxel));
 
   return m_slice;
 }
@@ -1125,18 +2211,51 @@ VolumeFileManager::rawValueMem(int d, int w, int h)
 bool
 VolumeFileManager::setValueMem(int d, int w, int h, int val)
 {
+  const QString operation = "write memory voxel";
+  clearError();
   if (!m_memmapped)
+    return setError(QString("%1: memory mapping is disabled").arg(operation));
+
+  if (!validateGeometry(operation))
     return false;
 
   if (d < 0 || d >= m_depth ||
       w < 0 || w >= m_width ||
       h < 0 || h >= m_height)
-    return false;
+    return setError(QString("%1: voxel index is outside the volume")
+                    .arg(operation));
+
+  qint64 volumeBytes = 0;
+  qint64 sliceVoxels = 0;
+  qint64 sliceOffset = 0;
+  qint64 rowOffset = 0;
+  qint64 voxelIndex = 0;
+  if (!volumeByteCount(volumeBytes, operation) ||
+      !checkedMultiply(static_cast<qint64>(m_width),
+                       static_cast<qint64>(m_height), sliceVoxels) ||
+      !checkedMultiply(static_cast<qint64>(d),
+                       sliceVoxels, sliceOffset) ||
+      !checkedMultiply(static_cast<qint64>(w),
+                       static_cast<qint64>(m_height), rowOffset) ||
+      !checkedAdd(sliceOffset, rowOffset, voxelIndex) ||
+      !checkedAdd(voxelIndex, static_cast<qint64>(h), voxelIndex) ||
+      !m_volData ||
+      static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(m_volDataCapacity))
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: memory volume is unavailable or too small")
+                 .arg(operation));
+      return false;
+    }
 
   if (m_bytesPerVoxel == 1)
-    m_volData[d*m_width*m_height + w*m_height + h] = val;
+    m_volData[voxelIndex] = val;
   else if (m_bytesPerVoxel == 2)
-    ((ushort*)m_volData)[d*m_width*m_height + w*m_height + h] = val;
+    reinterpret_cast<ushort*>(m_volData)[voxelIndex] = val;
+  else
+    return setError(QString("%1: only 8-bit and 16-bit voxels are supported")
+                    .arg(operation));
   
 //  QMessageBox::information(0, "", QString("%1 %2 %3 : %4").\
 //			   arg(d).arg(w).arg(h).arg(m_volData[d*m_width*m_height + w*m_height + h]));
@@ -1151,6 +2270,8 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
 			     int wmin, int wmax,
 			     int hmin, int hmax)
 {
+  const QString operation = "save memory block";
+  clearError();
   if (!m_memmapped)
     return;
 
@@ -1161,6 +2282,9 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
       return;
     }
 
+  if (!validateGeometry(operation))
+    return;
+
   dmin = qMax(0, dmin);
   wmin = qMax(0, wmin);
   hmin = qMax(0, hmin);
@@ -1169,46 +2293,144 @@ VolumeFileManager::saveBlock(int dmin, int dmax,
   wmax = qMin(m_width-1, wmax);
   hmax = qMin(m_height-1, hmax);
 
-  int hbts = (hmax-hmin+1)*m_bytesPerVoxel;
+  if (dmin > dmax || wmin > wmax || hmin > hmax)
+    {
+      setError(QString("%1: block bounds are empty").arg(operation));
+      return;
+    }
 
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  QString pflnm = m_filename;
+  qint64 bps = 0;
+  qint64 volumeBytes = 0;
+  qint64 writeBytes = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !volumeByteCount(volumeBytes, operation) ||
+      !checkedMultiply(static_cast<qint64>(hmax-hmin+1),
+                       m_bytesPerVoxel, writeBytes) ||
+      !m_volData ||
+      static_cast<quint64>(volumeBytes) >
+      static_cast<quint64>(m_volDataCapacity))
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: memory volume is unavailable or too small")
+                 .arg(operation));
+      return;
+    }
+
+  const int slabSize = static_cast<int>(m_slabSize);
+  int previousSlab = -1;
+  qint64 expectedSize = 0;
+  qint64 maximumSize = 0;
 
   for(int d=dmin; d<=dmax; d++)
     {
-      m_slabno = d/m_slabSize;
-      if (m_slabno < m_filenames.count())
-	m_filename = m_filenames[m_slabno];
-      else
-	m_filename = m_baseFilename +
-	  QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
-      
-      if (pflnm != m_filename ||
-	  !m_qfile.isOpen() ||
-	  !m_qfile.isWritable())
-	{
-	  if (m_qfile.isOpen()) m_qfile.close();
-	  m_qfile.setFileName(m_filename);
-	  m_qfile.open(QFile::ReadWrite);
-	}
+      m_slabno = d/slabSize;
+      if (m_slabno != previousSlab)
+        {
+          if (m_qfile.isOpen())
+            {
+              if (!flushAndCheckSize(m_qfile, expectedSize, operation))
+                {
+                  m_qfile.close();
+                  return;
+                }
+              m_qfile.close();
+            }
+          if (!openSlab(m_slabno, QFile::ReadWrite, operation))
+            return;
+          expectedSize = m_qfile.size();
+          if (!slabFileSize(m_slabno, bps, maximumSize, operation) ||
+              expectedSize < 0 || expectedSize > maximumSize)
+            {
+              m_qfile.close();
+              if (m_lastError.isEmpty())
+                setError(QString("%1: '%2' has invalid size %3 (maximum %4)")
+                         .arg(operation).arg(m_filename)
+                         .arg(expectedSize).arg(maximumSize));
+              return;
+            }
+          previousSlab = m_slabno;
+        }
+
       for(int w=wmin; w<=wmax; w++)
 	{
-	  m_qfile.seek((qint64)(m_header +
-				(d-m_slabno*m_slabSize)*bps +
-				(w*m_height + hmin)*m_bytesPerVoxel));
-	  m_qfile.write((char*)(m_volData + d*bps +
-				(w*m_height + hmin)*m_bytesPerVoxel),
-			hbts);
+          qint64 slabSliceOffset = 0;
+          qint64 volumeSliceOffset = 0;
+          qint64 rowVoxel = 0;
+          qint64 voxelOffset = 0;
+          qint64 rowOffset = 0;
+          qint64 fileOffset = 0;
+          qint64 endOffset = 0;
+          qint64 sourceOffset = 0;
+          if (!checkedMultiply(static_cast<qint64>(d-m_slabno*slabSize),
+                               bps, slabSliceOffset) ||
+              !checkedMultiply(static_cast<qint64>(d),
+                               bps, volumeSliceOffset) ||
+              !checkedMultiply(static_cast<qint64>(w),
+                               static_cast<qint64>(m_height), rowVoxel) ||
+              !checkedAdd(rowVoxel, static_cast<qint64>(hmin), voxelOffset) ||
+              !checkedMultiply(voxelOffset, m_bytesPerVoxel, rowOffset) ||
+              !checkedAdd(slabSliceOffset, rowOffset, fileOffset) ||
+              !checkedAdd(m_header, fileOffset, fileOffset) ||
+              !checkedAdd(fileOffset, writeBytes, endOffset) ||
+              !checkedAdd(volumeSliceOffset, rowOffset, sourceOffset))
+            {
+              m_qfile.close();
+              setError(QString("%1: byte offset overflows").arg(operation));
+              return;
+            }
+
+          if (endOffset > maximumSize)
+            {
+              m_qfile.close();
+              setError(QString("%1: write exceeds the configured slab size")
+                       .arg(operation));
+              return;
+            }
+
+          expectedSize = qMax(expectedSize, endOffset);
+          if (!seekFile(m_qfile, fileOffset, operation) ||
+              !writeExact(m_qfile, m_volData+sourceOffset,
+                          writeBytes, operation))
+            {
+              m_qfile.close();
+              return;
+            }
 	}      
+    }
+
+  if (m_qfile.isOpen())
+    {
+      flushAndCheckSize(m_qfile, expectedSize, operation);
+      m_qfile.close();
     }
 }
 
 bool
 VolumeFileManager::changeSliceOrdering()
 {
-  if (m_depth/m_slabSize > 1)
+  const QString operation = "change slice ordering";
+  clearError();
+  if (!validateGeometry(operation))
+    return false;
+
+  const int slabSize = static_cast<int>(m_slabSize);
+  const int nslabs = 1 + (m_depth-1)/slabSize;
+  if (nslabs > 1)
     {
       QMessageBox::information(0, "", "Cannot change ordering : slices spread across multiple files.");
+      return setError(QString("%1: slices span multiple files").arg(operation));
+    }
+
+  qint64 bps = 0;
+  qint64 dataBytes = 0;
+  qint64 expectedSize = 0;
+  if (!sliceByteCount(bps, operation) ||
+      !checkedMultiply(static_cast<qint64>(m_depth), bps, dataBytes) ||
+      !checkedAdd(m_header, dataBytes, expectedSize) ||
+      !ensureSliceCapacity(qMax(m_header, bps), operation))
+    {
+      if (m_lastError.isEmpty())
+        setError(QString("%1: byte count overflows").arg(operation));
       return false;
     }
 
@@ -1222,8 +2444,10 @@ VolumeFileManager::changeSliceOrdering()
 				       0,
 				       false,
 				       &ok);
-  
-  if (!ok || item == "Yes")
+  if (!ok)
+    return false;
+
+  if (item == "Yes")
     {
       QString dirname = QFileInfo(m_baseFilename).absolutePath();
 	
@@ -1233,36 +2457,71 @@ VolumeFileManager::changeSliceOrdering()
 						     "pvl.nc Files (*.pvl.nc)");
       if (newflnm.isEmpty())
 	  return false;
-      
-      QFile::copy(m_baseFilename, newflnm);
 
-      m_qfile.setFileName(m_baseFilename+".001");
-      m_qfile.open(QFile::ReadOnly);
+      if (!QFile::copy(m_baseFilename, newflnm))
+        return setError(QString("%1: cannot copy '%2' to '%3'")
+                        .arg(operation).arg(m_baseFilename).arg(newflnm));
+
+      m_qfile.setFileName(slabFilename(0));
+      if (!m_qfile.open(QFile::ReadOnly))
+        {
+          QFile::remove(newflnm);
+          return setError(QString("%1: cannot open '%2': %3")
+                          .arg(operation).arg(m_qfile.fileName())
+                          .arg(m_qfile.errorString()));
+        }
       QFile newfile;
       newfile.setFileName(newflnm+".001");
-      newfile.open(QFile::WriteOnly);
+      if (!newfile.open(QFile::WriteOnly | QFile::Truncate))
+        {
+          m_qfile.close();
+          QFile::remove(newflnm);
+          return setError(QString("%1: cannot open '%2': %3")
+                          .arg(operation).arg(newfile.fileName())
+                          .arg(newfile.errorString()));
+        }
 
-      qint64 bps = m_width*m_height*m_bytesPerVoxel;
-      if (!m_slice)
+      bool ioOk = m_qfile.size() == expectedSize;
+      if (!ioOk)
+        setError(QString("%1: '%2' has %3 bytes, expected %4")
+                 .arg(operation).arg(m_qfile.fileName())
+                 .arg(m_qfile.size()).arg(expectedSize));
+      if (ioOk && m_header > 0)
+        ioOk = seekFile(m_qfile, 0, operation) &&
+               readExact(m_qfile, m_slice, m_header, operation) &&
+               writeExact(newfile, m_slice, m_header, operation);
+
+      for(int d=0; d<m_depth && ioOk; d++)
 	{
-	  int a = qMax(m_width, qMax(m_height, m_depth));
-	  m_slice = new uchar[a*a*m_bytesPerVoxel];
+	  qint64 sourceOffset = 0;
+	  qint64 destinationOffset = 0;
+	  ioOk = checkedMultiply(static_cast<qint64>(d),
+                                 bps, sourceOffset) &&
+	         checkedAdd(m_header, sourceOffset, sourceOffset) &&
+	         checkedMultiply(static_cast<qint64>(m_depth-1-d),
+                                 bps, destinationOffset) &&
+	         checkedAdd(m_header, destinationOffset, destinationOffset);
+	  if (!ioOk)
+            setError(QString("%1: byte offset overflows").arg(operation));
+	  if (ioOk)
+            ioOk = seekFile(m_qfile, sourceOffset, operation) &&
+                   readExact(m_qfile, m_slice, bps, operation) &&
+                   seekFile(newfile, destinationOffset, operation) &&
+                   writeExact(newfile, m_slice, bps, operation);
 	}
 
-      m_qfile.read((char*)m_slice, m_header);
-      newfile.write((char*)m_slice, m_header);
-
-      for(int d=0; d<m_depth; d++)
-	{
-	  m_qfile.seek((qint64)(m_header + d*bps));
-	  m_qfile.read((char*)m_slice, bps);
-	  
-	  newfile.seek((qint64)(m_header + (m_depth-1-d)*bps));
-	  newfile.write((char*)m_slice, bps);
-	}
+      if (ioOk)
+        ioOk = flushAndCheckSize(newfile, expectedSize, operation);
 
       newfile.close();
       m_qfile.close();
+
+      if (!ioOk)
+        {
+          QFile::remove(newflnm+".001");
+          QFile::remove(newflnm);
+          return false;
+        }
 
       QMessageBox::information(0, "Change Slice Ordering",
 			       QString("Volume saved to "+newflnm));
@@ -1271,54 +2530,71 @@ VolumeFileManager::changeSliceOrdering()
     }
   
   
-  QString flnm;
-  if (m_filenames.count() > 0)
-    flnm = m_filenames[0];
-  else
-    flnm = m_baseFilename + ".001";
-
-  if (!m_qfile.isOpen() ||
-      !m_qfile.isReadable())
+  const QString flnm = slabFilename(0);
+  if (m_qfile.isOpen())
+    m_qfile.close();
+  m_qfile.setFileName(flnm);
+  if (!m_qfile.open(QFile::ReadWrite))
     {
-      if (m_qfile.isOpen()) m_qfile.close();
-      m_qfile.setFileName(flnm);
-
-      // if we cannot open file in readwrite mode
-      // then open it in readonly mode
-      if (! m_qfile.open(QFile::ReadWrite))
-	{
-	  QMessageBox::information(0, "", "Cannot change ordering : cannot open file for writing.");
-	  return false;
-	}
+      QMessageBox::information(0, "", "Cannot change ordering : cannot open file for writing.");
+      return setError(QString("%1: cannot open '%2': %3")
+                      .arg(operation).arg(flnm).arg(m_qfile.errorString()));
     }
 
-  qint64 bps = m_width*m_height*m_bytesPerVoxel;
-  if (!m_slice)
+  if (m_qfile.size() != expectedSize)
     {
-      int a = qMax(m_width, qMax(m_height, m_depth));
-      m_slice = new uchar[a*a*m_bytesPerVoxel];
+      const qint64 actualSize = m_qfile.size();
+      m_qfile.close();
+      return setError(QString("%1: '%2' has %3 bytes, expected %4")
+                      .arg(operation).arg(flnm)
+                      .arg(actualSize).arg(expectedSize));
     }
 
-  uchar* tslice = new uchar[m_width*m_height*m_bytesPerVoxel];
-
-  for(int d=0; d<m_depth/2; d++)
+  if (static_cast<quint64>(bps) >
+      static_cast<quint64>(std::numeric_limits<size_t>::max()))
     {
-      m_qfile.seek((qint64)(m_header + d*bps));
-      m_qfile.read((char*)m_slice, bps);
-
-      m_qfile.seek((qint64)(m_header + (m_depth-1-d)*bps));
-      m_qfile.read((char*)tslice, bps);
-
-      m_qfile.seek((qint64)(m_header + d*bps));
-      m_qfile.write((char*)tslice, bps);
-
-      m_qfile.seek((qint64)(m_header + (m_depth-1-d)*bps));
-      m_qfile.write((char*)m_slice, bps);
+      m_qfile.close();
+      return setError(QString("%1: temporary slice is too large")
+                      .arg(operation));
     }
+
+  uchar* tslice = new (std::nothrow) uchar[static_cast<size_t>(bps)];
+  if (!tslice)
+    {
+      m_qfile.close();
+      return setError(QString("%1: cannot allocate temporary slice")
+                      .arg(operation));
+    }
+
+  bool ioOk = true;
+  for(int d=0; d<m_depth/2 && ioOk; d++)
+    {
+      qint64 firstOffset = 0;
+      qint64 secondOffset = 0;
+      ioOk = checkedMultiply(static_cast<qint64>(d), bps, firstOffset) &&
+             checkedAdd(m_header, firstOffset, firstOffset) &&
+             checkedMultiply(static_cast<qint64>(m_depth-1-d),
+                             bps, secondOffset) &&
+             checkedAdd(m_header, secondOffset, secondOffset);
+      if (!ioOk)
+        setError(QString("%1: byte offset overflows").arg(operation));
+      if (ioOk)
+        ioOk = seekFile(m_qfile, firstOffset, operation) &&
+               readExact(m_qfile, m_slice, bps, operation) &&
+               seekFile(m_qfile, secondOffset, operation) &&
+               readExact(m_qfile, tslice, bps, operation) &&
+               seekFile(m_qfile, firstOffset, operation) &&
+               writeExact(m_qfile, tslice, bps, operation) &&
+               seekFile(m_qfile, secondOffset, operation) &&
+               writeExact(m_qfile, m_slice, bps, operation);
+    }
+
+  if (ioOk)
+    ioOk = flushAndCheckSize(m_qfile, expectedSize, operation);
 
   delete [] tslice;
 
   m_qfile.close();
 
-  return true;
+  return ioOk;
 }

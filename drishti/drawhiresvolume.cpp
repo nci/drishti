@@ -18,6 +18,137 @@
 #include <QInputDialog>
 #include <QFileDialog>
 #include <QDataStream>
+#include <QDebug>
+
+#include <limits>
+#include <new>
+
+namespace
+{
+QString glErrorText(GLenum error)
+{
+  return QStringLiteral("0x%1").arg(
+    QString::number(static_cast<qulonglong>(error), 16));
+}
+
+void reportVolumeResourceFailure(const QString &label,
+				 const QString &detail)
+{
+  const QString message = QStringLiteral("%1 unavailable: %2").arg(label, detail);
+  qWarning().noquote() << message;
+  MainWindowUI::mainWindowUI()->statusBar->showMessage(message);
+}
+
+QString volumeFileFailureDetail(const VolumeFileManager &fileManager,
+				const QString &fallback)
+{
+  const QString detail = fileManager.lastError();
+  return detail.isEmpty() ? fallback : detail;
+}
+
+void restoreVolumeExportUi(QProgressDialog *progress = 0)
+{
+  if (progress)
+    progress->reset();
+
+  Global::hideProgressBar();
+  Ui::MainWindow *ui = MainWindowUI::mainWindowUI();
+  if (ui && ui->menubar && ui->menubar->parentWidget())
+    ui->menubar->parentWidget()->setWindowTitle(Global::DrishtiVersion());
+}
+
+void reportVolumeFileFailure(const QString &operation,
+			     const QString &detail,
+			     QProgressDialog *progress = 0)
+{
+  restoreVolumeExportUi(progress);
+  const QString message = QStringLiteral("%1 failed: %2").arg(operation, detail);
+  qWarning().noquote() << message;
+
+  Ui::MainWindow *ui = MainWindowUI::mainWindowUI();
+  if (ui && ui->statusBar)
+    ui->statusBar->showMessage(message);
+  QMessageBox::critical(0, QStringLiteral("Volume I/O Error"), message);
+}
+
+void discardPartialVolume(VolumeFileManager &fileManager,
+			  const QString &headerFile)
+{
+  fileManager.closeQFile();
+  fileManager.removeFile();
+  if (!headerFile.isEmpty())
+    QFile::remove(headerFile);
+}
+
+bool replaceVolumeShader(GLhandleARB &program,
+			 const QString &source,
+			 const QString &label)
+{
+  GLhandleARB candidate = glCreateProgramObjectARB();
+  if (!candidate || !ShaderFactory::loadShader(candidate, source))
+    {
+      const GLenum error = glGetError();
+      if (candidate)
+	glDeleteObjectARB(candidate);
+      if (program)
+	glDeleteObjectARB(program);
+      program = 0;
+      reportVolumeResourceFailure(
+	label,
+	QStringLiteral("shader compile/link failed (OpenGL error %1)").arg(
+	  glErrorText(error)));
+      return false;
+    }
+
+  if (program)
+    glDeleteObjectARB(program);
+  program = candidate;
+  return true;
+}
+
+QGLFramebufferObject* createVolumeFramebuffer(const QSize &size,
+					       GLenum target,
+					       const QString &label)
+{
+  if (size.width() <= 0 || size.height() <= 0)
+    {
+      reportVolumeResourceFailure(label, QStringLiteral("invalid framebuffer dimensions"));
+      return 0;
+    }
+
+  for (int i=0; i<32 && glGetError() != GL_NO_ERROR; ++i) {}
+  QGLFramebufferObject *fbo = new (std::nothrow) QGLFramebufferObject(
+    size, QGLFramebufferObject::NoAttachment, target);
+  GLenum error = glGetError();
+  GLenum status = 0;
+  bool bound = false;
+  if (fbo && fbo->isValid() && fbo->texture())
+    {
+	bound = fbo->bind();
+	if (bound)
+	{
+	  status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
+	  fbo->release();
+	  const GLenum validationError = glGetError();
+	  if (error == GL_NO_ERROR) error = validationError;
+	}
+    }
+
+  if (!fbo || !fbo->isValid() || !fbo->texture() || !bound ||
+      status != GL_FRAMEBUFFER_COMPLETE_EXT || error != GL_NO_ERROR)
+    {
+      reportVolumeResourceFailure(
+	label,
+	QStringLiteral("FBO creation failed (status 0x%1, OpenGL error %2)")
+	.arg(QString::number(static_cast<qulonglong>(status), 16),
+	     glErrorText(error)));
+      delete fbo;
+      return 0;
+    }
+
+  return fbo;
+}
+}
 
 
 double* DrawHiresVolume::brick0Xform() { return m_bricks->getMatrix(); }
@@ -207,6 +338,7 @@ DrawHiresVolume::DrawHiresVolume(Viewer *viewer,
   m_blurShader=0;
   m_backplaneShader1=0;
   m_backplaneShader2=0;
+  m_emptySpaceSkipShaderState = false;
 
   m_useScreenShadows = false;
   m_shadowLod = 1;
@@ -359,6 +491,19 @@ DrawHiresVolume::cleanup()
   m_amrTex = 0;
   m_amrData = false;
   m_amrCrd = 0;
+
+  if (m_lutShader) glDeleteObjectARB(m_lutShader);
+  if (m_passthruShader) glDeleteObjectARB(m_passthruShader);
+  if (m_defaultShader) glDeleteObjectARB(m_defaultShader);
+  if (m_blurShader) glDeleteObjectARB(m_blurShader);
+  if (m_backplaneShader1) glDeleteObjectARB(m_backplaneShader1);
+  if (m_backplaneShader2) glDeleteObjectARB(m_backplaneShader2);
+  m_lutShader = 0;
+  m_passthruShader = 0;
+  m_defaultShader = 0;
+  m_blurShader = 0;
+  m_backplaneShader1 = 0;
+  m_backplaneShader2 = 0;
 }
 
 void
@@ -462,9 +607,10 @@ DrawHiresVolume::generateDragHistogramImage()
   m_histogramDrag1D = m_histogramDrag1D.mirrored();  
 }
 
-void
+bool
 DrawHiresVolume::initShadowBuffers(bool force)
 {
+  Q_UNUSED(force);
 //  int shdSizeW = m_Viewer->camera()->screenWidth()*m_lightInfo.shadowScale;
 //  int shdSizeH = m_Viewer->camera()->screenHeight()*m_lightInfo.shadowScale;
 //  shdSizeW *= 2;
@@ -474,17 +620,94 @@ DrawHiresVolume::initShadowBuffers(bool force)
 //      m_shadowHeight == shdSizeH)
 //    return; // no need to resize shadow buffers
 
-  int shdSizeW = m_Viewer->camera()->screenWidth();
-  int shdSizeH = m_Viewer->camera()->screenHeight();
+  const int shdSizeW = m_Viewer->camera()->screenWidth();
+  const int shdSizeH = m_Viewer->camera()->screenHeight();
+  const int textureLimit = qMax(1, static_cast<int>(Global::max2dTextureSize()));
+
+  if (shdSizeW <= 0 || shdSizeH <= 0 ||
+      shdSizeW > textureLimit || shdSizeH > textureLimit)
+    {
+      reportVolumeResourceFailure(
+	QStringLiteral("volume/highres framebuffer"),
+	QStringLiteral("requested size %1x%2 exceeds the valid range (limit %3)")
+	.arg(shdSizeW).arg(shdSizeH).arg(textureLimit));
+      return false;
+    }
+
   m_shadowWidth = shdSizeW;
   m_shadowHeight = shdSizeH;
 
-  GLuint target = GL_TEXTURE_RECTANGLE_EXT;
-
   if (m_dofBuffer) glDeleteFramebuffers(1, &m_dofBuffer);
-  if (m_dofTex[0]) glDeleteTextures(3, m_dofTex);  
+  if (m_dofTex[0]) glDeleteTextures(3, m_dofTex);
+  m_dofBuffer = 0;
+  m_dofTex[0] = m_dofTex[1] = m_dofTex[2] = 0;
+
+  if (m_shdBuffer) glDeleteFramebuffers(1, &m_shdBuffer);
+  if (m_shdTex[0]) glDeleteTextures(2, m_shdTex);
+  m_shdBuffer = 0;
+  m_shdTex[0] = m_shdTex[1] = 0;
+
+  const auto releaseBuffers = [&]()
+    {
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+      if (m_dofBuffer) glDeleteFramebuffers(1, &m_dofBuffer);
+      if (m_dofTex[0]) glDeleteTextures(3, m_dofTex);
+      if (m_shdBuffer) glDeleteFramebuffers(1, &m_shdBuffer);
+      if (m_shdTex[0]) glDeleteTextures(2, m_shdTex);
+      m_dofBuffer = 0;
+      m_dofTex[0] = m_dofTex[1] = m_dofTex[2] = 0;
+      m_shdBuffer = 0;
+      m_shdTex[0] = m_shdTex[1] = 0;
+      m_shadowWidth = 0;
+      m_shadowHeight = 0;
+    };
+  const auto validateAttachments = [&](GLuint buffer,
+				       GLuint *textures,
+				       int count,
+				       const QString &label)
+    {
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, buffer);
+      for (int i=0; i<count; ++i)
+	{
+	  glFramebufferTexture2D(GL_FRAMEBUFFER_EXT,
+				 GL_COLOR_ATTACHMENT0_EXT,
+				 GL_TEXTURE_RECTANGLE_ARB,
+				 textures[i], 0);
+	  const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
+	  const GLenum error = glGetError();
+	  if (status != GL_FRAMEBUFFER_COMPLETE_EXT || error != GL_NO_ERROR)
+	    {
+	      reportVolumeResourceFailure(
+		label,
+		QStringLiteral("attachment %1 is incomplete (status 0x%2, OpenGL error %3)")
+		.arg(i)
+		.arg(QString::number(static_cast<qulonglong>(status), 16),
+		     glErrorText(error)));
+	      glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+	      return false;
+	    }
+	}
+      glFramebufferTexture2D(GL_FRAMEBUFFER_EXT,
+			     GL_COLOR_ATTACHMENT0_EXT,
+			     GL_TEXTURE_RECTANGLE_ARB, 0, 0);
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+      return true;
+    };
+
+  for (int i=0; i<32 && glGetError() != GL_NO_ERROR; ++i) {}
   glGenFramebuffers(1, &m_dofBuffer);
   glGenTextures(3, m_dofTex);
+  if (!m_dofBuffer || !m_dofTex[0] || !m_dofTex[1] || !m_dofTex[2])
+    {
+      const GLenum error = glGetError();
+      reportVolumeResourceFailure(
+	QStringLiteral("volume/highres/dof framebuffer"),
+	QStringLiteral("OpenGL did not create all handles (error %1)").arg(
+	  glErrorText(error)));
+      releaseBuffers();
+      return false;
+    }
+
   for(int i=0; i<3; i++)
     {
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dofTex[i]);
@@ -498,23 +721,64 @@ DrawHiresVolume::initShadowBuffers(bool force)
 		   0);
     }
 
+  GLenum error = glGetError();
+  if (error != GL_NO_ERROR ||
+      !validateAttachments(m_dofBuffer, m_dofTex, 3,
+			   QStringLiteral("volume/highres/dof framebuffer")))
+    {
+      if (error != GL_NO_ERROR)
+	reportVolumeResourceFailure(
+	  QStringLiteral("volume/highres/dof framebuffer"),
+	  QStringLiteral("texture allocation failed (OpenGL error %1)").arg(
+	    glErrorText(error)));
+      releaseBuffers();
+      return false;
+    }
+
   //m_shadowLod = 2;
-  if (m_shdBuffer) glDeleteFramebuffers(1, &m_shdBuffer);
-  if (m_shdTex[0]) glDeleteTextures(2, m_shdTex);  
   glGenFramebuffers(1, &m_shdBuffer);
   glGenTextures(2, m_shdTex);
+  if (!m_shdBuffer || !m_shdTex[0] || !m_shdTex[1])
+    {
+      error = glGetError();
+      reportVolumeResourceFailure(
+	QStringLiteral("volume/highres/shadow framebuffer"),
+	QStringLiteral("OpenGL did not create all handles (error %1)").arg(
+	  glErrorText(error)));
+      releaseBuffers();
+      return false;
+    }
+
+  const int shadowTextureWidth = qMax(1, m_shadowWidth/m_shadowLod);
+  const int shadowTextureHeight = qMax(1, m_shadowHeight/m_shadowLod);
   for(int i=0; i<2; i++)
     {
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shdTex[i]);
       glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
 		   0,
 		   GL_RGBA,
-		   m_shadowWidth/m_shadowLod, m_shadowHeight/m_shadowLod,
+		   shadowTextureWidth, shadowTextureHeight,
 		   0,
 		   GL_RGBA,
 		   GL_UNSIGNED_BYTE,
 		   0);
     }
+
+  error = glGetError();
+  if (error != GL_NO_ERROR ||
+      !validateAttachments(m_shdBuffer, m_shdTex, 2,
+			   QStringLiteral("volume/highres/shadow framebuffer")))
+    {
+      if (error != GL_NO_ERROR)
+	reportVolumeResourceFailure(
+	  QStringLiteral("volume/highres/shadow framebuffer"),
+	  QStringLiteral("texture allocation failed (OpenGL error %1)").arg(
+	    glErrorText(error)));
+      releaseBuffers();
+      return false;
+    }
+
+  return true;
 }
 
 void
@@ -648,6 +912,10 @@ DrawHiresVolume::postUpdateSubvolume(Vec boxMin, Vec boxMax)
   loadTextureMemory();
   m_Volume->endHistogramCalculation();
 
+  if (Global::volumeType() != Global::DummyVolume &&
+      (m_dataTexSize <= 0 || !m_dataTex))
+    return;
+
 
   // update saved buffer after every subvolume change
   PruneHandler::setUseSavedBuffer(false);
@@ -687,6 +955,9 @@ DrawHiresVolume::updateAndLoadPruneTexture()
   if (Global::volumeType() == Global::DummyVolume)
     return;
 
+  if (m_dataTexSize <= 0 || !m_dataTex)
+    return;
+
   if (Global::volumeType() == Global::RGBVolume ||
       Global::volumeType() == Global::RGBAVolume)
     return;
@@ -718,6 +989,9 @@ DrawHiresVolume::updateAndLoadPruneTexture()
 void
 DrawHiresVolume::updateAndLoadLightTexture()
 {
+  if (m_dataTexSize <= 0 || !m_dataTex)
+    return;
+
   if (LightHandler::basicLight())
     return;
 
@@ -751,18 +1025,64 @@ DrawHiresVolume::loadTextureMemory()
 {
   if (Global::volumeType() == Global::DummyVolume)
     {
-      if (m_dataTexSize > 0)
+      if (m_dataTexSize > 0 && m_dataTex)
 	{
 	  glDeleteTextures(m_dataTexSize, m_dataTex);
 	  delete [] m_dataTex;
 	}
+      m_textureSlab.clear();
       m_textureSlab.append(Vec(1,1,1));
       m_dataTex = 0;
       m_dataTexSize = 0;
+      m_loadingData = false;
       return;
     }
 
   m_loadingData = true;
+
+  bool viewerUpdateDisabled = false;
+  const auto deleteDataTextures = [&]()
+    {
+      if (m_dataTexSize > 0 && m_dataTex)
+	glDeleteTextures(m_dataTexSize, m_dataTex);
+      delete [] m_dataTex;
+      m_dataTex = 0;
+      m_dataTexSize = 0;
+    };
+  const auto finishLoading = [&](const QString &message, bool success)
+    {
+      if (!success)
+	{
+	  deleteDataTextures();
+	  m_textureSlab.clear();
+	  qWarning().noquote() << message;
+	}
+
+      m_Volume->deleteTextureSlab();
+      Global::hideProgressBar();
+      MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
+	setWindowTitle(QString("Drishti"));
+      MainWindowUI::mainWindowUI()->statusBar->showMessage(message);
+      m_loadingData = false;
+
+      if (viewerUpdateDisabled)
+	{
+	  Global::enableViewerUpdate();
+	  MainWindowUI::changeDrishtiIcon(true);
+	}
+    };
+  const auto clearGlErrors = []()
+    {
+      for (int i=0; i<32; i++)
+	if (glGetError() == GL_NO_ERROR)
+	  break;
+    };
+  const auto glErrorMessage = [](const QString &operation, GLenum error)
+    {
+      return QString("%1 failed (OpenGL error 0x%2)").
+	arg(operation).
+	arg(QString::number(static_cast<qulonglong>(error), 16));
+    };
 
   int nvol = 1;
   if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
@@ -778,7 +1098,6 @@ DrawHiresVolume::loadTextureMemory()
 
   int internalFormat = nvol;
   int vtype = GL_UNSIGNED_BYTE;
-  int nbytes = 1;
   if (m_Volume->pvlVoxelType(0) > 0)
     {
       if (nvol == 1) internalFormat = GL_LUMINANCE16;
@@ -792,22 +1111,27 @@ DrawHiresVolume::loadTextureMemory()
       if (nvol == 4) format = GL_RGBA;
       
       vtype = GL_UNSIGNED_SHORT;
-      nbytes = 2;
     }
-  nbytes *= nvol;
-  
+
   m_textureSlab = m_Volume->getSliceTextureSizeSlabs();
 
-
-  if (m_dataTexSize > 0)
-    {
-      glDeleteTextures(m_dataTexSize, m_dataTex);
-      delete [] m_dataTex;
-    }
-      
+  deleteDataTextures();
   m_dataTexSize = m_textureSlab.count();
-  if (m_dataTexSize <= 0)
-    return;
+  if (m_dataTexSize < 2)
+    {
+      finishLoading("High-resolution texture does not fit the configured GPU budget", false);
+      return;
+    }
+
+  Vec vsz = m_Volume->getSubvolumeTextureSize();
+  const int hsz = static_cast<int>(vsz.x);
+  const int wsz = static_cast<int>(vsz.y);
+  const int textureLimit = qMax(1, static_cast<int>(Global::max2dTextureSize()));
+  if (hsz <= 0 || wsz <= 0 || hsz > textureLimit || wsz > textureLimit)
+    {
+      finishLoading("High-resolution texture dimensions exceed the OpenGL limit", false);
+      return;
+    }
 			   
   // -- disable screen updates 
   bool uv = Global::updateViewer();
@@ -815,74 +1139,76 @@ DrawHiresVolume::loadTextureMemory()
     {
       Global::disableViewerUpdate();
       MainWindowUI::changeDrishtiIcon(false);
+      viewerUpdateDisabled = true;
     }
 
-  m_dataTex = new GLuint[m_dataTexSize];
+  m_dataTex = new (std::nothrow) GLuint[m_dataTexSize];
+  if (!m_dataTex)
+    {
+      finishLoading("Cannot allocate the texture handle table", false);
+      return;
+    }
+  memset(m_dataTex, 0, static_cast<size_t>(m_dataTexSize)*sizeof(GLuint));
+
+  clearGlErrors();
   glGenTextures(m_dataTexSize, m_dataTex);
+  GLenum glError = glGetError();
+  bool validTextureHandles = (glError == GL_NO_ERROR);
+  for (int i=0; i<m_dataTexSize && validTextureHandles; i++)
+    validTextureHandles = (m_dataTex[i] != 0);
+  if (!validTextureHandles)
+    {
+      const QString message = glError == GL_NO_ERROR ?
+	"OpenGL did not create all texture handles" :
+	glErrorMessage("glGenTextures", glError);
+      finishLoading(message, false);
+      return;
+    }
 
   
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Uploading slices"));
   Global::progressBar()->show();
 
-  
-  {
-    Vec vsz = m_Volume->getSubvolumeTextureSize();
-    int hsz = vsz.x;
-    int wsz = vsz.y;
-    int dsz = vsz.z;
-
-    float lod = m_Volume->getSubvolumeSubsamplingLevel();
-    
-    m_Volume->allocSlabs(m_textureSlab[1].x+1);
-    
-    int zslc = 0;
-    for(int i=1; i<m_dataTexSize; i++)
-      {
-	int startZSlice = m_textureSlab[i].y;
-	int endZSlice = m_textureSlab[i].z;
-	int zslices = endZSlice - startZSlice + 1;
-	uchar *voxelVol = m_Volume->getSubvolumeTextureSlab(startZSlice, endZSlice);
-
-	glActiveTexture(GL_TEXTURE1);
-	glEnable(GL_TEXTURE_2D_ARRAY);
-	glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[i]);
-	glTexImage3D(GL_TEXTURE_2D_ARRAY,
-		     0, // single resolution
-		     internalFormat,
-		     hsz, wsz, zslices/lod,
-		     0, // no border
-		     format,
-		     vtype,
-		     voxelVol);
-	glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-	glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glDisable(GL_TEXTURE_2D_ARRAY);
-	glFinish();
-      }
-  }
-  
-  //---------------------------------------
-  // now load drag texture
-  if (m_dataTexSize > 1)
+  int maxLayerCount = 0;
+  for (int i=1; i<m_dataTexSize; i++)
+    maxLayerCount = qMax(maxLayerCount,
+			 static_cast<int>(m_textureSlab[i].x));
+  if (maxLayerCount <= 0 ||
+      maxLayerCount > Global::maxArrayTextureLayers() ||
+      !m_Volume->allocSlabs(maxLayerCount))
     {
-      uchar *voxelVol = NULL;
-      voxelVol = m_Volume->getDragSubvolumeTexture();
+      finishLoading("Cannot allocate bounded CPU buffers for texture upload", false);
+      return;
+    }
 
-      Vec vsz = m_Volume->getDragSubvolumeTextureSize();
-      int hsz = vsz.x;
-      int wsz = vsz.y;
-      int dsz = vsz.z;
+  for(int i=1; i<m_dataTexSize; i++)
+    {
+      const int startZSlice = static_cast<int>(m_textureSlab[i].y);
+      const int endZSlice = static_cast<int>(m_textureSlab[i].z);
+      const int layerCount = static_cast<int>(m_textureSlab[i].x);
+      if (layerCount <= 0 || layerCount > maxLayerCount)
+	{
+	  finishLoading("Invalid texture slab layer count", false);
+	  return;
+	}
 
+      uchar *voxelVol = m_Volume->getSubvolumeTextureSlab(
+	startZSlice, endZSlice, layerCount);
+      if (!voxelVol)
+	{
+	  finishLoading("CPU decoding failed while preparing a texture slab", false);
+	  return;
+	}
+
+      clearGlErrors();
       glActiveTexture(GL_TEXTURE1);
       glEnable(GL_TEXTURE_2D_ARRAY);
-      glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[0]);
+      glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[i]);
       glTexImage3D(GL_TEXTURE_2D_ARRAY,
 		   0, // single resolution
 		   internalFormat,
-		   hsz, wsz, dsz,
+		   hsz, wsz, layerCount,
 		   0, // no border
 		   format,
 		   vtype,
@@ -892,20 +1218,57 @@ DrawHiresVolume::loadTextureMemory()
       glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       glDisable(GL_TEXTURE_2D_ARRAY);
+
+      glError = glGetError();
+      if (glError != GL_NO_ERROR)
+	{
+	  finishLoading(glErrorMessage("High-resolution texture upload", glError), false);
+	  return;
+	}
+      qApp->processEvents();
     }
 
-  Global::hideProgressBar();
-  MainWindowUI::mainWindowUI()->statusBar->showMessage("Ready");
-
-  m_loadingData = false;
-
-  m_Volume->deleteTextureSlab();
-
-  if (uv)
+  //---------------------------------------
+  // now load drag texture
+  uchar *voxelVol = m_Volume->getDragSubvolumeTexture();
+  Vec dragSize = m_Volume->getDragSubvolumeTextureSize();
+  const int dragWidth = static_cast<int>(dragSize.x);
+  const int dragHeight = static_cast<int>(dragSize.y);
+  const int dragDepth = static_cast<int>(dragSize.z);
+  if (!voxelVol ||
+      dragWidth <= 0 || dragHeight <= 0 || dragDepth <= 0 ||
+      dragWidth > textureLimit || dragHeight > textureLimit ||
+      dragDepth > Global::maxArrayTextureLayers())
     {
-      Global::enableViewerUpdate();
-      MainWindowUI::changeDrishtiIcon(true);
+      finishLoading("Drag texture data is missing or exceeds the OpenGL limit", false);
+      return;
     }
+
+  clearGlErrors();
+  glActiveTexture(GL_TEXTURE1);
+  glEnable(GL_TEXTURE_2D_ARRAY);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[0]);
+  glTexImage3D(GL_TEXTURE_2D_ARRAY,
+	       0, // single resolution
+	       internalFormat,
+	       dragWidth, dragHeight, dragDepth,
+	       0, // no border
+	       format,
+	       vtype,
+	       voxelVol);
+  glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glDisable(GL_TEXTURE_2D_ARRAY);
+  glError = glGetError();
+  if (glError != GL_NO_ERROR)
+    {
+      finishLoading(glErrorMessage("Drag texture upload", glError), false);
+      return;
+    }
+
+  finishLoading("Ready", true);
 }
 
 void DrawHiresVolume::setImageSizeRatio(float ratio) { m_imgSizeRatio = ratio; }
@@ -916,14 +1279,10 @@ DrawHiresVolume::createBlurShader()
   QString shaderString;
   shaderString = ShaderFactory::genBoxShaderString();
 
+  if (!replaceVolumeShader(m_blurShader, shaderString,
+			   QStringLiteral("volume/highres/blur")))
+    return;
 
-  if (m_blurShader)
-    glDeleteObjectARB(m_blurShader);
-
-  m_blurShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_blurShader,
-				  shaderString))
-    exit(0);
   m_blurParm[0] = glGetUniformLocationARB(m_blurShader, "blurTex");
   m_blurParm[1] = glGetUniformLocationARB(m_blurShader, "direc");
   m_blurParm[2] = glGetUniformLocationARB(m_blurShader, "type");
@@ -934,25 +1293,27 @@ DrawHiresVolume::createBackplaneShader(float scale)
 {
   QString shaderString;
 
-  if (m_backplaneShader1)
-    glDeleteObjectARB(m_backplaneShader1);
-  if (m_backplaneShader2)
-    glDeleteObjectARB(m_backplaneShader2);
-
   // --- backplane without texture ---
   shaderString = ShaderFactory::genBackplaneShaderString1(scale);
-  m_backplaneShader1 = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_backplaneShader1,
-				  shaderString))
-    exit(0);
+  if (!replaceVolumeShader(m_backplaneShader1, shaderString,
+			   QStringLiteral("volume/highres/backplane-solid")))
+    {
+      if (m_backplaneShader2)
+	glDeleteObjectARB(m_backplaneShader2);
+      m_backplaneShader2 = 0;
+      return;
+    }
   m_backplaneParm1[0] = glGetUniformLocationARB(m_backplaneShader1, "shadowTex");
 
   // --- backplane with a texture ---
   shaderString = ShaderFactory::genBackplaneShaderString2(scale);
-  m_backplaneShader2 = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_backplaneShader2,
-				  shaderString))
-    exit(0);
+  if (!replaceVolumeShader(m_backplaneShader2, shaderString,
+			   QStringLiteral("volume/highres/backplane-textured")))
+    {
+      glDeleteObjectARB(m_backplaneShader1);
+      m_backplaneShader1 = 0;
+      return;
+    }
   m_backplaneParm2[0] = glGetUniformLocationARB(m_backplaneShader2, "shadowTex");
   m_backplaneParm2[1] = glGetUniformLocationARB(m_backplaneShader2, "bgTex");
 }
@@ -1009,13 +1370,11 @@ DrawHiresVolume::createDefaultShader()
 								 m_amrData);
     }
 
-  if (m_defaultShader)
-    glDeleteObjectARB(m_defaultShader);
+  if (!replaceVolumeShader(m_defaultShader, shaderString,
+			   QStringLiteral("volume/highres/default")))
+    return;
 
-  m_defaultShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_defaultShader,
-				    shaderString))
-    exit(0);
+  m_emptySpaceSkipShaderState = Global::emptySpaceSkip();
 
   m_vertParm[0] = glGetUniformLocationARB(m_defaultShader, "ClipPlane0");
   m_vertParm[1] = glGetUniformLocationARB(m_defaultShader, "ClipPlane1");
@@ -1111,11 +1470,14 @@ DrawHiresVolume::createCopyShader()
     return;
 
   shaderString = ShaderFactory::genCopyShaderString();
-  Global::setCopyShader(glCreateProgramObjectARB());
-  GLhandleARB cs = Global::copyShader();
-  if (! ShaderFactory::loadShader(cs,
-				  shaderString))
-    exit(0);
+  GLhandleARB cs = 0;
+  if (!replaceVolumeShader(cs, shaderString,
+			   QStringLiteral("volume/shared/copy")))
+    {
+      Global::setCopyShader(0);
+      return;
+    }
+  Global::setCopyShader(cs);
 
   GLint copyParm[5];
   copyParm[0] = glGetUniformLocationARB(Global::copyShader(), "shadowTex");
@@ -1131,10 +1493,14 @@ DrawHiresVolume::createReduceShader()
     return;
 
   shaderString = ShaderFactory::genReduceShaderString();
-  Global::setReduceShader(glCreateProgramObjectARB());
-  GLhandleARB cs = Global::reduceShader();
-  if (! ShaderFactory::loadShader(cs, shaderString))
-    exit(0);
+  GLhandleARB cs = 0;
+  if (!replaceVolumeShader(cs, shaderString,
+			   QStringLiteral("volume/shared/reduce")))
+    {
+      Global::setReduceShader(0);
+      return;
+    }
+  Global::setReduceShader(cs);
 
   GLint reduceParm[5];
   reduceParm[0] = glGetUniformLocationARB(Global::reduceShader(), "rtex");
@@ -1151,10 +1517,14 @@ DrawHiresVolume::createExtractSliceShader()
     return;
 
   shaderString = ShaderFactory::genExtractSliceShaderString();
-  Global::setExtractSliceShader(glCreateProgramObjectARB());
-  GLhandleARB cs = Global::extractSliceShader();
-  if (! ShaderFactory::loadShader(cs, shaderString))
-    exit(0);
+  GLhandleARB cs = 0;
+  if (!replaceVolumeShader(cs, shaderString,
+			   QStringLiteral("volume/shared/extract-slice")))
+    {
+      Global::setExtractSliceShader(0);
+      return;
+    }
+  Global::setExtractSliceShader(cs);
 
   GLint extractSliceParm[5];
   extractSliceParm[0] = glGetUniformLocationARB(Global::extractSliceShader(), "atex");
@@ -1165,25 +1535,26 @@ DrawHiresVolume::createExtractSliceShader()
 void
 DrawHiresVolume::createPassThruShader()
 {
-  if (m_passthruShader)
-    glDeleteObjectARB(m_passthruShader);
-
-  if (m_lutShader)
-    glDeleteObjectARB(m_lutShader);
-
   QString shaderString;
 
   shaderString = ShaderFactory::genPassThruShaderString();
-  m_passthruShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_passthruShader,
-				    shaderString))
-    exit(0);
+  if (!replaceVolumeShader(m_passthruShader, shaderString,
+			   QStringLiteral("volume/highres/passthrough")))
+    {
+      if (m_lutShader)
+	glDeleteObjectARB(m_lutShader);
+      m_lutShader = 0;
+      return;
+    }
 
   shaderString = ShaderFactory::genLutShaderString((m_Volume->pvlVoxelType(0) > 0));
-  m_lutShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_lutShader,
-				  shaderString))
-    exit(0);
+  if (!replaceVolumeShader(m_lutShader, shaderString,
+			   QStringLiteral("volume/highres/lut")))
+    {
+      glDeleteObjectARB(m_passthruShader);
+      m_passthruShader = 0;
+      return;
+    }
   m_lutParm[0] = glGetUniformLocationARB(m_lutShader, "lutTex");
   glUniform1iARB(m_lutParm[0], 0); // lutTex
 }
@@ -1191,7 +1562,7 @@ DrawHiresVolume::createPassThruShader()
 void
 DrawHiresVolume::runLutShader(bool flag)
 {
-  if (flag)
+  if (flag && m_lutShader)
     glUseProgramObjectARB(m_lutShader);
   else
     glUseProgramObjectARB(0);
@@ -1642,7 +2013,16 @@ void
 DrawHiresVolume::draw(float stepsize,
 		      bool stillimage)
 {
-  if (m_loadingData)
+  if (m_defaultShader &&
+      m_emptySpaceSkipShaderState != Global::emptySpaceSkip())
+    createDefaultShader();
+
+  if (m_loadingData ||
+      !m_defaultShader || !m_blurShader || !Global::copyShader() ||
+      !m_dofBuffer || !m_dofTex[0] ||
+      !m_shdBuffer || !m_shdTex[0] ||
+      (Global::volumeType() != Global::DummyVolume &&
+       (m_dataTexSize <= 0 || !m_dataTex)))
     return;
 
   if (MainWindowUI::mainWindowUI()->actionRedBlue->isChecked() ||
@@ -2802,6 +3182,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
   VolumeFileManager pFileManager;
   int img2vol_nslices, img2vol_wd, img2vol_ht;  
   uchar *slice = 0;
+  QString image2VolumeError;
   if (m_saveImage2Volume)
     {
       Vec dmin = VECPRODUCT(m_dataMin, voxelScaling);
@@ -2823,6 +3204,15 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       saveReslicedVolume(m_image2VolumeFile,
 			 img2vol_nslices, img2vol_wd, img2vol_ht, pFileManager,
 			 false, Vec(1,1,1), 0);
+      if (!pFileManager.lastError().isEmpty())
+	{
+	  image2VolumeError = volumeFileFailureDetail(
+	    pFileManager, QStringLiteral("cannot create the output volume"));
+	  discardPartialVolume(pFileManager, m_image2VolumeFile);
+	  delete [] slice;
+	  slice = 0;
+	  m_saveImage2Volume = false;
+	}
     }
   //----------------------------------
 
@@ -3188,7 +3578,16 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       if (m_saveImage2Volume)
 	{
 	  glReadPixels(0, 0, img2vol_wd, img2vol_ht, GL_ALPHA, GL_UNSIGNED_BYTE, slice);
-	  pFileManager.setSlice(s, slice);
+	  if (!pFileManager.setSlice(s, slice))
+	    {
+	      image2VolumeError = volumeFileFailureDetail(
+		pFileManager,
+		QStringLiteral("cannot write output slice %1").arg(s));
+	      discardPartialVolume(pFileManager, m_image2VolumeFile);
+	      delete [] slice;
+	      slice = 0;
+	      m_saveImage2Volume = false;
+	    }
 	  glClear(GL_COLOR_BUFFER_BIT);
 	  //glClear(GL_DEPTH_BUFFER_BIT);
 	}
@@ -3250,7 +3649,12 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
       glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
     }
 
-  if (m_saveImage2Volume)
+  if (!image2VolumeError.isEmpty())
+    {
+      reportVolumeFileFailure(QStringLiteral("Image-to-volume export"),
+			      image2VolumeError);
+    }
+  else if (m_saveImage2Volume)
     {
       m_saveImage2Volume = false;
       pFileManager.closeQFile();
@@ -3321,7 +3725,9 @@ void
 DrawHiresVolume::depthOfFieldBlur(int xmin, int xmax, int ymin, int ymax,
 				  int ntimes)
 {
-  if (ntimes < 1) return;
+  if (ntimes < 1 || !m_blurShader || !Global::copyShader() ||
+      !m_dofBuffer || !m_dofTex[0])
+    return;
 
   glDisable(GL_DEPTH_TEST);
 
@@ -3417,6 +3823,13 @@ DrawHiresVolume::screenShadow(int ScreenXMin, int ScreenXMax,
 			      int ScreenYMin, int ScreenYMax,
 			      float tap)
 {
+  if (!m_blurShader || !Global::copyShader() ||
+      !m_shdBuffer || !m_shdTex[0] || !m_dofTex[0])
+    {
+      m_useScreenShadows = false;
+      return;
+    }
+
   StaticFunctions::pushOrthoView(0, 0, m_shadowWidth, m_shadowHeight);
 
   glEnable(GL_BLEND);
@@ -5254,9 +5667,12 @@ DrawHiresVolume::drawBackground()
 
       glColor3dv(Global::backgroundColor());
 
-      enableTextureUnits();
-      glUseProgramObjectARB(Global::copyShader());
-      glUniform1iARB(Global::copyParm(0), 0); // lutTex
+      const GLhandleARB copyShader = Global::copyShader();
+      if (copyShader)
+	enableTextureUnits();
+      glUseProgramObjectARB(copyShader);
+      if (copyShader)
+	glUniform1iARB(Global::copyParm(0), 0); // lutTex
 
       glBegin(GL_QUADS);
 
@@ -5291,6 +5707,14 @@ DrawHiresVolume::resliceVolume(Vec pos,
 			       float subsample,
 			       int getVolumeSurfaceArea, int tagValue)
 {
+  if (!m_defaultShader || m_dataTexSize <= 0 || !m_dataTex)
+    {
+      reportVolumeResourceFailure(
+	QStringLiteral("volume/reslice"),
+	QStringLiteral("the volume shader or texture is unavailable"));
+      return;
+    }
+
   //--- drop perpendiculars onto normal from all 8 vertices of the subvolume 
   Vec box[8];
   box[0] = Vec(m_dataMin.x, m_dataMin.y, m_dataMin.z);
@@ -5425,6 +5849,14 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	  saveReslicedVolume(pFile,
 			     nslices, wd, ht, pFileManager,
 			     true, vs, voxtype);
+	  if (!pFileManager.lastError().isEmpty())
+	    {
+	      const QString detail = volumeFileFailureDetail(
+		pFileManager, QStringLiteral("cannot create the temporary volume"));
+	      discardPartialVolume(pFileManager, pFile);
+	      reportVolumeFileFailure(QStringLiteral("Volume reslice"), detail);
+	      return;
+	    }
 	}
       else
 	{
@@ -5434,6 +5866,14 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	  saveReslicedVolume(pFile,
 			     nslices, wd, ht, pFileManager,
 			     false, vs, voxtype);
+	  if (!pFileManager.lastError().isEmpty())
+	    {
+	      const QString detail = volumeFileFailureDetail(
+		pFileManager, QStringLiteral("cannot create the output volume"));
+	      discardPartialVolume(pFileManager, pFile);
+	      reportVolumeFileFailure(QStringLiteral("Volume reslice"), detail);
+	      return;
+	    }
 	}
 
     }
@@ -5467,9 +5907,19 @@ DrawHiresVolume::resliceVolume(Vec pos,
       // now get the filename
       pFile = getResliceFileName(true);
       if (!pFile.isEmpty())
-	saveReslicedVolume(pFile,
-			   nslices, wd, ht, pFileManager,
-			   false, vs, voxtype);
+	{
+	  saveReslicedVolume(pFile,
+			       nslices, wd, ht, pFileManager,
+			       false, vs, voxtype);
+	  if (!pFileManager.lastError().isEmpty())
+	    {
+	      const QString detail = volumeFileFailureDetail(
+		pFileManager, QStringLiteral("cannot create the border-volume output"));
+	      discardPartialVolume(pFileManager, pFile);
+	      reportVolumeFileFailure(QStringLiteral("Surface-volume reslice"), detail);
+	      return;
+	    }
+	}
       //-----------------------    }
     }
 
@@ -5529,12 +5979,25 @@ DrawHiresVolume::resliceVolume(Vec pos,
     tag = new uchar[wd*ht];
 
   // save slices to shadowbuffer
-  GLuint target = GL_TEXTURE_RECTANGLE_EXT;
   if (m_shadowBuffer) delete m_shadowBuffer;
   glActiveTexture(GL_TEXTURE3);
-  m_shadowBuffer = new QGLFramebufferObject(QSize(wd, ht),
-					    QGLFramebufferObject::NoAttachment,
-					    GL_TEXTURE_RECTANGLE_EXT);
+  m_shadowBuffer = createVolumeFramebuffer(
+    QSize(wd, ht), GL_TEXTURE_RECTANGLE_EXT,
+    QStringLiteral("volume/reslice framebuffer"));
+  if (!m_shadowBuffer)
+    {
+      delete [] slice;
+      if (tightFit) delete [] tslice;
+      delete [] slice0;
+      delete [] slice1;
+      delete [] slice2;
+      delete [] tag;
+      if (!pFile.isEmpty())
+	discardPartialVolume(pFileManager, pFile);
+      glActiveTexture(GL_TEXTURE0);
+      restoreVolumeExportUi();
+      return;
+    }
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shadowBuffer->texture());
 //  if (getVolumeSurfaceArea == 0)
 //    {
@@ -5643,6 +6106,8 @@ DrawHiresVolume::resliceVolume(Vec pos,
   //----------------------------
 
   qint64 nonZeroVoxels=0;
+  bool volumeWriteFailed = false;
+  QString volumeWriteError;
   for(int sl=0; sl<nslices; sl++)
     {
       float sf = (float)sl/(float)(nslices-1);
@@ -5737,7 +6202,15 @@ DrawHiresVolume::resliceVolume(Vec pos,
 	}
 
       if (getVolumeSurfaceArea == 0)
-	pFileManager.setSlice(sl, slice);
+	{
+	  if (!pFileManager.setSlice(sl, slice))
+	    {
+	      volumeWriteFailed = true;
+	      volumeWriteError = volumeFileFailureDetail(
+		pFileManager,
+		QStringLiteral("cannot write resliced volume slice %1").arg(sl));
+	    }
+	}
       else if (getVolumeSurfaceArea == 1) // volume calculation
 	{
 	  for(int p=0; p<wd*ht; p++)
@@ -5751,10 +6224,20 @@ DrawHiresVolume::resliceVolume(Vec pos,
 			       wd, ht,
 			       !pFile.isEmpty(),
 			       pFileManager);
+	  if (!pFile.isEmpty() && !pFileManager.lastError().isEmpty())
+	    {
+	      volumeWriteFailed = true;
+	      volumeWriteError = volumeFileFailureDetail(
+		pFileManager,
+		QStringLiteral("cannot write surface-volume slice %1").arg(sl));
+	    }
 	  
 	  for(int p=0; p<wd*ht; p++)
 	    if (slice2[p] > 0) nonZeroVoxels++;
 	}
+
+      if (volumeWriteFailed)
+	break;
 
       
       //----------------------------
@@ -5814,6 +6297,15 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
   glEnable(GL_DEPTH_TEST);
 
+  if (volumeWriteFailed)
+    {
+      discardPartialVolume(pFileManager, pFile);
+      reportVolumeFileFailure(QStringLiteral("Volume reslice"),
+			      volumeWriteError,
+			      &progress);
+      return;
+    }
+
   //----------------------------
   if (tightFit)
     {
@@ -5831,42 +6323,124 @@ DrawHiresVolume::resliceVolume(Vec pos,
       saveReslicedVolume(newFile,
 			 newd, newh, neww, newManager,
 			 false, vs, voxtype);
-      if (voxtype == 0)
+
+      bool tightFitWriteFailed = !newManager.lastError().isEmpty();
+      QString tightFitWriteError;
+      if (tightFitWriteFailed)
+	tightFitWriteError = volumeFileFailureDetail(
+	  newManager, QStringLiteral("cannot create the tight-fit output volume"));
+
+      const qint64 sourceVoxelCount64 = static_cast<qint64>(wd)*ht;
+      if (!tightFitWriteFailed &&
+	  (sourceVoxelCount64 <= 0 ||
+	   static_cast<quint64>(sourceVoxelCount64) >
+	     static_cast<quint64>(std::numeric_limits<size_t>::max())))
 	{
-	  uchar *slice = new uchar[wd*ht];
-	  for(int sl=zmin; sl<=zmax; sl++)
+	  tightFitWriteFailed = true;
+	  tightFitWriteError = QStringLiteral("source slice size is invalid");
+	}
+
+      if (!tightFitWriteFailed && voxtype == 0)
+	{
+	  const size_t sourceVoxelCount = static_cast<size_t>(sourceVoxelCount64);
+	  uchar *slice = new (std::nothrow) uchar[sourceVoxelCount];
+	  if (!slice)
 	    {
-	      memcpy(slice, pFileManager.getSlice(sl), wd*ht);
+	      tightFitWriteFailed = true;
+	      tightFitWriteError = QStringLiteral("cannot allocate the tight-fit slice buffer");
+	    }
+	  for(int sl=zmin; sl<=zmax && !tightFitWriteFailed; sl++)
+	    {
+	      const uchar *sourceSlice = pFileManager.getSlice(sl);
+	      if (!sourceSlice)
+		{
+		  tightFitWriteFailed = true;
+		  tightFitWriteError = volumeFileFailureDetail(
+		    pFileManager,
+		    QStringLiteral("cannot read temporary slice %1").arg(sl));
+		  break;
+		}
+	      memcpy(slice, sourceSlice, sourceVoxelCount);
 	      for(int y=ymin; y<=ymax; y++)
 		for(int x=xmin; x<=xmax; x++)
 		  slice[(y-ymin)*newh+(x-xmin)] = slice[y*wd+x];
 	  
-	      newManager.setSlice(sl-zmin, slice);
+	      if (!newManager.setSlice(sl-zmin, slice))
+		{
+		  tightFitWriteFailed = true;
+		  tightFitWriteError = volumeFileFailureDetail(
+		    newManager,
+		    QStringLiteral("cannot write tight-fit slice %1").arg(sl-zmin));
+		  break;
+		}
 	      progress.setLabelText(QString("%1").arg(sl-zmin));
 	      progress.setValue(100*(float)(sl-zmin)/(float)newd);
 	    }
+	  delete [] slice;
 	}
-      else
+      else if (!tightFitWriteFailed)
 	{
-	  ushort *slice = new ushort[wd*ht];
-	  for(int sl=zmin; sl<=zmax; sl++)
+	  if (static_cast<quint64>(sourceVoxelCount64) >
+	      static_cast<quint64>(std::numeric_limits<size_t>::max()/sizeof(ushort)))
 	    {
-	      memcpy((uchar*)slice, pFileManager.getSlice(sl), 2*wd*ht);
+	      tightFitWriteFailed = true;
+	      tightFitWriteError = QStringLiteral("16-bit source slice size is too large");
+	    }
+
+	  const size_t sourceVoxelCount = static_cast<size_t>(sourceVoxelCount64);
+	  ushort *slice = tightFitWriteFailed ? 0 :
+	    new (std::nothrow) ushort[sourceVoxelCount];
+	  if (!tightFitWriteFailed && !slice)
+	    {
+	      tightFitWriteFailed = true;
+	      tightFitWriteError = QStringLiteral("cannot allocate the 16-bit tight-fit slice buffer");
+	    }
+	  for(int sl=zmin; sl<=zmax && !tightFitWriteFailed; sl++)
+	    {
+	      const uchar *sourceSlice = pFileManager.getSlice(sl);
+	      if (!sourceSlice)
+		{
+		  tightFitWriteFailed = true;
+		  tightFitWriteError = volumeFileFailureDetail(
+		    pFileManager,
+		    QStringLiteral("cannot read temporary 16-bit slice %1").arg(sl));
+		  break;
+		}
+	      memcpy(reinterpret_cast<uchar*>(slice), sourceSlice,
+		     sourceVoxelCount*sizeof(ushort));
 	      for(int y=ymin; y<=ymax; y++)
 		for(int x=xmin; x<=xmax; x++)
 		  slice[(y-ymin)*newh+(x-xmin)] = slice[y*wd+x];
 	  
-	      newManager.setSlice(sl-zmin, (uchar*)slice);
+	      if (!newManager.setSlice(sl-zmin,
+				       reinterpret_cast<uchar*>(slice)))
+		{
+		  tightFitWriteFailed = true;
+		  tightFitWriteError = volumeFileFailureDetail(
+		    newManager,
+		    QStringLiteral("cannot write tight-fit 16-bit slice %1").arg(sl-zmin));
+		  break;
+		}
 	      progress.setLabelText(QString("%1").arg(sl-zmin));
 	      progress.setValue(100*(float)(sl-zmin)/(float)newd);
 	    }
+	  delete [] slice;
 	}
-      
+
+      pFileManager.removeFile(); // remove temporary file
+
+      if (tightFitWriteFailed)
+	{
+	  discardPartialVolume(newManager, newFile);
+	  reportVolumeFileFailure(QStringLiteral("Tight-fit volume reslice"),
+				  tightFitWriteError,
+				  &progress);
+	  return;
+	}
+
       QMessageBox::information(0, "Saved Resliced Volume",
 			       QString("Resliced volume saved to %1 and %1.001"). \
 			       arg(newFile));
-      
-      pFileManager.removeFile(); // remove temporary file
     }
   //----------------------------
 
@@ -5926,6 +6500,14 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
 				  int subsample, int tagValue)
 
 {
+  if (!m_defaultShader || m_dataTexSize <= 0 || !m_dataTex)
+    {
+      reportVolumeResourceFailure(
+	QStringLiteral("volume/path-reslice"),
+	QStringLiteral("the volume shader or texture is unavailable"));
+      return;
+    }
+
   Vec voxelScaling = Global::voxelScaling();
 
   PathObject po;
@@ -5974,6 +6556,14 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
     return;
   saveReslicedVolume(pFile,
 		     nslices, wd, ht, pFileManager);
+  if (!pFileManager.lastError().isEmpty())
+    {
+      const QString detail = volumeFileFailureDetail(
+	pFileManager, QStringLiteral("cannot create the path-reslice output"));
+      discardPartialVolume(pFileManager, pFile);
+      reportVolumeFileFailure(QStringLiteral("Path volume reslice"), detail);
+      return;
+    }
   bool saveValue = getSaveValue();
 
   if (pFile.isEmpty())
@@ -5985,12 +6575,20 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
     tag = new uchar[wd*ht];
 
   // save slices to shadowbuffer
-  GLuint target = GL_TEXTURE_RECTANGLE_EXT;
   if (m_shadowBuffer) delete m_shadowBuffer;
   glActiveTexture(GL_TEXTURE3);
-  m_shadowBuffer = new QGLFramebufferObject(QSize(wd, ht),
-					    QGLFramebufferObject::NoAttachment,
-					    GL_TEXTURE_RECTANGLE_EXT);
+  m_shadowBuffer = createVolumeFramebuffer(
+    QSize(wd, ht), GL_TEXTURE_RECTANGLE_EXT,
+    QStringLiteral("volume/path-reslice framebuffer"));
+  if (!m_shadowBuffer)
+    {
+      delete [] slice;
+      delete [] tag;
+      discardPartialVolume(pFileManager, pFile);
+      glActiveTexture(GL_TEXTURE0);
+      restoreVolumeExportUi();
+      return;
+    }
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shadowBuffer->texture());
   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_RECTANGLE_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -6075,6 +6673,8 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
   
   glTranslatef(0.0, maxheight/subsample/vlod, 0.0);
 
+  bool pathWriteFailed = false;
+  QString pathWriteError;
   for(int sl=0; sl<nslices; sl++)
     {
       float tk = (float)sl/(float)(nslices-1);
@@ -6178,7 +6778,14 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
 	    }
 	}
 
-      pFileManager.setSlice(nslices-1-sl, slice);
+      if (!pFileManager.setSlice(nslices-1-sl, slice))
+	{
+	  pathWriteFailed = true;
+	  pathWriteError = volumeFileFailureDetail(
+	    pFileManager,
+	    QStringLiteral("cannot write path-reslice slice %1").arg(nslices-1-sl));
+	  break;
+	}
     } // depth slices
 
   m_shadowBuffer->release();
@@ -6200,6 +6807,15 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
 
   glEnable(GL_DEPTH_TEST);
 
+  if (pathWriteFailed)
+    {
+      discardPartialVolume(pFileManager, pFile);
+      reportVolumeFileFailure(QStringLiteral("Path volume reslice"),
+			      pathWriteError,
+			      &progress);
+      return;
+    }
+
   QMessageBox::information(0, "Saved Resliced Volume",
 			   QString("Resliced volume saved to %1 and %1.001").arg(pFile));
 }
@@ -6209,6 +6825,14 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 				       QVector4D vp, float viewportScale, int tfSet,
 				       int subsample, int tagValue)
 {
+  if (!m_defaultShader || m_dataTexSize <= 0 || !m_dataTex)
+    {
+      reportVolumeResourceFailure(
+	QStringLiteral("volume/clip-reslice"),
+	QStringLiteral("the volume shader or texture is unavailable"));
+      return;
+    }
+
   Vec voxelScaling = Global::voxelScaling();
 
   Vec normal= Vec(0,0,-1);
@@ -6252,6 +6876,14 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 	return;
       saveReslicedVolume(pFile,
 			 nslices, wd, ht, pFileManager);
+      if (!pFileManager.lastError().isEmpty())
+	{
+	  const QString detail = volumeFileFailureDetail(
+	    pFileManager, QStringLiteral("cannot create the clip-reslice output"));
+	  discardPartialVolume(pFileManager, pFile);
+	  reportVolumeFileFailure(QStringLiteral("Clip-plane volume reslice"), detail);
+	  return;
+	}
       saveValue = getSaveValue();
     }
   
@@ -6261,12 +6893,21 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
     tag = new uchar[wd*ht];
 
   // save slices to shadowbuffer
-  GLuint target = GL_TEXTURE_RECTANGLE_EXT;
   if (m_shadowBuffer) delete m_shadowBuffer;
   glActiveTexture(GL_TEXTURE3);
-  m_shadowBuffer = new QGLFramebufferObject(QSize(wd, ht),
-					    QGLFramebufferObject::NoAttachment,
-					    GL_TEXTURE_RECTANGLE_EXT);
+  m_shadowBuffer = createVolumeFramebuffer(
+    QSize(wd, ht), GL_TEXTURE_RECTANGLE_EXT,
+    QStringLiteral("volume/clip-reslice framebuffer"));
+  if (!m_shadowBuffer)
+    {
+      delete [] slice;
+      delete [] tag;
+      if (nslices > 1)
+	discardPartialVolume(pFileManager, pFile);
+      glActiveTexture(GL_TEXTURE0);
+      restoreVolumeExportUi();
+      return;
+    }
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_shadowBuffer->texture());
   if (nslices > 1)
     {
@@ -6359,6 +7000,8 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   glClearColor(0,0,0,0);
   
   qint64 nonZeroVoxels=0;
+  bool clipWriteFailed = false;
+  QString clipWriteError;
   for(int sl=0; sl<nslices; sl++)
     {
       float sf;
@@ -6452,7 +7095,16 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 	    if (slice[p] > 0) nonZeroVoxels++;
 	}
       else
-	pFileManager.setSlice(sl, slice);
+	{
+	  if (!pFileManager.setSlice(sl, slice))
+	    {
+	      clipWriteFailed = true;
+	      clipWriteError = volumeFileFailureDetail(
+		pFileManager,
+		QStringLiteral("cannot write clip-reslice slice %1").arg(sl));
+	      break;
+	    }
+	}
     }
 
   m_shadowBuffer->release();
@@ -6506,6 +7158,15 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
   m_shadowBuffer = 0;
 
   glEnable(GL_DEPTH_TEST);
+
+  if (clipWriteFailed)
+    {
+      discardPartialVolume(pFileManager, pFile);
+      reportVolumeFileFailure(QStringLiteral("Clip-plane volume reslice"),
+			      clipWriteError,
+			      &progress);
+      return;
+    }
 
   if (nslices == 1)
     {
@@ -6634,7 +7295,11 @@ DrawHiresVolume::saveReslicedVolume(QString pFile,
     pFileManager.setVoxelType(VolumeInformation::_UChar);
   else
     pFileManager.setVoxelType(VolumeInformation::_UShort);
-  pFileManager.createFile(true);
+  if (!pFileManager.createFile(true))
+    {
+      QFile::remove(pFile);
+      return;
+    }
   
   
   if (!tmpfile)
@@ -6761,7 +7426,10 @@ DrawHiresVolume::calculateSurfaceArea(int neighbours,
       memcpy(slice0, slice, wd*ht);
       memcpy(slice1, slice, wd*ht);
       if (pFilePresent)
-	pFileManager.setSlice(sl, slice2);
+	{
+	  if (!pFileManager.setSlice(sl, slice2))
+	    return;
+	}
     }
   else if (sl==1)
     {
@@ -6861,11 +7529,13 @@ DrawHiresVolume::calculateSurfaceArea(int neighbours,
 
       if (pFilePresent)
 	{
-	  pFileManager.setSlice(sl-1, slice2);
+	  if (!pFileManager.setSlice(sl-1, slice2))
+	    return;
 	  if (sl == nslices-1)
 	    {
 	      memset(slice2, 0, wd*ht);
-	      pFileManager.setSlice(sl, slice2);
+	      if (!pFileManager.setSlice(sl, slice2))
+		return;
 	    }
 	}
       
@@ -6875,10 +7545,34 @@ DrawHiresVolume::calculateSurfaceArea(int neighbours,
 
 }
 
-void
+bool
 DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
 {
+  if (sfile.isEmpty() || !m_dataTex || m_dataTexSize != 2 ||
+      m_dataTex[1] == 0 || m_textureSlab.count() != m_dataTexSize)
+    return false;
+
+  const Vec textureSize = m_Volume->getSubvolumeTextureSize();
+  const int hsz = static_cast<int>(textureSize.x);
+  const int wsz = static_cast<int>(textureSize.y);
+  const int dsz = static_cast<int>(textureSize.z);
+  if (hsz <= 0 || wsz <= 0 || dsz <= 0 ||
+      static_cast<int>(m_textureSlab[1].x) != dsz)
+    return false;
+
+  qint64 nbytes = hsz;
+  if (nbytes > std::numeric_limits<qint64>::max()/wsz)
+    return false;
+  nbytes *= wsz;
+  if (nbytes > std::numeric_limits<qint64>::max()/dsz ||
+      static_cast<quint64>(nbytes*dsz) >
+      static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    return false;
+  nbytes *= dsz;
+
   fstream fout(sfile.toUtf8().data(), ios::binary|ios::out);
+  if (!fout.is_open())
+    return false;
 
   char keyword[100];
 
@@ -6964,7 +7658,7 @@ DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
 
   sprintf(keyword, "subvolumetexturesize");
   fout.write((char*)keyword, strlen(keyword)+1);
-  Vec vsz = m_Volume->getSubvolumeTextureSize();
+  Vec vsz = textureSize;
   f[0] = vsz.x;
   f[1] = vsz.y;
   f[2] = vsz.z;
@@ -6973,12 +7667,9 @@ DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
   //---------------------------
   glActiveTexture(GL_TEXTURE1);
   glEnable(GL_TEXTURE_2D_ARRAY);
-  int hsz = vsz.x;
-  int wsz = vsz.y;
-  int dsz = vsz.z;
-  qint64 nbytes = hsz*wsz;
-  nbytes *= dsz;
-  uchar *imgData = new uchar[nbytes];
+  uchar *imgData = new (std::nothrow) uchar[static_cast<size_t>(nbytes)];
+  if (!imgData)
+    return false;
   sprintf(keyword, "texturearray");
   fout.write((char*)keyword, strlen(keyword)+1);
   fout.write((char*)&hsz, sizeof(int));
@@ -6990,6 +7681,13 @@ DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
 		GL_RED,
 		GL_UNSIGNED_BYTE,
 		imgData);
+  const GLenum readError = glGetError();
+  if (readError != GL_NO_ERROR)
+    {
+      delete [] imgData;
+      glDisable(GL_TEXTURE_2D_ARRAY);
+      return false;
+    }
   fout.write((char *)imgData, nbytes);
   delete [] imgData;
   glDisable(GL_TEXTURE_2D_ARRAY);	    
@@ -6997,6 +7695,7 @@ DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
 
   sprintf(keyword, "enddrishtiprayog");
   fout.write((char*)keyword, strlen(keyword)+1);
+  return fout.good();
 }
 
 Vec

@@ -9,7 +9,7 @@ class RemapHistogramLine : public QObject
  Q_OBJECT
 
  public :
-  RemapHistogramLine();
+  explicit RemapHistogramLine(QObject *parent=NULL);
 
   bool grabsMouse();
 
@@ -25,6 +25,7 @@ class RemapHistogramLine : public QObject
   QList<float> ticksOriginal();
 
   void setKeepEndsFixed(bool);
+  void resetTicks();
 
   void addTick(float);
   void moveTick(int, float);

@@ -10,8 +10,264 @@
 
 #include <QTextEdit>
 #include <QVBoxLayout>
+#include <QDebug>
+#include <QDialog>
+#include <QHash>
+#include <QMessageBox>
+#include <QRegularExpression>
+#include <QSet>
 
-QList<GLuint> ShaderFactory::m_shaderList;
+namespace
+{
+QHash<GLuint, QList<GLuint> > pendingShaders;
+QHash<GLuint, QStringList> pendingShaderLabels;
+QHash<GLuint, QStringList> pendingShaderSources;
+
+QString sourceWithoutComments(const QString &source)
+{
+  QString code;
+  code.reserve(source.size());
+  bool lineComment = false;
+  bool blockComment = false;
+
+  for (int i=0; i<source.size(); ++i)
+    {
+      const QChar c = source.at(i);
+      const QChar next = (i+1 < source.size() ? source.at(i+1) : QChar());
+
+      if (lineComment)
+        {
+          if (c == '\n')
+            {
+              lineComment = false;
+              code += c;
+            }
+          else
+            code += ' ';
+          continue;
+        }
+
+      if (blockComment)
+        {
+          if (c == '*' && next == '/')
+            {
+              blockComment = false;
+              code += "  ";
+              ++i;
+            }
+          else
+            code += (c == '\n' ? '\n' : ' ');
+          continue;
+        }
+
+      if (c == '/' && next == '/')
+        {
+          lineComment = true;
+          code += "  ";
+          ++i;
+        }
+      else if (c == '/' && next == '*')
+        {
+          blockComment = true;
+          code += "  ";
+          ++i;
+        }
+      else
+        code += c;
+    }
+
+  return code;
+}
+
+bool usesLegacyBuiltins(const QString &source)
+{
+  QSet<QString> legacy;
+  legacy << "attribute" << "varying" << "ftransform"
+         << "gl_Vertex" << "gl_Normal" << "gl_Color"
+         << "gl_SecondaryColor" << "gl_FogCoord"
+         << "gl_MultiTexCoord0" << "gl_MultiTexCoord1"
+         << "gl_MultiTexCoord2" << "gl_MultiTexCoord3"
+         << "gl_MultiTexCoord4" << "gl_MultiTexCoord5"
+         << "gl_MultiTexCoord6" << "gl_MultiTexCoord7"
+         << "gl_ModelViewMatrix" << "gl_ModelViewMatrixInverse"
+         << "gl_ModelViewMatrixTranspose" << "gl_ModelViewMatrixInverseTranspose"
+         << "gl_ProjectionMatrix" << "gl_ProjectionMatrixInverse"
+         << "gl_ProjectionMatrixTranspose" << "gl_ProjectionMatrixInverseTranspose"
+         << "gl_ModelViewProjectionMatrix" << "gl_ModelViewProjectionMatrixInverse"
+         << "gl_ModelViewProjectionMatrixTranspose"
+         << "gl_ModelViewProjectionMatrixInverseTranspose"
+         << "gl_TextureMatrix" << "gl_TextureMatrixInverse"
+         << "gl_TextureMatrixTranspose" << "gl_TextureMatrixInverseTranspose"
+         << "gl_NormalMatrix" << "gl_NormalScale" << "gl_ClipPlane"
+         << "gl_Point" << "gl_FrontMaterial" << "gl_BackMaterial"
+         << "gl_LightSource" << "gl_LightModel"
+         << "gl_FrontLightModelProduct" << "gl_BackLightModelProduct"
+         << "gl_FrontLightProduct" << "gl_BackLightProduct"
+         << "gl_TextureEnvColor" << "gl_EyePlaneS" << "gl_EyePlaneT"
+         << "gl_EyePlaneR" << "gl_EyePlaneQ" << "gl_ObjectPlaneS"
+         << "gl_ObjectPlaneT" << "gl_ObjectPlaneR" << "gl_ObjectPlaneQ"
+         << "gl_Fog" << "gl_FrontColor" << "gl_BackColor"
+         << "gl_FrontSecondaryColor" << "gl_BackSecondaryColor"
+         << "gl_TexCoord" << "gl_FogFragCoord" << "gl_ClipVertex"
+         << "gl_FragColor" << "gl_FragData"
+         << "texture1D" << "texture1DProj" << "texture1DLod"
+         << "texture1DProjLod" << "texture2D" << "texture2DProj"
+         << "texture2DLod" << "texture2DProjLod" << "texture3D"
+         << "texture3DProj" << "texture3DLod" << "texture3DProjLod"
+         << "textureCube" << "textureCubeLod" << "texture2DRect"
+         << "texture2DRectProj" << "shadow1D" << "shadow1DProj"
+         << "shadow1DLod" << "shadow1DProjLod" << "shadow2D"
+         << "shadow2DProj" << "shadow2DLod" << "shadow2DProjLod"
+         << "shadow2DRect" << "shadow2DRectProj";
+
+  const QString code = sourceWithoutComments(source);
+  for (int i=0; i<code.size(); )
+    {
+      if (!(code.at(i).isLetter() || code.at(i) == '_'))
+        {
+          ++i;
+          continue;
+        }
+
+      const int start = i++;
+      while (i<code.size() && (code.at(i).isLetterOrNumber() || code.at(i) == '_'))
+        ++i;
+
+      if (legacy.contains(code.mid(start, i-start)))
+        return true;
+    }
+
+  return false;
+}
+
+QString normalizedShaderSource(QString source)
+{
+  if (!usesLegacyBuiltins(source))
+    return source;
+
+  const QRegularExpression versionCore(
+    "(^|\\n)([ \\t\\x{FEFF}]*#[ \\t]*version[ \\t]+[0-9]+)[ \\t]+core\\b");
+  const QRegularExpressionMatch match = versionCore.match(sourceWithoutComments(source));
+  if (match.hasMatch())
+    source.replace(match.capturedStart(), match.capturedLength(),
+                   match.captured(1) + match.captured(2) + " compatibility");
+
+  return source;
+}
+
+QString shaderLabel(const QString &stage, const QString &source)
+{
+  QString canonicalSource = source;
+  canonicalSource.replace("\r\n", "\n");
+  canonicalSource.replace('\r', '\n');
+  const QByteArray bytes = canonicalSource.toUtf8();
+  quint32 hash = 2166136261u;
+  for (int i=0; i<bytes.size(); ++i)
+    {
+      hash ^= static_cast<unsigned char>(bytes.at(i));
+      hash *= 16777619u;
+    }
+
+  return QString("drishti/%1-%2").arg(stage).arg(hash, 8, 16, QLatin1Char('0'));
+}
+
+QString shaderTypeName(GLenum shaderType)
+{
+  if (shaderType == GL_VERTEX_SHADER) return "vertex";
+  if (shaderType == GL_FRAGMENT_SHADER) return "fragment";
+  if (shaderType == GL_GEOMETRY_SHADER) return "geometry";
+#ifdef GL_TESS_CONTROL_SHADER
+  if (shaderType == GL_TESS_CONTROL_SHADER) return "tess-control";
+  if (shaderType == GL_TESS_EVALUATION_SHADER) return "tess-evaluation";
+#endif
+#ifdef GL_COMPUTE_SHADER
+  if (shaderType == GL_COMPUTE_SHADER) return "compute";
+#endif
+  return QString("type-%1").arg(shaderType);
+}
+
+QString numberedSource(const QString &source)
+{
+  QString numbered;
+  const QStringList lines = source.split('\n');
+  for (int i=0; i<lines.size(); ++i)
+    numbered += QString("%1 : %2\n").arg(i+1).arg(lines.at(i));
+  return numbered;
+}
+
+QString shaderInfoLog(GLuint shader)
+{
+  GLint size = 0;
+  glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &size);
+  if (size <= 1)
+    return "(driver returned no shader info log)";
+
+  QByteArray buffer(size, '\0');
+  GLsizei written = 0;
+  glGetShaderInfoLog(shader, size, &written, buffer.data());
+  buffer.resize(qMax(0, static_cast<int>(written)));
+  return QString::fromLatin1(buffer.constData(), buffer.size());
+}
+
+QString programInfoLog(GLuint program)
+{
+  GLint size = 0;
+  glGetProgramiv(program, GL_INFO_LOG_LENGTH, &size);
+  if (size <= 1)
+    return "(driver returned no program info log)";
+
+  QByteArray buffer(size, '\0');
+  GLsizei written = 0;
+  glGetProgramInfoLog(program, size, &written, buffer.data());
+  buffer.resize(qMax(0, static_cast<int>(written)));
+  return QString::fromLatin1(buffer.constData(), buffer.size());
+}
+
+void showShaderDiagnostic(const QString &title,
+                          const QString &label,
+                          const QString &log,
+                          const QString &source = QString())
+{
+  QString diagnostic = QString("Shader: %1\n\nDriver log:\n%2").arg(label, log);
+  if (!source.isEmpty())
+    diagnostic += "\n\nSource:\n" + numberedSource(source);
+
+  qCritical().noquote() << diagnostic;
+
+  QDialog dialog;
+  dialog.setWindowTitle(title);
+  dialog.resize(900, 600);
+  QVBoxLayout *layout = new QVBoxLayout(&dialog);
+  QTextEdit *editor = new QTextEdit(&dialog);
+  editor->setReadOnly(true);
+  editor->setPlainText(diagnostic);
+  layout->addWidget(editor);
+  dialog.exec();
+}
+
+void releasePendingShaders(GLuint program)
+{
+  const QList<GLuint> shaders = pendingShaders.take(program);
+  pendingShaderLabels.remove(program);
+  pendingShaderSources.remove(program);
+  for (int i=0; i<shaders.size(); ++i)
+    {
+      if (program)
+        glDetachShader(program, shaders.at(i));
+      glDeleteShader(shaders.at(i));
+    }
+}
+
+void discardProgram(GLuint &program)
+{
+  if (!program)
+    return;
+
+  releasePendingShaders(program);
+  glDeleteProgram(program);
+  program = 0;
+}
+}
 
 QString
 ShaderFactory::tagVolume()
@@ -101,7 +357,7 @@ ShaderFactory::ggxShader()
 }
 
 bool
-ShaderFactory::loadShader(GLhandleARB &progObj,
+ShaderFactory::loadShader(GLuint &progObj,
 			  QString fragShaderString)
 {
     QString vertShaderString;
@@ -132,12 +388,7 @@ ShaderFactory::loadShader(GLhandleARB &progObj,
 #endif
     vertShaderString += "}\n";
 
-    if (loadShader(progObj, vertShaderString, fragShaderString))
-      return true;
-
-    
-    QMessageBox::information(0, "", "Cannot load shaders");
-    return false;
+    return loadShader(progObj, vertShaderString, fragShaderString);
   
 
 
@@ -1772,8 +2023,10 @@ GLint* ShaderFactory::meshShaderParm() { return &m_meshShaderParm[0]; }
 GLuint ShaderFactory::m_meshShader = 0;
 GLuint ShaderFactory::meshShader()
 {
-  if (!m_meshShader)
+  static bool creationAttempted = false;
+  if (!m_meshShader && !creationAttempted)
     {
+      creationAttempted = true;
       m_meshShader = glCreateProgram();
       QString vertShaderString = meshShaderV();
       QString fragShaderString = meshShaderF();
@@ -1784,7 +2037,7 @@ GLuint ShaderFactory::meshShader()
 
       if (!ok)
 	{
-	  QMessageBox::information(0, "", "Cannot load mesh shaders");
+	  qWarning() << "Mesh shader is unavailable; mesh rendering is disabled";
 	  return 0;
 	}
 	
@@ -2083,8 +2336,10 @@ GLint* ShaderFactory::meshShadowShaderParm() { return &m_meshShadowShaderParm[0]
 GLuint ShaderFactory::m_meshShadowShader = 0;
 GLuint ShaderFactory::meshShadowShader()
 {
-  if (!m_meshShadowShader)
+  static bool creationAttempted = false;
+  if (!m_meshShadowShader && !creationAttempted)
     {
+      creationAttempted = true;
       m_meshShadowShader = glCreateProgram();
       QString vertShaderString = meshShadowShaderV();
       QString fragShaderString = meshShadowShaderF();
@@ -2095,7 +2350,7 @@ GLuint ShaderFactory::meshShadowShader()
 
       if (!ok)
 	{
-	  QMessageBox::information(0, "", "Cannot load mesh shadow shaders");
+	  qWarning() << "Mesh shadow shader is unavailable; using basic mesh rendering";
 	  return 0;
 	}
 	
@@ -3256,101 +3511,85 @@ ShaderFactory::noise3d()
 
 
 bool
-ShaderFactory::addShader(GLuint shaderProg,
+ShaderFactory::addShader(GLuint &shaderProg,
 			 GLenum shaderType,
 			 QString shaderString)
 {
-  GLuint shaderObj = glCreateShader(shaderType);  
+  shaderString = normalizedShaderSource(shaderString);
+  const QString label = shaderLabel(shaderTypeName(shaderType), shaderString);
 
-  if (shaderObj == 0) {
-    QMessageBox::information(0, "Error", QString("Error creating shader type %1").\
-			     arg(shaderType));
-    return false;
-  }
+  if (!shaderProg)
+    {
+      showShaderDiagnostic("Shader creation failed", label,
+                           "Cannot attach a shader to program 0.", shaderString);
+      return false;
+    }
 
-  int len = shaderString.length();
-  char *tbuffer = new char[len+1];
-  sprintf(tbuffer, shaderString.toLatin1().data());
-  const char *sstr = tbuffer;
-  glShaderSource(shaderObj, 1, &sstr, NULL);
-  delete [] tbuffer;
+  const GLuint shaderObj = glCreateShader(shaderType);
+  if (!shaderObj)
+    {
+      showShaderDiagnostic("Shader creation failed", label,
+                           QString("glCreateShader(%1) returned 0.").arg(shaderType),
+                           shaderString);
+      discardProgram(shaderProg);
+      return false;
+    }
 
+  const QByteArray sourceBytes = shaderString.toLatin1();
+  const char *source = sourceBytes.constData();
+  const GLint sourceLength = sourceBytes.size();
+  glShaderSource(shaderObj, 1, &source, &sourceLength);
   glCompileShader(shaderObj);
 
-  GLint success;
-  glGetShaderiv(shaderObj, GL_COMPILE_STATUS, &success);
-
-  if (!success)
+  GLint compiled = GL_FALSE;
+  glGetShaderiv(shaderObj, GL_COMPILE_STATUS, &compiled);
+  if (compiled != GL_TRUE)
     {
-	GLcharARB str[1024];
-	GLsizei len;
-	glGetInfoLogARB(shaderObj,
-			(GLsizei) 1024,
-			&len,
-			str);
-	
-	QString estr;
-	QStringList slist = shaderString.split("\n");
-	for(int i=0; i<slist.count(); i++)
-	  estr += QString("%1 : %2\n").arg(i+1).arg(slist[i]);
-	
-	QTextEdit *tedit = new QTextEdit();
-	tedit->insertPlainText("-------------Error----------------\n\n");
-	tedit->insertPlainText(str);
-	tedit->insertPlainText("\n-----------Shader---------------\n\n");
-	tedit->insertPlainText(estr);
-	
-	QVBoxLayout *layout = new QVBoxLayout();
-	layout->addWidget(tedit);
-	
-	QDialog *showError = new QDialog();
-	showError->setWindowTitle("Error in Shader");
-	showError->setSizeGripEnabled(true);
-	showError->setModal(true);
-	showError->setLayout(layout);
-	showError->exec();
-	return false;
+      const QString log = shaderInfoLog(shaderObj);
+      glDeleteShader(shaderObj);
+      showShaderDiagnostic("Shader compilation failed", label, log, shaderString);
+      discardProgram(shaderProg);
+      return false;
     }
 
   glAttachShader(shaderProg, shaderObj);
-
-  m_shaderList << shaderObj;
-  
+  pendingShaders[shaderProg] << shaderObj;
+  pendingShaderLabels[shaderProg] << label;
+  pendingShaderSources[shaderProg] << shaderString;
   return true;
 }
 
 bool
-ShaderFactory::finalize(GLuint shaderProg)
+ShaderFactory::finalize(GLuint &shaderProg)
 {
-  GLint linked = -1;
+  if (!shaderProg)
+    return false;
+
+  QString label = pendingShaderLabels.value(shaderProg).join(" + ");
+  if (label.isEmpty())
+    label = "drishti/program-unknown";
 
   glLinkProgram(shaderProg);
 
+  GLint linked = GL_FALSE;
   glGetProgramiv(shaderProg, GL_LINK_STATUS, &linked);
-
-  if (!linked)
+  if (linked != GL_TRUE)
     {
-      GLcharARB str[1024];
-      GLsizei len;
-      QMessageBox::information(0,
-			       "ProgObj",
-			       "error linking texProgObj");
-      glGetInfoLogARB(shaderProg,
-		      (GLsizei) 1024,
-		      &len,
-		      str);
-      QMessageBox::information(0,
-			       "Error",
-			       QString("%1\n%2").arg(len).arg(str));
+      const QString log = programInfoLog(shaderProg);
+      QString sources;
+      const QStringList labels = pendingShaderLabels.value(shaderProg);
+      const QStringList shaderSources = pendingShaderSources.value(shaderProg);
+      for (int i=0; i<shaderSources.size(); ++i)
+        {
+          const QString sourceLabel = (i<labels.size() ? labels.at(i) : "shader");
+          sources += "// " + sourceLabel + "\n" + shaderSources.at(i) + "\n";
+        }
+      showShaderDiagnostic("Shader link failed", label, log, sources);
+      discardProgram(shaderProg);
       return false;
     }
 
-
-  for(int i=0; i<m_shaderList.count(); i++)
-    glDeleteShader(m_shaderList[i]);
-
-  m_shaderList.clear();
-
+  releasePendingShaders(shaderProg);
   return true;
 }
 
@@ -3362,16 +3601,11 @@ ShaderFactory::loadShaderFromFile(GLuint obj, QString filename)
   if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
     return false;
 
-  QByteArray lines = file.readAll();
-
-  int len = lines.count(); 
-  char *source = new char[len+1];
-  sprintf(source, lines.constData());
- 
-  const char *sstr = source;
-  glShaderSourceARB(obj, 1, &sstr, NULL);
-
-  delete [] source;
+  const QString shaderString = normalizedShaderSource(QString::fromLatin1(file.readAll()));
+  const QByteArray sourceBytes = shaderString.toLatin1();
+  const char *source = sourceBytes.constData();
+  const GLint sourceLength = sourceBytes.size();
+  glShaderSource(obj, 1, &source, &sourceLength);
 
   return true;
 }
@@ -3402,13 +3636,21 @@ ShaderFactory::loadShadersFromFile(GLuint &progObj,
 {
   QFile vfile(vertShader);
   if (!vfile.open(QIODevice::ReadOnly | QIODevice::Text))
-    return false;
+    {
+      qCritical().noquote() << "Cannot open vertex shader file:" << vertShader;
+      discardProgram(progObj);
+      return false;
+    }
   QString vertShaderString = QString::fromLatin1(vfile.readAll());
 
 
   QFile ffile(fragShader);
   if (!ffile.open(QIODevice::ReadOnly | QIODevice::Text))
-    return false;
+    {
+      qCritical().noquote() << "Cannot open fragment shader file:" << fragShader;
+      discardProgram(progObj);
+      return false;
+    }
   QString fragShaderString = QString::fromLatin1(ffile.readAll());
   
   return loadShader(progObj,
@@ -3416,50 +3658,3 @@ ShaderFactory::loadShadersFromFile(GLuint &progObj,
 		    fragShaderString);  
 }
 //-----------------
-
-
-
-
-//---------------
-GLuint ShaderFactory::m_paintShader = 0;
-GLuint ShaderFactory::paintShader()
-{
-  if (!m_paintShader)
-    createPaintShader();
-  
-  return m_paintShader;
-}
-
-GLint ShaderFactory::m_paintShaderParm[10];
-GLint* ShaderFactory::paintShaderParm() { return &m_paintShaderParm[0]; }
-
-void
-ShaderFactory::createPaintShader()
-{
-  m_paintShader = glCreateProgram();
-
-
-  QFile pfile("assets/shaders/paintShader.glsl");
-  if (!pfile.open(QIODevice::ReadOnly | QIODevice::Text))
-    return;
-  QString computeShaderString = QString::fromLatin1(pfile.readAll());
-
-  if (!addShader(m_paintShader,
-		 GL_COMPUTE_SHADER,
-		 computeShaderString))
-    return;
-
-  
-  if (! finalize(m_paintShader) )
-    return;
-  
-  m_paintShaderParm[0] = glGetUniformLocation(m_paintShader, "hitPt");
-  m_paintShaderParm[1] = glGetUniformLocation(m_paintShader, "radius");
-  m_paintShaderParm[2] = glGetUniformLocation(m_paintShader, "hitColor");
-  m_paintShaderParm[3] = glGetUniformLocation(m_paintShader, "blendType");
-  m_paintShaderParm[4] = glGetUniformLocation(m_paintShader, "blendFraction");
-  m_paintShaderParm[5] = glGetUniformLocation(m_paintShader, "blendOctave");
-  m_paintShaderParm[6] = glGetUniformLocation(m_paintShader, "bmin");
-  m_paintShaderParm[7] = glGetUniformLocation(m_paintShader, "blen");
-}
-//---------------

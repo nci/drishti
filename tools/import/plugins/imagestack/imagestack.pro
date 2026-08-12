@@ -1,6 +1,6 @@
 TEMPLATE = lib
 
-QT += xml
+QT += xml concurrent
 
 CONFIG += release plugin
 
@@ -10,9 +10,13 @@ include(../plugins.pri)
 
 INCLUDEPATH += ../../
 
-HEADERS = volumefilemanager.h \
-	  imagestackplugin.h
+HEADERS = imagestackplugin.h \
+	  imagestackpixelconversion.h \
+	  ../../tiffinputrouting.h \
+	  ../../volumefilemanager.h \
+	  ../../importmemoryadmission.h
 
 SOURCES = imagestackplugin.cpp \
-	  volumefilemanager.cpp
+	  ../../volumefilemanager.cpp \
+	  ../../importmemoryadmission.cpp
 

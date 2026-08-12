@@ -27,6 +27,8 @@ class Viewer : public QGLViewer
 
   void init();
   void draw();
+  bool rendererReady() const { return m_rendererReady; }
+  QString rendererError() const { return m_rendererError; }
 
   void setGridSize(int, int, int);
 
@@ -124,8 +126,8 @@ class Viewer : public QGLViewer
     void stopDrawing();
     void startDrawing();
 
- private slots :
-      void createRaycastShader();
+  private slots :
+      bool createRaycastShader();
 
  signals :
     void checkFileSave();
@@ -206,6 +208,13 @@ class Viewer : public QGLViewer
   Ui::ViewerMenu *m_UI;
 
   bool m_glewInitdone;
+  bool m_rendererReady;
+  bool m_rendererInitAttempted;
+  bool m_rendererInitialising;
+  bool m_raycastShaderReady;
+  bool m_raycastShaderFailureLatched;
+  QString m_failedRaycastShaderSource;
+  QString m_rendererError;
   bool m_draw;
 
   BoundingBox m_boundingBox;
@@ -336,7 +345,9 @@ class Viewer : public QGLViewer
 
   void drawWireframeBox();
 
-  void updateVoxelsForRaycast();
+  bool updateVoxelsForRaycast();
+  void releaseVolumeTextures();
+  void failVolumeTextureUpdate(const QString&);
   void raycasting();
 
   void drawEnclosingCube(Vec, Vec);
@@ -344,8 +355,12 @@ class Viewer : public QGLViewer
 
   bool clip(int, int, int);
 
-  void createShaders();
-  void createFBO();
+  bool createShaders();
+  bool createFBO();
+  void cleanupRendererResources();
+  void failRenderer(const QString&);
+  void paintRendererError();
+  virtual void paintEvent(QPaintEvent*);
 
   void drawInfo();
 

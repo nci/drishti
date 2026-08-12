@@ -4,6 +4,15 @@
 #include <QCoreApplication>
 #include <QAction>
 
+namespace
+{
+const int c_minimumTextureMemoryMB = 128;
+const int c_maximumTextureMemoryMB = 512;
+const int c_minimumTextureSizePower = 20; // 1 MiB
+const int c_maximumTextureSizePower = 30; // 1 GiB
+const int c_maximumArrayTextureLayers = 16384;
+}
+
 QString Global::DrishtiVersion() { return QString(DRISHTI_VERSION); }
 
 bool Global::m_prayogMode = false;
@@ -83,28 +92,51 @@ float Global::texSizeReduceFraction() { return m_texSizeReduceFraction; }
 GLint
 Global::max2dTextureSize()
 {
-  GLint texSize;
-  glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB, &texSize);
+  GLint textureSize = 0;
+  GLint rectangleTextureSize = 0;
+  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &textureSize);
+  glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE_ARB, &rectangleTextureSize);
 
- // restrict max 2D texturesize to 8K
-  texSize = qMin(8192, texSize);
+  GLint hardwareLimit = textureSize;
+  if (rectangleTextureSize > 0)
+    hardwareLimit = hardwareLimit > 0 ?
+      qMin(hardwareLimit, rectangleTextureSize) : rectangleTextureSize;
+  hardwareLimit = qMax<GLint>(1, hardwareLimit);
 
-  // but if the user wants to modify it, so be it
-  return texSize*m_texSizeReduceFraction;
-  //return texSize;
+  const GLint defaultLimit = qMin<GLint>(8192, hardwareLimit);
+  const GLint requestedLimit = qMax<GLint>(
+    1, static_cast<GLint>(defaultLimit*m_texSizeReduceFraction));
+  return qMin(hardwareLimit, requestedLimit);
 }
 
 int Global::m_textureSize = 25; // 512x256x256 (9+8+8)
 int Global::textureSize() {return m_textureSize;}
-void Global::setTextureSize(int sz) {m_textureSize = sz;}
+void Global::setTextureSize(int sz)
+{
+  m_textureSize = qBound(c_minimumTextureSizePower,
+			sz,
+			c_maximumTextureSizePower);
+}
 
-int Global::m_textureMemorySize = 128;
+// A conservative explicit budget for shared-memory integrated GPUs.  System
+// RAM is deliberately not treated as dedicated graphics memory.
+int Global::m_textureMemorySize = 512;
 int Global::textureMemorySize() {return m_textureMemorySize;}
-void Global::setTextureMemorySize(int sz) { m_textureMemorySize = sz; }
+void Global::setTextureMemorySize(int sz)
+{
+  m_textureMemorySize = qBound(c_minimumTextureMemoryMB,
+			      sz,
+			      c_maximumTextureMemoryMB);
+}
 
 void Global::calculate3dTextureSize()
 {
   int comp = 1;
+
+  comp = qBound(1, comp, 5);
+  m_textureMemorySize = qBound(c_minimumTextureMemoryMB,
+			       m_textureMemorySize,
+			       c_maximumTextureMemoryMB);
 
   
   qint64 tms = m_textureMemorySize;
@@ -114,19 +146,14 @@ void Global::calculate3dTextureSize()
   else if (m_textureMemorySize >= 512) tms -= 64;
   else tms -= 32;
 
-  tms /= comp;
+  tms = qMax<qint64>(1, tms/comp);
 
-
-  int p2 = 0;
-  while (tms > 0)
+  int p2 = c_minimumTextureSizePower;
+  while (tms > 1 && p2 < c_maximumTextureSizePower)
     {
       tms /= 2;
       p2 ++;
     }
-  // for memory size in Mb
-  p2 += 20;
-  p2 --;
-  p2 = qMin(30, p2);
 
   Global::setTextureSize(p2);
 }
@@ -259,7 +286,10 @@ void Global::setTagColors(uchar *colors)
 }
 
 int Global::m_textureSizeLimit = 512;
-void Global::setTextureSizeLimit(int sz) { m_textureSizeLimit = sz; }
+void Global::setTextureSizeLimit(int sz)
+{
+  m_textureSizeLimit = qBound(1, sz, c_maximumArrayTextureLayers);
+}
 int Global::textureSizeLimit() { return m_textureSizeLimit; }
 
 bool Global::m_interpolationType[10] = {true, true, true, true, true,

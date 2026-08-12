@@ -1,6 +1,188 @@
 #ifndef VOLUMEOPERATIONS_H
 #define VOLUMEOPERATIONS_H
 
+#include "getmemorysize.h"
+
+#include <bitset>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+
+enum class PaintVolumeAlgorithm
+{
+  ConnectedComponents,
+  DistanceTransform,
+  LocalThickness,
+  Watershed
+};
+
+struct PaintVolumeAlgorithmMemoryProfile
+{
+  std::uint64_t bytesPerVoxel;
+  std::uint64_t fixedOverheadBytes;
+  std::uint64_t distanceTaskBytesPerScanline;
+  std::uint64_t visibilityTaskBytesPerSlice;
+};
+
+inline std::uint32_t
+paintVolumeMaximumMaskLabel()
+{
+  return std::numeric_limits<std::uint16_t>::max();
+}
+
+inline bool
+paintVolumeOffsetLabelRangeFits(std::uint32_t startingLabel,
+                                std::uint64_t maximumSourceLabel)
+{
+  const std::uint64_t maximumMaskLabel = paintVolumeMaximumMaskLabel();
+  return startingLabel <= maximumMaskLabel &&
+         maximumSourceLabel <= maximumMaskLabel-startingLabel;
+}
+
+class PaintVolumeUniqueLabelTracker
+{
+ public:
+  PaintVolumeUniqueLabelTracker()
+    : m_uniqueLabelCount(0), m_maximumLabel(0)
+  {}
+
+  bool add(std::uint32_t label)
+  {
+    if (label > paintVolumeMaximumMaskLabel())
+      return false;
+    if (label == 0 || m_seen.test(static_cast<std::size_t>(label)))
+      return true;
+
+    m_seen.set(static_cast<std::size_t>(label));
+    ++m_uniqueLabelCount;
+    if (label > m_maximumLabel)
+      m_maximumLabel = label;
+    return true;
+  }
+
+  std::uint32_t uniqueLabelCount() const { return m_uniqueLabelCount; }
+  std::uint32_t maximumLabel() const { return m_maximumLabel; }
+
+ private:
+  std::bitset<65536> m_seen;
+  std::uint32_t m_uniqueLabelCount;
+  std::uint32_t m_maximumLabel;
+};
+
+inline bool
+paintVolumeCheckedMultiply(std::uint64_t first,
+                           std::uint64_t second,
+                           std::uint64_t& result)
+{
+  if (first == 0 || second == 0)
+    {
+      result = 0;
+      return true;
+    }
+  if (first > std::numeric_limits<std::uint64_t>::max()/second)
+    return false;
+  result = first*second;
+  return true;
+}
+
+inline bool
+paintVolumeCheckedAdd(std::uint64_t first,
+                      std::uint64_t second,
+                      std::uint64_t& result)
+{
+  if (first > std::numeric_limits<std::uint64_t>::max()-second)
+    return false;
+  result = first+second;
+  return true;
+}
+
+inline PaintVolumeAlgorithmMemoryProfile
+paintVolumeAlgorithmMemoryProfile(PaintVolumeAlgorithm algorithm)
+{
+  const std::uint64_t mebibyte = 1024ULL*1024ULL;
+  switch (algorithm)
+    {
+    case PaintVolumeAlgorithm::ConnectedComponents:
+      // QMap/QMultiMap nodes can approach one entry for every other voxel.
+      return { 192ULL, 64ULL*mebibyte, 0ULL, 512ULL };
+    case PaintVolumeAlgorithm::DistanceTransform:
+      return { 32ULL, 64ULL*mebibyte, 512ULL, 0ULL };
+    case PaintVolumeAlgorithm::LocalThickness:
+      return { 64ULL, 64ULL*mebibyte, 512ULL, 0ULL };
+    case PaintVolumeAlgorithm::Watershed:
+      return { 160ULL, 128ULL*mebibyte, 512ULL, 0ULL };
+    }
+
+  return { 0, 0, 0, 0 };
+}
+
+inline PaintAlgorithmMemoryAdmission
+evaluatePaintVolumeAlgorithmMemoryAdmission(
+  PaintVolumeAlgorithm algorithm,
+  std::uint64_t depth,
+  std::uint64_t width,
+  std::uint64_t height,
+  PaintMemoryStatusProvider provider = nullptr,
+  void *providerContext = nullptr)
+{
+  const PaintVolumeAlgorithmMemoryProfile profile =
+    paintVolumeAlgorithmMemoryProfile(algorithm);
+
+  std::uint64_t fixedOverheadBytes = profile.fixedOverheadBytes;
+  if (profile.visibilityTaskBytesPerSlice > 0)
+    {
+      // getVisibleRegion materializes one QVariant task record per Z slice.
+      // A 1x1xD ROI therefore needs a separate shape term in addition to the
+      // component-container bytes-per-voxel estimate.
+      std::uint64_t visibilityTaskBytes = 0;
+      if (!paintVolumeCheckedMultiply(
+            depth, profile.visibilityTaskBytesPerSlice,
+            visibilityTaskBytes) ||
+          !paintVolumeCheckedAdd(fixedOverheadBytes,
+                                 visibilityTaskBytes,
+                                 fixedOverheadBytes))
+        {
+          PaintAlgorithmMemoryAdmission overflow;
+          overflow.reason = PaintAlgorithmMemoryAdmissionReason::ArithmeticOverflow;
+          return overflow;
+        }
+    }
+  if (profile.distanceTaskBytesPerScanline > 0)
+    {
+      // BinaryDistanceTransform currently materializes one eight-QVariant
+      // task record for every Y/Z scanline.  This term is shape-dependent:
+      // for a one-voxel-wide ROI the task count approaches the voxel count.
+      std::uint64_t scanlineCount = 0;
+      std::uint64_t taskBytes = 0;
+      std::uint64_t scratchBytes = 0;
+      const std::uint64_t maximumDimension =
+        depth > width ? (depth > height ? depth : height) :
+                        (width > height ? width : height);
+      if (!paintVolumeCheckedMultiply(depth, width, scanlineCount) ||
+          !paintVolumeCheckedMultiply(
+            scanlineCount, profile.distanceTaskBytesPerScanline, taskBytes) ||
+          !paintVolumeCheckedMultiply(maximumDimension, 1024ULL,
+                                      scratchBytes) ||
+          !paintVolumeCheckedAdd(fixedOverheadBytes, taskBytes,
+                                 fixedOverheadBytes) ||
+          !paintVolumeCheckedAdd(fixedOverheadBytes, scratchBytes,
+                                 fixedOverheadBytes))
+        {
+          PaintAlgorithmMemoryAdmission overflow;
+          overflow.reason = PaintAlgorithmMemoryAdmissionReason::ArithmeticOverflow;
+          return overflow;
+        }
+    }
+
+  return evaluatePaintAlgorithmMemoryAdmission(
+    depth, width, height,
+    profile.bytesPerVoxel, fixedOverheadBytes,
+    provider, providerContext);
+}
+
+// Memory-profile smoke tests do not need Paint's Qt/OpenGL declarations.
+#ifndef DRISHTI_VOLUMEOPERATIONS_MEMORY_PROFILE_ONLY
+
 #include "commonqtclasses.h"
 #include <QProgressDialog>
 #include <QMap>
@@ -430,5 +612,7 @@ class VolumeOperations
 				   qint64, qint64, qint64);
 
 };
+
+#endif // DRISHTI_VOLUMEOPERATIONS_MEMORY_PROFILE_ONLY
 
 #endif

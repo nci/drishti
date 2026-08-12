@@ -1,10 +1,8 @@
 #include "pythonengine.h"
-#include <filesystem>
 #include <iostream>
 
+#include <QCoreApplication>
 #include <QMessageBox>
-
-namespace fs = std::filesystem;
 
 //------------------------------
 // A C++ class that will act as Python's sys.stdout/sys.stderr
@@ -45,30 +43,26 @@ PYBIND11_EMBEDDED_MODULE(pyredir, m) {
 //------------------------------
 
 
-std::unique_ptr<PythonEngine> PythonEngine::m_instance = nullptr;
-
 PythonEngine& PythonEngine::instance()
 {
-    if (m_instance == nullptr)
-    {
-        m_instance = std::make_unique<PythonEngine>();
-    }
-
-    return *m_instance;
+    // CPython extensions and the Qt-backed output redirect have process-wide
+    // state. Finalizing them during static destruction is not reliably ordered.
+    static PythonEngine *const engine = new PythonEngine();
+    return *engine;
 }
 
 PythonEngine::PythonEngine()
 {
     m_guard = std::make_unique<py::scoped_interpreter>();
 
-    // Determine the path to the extracted Python library
-    fs::path exePath = fs::current_path(); // Adjust if needed
-    fs::path pythonLibDir = exePath; // Assuming the Python library is in the same directory as the executable";
+    // Use the executable directory, independent of the caller's working directory.
+    const std::string pythonLibDir =
+        QCoreApplication::applicationDirPath().toStdString();
 
-    // Set the Python path to include the directory
     py::module sys = py::module::import("sys");
     py::object path = sys.attr("path");
-    path.attr("insert")(0, pythonLibDir.string());
+    path.attr("insert")(0, pythonLibDir);
+    sys.attr("dont_write_bytecode") = true;
   
     // Example Python code execution
     try

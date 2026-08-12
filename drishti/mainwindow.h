@@ -216,6 +216,7 @@ class MainWindow : public QMainWindow
    Volume *m_Volume;
 
    Viewer *m_Viewer;
+   bool m_rendererServicesStarted;
 
    DrawHiresVolume *m_Hires;
    DrawLowresVolume *m_Lowres;
@@ -299,8 +300,9 @@ class MainWindow : public QMainWindow
    void loadSettings();
    void saveSettings();
 
-   void preLoadVolume();
-   void postLoadVolume();
+  void preLoadVolume();
+  void postLoadVolume();
+  void recoverFromFailedVolumeLoad(const QString&);
 
    void updateRecentFileAction();
 

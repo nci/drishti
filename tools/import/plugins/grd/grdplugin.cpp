@@ -2,6 +2,13 @@
 #include "common.h"
 #include "grdplugin.h"
 #include "loadrawdialog.h"
+#include "../rawfileutils.h"
+
+#include <cmath>
+#include <cstring>
+#include <limits>
+#include <memory>
+#include <new>
 
 QStringList
 GrdPlugin::registerPlugin()
@@ -27,10 +34,12 @@ GrdPlugin::init()
   m_voxelType = _UChar;
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
@@ -44,10 +53,12 @@ GrdPlugin::clear()
   m_voxelType = _UChar;
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
@@ -84,6 +95,7 @@ GrdPlugin::setMinMax(float rmin, float rmax)
 float GrdPlugin::rawMin() { return m_rawMin; }
 float GrdPlugin::rawMax() { return m_rawMax; }
 QList<uint> GrdPlugin::histogram() { return m_histogram; }
+QString GrdPlugin::lastError() const { return m_lastError; }
 
 void
 GrdPlugin::gridSize(int& d, int& w, int& h)
@@ -96,18 +108,72 @@ GrdPlugin::gridSize(int& d, int& w, int& h)
 void
 GrdPlugin::replaceFile(QString flnm)
 {
-  m_fileName.clear();
-  m_fileName << flnm;
+  m_lastError.clear();
+  if (flnm.trimmed().isEmpty())
+    {
+      m_lastError = "The replacement GRD filename is empty.";
+      return;
+    }
+
+  QStringList candidateImages;
+  const QFileInfo input(flnm);
+  if (input.isDir())
+    {
+      const QStringList names = QDir(input.absoluteFilePath()).entryList(
+        QStringList() << "*", QDir::NoSymLinks | QDir::NoDotAndDotDot |
+        QDir::Readable | QDir::Files);
+      for (const QString& name : names)
+        candidateImages << QDir(input.absoluteFilePath()).absoluteFilePath(name);
+    }
+  else
+    candidateImages << input.absoluteFilePath();
+
+  if (candidateImages.size() != m_depth)
+    {
+      m_lastError = QString("Replacement GRD volume has %1 slices; expected %2.")
+                      .arg(candidateImages.size()).arg(m_depth);
+      return;
+    }
+
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, error))
+    {
+      m_lastError = error;
+      return;
+    }
+  for (const QString& image : candidateImages)
+    if (!RawFileUtils::validateFileSize(image, layout.requiredFileBytes, error))
+      {
+        m_lastError = error;
+        return;
+      }
+
+  m_fileName = QStringList() << input.absoluteFilePath();
+  m_imageList = candidateImages;
 }
 
 bool
 GrdPlugin::setFile(QStringList files)
 {
+  m_lastError.clear();
+  if (files.isEmpty() || files.first().trimmed().isEmpty())
+    {
+      m_lastError = "No GRD file or directory was selected.";
+      return false;
+    }
+
   m_fileName = files;
 
   m_imageList.clear();
 
   QFileInfo f(m_fileName[0]);
+  if (!f.exists() || !f.isReadable())
+    {
+      m_lastError = QString("Cannot read GRD input %1.").arg(m_fileName[0]);
+      return false;
+    }
   if (f.isDir())
     {
       // list all image files in the directory
@@ -129,7 +195,25 @@ GrdPlugin::setFile(QStringList files)
 	}
     }
   else
-    m_imageList = files;
+    {
+      for (const QString& file : files)
+        {
+          const QFileInfo image(file);
+          if (file.trimmed().isEmpty() || !image.exists() ||
+              !image.isFile() || !image.isReadable())
+            {
+              m_lastError = QString("Cannot read GRD slice %1.").arg(file);
+              return false;
+            }
+          m_imageList << image.absoluteFilePath();
+        }
+    }
+
+  if (m_imageList.isEmpty())
+    {
+      m_lastError = "The selected GRD directory contains no readable files.";
+      return false;
+    }
 
   // --- load various parameters from the raw file ---
   LoadRawDialog loadRawDialog(0,
@@ -158,6 +242,22 @@ GrdPlugin::setFile(QStringList files)
   else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
 
+  RawFileUtils::Layout layout;
+  QString layoutError;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, layoutError))
+    {
+      m_lastError = layoutError;
+      return false;
+    }
+  for (const QString& image : m_imageList)
+    if (!RawFileUtils::validateFileSize(image, layout.requiredFileBytes,
+                                        layoutError))
+      {
+        m_lastError = layoutError;
+        return false;
+      }
+
   if (m_voxelType == _UChar ||
       m_voxelType == _Char ||
       m_voxelType == _UShort ||
@@ -171,13 +271,13 @@ GrdPlugin::setFile(QStringList files)
       generateHistogram();
     }
 
-  return true;
+  return m_lastError.isEmpty() && !m_histogram.isEmpty();
 }
 
 
 #define MINMAXANDHISTOGRAM()				\
   {							\
-    for(uint j=0; j<m_width*m_height; j++)		\
+    for(qint64 j=0; j<voxelCount; j++)			\
       {							\
 	int val = ptr[j];				\
 	m_rawMin = qMin(m_rawMin, (float)val);		\
@@ -198,7 +298,7 @@ GrdPlugin::findMinMaxandGenerateHistogram()
       m_voxelType == _Char)
     {
       if (m_voxelType == _UChar) rMin = 0;
-      if (m_voxelType == _Char) rMin = -127;
+      if (m_voxelType == _Char) rMin = -128;
       rSize = 255;
       for(uint i=0; i<256; i++)
 	m_histogram.append(0);
@@ -207,7 +307,7 @@ GrdPlugin::findMinMaxandGenerateHistogram()
       m_voxelType == _Short)
     {
       if (m_voxelType == _UShort) rMin = 0;
-      if (m_voxelType == _Short) rMin = -32767;
+      if (m_voxelType == _Short) rMin = -32768;
       rSize = 65535;
       for(uint i=0; i<65536; i++)
 	m_histogram.append(0);
@@ -228,11 +328,29 @@ GrdPlugin::findMinMaxandGenerateHistogram()
 //    }
 //  //==================
 
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, error))
+    {
+      m_lastError = error;
+      m_histogram.clear();
+      return;
+    }
+  const qint64 voxelCount = layout.sliceVoxels;
+  std::unique_ptr<uchar[]> storage(new (std::nothrow)
+                                uchar[static_cast<std::size_t>(layout.sliceBytes)]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for a GRD slice.")
+                      .arg(layout.sliceBytes);
+      m_histogram.clear();
+      return;
+    }
+  uchar *tmp = storage.get();
 
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
 
   QProgressDialog progress("Generating Histogram",
 			   0,
@@ -245,13 +363,13 @@ GrdPlugin::findMinMaxandGenerateHistogram()
       progress.setValue((int)(100.0*(float)i/(float)m_depth));
       qApp->processEvents();
 
-      //----------------------------
-      QFile fin(m_imageList[i]);
-      fin.open(QFile::ReadOnly);
-      fin.seek(m_headerBytes);
-      fin.read((char*)tmp, nbytes);
-      fin.close();
-      //----------------------------
+      if (!RawFileUtils::readAt(m_imageList[i], m_headerBytes, tmp,
+                                layout.sliceBytes, error))
+        {
+          m_lastError = error;
+          m_histogram.clear();
+          return;
+        }
 
       if (m_voxelType == _UChar)
 	{
@@ -284,8 +402,6 @@ GrdPlugin::findMinMaxandGenerateHistogram()
 	  MINMAXANDHISTOGRAM();
 	}
     }
-
-  delete [] tmp;
 
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
@@ -299,11 +415,14 @@ GrdPlugin::findMinMaxandGenerateHistogram()
 
 #define FINDMINMAX()					\
   {							\
-    for(uint j=0; j<m_width*m_height; j++)		\
+    for(qint64 j=0; j<voxelCount; j++)			\
       {							\
 	float val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, val);			\
-	m_rawMax = qMax(m_rawMax, val);			\
+	if (std::isfinite(static_cast<double>(val)))		\
+	  {						\
+	    m_rawMin = qMin(m_rawMin, val);		\
+	    m_rawMax = qMax(m_rawMax, val);		\
+	  }						\
       }							\
   }
 
@@ -317,27 +436,38 @@ GrdPlugin::findMinMax()
   progress.setMinimumDuration(0);
 
 
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, error))
+    {
+      m_lastError = error;
+      return;
+    }
+  const qint64 voxelCount = layout.sliceVoxels;
+  std::unique_ptr<uchar[]> storage(new (std::nothrow)
+                                uchar[static_cast<std::size_t>(layout.sliceBytes)]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for a GRD slice.")
+                      .arg(layout.sliceBytes);
+      return;
+    }
+  uchar *tmp = storage.get();
 
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_headerBytes);
-
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
   for(uint i=0; i<m_depth; i++)
     {
       progress.setValue((int)(100.0*(float)i/(float)m_depth));
       qApp->processEvents();
 
-      //----------------------------
-      QFile fin(m_imageList[i]);
-      fin.open(QFile::ReadOnly);
-      fin.seek(m_headerBytes);
-      fin.read((char*)tmp, nbytes);
-      fin.close();
-      //----------------------------
+      if (!RawFileUtils::readAt(m_imageList[i], m_headerBytes, tmp,
+                                layout.sliceBytes, error))
+        {
+          m_lastError = error;
+          return;
+        }
 
       if (m_voxelType == _UChar)
 	{
@@ -370,22 +500,20 @@ GrdPlugin::findMinMax()
 	  FINDMINMAX();
 	}
     }
-  fin.close();
-
-  delete [] tmp;
-
+  if (m_rawMin > m_rawMax)
+    m_rawMin = m_rawMax = 0;
   progress.setValue(100);
   qApp->processEvents();
 }
 
 #define GENHISTOGRAM()					\
   {							\
-    for(uint j=0; j<m_width*m_height; j++)		\
+    for(qint64 j=0; j<voxelCount; j++)			\
       {							\
-	float fidx = (ptr[j]-m_rawMin)/rSize;		\
-	fidx = qBound(0.0f, fidx, 1.0f);		\
-	int idx = fidx*histogramSize;			\
-	m_histogram[idx]+=1;				\
+	int idx = RawFileUtils::scaledHistogramIndex(		\
+	  static_cast<float>(ptr[j]), m_rawMin, m_rawMax, \
+	  histogramSize);					\
+	if (idx >= 0) m_histogram[idx]+=1;			\
       }							\
   }
 
@@ -399,13 +527,26 @@ GrdPlugin::generateHistogram()
   progress.setMinimumDuration(0);
 
 
-  float rSize = m_rawMax-m_rawMin;
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_headerBytes);
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, error))
+    {
+      m_lastError = error;
+      m_histogram.clear();
+      return;
+    }
+  const qint64 voxelCount = layout.sliceVoxels;
+  std::unique_ptr<uchar[]> storage(new (std::nothrow)
+                                uchar[static_cast<std::size_t>(layout.sliceBytes)]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for a GRD slice.")
+                      .arg(layout.sliceBytes);
+      m_histogram.clear();
+      return;
+    }
+  uchar *tmp = storage.get();
 
   m_histogram.clear();
   if (m_voxelType == _UChar ||
@@ -413,7 +554,7 @@ GrdPlugin::generateHistogram()
       m_voxelType == _UShort ||
       m_voxelType == _Short)
     {
-      for(uint i=0; i<rSize+1; i++)
+      for(uint i=0; i<65536; i++)
 	m_histogram.append(0);
     }
   else
@@ -428,13 +569,13 @@ GrdPlugin::generateHistogram()
       progress.setValue((int)(100.0*(float)i/(float)m_depth));
       qApp->processEvents();
 
-      //----------------------------
-      QFile fin(m_imageList[i]);
-      fin.open(QFile::ReadOnly);
-      fin.seek(m_headerBytes);
-      fin.read((char*)tmp, nbytes);
-      fin.close();
-      //----------------------------
+      if (!RawFileUtils::readAt(m_imageList[i], m_headerBytes, tmp,
+                                layout.sliceBytes, error))
+        {
+          m_lastError = error;
+          m_histogram.clear();
+          return;
+        }
 
       if (m_voxelType == _UChar)
 	{
@@ -467,10 +608,6 @@ GrdPlugin::generateHistogram()
 	  GENHISTOGRAM();
 	}
     }
-  fin.close();
-
-  delete [] tmp;
-
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
 //  while(m_histogram.first() == 0)
@@ -487,12 +624,29 @@ void
 GrdPlugin::getDepthSlice(int slc,
 			      uchar *slice)
 {
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  QFile fin(m_imageList[slc]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_headerBytes);
-  fin.read((char*)slice, nbytes);
-  fin.close();
+  m_lastError.clear();
+  if (!slice)
+    {
+      m_lastError = "GRD depth-slice output buffer is null.";
+      return;
+    }
+
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_headerBytes, layout, error))
+    {
+      m_lastError = error;
+      return;
+    }
+  if (slc < 0 || slc >= m_imageList.size() ||
+      !RawFileUtils::readAt(m_imageList[slc], m_headerBytes, slice,
+                            layout.sliceBytes, error))
+    {
+      std::memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      m_lastError = error.isEmpty() ?
+        QString("Invalid GRD slice %1.").arg(slc) : error;
+    }
 }
 
 //void
@@ -540,60 +694,62 @@ GrdPlugin::getDepthSlice(int slc,
 QVariant
 GrdPlugin::rawValue(int d, int w, int h)
 {
-  QVariant v;
-
   if (d < 0 || d >= m_depth ||
       w < 0 || w >= m_width ||
       h < 0 || h >= m_height)
-    {
-      v = QVariant("OutOfBounds");
-      return v;
-    }
+    return QVariant("OutOfBounds");
 
-  QFile fin(m_imageList[d]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_headerBytes +
-	   m_bytesPerVoxel*(w*m_height +h));
+  qint64 rowOffset = 0;
+  qint64 voxelIndex = 0;
+  qint64 byteOffset = 0;
+  if (!RawFileUtils::checkedMultiply(w, m_height, rowOffset) ||
+      !RawFileUtils::checkedAdd(rowOffset, h, voxelIndex) ||
+      !RawFileUtils::checkedMultiply(voxelIndex, m_bytesPerVoxel, byteOffset) ||
+      !RawFileUtils::checkedAdd(byteOffset, m_headerBytes, byteOffset))
+    return QVariant("ReadError");
+
+  alignas(4) uchar bytes[4] = { 0, 0, 0, 0 };
+  QString error;
+  if (!RawFileUtils::readAt(m_imageList[d], byteOffset, bytes,
+                            m_bytesPerVoxel, error))
+    {
+      m_lastError = error;
+      return QVariant("ReadError");
+    }
 
   if (m_voxelType == _UChar)
-    {
-      unsigned char a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      v = QVariant((uint)a);
-    }
+    return QVariant(static_cast<uint>(bytes[0]));
   else if (m_voxelType == _Char)
     {
-      char a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      v = QVariant((int)a);
+      signed char value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<int>(value));
     }
   else if (m_voxelType == _UShort)
     {
-      unsigned short a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      v = QVariant((uint)a);
+      unsigned short value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<uint>(value));
     }
   else if (m_voxelType == _Short)
     {
-      short a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      v = QVariant((int)a);
+      short value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<int>(value));
     }
   else if (m_voxelType == _Int)
     {
-      int a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      v = QVariant((int)a);
+      int value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(value);
     }
   else if (m_voxelType == _Float)
     {
-      float a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      v = QVariant((double)a);
+      float value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<double>(value));
     }
-  fin.close();
-
-  return v;
+  return QVariant("ReadError");
 }
 
 //void

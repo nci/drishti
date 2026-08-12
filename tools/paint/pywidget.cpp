@@ -8,6 +8,15 @@
 #include <QVBoxLayout>
 #include <QMessageBox>
 #include <QFileDialog>
+#include <QStandardPaths>
+
+namespace
+{
+QString quotedCommandArgument(const QString &value)
+{
+  return QStringLiteral("\"") + value + QStringLiteral("\"");
+}
+}
 
 //#pragma push_macro("slots")
 //#undef slots
@@ -300,13 +309,26 @@ PyWidget::processLine()
 	boxflnm = QFileInfo(m_fileName).absolutePath() + QDir::separator() + result[0].split("=")[1];
       
       
-      QString cmd = "python "+script+" volume="+volflnm+" mask="+m_maskName;
+      QString python = QStandardPaths::findExecutable("python");
+      if (python.isEmpty())
+	{
+	  QMessageBox::critical(
+	    0, "Python Not Found",
+	    "Paint scripts require an external Python installation on PATH and "
+	    "the packages listed by the selected script.");
+	  return;
+	}
+
+      QString cmd = quotedCommandArgument(python)+" "+
+	quotedCommandArgument(script)+" volume="+
+	quotedCommandArgument(volflnm)+" mask="+
+	quotedCommandArgument(m_maskName);
 
       if (!tagflnm.isEmpty())
-	cmd +=" output="+tagflnm;
+	cmd +=" output="+quotedCommandArgument(tagflnm);
 
       if (!boxflnm.isEmpty())
-	cmd += " boxlist="+boxflnm;
+	cmd += " boxlist="+quotedCommandArgument(boxflnm);
 	
       if (sl.count() > 1)
 	{

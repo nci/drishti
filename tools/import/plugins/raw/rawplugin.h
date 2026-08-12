@@ -42,6 +42,9 @@ class RawPlugin : public QObject, VolInterface
 
   QVariant rawValue(int, int, int);
 
+  Q_INVOKABLE QString lastError() const;
+  Q_INVOKABLE bool wasCanceled() const;
+
   //void saveTrimmed(QString, int, int, int, int, int, int);
 
   void generateHistogram();
@@ -64,9 +67,12 @@ class RawPlugin : public QObject, VolInterface
   int m_bytesPerVoxel;
 
   bool m_skipRawDialog;
+  QString m_lastError;
+  bool m_lastOperationCanceled;
 
-  void findMinMax();
-  void findMinMaxandGenerateHistogram();
+  bool findMinMax();
+  bool findMinMaxandGenerateHistogram();
+  bool setError(const QString&, bool showDialog=false);
 };
 
 #endif

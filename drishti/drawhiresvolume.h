@@ -73,7 +73,7 @@ class DrawHiresVolume : public QObject
   Vec volumeMin();
   Vec volumeMax();
 
-  void initShadowBuffers(bool force=false);
+  bool initShadowBuffers(bool force=false);
 
   void drawDragImage(float);
   void drawStillImage(float);
@@ -154,7 +154,7 @@ class DrawHiresVolume : public QObject
 			     QVector4D, float, int,
 			     int, int);
 
-  void saveForDrishtiPrayog(QString);
+  bool saveForDrishtiPrayog(QString);
 
   void createDefaultShader();
 
@@ -244,6 +244,7 @@ signals :
   GLhandleARB m_blurShader;
   GLhandleARB m_backplaneShader1;
   GLhandleARB m_backplaneShader2;
+  bool m_emptySpaceSkipShaderState;
 
 
   GLint m_vertParm[50];

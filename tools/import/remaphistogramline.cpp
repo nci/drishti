@@ -1,6 +1,19 @@
 #include "remaphistogramline.h"
 
-RemapHistogramLine::RemapHistogramLine()
+RemapHistogramLine::RemapHistogramLine(QObject *parent) :
+  QObject(parent)
+{
+  resetTicks();
+
+  m_start = 0;
+  m_width = 10;
+
+  m_keepEndsFixed = false;
+  m_keepGrabbing = false;
+}
+
+void
+RemapHistogramLine::resetTicks()
 {
   m_activeTickNumber = -1;
   m_activeTick = -1;  
@@ -11,18 +24,13 @@ RemapHistogramLine::RemapHistogramLine()
   m_activeB1 = m_tickMinKey;
   m_activeB2 = m_tickMaxKey;
 
-  // insert two ticks
+  m_ticks.clear();
+  m_ticksOriginal.clear();
   m_ticks[0] = 0;
   m_ticks[m_tickMaxKey] = m_tickMaxKey;
 
   m_ticksOriginal[0] = 0;
   m_ticksOriginal[m_tickMaxKey] = m_tickMaxKey;
-
-
-  m_start = 0;
-  m_width = 10;
-
-  m_keepEndsFixed = false;
   m_keepGrabbing = false;
 }
 

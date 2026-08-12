@@ -1,5 +1,12 @@
 #include "common.h"
 #include "analyzeplugin.h"
+#include "../rawfileutils.h"
+
+#include <cmath>
+#include <cstring>
+#include <limits>
+#include <memory>
+#include <new>
 
 QStringList
 AnalyzePlugin::registerPlugin()
@@ -24,10 +31,12 @@ AnalyzePlugin::init()
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
@@ -43,10 +52,12 @@ AnalyzePlugin::clear()
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
@@ -83,6 +94,7 @@ AnalyzePlugin::setMinMax(float rmin, float rmax)
 float AnalyzePlugin::rawMin() { return m_rawMin; }
 float AnalyzePlugin::rawMax() { return m_rawMax; }
 QList<uint> AnalyzePlugin::histogram() { return m_histogram; }
+QString AnalyzePlugin::lastError() const { return m_lastError; }
 
 void
 AnalyzePlugin::gridSize(int& d, int& w, int& h)
@@ -95,28 +107,46 @@ AnalyzePlugin::gridSize(int& d, int& w, int& h)
 void
 AnalyzePlugin::replaceFile(QString flnm)
 {
-  m_fileName.clear();
-  m_fileName << flnm;
+  m_lastError.clear();
+  AnalyzePlugin candidate;
+  candidate.init();
+  candidate.set4DVolume(true);
+  if (!candidate.setFile(QStringList() << flnm))
+    {
+      m_lastError = candidate.lastError().isEmpty() ?
+        "The replacement Analyze volume is invalid." : candidate.lastError();
+      return;
+    }
+  if (candidate.m_depth != m_depth || candidate.m_width != m_width ||
+      candidate.m_height != m_height || candidate.m_voxelType != m_voxelType)
+    {
+      m_lastError = QString("Replacement Analyze volume is %1 x %2 x %3, "
+                            "voxel-type %4; expected %5 x %6 x %7, type %8.")
+                      .arg(candidate.m_depth).arg(candidate.m_width)
+                      .arg(candidate.m_height).arg(candidate.m_voxelType)
+                      .arg(m_depth).arg(m_width).arg(m_height).arg(m_voxelType);
+      return;
+    }
 
-  if (checkExtension(m_fileName[0], "hdr"))
-    {
-      m_hdrFile = m_fileName[0];
-      m_imgFile = m_hdrFile;
-      m_imgFile.chop(3);
-      m_imgFile += "img";
-    }
-  else if (checkExtension(m_fileName[0], "img"))
-    {
-      m_imgFile = m_fileName[0];
-      m_hdrFile = m_imgFile;
-      m_hdrFile.chop(3);
-      m_hdrFile += "hdr";
-    }
+  m_fileName = candidate.m_fileName;
+  m_hdrFile = candidate.m_hdrFile;
+  m_imgFile = candidate.m_imgFile;
+  m_analyzeHeader = candidate.m_analyzeHeader;
+  m_byteSwap = candidate.m_byteSwap;
+  m_skipBytes = candidate.m_skipBytes;
+  m_headerBytes = candidate.m_headerBytes;
 }
 
 bool
 AnalyzePlugin::setFile(QStringList files)
 {
+  m_lastError.clear();
+  if (files.isEmpty() || files.first().trimmed().isEmpty())
+    {
+      m_lastError = "No Analyze 7.6 file was selected.";
+      return false;
+    }
+
   m_fileName = files;
 
   if (checkExtension(files[0], "hdr"))
@@ -133,12 +163,28 @@ AnalyzePlugin::setFile(QStringList files)
       m_hdrFile.chop(3);
       m_hdrFile += "hdr";
     }
+  else
+    {
+      m_lastError = "Select an Analyze .hdr or .img file.";
+      return false;
+    }
 
   QFile fin(m_hdrFile);
-  fin.open(QFile::ReadOnly);
-  fin.read((char*)&(m_analyzeHeader.hk), 40);
-  fin.read((char*)&(m_analyzeHeader.dime), 108);
-  fin.read((char*)&(m_analyzeHeader.hist), 200);
+  if (!fin.open(QFile::ReadOnly))
+    {
+      m_lastError = QString("Cannot open Analyze header %1: %2")
+                      .arg(m_hdrFile, fin.errorString());
+      return false;
+    }
+  std::memset(&m_analyzeHeader, 0, sizeof(m_analyzeHeader));
+  QString readError;
+  if (!RawFileUtils::readExact(fin, &(m_analyzeHeader.hk), 40, readError) ||
+      !RawFileUtils::readExact(fin, &(m_analyzeHeader.dime), 108, readError) ||
+      !RawFileUtils::readExact(fin, &(m_analyzeHeader.hist), 200, readError))
+    {
+      m_lastError = readError;
+      return false;
+    }
   fin.close();
 
   m_byteSwap = false;
@@ -148,9 +194,8 @@ AnalyzePlugin::setFile(QStringList files)
       swapbytes(sptr, 4);
       if (m_analyzeHeader.hk.sizeof_hdr != 348)
 	{
-	  QMessageBox::information(0, "Error",
-	       QString("Header Size is not 348 : %1").\
-				   arg(m_analyzeHeader.hk.sizeof_hdr));
+	  m_lastError = QString("Analyze header size is %1, expected 348.")
+	                  .arg(m_analyzeHeader.hk.sizeof_hdr);
 	  return false;
 	}
       else
@@ -175,9 +220,13 @@ AnalyzePlugin::setFile(QStringList files)
 	  sptr = (uchar*) &(m_analyzeHeader.dime.bitpix);
 	  swapbytes(sptr, 2);
 
+	  sptr = (uchar*) &(m_analyzeHeader.dime.vox_offset);
+	  swapbytes(sptr, 4);
+
 	  m_byteSwap = true;
 	}
       }
+  m_voxelType = -1;
   if (m_analyzeHeader.dime.datatype == 0)
     {
       if (m_analyzeHeader.dime.bitpix == 8)
@@ -217,8 +266,35 @@ AnalyzePlugin::setFile(QStringList files)
 
   if (m_voxelType == _UChar)
     m_byteSwap = false;
-  
-  m_skipBytes = 0;
+  if (m_voxelType < _UChar || m_voxelType > _Float)
+    {
+      m_lastError = QString("Unsupported Analyze datatype %1 (%2 bits).")
+                      .arg(m_analyzeHeader.dime.datatype)
+                      .arg(m_analyzeHeader.dime.bitpix);
+      return false;
+    }
+
+  const int expectedBits = (m_voxelType == _UChar || m_voxelType == _Char) ? 8 :
+                           (m_voxelType == _UShort || m_voxelType == _Short) ? 16 : 32;
+  if (m_analyzeHeader.dime.bitpix != expectedBits)
+    {
+      m_lastError = QString("Analyze datatype %1 requires %2 bits, but the "
+                            "header reports %3.")
+                      .arg(m_analyzeHeader.dime.datatype).arg(expectedBits)
+                      .arg(m_analyzeHeader.dime.bitpix);
+      return false;
+    }
+
+  const double voxelOffset = m_analyzeHeader.dime.vox_offset;
+  if (!std::isfinite(voxelOffset) || voxelOffset < 0 ||
+      voxelOffset > std::numeric_limits<int>::max() ||
+      std::fabs(voxelOffset-std::round(voxelOffset)) > 0.001)
+    {
+      m_lastError = QString("Analyze voxel offset %1 is invalid.")
+                      .arg(voxelOffset);
+      return false;
+    }
+  m_skipBytes = static_cast<int>(std::llround(voxelOffset));
   
   m_depth = m_analyzeHeader.dime.dim[3];
   m_width = m_analyzeHeader.dime.dim[2];
@@ -239,6 +315,26 @@ AnalyzePlugin::setFile(QStringList files)
   else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
   else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
 
+  RawFileUtils::Layout layout;
+  QString layoutError;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height,
+                                m_voxelType, m_skipBytes,
+                                layout, layoutError) ||
+      !RawFileUtils::validateFileSize(m_imgFile,
+                                      layout.requiredFileBytes,
+                                      layoutError))
+    {
+      m_lastError = layoutError;
+      return false;
+    }
+
+  if (!std::isfinite(m_voxelSizeX) || m_voxelSizeX <= 0) m_voxelSizeX = 1;
+  if (!std::isfinite(m_voxelSizeY) || m_voxelSizeY <= 0) m_voxelSizeY = 1;
+  if (!std::isfinite(m_voxelSizeZ) || m_voxelSizeZ <= 0) m_voxelSizeZ = 1;
+
+  if (m_4dvol)
+    return true;
+
   if (m_voxelType == _UChar ||
       m_voxelType == _Char ||
       m_voxelType == _UShort ||
@@ -252,7 +348,7 @@ AnalyzePlugin::setFile(QStringList files)
       generateHistogram();
     }
 
-  return true;
+  return m_lastError.isEmpty() && !m_histogram.isEmpty();
 }
 
 #define MINMAXANDHISTOGRAM()				\
@@ -285,7 +381,7 @@ AnalyzePlugin::findMinMaxandGenerateHistogram()
       m_voxelType == _Char)
     {
       if (m_voxelType == _UChar) rMin = 0;
-      if (m_voxelType == _Char) rMin = -127;
+      if (m_voxelType == _Char) rMin = -128;
       rSize = 255;
       for(uint i=0; i<256; i++)
 	m_histogram.append(0);
@@ -294,7 +390,7 @@ AnalyzePlugin::findMinMaxandGenerateHistogram()
       m_voxelType == _Short)
     {
       if (m_voxelType == _UShort) rMin = 0;
-      if (m_voxelType == _Short) rMin = -32767;
+      if (m_voxelType == _Short) rMin = -32768;
       rSize = 65535;
       for(uint i=0; i<65536; i++)
 	m_histogram.append(0);
@@ -310,21 +406,48 @@ AnalyzePlugin::findMinMaxandGenerateHistogram()
   nY = m_width;
   nZ = m_height;
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
+    {
+      m_lastError = error;
+      m_histogram.clear();
+      return;
+    }
+  const int nbytes = static_cast<int>(layout.sliceBytes);
+  std::unique_ptr<uchar[]> storage(new (std::nothrow) uchar[nbytes]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for an Analyze slice.")
+                      .arg(nbytes);
+      m_histogram.clear();
+      return;
+    }
+  uchar *tmp = storage.get();
 
   QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes);
+  if (!fin.open(QFile::ReadOnly) || !fin.seek(m_skipBytes))
+    {
+      m_lastError = QString("Cannot read Analyze image file %1: %2")
+                      .arg(m_imgFile, fin.errorString());
+      m_histogram.clear();
+      return;
+    }
 
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
   for(uint i=0; i<nX; i++)
     {
       progress.setValue((int)(100.0*(float)i/(float)nX));
       qApp->processEvents();
 
-      fin.read((char*)tmp, nbytes);
+      if (!RawFileUtils::readExact(fin, tmp, nbytes, error))
+        {
+          m_lastError = error;
+          m_histogram.clear();
+          return;
+        }
 
       if (m_byteSwap && m_bytesPerVoxel > 1)
 	swapbytes(tmp, m_bytesPerVoxel, nbytes);      
@@ -362,8 +485,6 @@ AnalyzePlugin::findMinMaxandGenerateHistogram()
     }
   fin.close();
 
-  delete [] tmp;
-
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
 //  while(m_histogram.first() == 0)
@@ -379,8 +500,11 @@ AnalyzePlugin::findMinMaxandGenerateHistogram()
     for(uint j=0; j<nY*nZ; j++)				\
       {							\
 	float val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, val);			\
-	m_rawMax = qMax(m_rawMax, val);			\
+	if (std::isfinite(static_cast<double>(val)))		\
+	  {						\
+	    m_rawMin = qMin(m_rawMin, val);		\
+	    m_rawMax = qMax(m_rawMax, val);		\
+	  }						\
       }							\
   }
 
@@ -399,21 +523,44 @@ AnalyzePlugin::findMinMax()
   nY = m_width;
   nZ = m_height;
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
+    {
+      m_lastError = error;
+      return;
+    }
+  const int nbytes = static_cast<int>(layout.sliceBytes);
+  std::unique_ptr<uchar[]> storage(new (std::nothrow) uchar[nbytes]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for an Analyze slice.")
+                      .arg(nbytes);
+      return;
+    }
+  uchar *tmp = storage.get();
 
   QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes);
+  if (!fin.open(QFile::ReadOnly) || !fin.seek(m_skipBytes))
+    {
+      m_lastError = QString("Cannot read Analyze image file %1: %2")
+                      .arg(m_imgFile, fin.errorString());
+      return;
+    }
 
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
   for(uint i=0; i<nX; i++)
     {
       progress.setValue((int)(100.0*(float)i/(float)nX));
       qApp->processEvents();
 
-      fin.read((char*)tmp, nbytes);
+      if (!RawFileUtils::readExact(fin, tmp, nbytes, error))
+        {
+          m_lastError = error;
+          return;
+        }
 
       if (m_byteSwap && m_bytesPerVoxel > 1)
 	swapbytes(tmp, m_bytesPerVoxel, nbytes);      
@@ -451,8 +598,8 @@ AnalyzePlugin::findMinMax()
     }
   fin.close();
 
-  delete [] tmp;
-
+  if (m_rawMin > m_rawMax)
+    m_rawMin = m_rawMax = 0;
   progress.setValue(100);
   qApp->processEvents();
 }
@@ -461,10 +608,10 @@ AnalyzePlugin::findMinMax()
   {							\
     for(uint j=0; j<nY*nZ; j++)				\
       {							\
-	float fidx = (ptr[j]-m_rawMin)/rSize;		\
-	fidx = qBound(0.0f, fidx, 1.0f);		\
-	int idx = fidx*histogramSize;			\
-	m_histogram[idx]+=1;				\
+	int idx = RawFileUtils::scaledHistogramIndex(		\
+	  static_cast<float>(ptr[j]), m_rawMin, m_rawMax, \
+	  histogramSize);					\
+	if (idx >= 0) m_histogram[idx]+=1;			\
       }							\
   }
 
@@ -485,12 +632,34 @@ AnalyzePlugin::generateHistogram()
   nY = m_width;
   nZ = m_height;
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
+    {
+      m_lastError = error;
+      m_histogram.clear();
+      return;
+    }
+  const int nbytes = static_cast<int>(layout.sliceBytes);
+  std::unique_ptr<uchar[]> storage(new (std::nothrow) uchar[nbytes]);
+  if (!storage)
+    {
+      m_lastError = QString("Cannot allocate %1 bytes for an Analyze slice.")
+                      .arg(nbytes);
+      m_histogram.clear();
+      return;
+    }
+  uchar *tmp = storage.get();
 
   QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes);
+  if (!fin.open(QFile::ReadOnly) || !fin.seek(m_skipBytes))
+    {
+      m_lastError = QString("Cannot read Analyze image file %1: %2")
+                      .arg(m_imgFile, fin.errorString());
+      m_histogram.clear();
+      return;
+    }
 
   m_histogram.clear();
   if (m_voxelType == _UChar ||
@@ -513,7 +682,12 @@ AnalyzePlugin::generateHistogram()
       progress.setValue((int)(100.0*(float)i/(float)nX));
       qApp->processEvents();
 
-      fin.read((char*)tmp, nbytes);
+      if (!RawFileUtils::readExact(fin, tmp, nbytes, error))
+        {
+          m_lastError = error;
+          m_histogram.clear();
+          return;
+        }
 
       if (m_byteSwap && m_bytesPerVoxel > 1)
 	swapbytes(tmp, m_bytesPerVoxel, nbytes);      
@@ -551,8 +725,6 @@ AnalyzePlugin::generateHistogram()
     }
   fin.close();
 
-  delete [] tmp;
-
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
 //  while(m_histogram.first() == 0)
@@ -570,21 +742,38 @@ void
 AnalyzePlugin::getDepthSlice(int slc,
 			    uchar *slice)
 {
-  qint64 nbytes = m_width*m_height*m_bytesPerVoxel;
-  if (slc < 0 || slc >= m_depth)
+  m_lastError.clear();
+  if (!slice)
     {
-      memset(slice, 0, nbytes);
+      m_lastError = "Analyze depth-slice output buffer is null.";
       return;
     }
 
-  QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-  fin.seek((qint64)(m_skipBytes + nbytes*slc));
-  fin.read((char*)slice, nbytes);
-  fin.close();
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height,
+                                m_voxelType, m_skipBytes, layout, error))
+    {
+      m_lastError = error;
+      return;
+    }
+  if (slc < 0 || slc >= m_depth)
+    {
+      std::memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      m_lastError = QString("Invalid Analyze depth slice %1.").arg(slc);
+      return;
+    }
+
+  const qint64 offset = m_skipBytes+layout.sliceBytes*slc;
+  if (!RawFileUtils::readAt(m_imgFile, offset, slice,
+                            layout.sliceBytes, error))
+    {
+      std::memset(slice, 0, static_cast<std::size_t>(layout.sliceBytes));
+      m_lastError = error;
+    }
 
   if (m_byteSwap && m_bytesPerVoxel > 1)
-    swapbytes(slice, m_bytesPerVoxel, nbytes);      
+    swapbytes(slice, m_bytesPerVoxel, layout.sliceBytes);
 }
 
 //void
@@ -655,82 +844,68 @@ AnalyzePlugin::getDepthSlice(int slc,
 QVariant
 AnalyzePlugin::rawValue(int d, int w, int h)
 {
-  QVariant v;
-
   if (d < 0 || d >= m_depth ||
       w < 0 || w >= m_width ||
       h < 0 || h >= m_height)
-    {
-      v = QVariant("OutOfBounds");
-      return v;
-    }
+    return QVariant("OutOfBounds");
 
-  QFile fin(m_imgFile);
-  fin.open(QFile::ReadOnly);
-  fin.seek((qint64)(m_skipBytes +
-	   m_bytesPerVoxel*(d*m_width*m_height +
-			    w*m_height +
-			    h)));
+  qint64 planeVoxels = 0;
+  qint64 voxelIndex = 0;
+  qint64 byteOffset = 0;
+  qint64 rowOffset = 0;
+  if (!RawFileUtils::checkedMultiply(m_width, m_height, planeVoxels) ||
+      !RawFileUtils::checkedMultiply(d, planeVoxels, voxelIndex) ||
+      !RawFileUtils::checkedMultiply(w, m_height, rowOffset) ||
+      !RawFileUtils::checkedAdd(voxelIndex, rowOffset, voxelIndex) ||
+      !RawFileUtils::checkedAdd(voxelIndex, h, voxelIndex) ||
+      !RawFileUtils::checkedMultiply(voxelIndex, m_bytesPerVoxel,
+                                     byteOffset) ||
+      !RawFileUtils::checkedAdd(byteOffset, m_skipBytes, byteOffset))
+    return QVariant("ReadError");
+
+  alignas(4) uchar bytes[4] = { 0, 0, 0, 0 };
+  QString error;
+  if (!RawFileUtils::readAt(m_imgFile, byteOffset, bytes,
+                            m_bytesPerVoxel, error))
+    return QVariant("ReadError");
+  if (m_byteSwap && m_bytesPerVoxel > 1)
+    swapbytes(bytes, m_bytesPerVoxel, m_bytesPerVoxel);
 
   if (m_voxelType == _UChar)
     {
-      unsigned char a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      v = QVariant((uint)a);
+      return QVariant(static_cast<uint>(bytes[0]));
     }
   else if (m_voxelType == _Char)
     {
-      char a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      v = QVariant((int)a);
+      signed char value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<int>(value));
     }
   else if (m_voxelType == _UShort)
     {
-      unsigned short a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      if (m_byteSwap)
-	{
-	  uchar *sptr = (uchar*)(&a);
-	  swapbytes(sptr, 2);
-	}
-      v = QVariant((uint)a);
+      ushort value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<uint>(value));
     }
   else if (m_voxelType == _Short)
     {
-      short a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      if (m_byteSwap)
-	{
-	  uchar *sptr = (uchar*)(&a);
-	  swapbytes(sptr, 2);
-	}
-      v = QVariant((int)a);
+      short value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<int>(value));
     }
   else if (m_voxelType == _Int)
     {
-      int a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      if (m_byteSwap)
-	{
-	  uchar *sptr = (uchar*)(&a);
-	  swapbytes(sptr, 4);
-	}
-      v = QVariant((int)a);
+      int value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(value);
     }
   else if (m_voxelType == _Float)
     {
-      float a;
-      fin.read((char*)&a, m_bytesPerVoxel);
-      if (m_byteSwap)
-	{
-	  uchar *sptr = (uchar*)(&a);
-	  swapbytes(sptr, 4);
-	}
-      v = QVariant((double)a);
+      float value = 0;
+      std::memcpy(&value, bytes, sizeof(value));
+      return QVariant(static_cast<double>(value));
     }
-  fin.close();
-
-  return v;
+  return QVariant("ReadError");
 }
 
 //void
@@ -811,20 +986,10 @@ AnalyzePlugin::rawValue(int d, int w, int h)
 bool
 AnalyzePlugin::checkExtension(QString flnm, const char *ext)
 {
-  bool ok = true;
-  int extlen = strlen(ext);
-
-  QFileInfo info(flnm);
-  if (info.exists() && info.isFile())
-    {
-      QByteArray exten = flnm.toUtf8().right(extlen);
-      if (exten != ext)
-	ok = false;
-    }
-  else
-    ok = false;
-
-  return ok;
+  const QFileInfo info(flnm);
+  return info.exists() && info.isFile() &&
+         info.suffix().compare(QString::fromLatin1(ext),
+                               Qt::CaseInsensitive) == 0;
 }
 
 void

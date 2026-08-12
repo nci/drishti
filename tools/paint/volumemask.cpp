@@ -1,6 +1,10 @@
 #include "volumemask.h"
 #include "global.h"
 #include <QDomDocument>
+#include <QFileInfo>
+#include <QSaveFile>
+
+#include <limits>
 
 VolumeMask::VolumeMask()
 {
@@ -11,30 +15,49 @@ VolumeMask::VolumeMask()
 
 VolumeMask::~VolumeMask()
 {
-  reset();
+  (void)reset();
 }
 
-void
+bool
 VolumeMask::reset()
 {
-  if (!m_maskfile.isEmpty())
-    m_maskFileManager.saveMemFile();    
+  if (!m_maskfile.isEmpty() && !m_maskFileManager.saveMemFile())
+    {
+      m_lastError = m_maskFileManager.lastError();
+      return false;
+    }
 
-  m_maskFileManager.reset();
+  if (!m_maskFileManager.reset())
+    {
+      m_lastError = m_maskFileManager.lastError();
+      return false;
+    }
 
   m_maskfile.clear();
+  m_lastError.clear();
   if (m_maskslice) delete [] m_maskslice;
   m_maskslice = 0;
   m_depth = m_width = m_height = 0;
+  return true;
 }
 
-void
+bool
 VolumeMask::exportMask()
 {
+  m_lastError.clear();
   QString maskfile = m_maskFileManager.exportMask();
-  if (!maskfile.isEmpty())
-    createPvlNc(maskfile);
-  QMessageBox::information(0, "Export", QString("Exported labeled data to %1 and associated pvl.nc file").arg(maskfile));
+  if (maskfile.isEmpty())
+    {
+      m_lastError = m_maskFileManager.lastError();
+      return false;
+    }
+  if (!createPvlNc(maskfile))
+    return false;
+
+  QMessageBox::information(0, "Export",
+                           QString("Exported labeled data to %1 and associated pvl.nc file")
+                             .arg(maskfile));
+  return true;
 }
 void
 VolumeMask::checkPoint()
@@ -57,76 +80,101 @@ VolumeMask::deleteCheckPoint()
   return m_maskFileManager.deleteCheckPoint();
 }
 
-void
+bool
 VolumeMask::offloadMemFile()
 {
-  m_maskFileManager.setMemMapped(false);
+  if (!m_maskFileManager.setMemMapped(false))
+    {
+      m_lastError = m_maskFileManager.lastError();
+      return false;
+    }
+  return true;
 }
 
-void
+bool
 VolumeMask::loadRawFile(QString flnm)
 {
-  m_maskFileManager.loadRawFile(flnm);
+  return m_maskFileManager.loadRawFile(flnm);
 }
 
-void
+bool
 VolumeMask::loadMemFile()
 {
-  m_maskFileManager.setMemMapped(true);
-  m_maskFileManager.loadMemFile();
+  if (!m_maskFileManager.setMemMapped(true))
+    return false;
+  if (!m_maskFileManager.loadMemFile())
+    return false;
+  return m_maskFileManager.startFileHandlerThread();
 }
 
-void
+bool
 VolumeMask::checkFileSave()
 {
-  m_maskFileManager.checkFileSave();
+  return m_maskFileManager.checkFileSave();
 }
 
-void
+bool
 VolumeMask::exiting()
 {
-  m_maskFileManager.exiting();
+  return m_maskFileManager.exiting();
 }
 
-void
+bool
 VolumeMask::saveIntermediateResults(bool forceSave)
 {
   if (forceSave)
-    m_maskFileManager.setMemChanged(true);
-
-  m_maskFileManager.saveMemFile();
+    {
+      m_maskFileManager.setMemChanged(true);
+      return m_maskFileManager.flushPendingChanges();
+    }
+  return m_maskFileManager.requestSave();
 }
 
-void
+bool
 VolumeMask::saveMaskBlock(int d, int w, int h, int rad)
 {
-  m_maskFileManager.saveBlock();
+  Q_UNUSED(d);
+  Q_UNUSED(w);
+  Q_UNUSED(h);
+  Q_UNUSED(rad);
+  return m_maskFileManager.saveBlock();
 }
 
-void
+bool
 VolumeMask::saveMaskBlock(QList< QList<int> > bl)
 {
   if (bl.count() == 0)
-    return;
+    return true;
 
-  
-  m_maskFileManager.saveBlock();
+  return m_maskFileManager.saveBlock();
 }
 
-void
+bool
 VolumeMask::setFile(QString mfile, bool inMem)
 {
-  reset();
+  if (!reset())
+    return false;
   m_maskfile = mfile;
   QStringList tflnms;
   tflnms << mfile;
   m_maskFileManager.setFilenameList(tflnms);
-  m_maskFileManager.setMemMapped(inMem);
+  if (!m_maskFileManager.setMemMapped(inMem))
+    {
+      m_lastError = m_maskFileManager.lastError();
+      return false;
+    }
+  return true;
 }
 
-void
+bool
 VolumeMask::setGridSize(int d, int w, int h, int slabsize)
 {
+  m_lastError.clear();
+  Q_UNUSED(slabsize);
+  if (d <= 0 || w <= 0 || h <= 0 ||
+      d == std::numeric_limits<int>::max())
+    return false;
+
   m_depth = d;
   m_width = w;
   m_height= h;  
@@ -138,12 +186,22 @@ VolumeMask::setGridSize(int d, int w, int h, int slabsize)
   // do not split data across multiple files
   m_maskFileManager.setSlabSize(m_depth+1);
 
-  m_maskFileManager.startFileHandlerThread();
-
+  bool ready = false;
   if (m_maskFileManager.exists())
-    m_maskFileManager.loadMemFile();
+    ready = m_maskFileManager.loadMemFile();
   else
-    checkMaskFile();
+    {
+      const QStringList files = m_maskFileManager.filenameList();
+      if (!files.isEmpty() && QFileInfo::exists(files[0]))
+        return false; // Existing but invalid masks must never be overwritten.
+      ready = checkMaskFile();
+    }
+
+  if (!ready)
+    return false;
+  if (m_maskFileManager.isMemMapped())
+    return m_maskFileManager.startFileHandlerThread();
+  return true;
 }
 
 QStringList
@@ -236,9 +294,10 @@ VolumeMask::saveTagNames(QStringList tagNames)
     }      
 }
 
-void
-VolumeMask::createPvlNc(QString maskfile)
+bool
+VolumeMask::createPvlNc(QString maskfile, QString headerBase)
 {
+      m_lastError.clear();
       QDomDocument doc("Drishti_Header");
       
       QDomElement topElement = doc.createElement("PvlDotNcFileHeader");
@@ -325,64 +384,96 @@ VolumeMask::createPvlNc(QString maskfile)
 	topElement.appendChild(de0);
       }
       
-      QString pvlfile = maskfile;
+      QString pvlfile = headerBase.isEmpty() ? maskfile : headerBase;
       pvlfile += ".pvl.nc";
-      QFile pf(pvlfile.toUtf8().data());
-      if (pf.open(QIODevice::WriteOnly))
+      QSaveFile pf(pvlfile);
+      if (!pf.open(QIODevice::WriteOnly))
 	{
-	  QTextStream out(&pf);
-	  doc.save(out, 2);
-	  pf.close();
-	}      
+	  m_lastError = QString("create mask header: cannot open '%1': %2")
+	                  .arg(pvlfile, pf.errorString());
+	  return false;
+	}
+      QTextStream out(&pf);
+      doc.save(out, 2);
+      out.flush();
+      if (out.status() != QTextStream::Ok)
+	{
+	  m_lastError = QString("create mask header: cannot write '%1': %2")
+	                  .arg(pvlfile, pf.errorString());
+	  pf.cancelWriting();
+	  return false;
+	}
+      if (!pf.commit())
+	{
+	  m_lastError = QString("create mask header: cannot commit '%1': %2")
+	                  .arg(pvlfile, pf.errorString());
+	  return false;
+	}
+      return true;
 }
 
-void
+bool
 VolumeMask::checkMaskFile()
 {
-  // create mask file if not present
-  if (!m_maskFileManager.exists())
-    {
-      m_maskFileManager.createFile(true, true);
+  if (m_maskFileManager.exists())
+    return true;
 
-      createPvlNc(m_maskfile);
+  const QStringList files = m_maskFileManager.filenameList();
+  if (!files.isEmpty() && QFileInfo::exists(files[0]))
+    return false;
+
+  if (!m_maskFileManager.createFile(true, true))
+    return false;
+
+  const QStringList createdFiles = m_maskFileManager.filenameList();
+  const QString dataFile = createdFiles.isEmpty() ? m_maskfile : createdFiles[0];
+  if (createPvlNc(dataFile, m_maskfile))
+    {
+      if (dataFile != m_maskfile && QFileInfo::exists(m_maskfile))
+        QFile::remove(m_maskfile);
+      return true;
     }
+
+  m_maskFileManager.removeFile();
+  return false;
 } 
 
-void
+bool
 VolumeMask::setMaskDepthSlice(int slc, uchar* tagData)
 {
-  checkMaskFile();
-  m_maskFileManager.setDepthSliceMem(slc, tagData);
+  return checkMaskFile() &&
+         m_maskFileManager.setDepthSliceMem(slc, tagData);
 }
 
 uchar*
 VolumeMask::getMaskDepthSliceImage(int slc)
 {
-  checkMaskFile();
-
+  if (!checkMaskFile())
+    return 0;
   return m_maskFileManager.getDepthSliceMem(slc);
 }
 
 uchar*
 VolumeMask::getMaskWidthSliceImage(int slc)
 {
-  checkMaskFile();
-
+  if (!checkMaskFile())
+    return 0;
   return m_maskFileManager.getWidthSliceMem(slc);
 }
 
 uchar*
 VolumeMask::getMaskHeightSliceImage(int slc)
 {
-  checkMaskFile();
-
+  if (!checkMaskFile())
+    return 0;
   return m_maskFileManager.getHeightSliceMem(slc);
 }
 
 ushort
 VolumeMask::maskValue(int d, int w, int h)
 {
-  checkMaskFile();
+  if (!checkMaskFile())
+    return 0;
 
   if (d < 0 || d >= m_depth ||
       w < 0 || w >= m_width ||
@@ -397,21 +488,18 @@ VolumeMask::maskValue(int d, int w, int h)
   return tmp;
 }
 
-void
+bool
 VolumeMask::tagDSlice(int d, uchar *tags)
 {
-  checkMaskFile();
-  m_maskFileManager.setDepthSliceMem(d, tags);
+  return checkMaskFile() && m_maskFileManager.setDepthSliceMem(d, tags);
 }
-void
+bool
 VolumeMask::tagWSlice(int w, uchar *tags)
 {
-  checkMaskFile();
-  m_maskFileManager.setWidthSliceMem(w, tags);
+  return checkMaskFile() && m_maskFileManager.setWidthSliceMem(w, tags);
 }
-void
+bool
 VolumeMask::tagHSlice(int h, uchar *tags)
 {
-  checkMaskFile();
-  m_maskFileManager.setHeightSliceMem(h, tags);
+  return checkMaskFile() && m_maskFileManager.setHeightSliceMem(h, tags);
 }

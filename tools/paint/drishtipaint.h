@@ -274,6 +274,7 @@ class DrishtiPaint : public QMainWindow
   QList <QAction*> m_recentFileActions;
 
   QList< QList<int> > m_blockList;
+  bool m_paintUndoReady;
   
   Vec m_prevSeed;
 
@@ -301,7 +302,7 @@ class DrishtiPaint : public QMainWindow
   void sliceSmooth(int, int, ushort*, ushort*, int, int, int);
   void smooth(int, int, ushort**, ushort*, int, int, int);
 
-  void savePvlHeader(QString, QString, int, int, int, int);
+  bool savePvlHeader(QString, QString, int, int, int, int);
 
   void colorMesh(QVector<QVector3D>&,
 		 QVector<QVector3D>,

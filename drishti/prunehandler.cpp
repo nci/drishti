@@ -8,6 +8,9 @@
 
 #include <QFileDialog>
 #include <QInputDialog>
+#include <QDebug>
+
+#include <new>
 
 #define VECDIVIDE(a, b) Vec(a.x/b.x, a.y/b.y, a.z/b.z)
 
@@ -21,6 +24,8 @@ uchar* PruneHandler::m_lut=0;
 bool PruneHandler::m_useSavedBuffer = false;
 bool PruneHandler::m_mopActive = false;
 bool PruneHandler::m_forceRegen = false;
+bool PruneHandler::m_available = true;
+QString PruneHandler::m_failureReason;
 
 bool PruneHandler::m_blendActive = false;
 bool PruneHandler::m_paintActive = false;
@@ -96,9 +101,14 @@ void PruneHandler::setChannel(int c) { m_channel = c; }
 int PruneHandler::channel() { return m_channel; }
 
 GLuint PruneHandler::m_pruneTex=0;
-GLuint PruneHandler::texture() { return m_pruneBuffer->texture(); }
+GLuint PruneHandler::texture()
+{
+  return (m_available && m_pruneBuffer && m_pruneBuffer->isValid()) ?
+    m_pruneBuffer->texture() : 0;
+}
 
-QGLFramebufferObject* PruneHandler::pruneBuffer() { return m_pruneBuffer; }
+QGLFramebufferObject* PruneHandler::pruneBuffer()
+{ return m_available ? m_pruneBuffer : 0; }
 
 void PruneHandler::setUseSavedBuffer(bool b) { m_useSavedBuffer = b; }
 bool PruneHandler::useSavedBuffer() { return m_useSavedBuffer; }
@@ -118,8 +128,7 @@ void PruneHandler::clean()
   m_useSavedBuffer = false;
   m_channel = -1;
 
-  if (m_pruneBuffer) delete m_pruneBuffer;
-  if (m_savedPruneBuffer) delete m_savedPruneBuffer;
+  releaseBuffers();
   if (m_lutTex) glDeleteTextures(1, &m_lutTex);
 
   if (m_pruneShader) glDeleteObjectARB(m_pruneShader);
@@ -150,8 +159,6 @@ void PruneHandler::clean()
   if (m_averageShader) glDeleteObjectARB(m_averageShader);
   if (m_patternShader) glDeleteObjectARB(m_patternShader);
 
-  m_pruneBuffer = 0;
-  m_savedPruneBuffer = 0;
   m_lutTex = 0;
 
   m_clipShader = 0;
@@ -181,6 +188,8 @@ void PruneHandler::clean()
   m_smoothChannelShader = 0;
   m_averageShader = 0;
   m_patternShader = 0;
+  m_available = true;
+  m_failureReason.clear();
 }
 
 #define swapFBO(fbo1,  fbo2)			\
@@ -190,14 +199,98 @@ void PruneHandler::clean()
     fbo2 = tpb;					\
   }
 
+void
+PruneHandler::releaseBuffers()
+{
+  delete m_pruneBuffer;
+  delete m_savedPruneBuffer;
+  m_pruneBuffer = 0;
+  m_savedPruneBuffer = 0;
+}
+
+void
+PruneHandler::fail(const QString &label, const QString &detail)
+{
+  const QString message = QStringLiteral("%1 unavailable: %2").arg(label, detail);
+  m_available = false;
+  m_failureReason = message;
+  m_mopActive = false;
+  m_forceRegen = false;
+  m_useSavedBuffer = false;
+  releaseBuffers();
+  Global::setEmptySpaceSkip(false);
+  if (MainWindowUI::mainWindowUI()->actionEmptySpaceSkip)
+    MainWindowUI::mainWindowUI()->actionEmptySpaceSkip->setChecked(false);
+  qWarning().noquote() << message;
+  MainWindowUI::mainWindowUI()->statusBar->showMessage(message);
+}
+
+bool
+PruneHandler::loadProgram(GLhandleARB &program,
+			  const QString &source,
+			  const QString &label)
+{
+  GLhandleARB candidate = glCreateProgramObjectARB();
+  if (!candidate || !ShaderFactory::loadShader(candidate, source))
+    {
+      const GLenum error = glGetError();
+      if (candidate) glDeleteObjectARB(candidate);
+      if (program) glDeleteObjectARB(program);
+      program = 0;
+      fail(label,
+	   QStringLiteral("shader compile/link failed (OpenGL error 0x%1)").arg(
+	     QString::number(static_cast<qulonglong>(error), 16)));
+      return false;
+    }
+
+  if (program) glDeleteObjectARB(program);
+  program = candidate;
+  return true;
+}
+
 QGLFramebufferObject*
 PruneHandler::newFBO()
 {
-  QGLFramebufferObject* fbo;
-  fbo = new QGLFramebufferObject(QSize(m_dtexX,
-				       m_dtexY),
-				 QGLFramebufferObject::NoAttachment,
-				 GL_TEXTURE_RECTANGLE_EXT);
+  if (m_dtexX <= 0 || m_dtexY <= 0 ||
+      m_dtexX > Global::max2dTextureSize() ||
+      m_dtexY > Global::max2dTextureSize())
+    {
+      fail(QStringLiteral("prune/framebuffer"),
+	   QStringLiteral("invalid size %1x%2 (limit %3)")
+	   .arg(m_dtexX).arg(m_dtexY).arg(Global::max2dTextureSize()));
+      return 0;
+    }
+
+  for (int i=0; i<32 && glGetError() != GL_NO_ERROR; ++i) {}
+  QGLFramebufferObject* fbo = new (std::nothrow) QGLFramebufferObject(
+    QSize(m_dtexX, m_dtexY), QGLFramebufferObject::NoAttachment,
+    GL_TEXTURE_RECTANGLE_EXT);
+  GLenum error = glGetError();
+  GLenum status = 0;
+  bool bound = false;
+  if (fbo && fbo->isValid() && fbo->texture())
+    {
+      bound = fbo->bind();
+      if (bound)
+	{
+	  status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
+	  fbo->release();
+	  const GLenum validationError = glGetError();
+	  if (error == GL_NO_ERROR) error = validationError;
+	}
+    }
+
+  if (!fbo || !fbo->isValid() || !fbo->texture() || !bound ||
+      status != GL_FRAMEBUFFER_COMPLETE_EXT || error != GL_NO_ERROR)
+    {
+      delete fbo;
+      fail(QStringLiteral("prune/framebuffer"),
+	   QStringLiteral("creation failed (status 0x%1, OpenGL error 0x%2)")
+	   .arg(QString::number(static_cast<qulonglong>(status), 16),
+		QString::number(static_cast<qulonglong>(error), 16)));
+      return 0;
+    }
+
   return fbo;
 }
 
@@ -207,6 +300,9 @@ PruneHandler::getRaw(uchar *raw,
 		     Vec dragInfo, Vec subVolSize,
 		     bool maskUsingRed)
 {
+  if (!raw || !m_available || !m_pruneBuffer || !m_pruneBuffer->isValid())
+    return;
+
   // remember that we get BGRA
 
   int dtextureX = m_pruneBuffer->width();
@@ -266,6 +362,9 @@ PruneHandler::setRaw(uchar *raw,
 		     int chan,
 		     Vec dragInfo, Vec subVolSize)
 {
+  if (!raw || !standardChecks())
+    return;
+
   // remember that we get BGRA
 
   int dtextureX = m_pruneBuffer->width();
@@ -362,6 +461,9 @@ PruneHandler::setRaw(uchar *raw,
 void
 PruneHandler::saveBuffer()
 {
+  if (!standardChecks())
+    return;
+
   QFileDialog fdialog(0,
 		      "Save Buffer",
 		      Global::previousDirectory(),
@@ -411,7 +513,8 @@ PruneHandler::saveImage(QString flnm)
 QByteArray
 PruneHandler::getPruneBuffer()
 {
-  if (!m_mopActive)
+  if (!m_mopActive || !m_available || !m_pruneBuffer ||
+      !m_pruneBuffer->isValid())
     return QByteArray();
 
   //QMessageBox::information(0, "", "getprunebuffer");
@@ -429,6 +532,10 @@ PruneHandler::getPruneBuffer()
 void
 PruneHandler::setPruneBuffer(QByteArray cpb, bool compressed)
 {
+  Q_UNUSED(compressed);
+  if (!standardChecks())
+    return;
+
 //  if (cpb.isEmpty())
 //    {
 //      // reset channel 2
@@ -445,6 +552,14 @@ PruneHandler::setPruneBuffer(QByteArray cpb, bool compressed)
   m_mopActive = true;
   QByteArray pb;
   pb = cpb;
+
+  const qint64 expectedBytes = 4LL*m_dtexX*m_dtexY;
+  if (expectedBytes <= 0 || pb.size() != expectedBytes)
+    {
+      QMessageBox::information(0, "Prune Buffer Error",
+	QString("Expected %1 bytes, received %2.").arg(expectedBytes).arg(pb.size()));
+      return;
+    }
 
   uchar *pbdata = new uchar[4*m_dtexX*m_dtexY];
   memcpy(pbdata, (uchar*)pb.data(), pb.count());
@@ -567,8 +682,18 @@ PruneHandler::saveRaw(QString flnm)
 }
 
 bool
-PruneHandler::standardChecks()
+PruneHandler::standardChecks(bool requireBuffer)
 {
+  if (!m_available)
+    return false;
+
+  if (requireBuffer &&
+      (!m_pruneBuffer || !m_pruneBuffer->isValid() || !m_pruneBuffer->texture()))
+    {
+      QMessageBox::information(0, "Error MOP", "Prune buffer is unavailable.");
+      return false;
+    }
+
   if (Global::volumeType() == Global::DummyVolume ||
       Global::volumeType() == Global::RGBVolume ||
       Global::volumeType() == Global::RGBAVolume)
@@ -589,18 +714,16 @@ PruneHandler::standardChecks()
 void
 PruneHandler::createMopShaders()
 {
+  if (!m_available)
+    return;
+
   QString shaderString;
 
   //---------------------------
   shaderString = PruneShaderFactory::minTexture();
 
-  if (m_minShader)
-    glDeleteObjectARB(m_minShader);
-
-  m_minShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_minShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_minShader, shaderString,
+		   QStringLiteral("prune/mop-min"))) return;
 
   m_minParm[0] = glGetUniformLocationARB(m_minShader, "pruneTex1");
   m_minParm[1] = glGetUniformLocationARB(m_minShader, "pruneTex2");
@@ -611,13 +734,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::maxTexture();
 
-  if (m_maxShader)
-    glDeleteObjectARB(m_maxShader);
-
-  m_maxShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_maxShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_maxShader, shaderString,
+		   QStringLiteral("prune/mop-max"))) return;
 
   m_maxParm[0] = glGetUniformLocationARB(m_maxShader, "pruneTex1");
   m_maxParm[1] = glGetUniformLocationARB(m_maxShader, "pruneTex2");
@@ -628,13 +746,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::xorTexture();
 
-  if (m_xorShader)
-    glDeleteObjectARB(m_xorShader);
-
-  m_xorShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_xorShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_xorShader, shaderString,
+		   QStringLiteral("prune/mop-xor"))) return;
 
   m_xorParm[0] = glGetUniformLocationARB(m_xorShader, "pruneTex1");
   m_xorParm[1] = glGetUniformLocationARB(m_xorShader, "pruneTex2");
@@ -645,13 +758,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::invert();
 
-  if (m_invertShader)
-    glDeleteObjectARB(m_invertShader);
-
-  m_invertShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_invertShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_invertShader, shaderString,
+		   QStringLiteral("prune/invert"))) return;
 
   m_invertParm[0] = glGetUniformLocationARB(m_invertShader, "pruneTex");
   m_invertParm[1] = glGetUniformLocationARB(m_invertShader, "chan");
@@ -660,13 +768,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::setValue();
 
-  if (m_setValueShader)
-    glDeleteObjectARB(m_setValueShader);
-
-  m_setValueShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_setValueShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_setValueShader, shaderString,
+		   QStringLiteral("prune/set-value"))) return;
 
   m_setValueParm[0] = glGetUniformLocationARB(m_setValueShader, "pruneTex");
   m_setValueParm[1] = glGetUniformLocationARB(m_setValueShader, "val");
@@ -678,13 +781,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::copyChannel();
 
-  if (m_copyChannelShader)
-    glDeleteObjectARB(m_copyChannelShader);
-
-  m_copyChannelShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_copyChannelShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_copyChannelShader, shaderString,
+		   QStringLiteral("prune/copy-channel"))) return;
 
   m_copyChannelParm[0] = glGetUniformLocationARB(m_copyChannelShader, "pruneTex");
   m_copyChannelParm[1] = glGetUniformLocationARB(m_copyChannelShader, "src");
@@ -694,13 +792,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::removePatch();
 
-  if (m_removePatchShader)
-    glDeleteObjectARB(m_removePatchShader);
-
-  m_removePatchShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_removePatchShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_removePatchShader, shaderString,
+		   QStringLiteral("prune/remove-patch"))) return;
 
   m_removePatchParm[0] = glGetUniformLocationARB(m_removePatchShader, "pruneTex");
   m_removePatchParm[1] = glGetUniformLocationARB(m_removePatchShader, "remove");
@@ -709,13 +802,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::average();
 
-  if (m_averageShader)
-    glDeleteObjectARB(m_averageShader);
-
-  m_averageShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_averageShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_averageShader, shaderString,
+		   QStringLiteral("prune/average"))) return;
 
   m_averageParm[0] = glGetUniformLocationARB(m_averageShader, "pruneTex");
   m_averageParm[1] = glGetUniformLocationARB(m_averageShader, "chan1");
@@ -726,13 +814,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::thicken();
 
-  if (m_thickenShader)
-    glDeleteObjectARB(m_thickenShader);
-
-  m_thickenShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_thickenShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_thickenShader, shaderString,
+		   QStringLiteral("prune/thicken"))) return;
 
   m_thickenParm[0] = glGetUniformLocationARB(m_thickenShader, "pruneTex");
   m_thickenParm[1] = glGetUniformLocationARB(m_thickenShader, "gridx");
@@ -746,13 +829,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::dilateEdgeTexture();
   
-  if (m_dilateEdgeShader)
-    glDeleteObjectARB(m_dilateEdgeShader);
-
-  m_dilateEdgeShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_dilateEdgeShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_dilateEdgeShader, shaderString,
+		   QStringLiteral("prune/dilate-edge"))) return;
 
   m_dilateEdgeParm[0] = glGetUniformLocationARB(m_dilateEdgeShader, "pruneTex");
   m_dilateEdgeParm[1] = glGetUniformLocationARB(m_dilateEdgeShader, "gridx");
@@ -766,13 +844,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::localMaximum();
 
-  if (m_localmaxShader)
-    glDeleteObjectARB(m_localmaxShader);
-
-  m_localmaxShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_localmaxShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_localmaxShader, shaderString,
+		   QStringLiteral("prune/local-maximum"))) return;
 
   m_localmaxParm[0] = glGetUniformLocationARB(m_localmaxShader, "pruneTex");
   m_localmaxParm[1] = glGetUniformLocationARB(m_localmaxShader, "gridx");
@@ -785,13 +858,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::localThickness();
 
-  if (m_localThicknessShader)
-    glDeleteObjectARB(m_localThicknessShader);
-
-  m_localThicknessShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_localThicknessShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_localThicknessShader, shaderString,
+		   QStringLiteral("prune/local-thickness"))) return;
 
   m_localThicknessParm[0] = glGetUniformLocationARB(m_localThicknessShader, "pruneTex");
   m_localThicknessParm[1] = glGetUniformLocationARB(m_localThicknessShader, "gridx");
@@ -805,13 +873,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::dilate();
 
-  if (m_dilateShader)
-    glDeleteObjectARB(m_dilateShader);
-
-  m_dilateShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_dilateShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_dilateShader, shaderString,
+		   QStringLiteral("prune/dilate"))) return;
 
   m_dilateParm[0] = glGetUniformLocationARB(m_dilateShader, "pruneTex");
   m_dilateParm[1] = glGetUniformLocationARB(m_dilateShader, "gridx");
@@ -825,13 +888,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::restrictedDilate();
 
-  if (m_rDilateShader)
-    glDeleteObjectARB(m_rDilateShader);
-
-  m_rDilateShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_rDilateShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_rDilateShader, shaderString,
+		   QStringLiteral("prune/restricted-dilate"))) return;
 
   m_rDilateParm[0] = glGetUniformLocationARB(m_rDilateShader, "pruneTex");
   m_rDilateParm[1] = glGetUniformLocationARB(m_rDilateShader, "gridx");
@@ -845,13 +903,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::erode();
 
-  if (m_erodeShader)
-    glDeleteObjectARB(m_erodeShader);
-
-  m_erodeShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_erodeShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_erodeShader, shaderString,
+		   QStringLiteral("prune/erode"))) return;
 
   m_erodeParm[0] = glGetUniformLocationARB(m_erodeShader, "pruneTex");
   m_erodeParm[1] = glGetUniformLocationARB(m_erodeShader, "gridx");
@@ -865,13 +918,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::shrink();
 
-  if (m_shrinkShader)
-    glDeleteObjectARB(m_shrinkShader);
-
-  m_shrinkShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_shrinkShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_shrinkShader, shaderString,
+		   QStringLiteral("prune/shrink"))) return;
 
   m_shrinkParm[0] = glGetUniformLocationARB(m_shrinkShader, "pruneTex");
   m_shrinkParm[1] = glGetUniformLocationARB(m_shrinkShader, "gridx");
@@ -885,13 +933,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::edgeTexture();
 
-  if (m_edgeShader)
-    glDeleteObjectARB(m_edgeShader);
-
-  m_edgeShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_edgeShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_edgeShader, shaderString,
+		   QStringLiteral("prune/edge"))) return;
 
   m_edgeParm[0] = glGetUniformLocationARB(m_edgeShader, "pruneTex");
   m_edgeParm[1] = glGetUniformLocationARB(m_edgeShader, "gridx");
@@ -906,13 +949,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::carve();
 
-  if (m_carveShader)
-    glDeleteObjectARB(m_carveShader);
-
-  m_carveShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_carveShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_carveShader, shaderString,
+		   QStringLiteral("prune/carve"))) return;
 
   m_carveParm[0] = glGetUniformLocationARB(m_carveShader, "pruneTex");
   m_carveParm[1] = glGetUniformLocationARB(m_carveShader, "gridx");
@@ -935,13 +973,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::paint();
 
-  if (m_paintShader)
-    glDeleteObjectARB(m_paintShader);
-
-  m_paintShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_paintShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_paintShader, shaderString,
+		   QStringLiteral("prune/paint"))) return;
 
   m_paintParm[0] = glGetUniformLocationARB(m_paintShader, "pruneTex");
   m_paintParm[1] = glGetUniformLocationARB(m_paintShader, "gridx");
@@ -966,13 +999,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::clip();
 
-  if (m_clipShader)
-    glDeleteObjectARB(m_clipShader);
-
-  m_clipShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_clipShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_clipShader, shaderString,
+		   QStringLiteral("prune/clip"))) return;
 
   m_clipParm[0] = glGetUniformLocationARB(m_clipShader, "pruneTex");
   m_clipParm[1] = glGetUniformLocationARB(m_clipShader, "gridx");
@@ -988,13 +1016,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::fillTriangle();
 
-  if (m_triShader)
-    glDeleteObjectARB(m_triShader);
-
-  m_triShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_triShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_triShader, shaderString,
+		   QStringLiteral("prune/fill-triangle"))) return;
 
   m_triParm[0] = glGetUniformLocationARB(m_triShader, "pruneTex");
   m_triParm[1] = glGetUniformLocationARB(m_triShader, "gridx");
@@ -1013,13 +1036,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::maxValue();
 
-  if (m_maxValueShader)
-    glDeleteObjectARB(m_maxValueShader);
-
-  m_maxValueShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_maxValueShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_maxValueShader, shaderString,
+		   QStringLiteral("prune/max-value"))) return;
 
   m_maxValueParm[0] = glGetUniformLocationARB(m_maxValueShader, "pruneTex");
   m_maxValueParm[1] = glGetUniformLocationARB(m_maxValueShader, "cols");
@@ -1029,13 +1047,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::histogram();
 
-  if (m_histogramShader)
-    glDeleteObjectARB(m_histogramShader);
-
-  m_histogramShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_histogramShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_histogramShader, shaderString,
+		   QStringLiteral("prune/histogram"))) return;
 
   m_histogramParm[0] = glGetUniformLocationARB(m_histogramShader, "pruneTex");
   m_histogramParm[1] = glGetUniformLocationARB(m_histogramShader, "cols");
@@ -1048,13 +1061,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::smoothChannel();
 
-  if (m_smoothChannelShader)
-    glDeleteObjectARB(m_smoothChannelShader);
-
-  m_smoothChannelShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_smoothChannelShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_smoothChannelShader, shaderString,
+		   QStringLiteral("prune/smooth-channel"))) return;
 
   m_smoothChannelParm[0] = glGetUniformLocationARB(m_smoothChannelShader, "pruneTex");
   m_smoothChannelParm[1] = glGetUniformLocationARB(m_smoothChannelShader, "gridx");
@@ -1068,13 +1076,8 @@ PruneHandler::createMopShaders()
   //---------------------------
   shaderString = PruneShaderFactory::pattern();
 
-  if (m_patternShader)
-    glDeleteObjectARB(m_patternShader);
-
-  m_patternShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_patternShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_patternShader, shaderString,
+		   QStringLiteral("prune/pattern"))) return;
 
   m_patternParm[0] = glGetUniformLocationARB(m_patternShader, "pruneTex");
   m_patternParm[1] = glGetUniformLocationARB(m_patternShader, "gridx");
@@ -1115,13 +1118,9 @@ PruneHandler::createPruneShader(bool bit16)
       shaderString = PruneShaderFactory::genPruneTexture(nvol, bit16);
     }    
 
-  if (m_pruneShader)
-    glDeleteObjectARB(m_pruneShader);
-
-  m_pruneShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_pruneShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_pruneShader, shaderString,
+		   QStringLiteral("prune/generate")))
+    return;
 
   m_pruneParm[0] = glGetUniformLocationARB(m_pruneShader, "lutTex");
   m_pruneParm[1] = glGetUniformLocationARB(m_pruneShader, "dragTex");
@@ -1275,13 +1274,25 @@ PruneHandler::modifyPruneTexture(int shaderType,
 				 QGLFramebufferObject *pruneBuffer2,
 				 QVariantList vlist)
 {
+  const bool fixedFunctionCopy =
+    (shaderType == CopyShader && !Global::copyShader());
   BIND()
 
-  GLint *parm;
+  GLint *parm = 0;
   if (shaderType == CopyShader)
     {
       glUseProgramObjectARB(Global::copyShader());
-      parm = Global::copyParm();
+      if (!fixedFunctionCopy)
+	parm = Global::copyParm();
+      else
+	{
+	  glActiveTexture(GL_TEXTURE1);
+	  glDisable(GL_TEXTURE_RECTANGLE_ARB);
+	  glActiveTexture(GL_TEXTURE0);
+	  glEnable(GL_TEXTURE_RECTANGLE_ARB);
+	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, pruneBuffer1->texture());
+	  glColor4f(1, 1, 1, 1);
+	}
     }
   else if (shaderType == InvertShader)
     {
@@ -1384,7 +1395,8 @@ PruneHandler::modifyPruneTexture(int shaderType,
       parm = m_smoothChannelParm;
     }
 
-  glUniform1iARB(parm[0], 1); // prunebuffer1    
+  if (parm)
+    glUniform1iARB(parm[0], 1); // prunebuffer1
 
   if (shaderType == RemovePatchShader)
     {
@@ -1562,6 +1574,13 @@ PruneHandler::modifyPruneTexture(int shaderType,
     }
 
   DRAW_RELEASE()
+
+  if (fixedFunctionCopy)
+    {
+      glActiveTexture(GL_TEXTURE0);
+      glDisable(GL_TEXTURE_RECTANGLE_ARB);
+      glActiveTexture(GL_TEXTURE1);
+    }
 }
 
 
@@ -1618,34 +1637,39 @@ PruneHandler::copyChannelTexture(int src, int dst,
       pruneBuffer1 = tpb;				\
     } 
 
-void
+bool
 PruneHandler::genBuffer(int dtextureX, int dtextureY)
 {
   if (m_pruneBuffer)
     {
       if (m_pruneBuffer->width() != dtextureX ||
-	  m_pruneBuffer->height() != dtextureY)
+	  m_pruneBuffer->height() != dtextureY ||
+	  !m_pruneBuffer->isValid())
 	{
-	  delete m_pruneBuffer;
-	  m_pruneBuffer = 0;
-
-	  delete m_savedPruneBuffer;
-	  m_savedPruneBuffer = 0;
+	  releaseBuffers();
 	}
     }
 
   if (!m_pruneBuffer)
-    m_pruneBuffer = newFBO();
+    {
+      m_pruneBuffer = newFBO();
+      if (!m_pruneBuffer)
+	return false;
+    }
   
   if (m_useSavedBuffer)
     {      
       if (!m_savedPruneBuffer ||
 	  m_pruneBuffer->size() != m_savedPruneBuffer->size())
-	QMessageBox::information(0,
-				 "Error using saved buffer",
-				 "No saved buffer or buffer size not correct\n Generating new one.");
+	{
+	  m_useSavedBuffer = false;
+	  QMessageBox::information(0,
+				   "Error using saved buffer",
+				   "No saved buffer or buffer size not correct\n Generating new one.");
+	}
     }
 
+  return true;
 }
 
 //bool firstTimePruneTextureGeneration = true;
@@ -1675,7 +1699,7 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
   m_dataTex = dataTex;
   m_dragVolSize = dragVolSize;
 
-  if (!standardChecks()) return;
+  if (!standardChecks(false)) return;
   
   //--------------------
   bool prune = true;
@@ -1728,7 +1752,8 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
     }
   //--------------------
 
-  genBuffer(m_dtexX, m_dtexY);
+  if (!genBuffer(m_dtexX, m_dtexY))
+    return;
 
 //  // copy channel 2 into saved buffer
 //  // save tag information
@@ -1738,6 +1763,13 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle("Updating prune texture");
+
+  if (!m_pruneShader || !m_pruneBuffer || !vlut)
+    {
+      MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+	setWindowTitle(Global::DrishtiVersion());
+      return;
+    }
 
   generatePruneTexture(m_pruneBuffer, vlut);
 
@@ -1767,13 +1799,17 @@ PruneHandler::updateAndLoadPruneTexture(GLuint dataTex,
 void
 PruneHandler::copyBuffer(bool flag)
 {
+  if (!standardChecks()) return;
   m_mopActive = true;
 
   // true  => copy from m_pruneBuffer to m_savedPruneBuffer
   // false => copy from m_savedPruneBuffer to m_pruneBuffer
 
   if (!m_savedPruneBuffer)
-    m_savedPruneBuffer = newFBO();
+    {
+      m_savedPruneBuffer = newFBO();
+      if (!m_savedPruneBuffer) return;
+    }
 
   WRITECHANNEL(m_channel);
 
@@ -1797,6 +1833,7 @@ PruneHandler::copyChannel(int src, int dst, bool doPrint)
 
   // assuming m_pruneBuffer exists
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   modifyPruneTexture(CopyShader,
 		     m_pruneBuffer,
@@ -1826,6 +1863,7 @@ PruneHandler::copyToFromSavedChannel(bool toSaved, int src, int dst, bool showme
       if (m_savedPruneBuffer) delete m_savedPruneBuffer;
 
       m_savedPruneBuffer = newFBO();
+      if (!m_savedPruneBuffer) return;
     }
 
   int dtextureX = m_pruneBuffer->width();
@@ -1861,6 +1899,7 @@ PruneHandler::invert(int chan)
   m_mopActive = true;
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   QVariantList vlist;
   vlist << QVariant(chan);
@@ -1882,6 +1921,7 @@ PruneHandler::removePatch(bool remove)
   m_mopActive = true;
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   QVariantList vlist;
   vlist << QVariant(remove);
@@ -1903,6 +1943,7 @@ PruneHandler::setValue(int val, int chan, int minval, int maxval)
   m_mopActive = true;
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   QVariantList vlist;
   vlist << QVariant(val);
@@ -1927,6 +1968,7 @@ PruneHandler::dilate(int sz, int chan)
   m_mopActive = true;
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   DILATE(sz, chan)
 
@@ -1940,6 +1982,7 @@ PruneHandler::erode(int sz, int chan)
   m_mopActive = true;
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   ERODE(sz, chan)
 
@@ -1953,6 +1996,7 @@ PruneHandler::shrink(int sz, int chan)
   m_mopActive = true;
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   QVariantList vlist;
   vlist << QVariant(chan);
@@ -1977,6 +2021,7 @@ PruneHandler::open(int sz, int chan)
   m_mopActive = true;
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   ERODE(sz, chan)
   DILATE(sz, chan)
@@ -1991,6 +2036,7 @@ PruneHandler::close(int sz, int chan)
   m_mopActive = true;
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   DILATE(sz, chan)
   ERODE(sz, chan)
@@ -2012,6 +2058,12 @@ PruneHandler::thicken(int sz, bool cityBlock)
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
   QGLFramebufferObject *pruneBuffer2 = newFBO();
+  if (!pruneBuffer1 || !pruneBuffer2)
+    {
+      delete pruneBuffer1;
+      delete pruneBuffer2;
+      return;
+    }
 
   modifyPruneTexture(CopyShader,
 		     m_pruneBuffer,
@@ -2058,6 +2110,12 @@ PruneHandler::shrinkwrap(int sz, int sz2)
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
   QGLFramebufferObject *pruneBuffer2 = newFBO();
+  if (!pruneBuffer1 || !pruneBuffer2)
+    {
+      delete pruneBuffer1;
+      delete pruneBuffer2;
+      return;
+    }
 
   progress.setLabelText("Shrinkwrap : copy");
   progress.setValue(10);
@@ -2140,6 +2198,12 @@ PruneHandler::distanceTransform(int sz,  bool cityBlock)
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
   QGLFramebufferObject *pruneBuffer2 = newFBO();
+  if (!pruneBuffer1 || !pruneBuffer2)
+    {
+      delete pruneBuffer1;
+      delete pruneBuffer2;
+      return;
+    }
 
 
   QVariantList vlist;
@@ -2197,6 +2261,7 @@ PruneHandler::minmax(bool useMin, int ch1, int ch2)
     }
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   glActiveTexture(GL_TEXTURE0); 
   glEnable(GL_TEXTURE_RECTANGLE_ARB); 
@@ -2261,6 +2326,7 @@ PruneHandler::xorTexture(int ch1, int ch2)
     }
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   glActiveTexture(GL_TEXTURE0); 
   glEnable(GL_TEXTURE_RECTANGLE_ARB); 
@@ -2310,6 +2376,7 @@ PruneHandler::edge(int val, int sz)
   vlist << QVariant(sz);
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
   modifyPruneTexture(EdgeShader,
 		     m_pruneBuffer,
 		     pruneBuffer1,
@@ -2326,6 +2393,7 @@ PruneHandler::localMaximum()
   m_mopActive = true;
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
   modifyPruneTexture(LocalMaxShader,
 		     m_pruneBuffer,
 		     pruneBuffer1);
@@ -2348,6 +2416,7 @@ PruneHandler::dilateEdge(int sz1, int sz2)
   progress.setCancelButton(0);
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   for(int ne=sz1; ne<=sz2; ne++)
     {
@@ -2381,6 +2450,7 @@ PruneHandler::restrictedDilate(int val, int sz)
   progress.setCancelButton(0);
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   QVariantList vlist;
   vlist << QVariant(val);
@@ -2473,6 +2543,7 @@ PruneHandler::sculpt(int docarve, Vec dmin,
   bool planarCarve = (m_carveN.squaredNorm() > 0.1);
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
   for(int i=0; i<points.count(); i++)
     {
       Vec p = points[i];
@@ -2569,6 +2640,7 @@ PruneHandler::fillPathPatch(Vec dmin,
   centroid /= lod;
   
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
   for(int i=0; i<points.count(); i++)
     {
       int i1 = i+1;
@@ -2611,6 +2683,7 @@ PruneHandler::fillPathPatch(Vec dmin,
 void
 PruneHandler::swapBuffer()
 {
+  if (!standardChecks()) return;
   m_mopActive = true;
 
   if (!m_savedPruneBuffer)
@@ -2646,6 +2719,7 @@ PruneHandler::clip(Vec pos, Vec normal, Vec dmin)
   vlist << QVariant((int)lod);
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
   modifyPruneTexture(ClipShader,
 		     m_pruneBuffer,
 		     pruneBuffer1,
@@ -2664,18 +2738,12 @@ PruneHandler::crop(QString cropShaderString, Vec dmin)
 
   m_mopActive = true;
 
-  if (m_cropShader) glDeleteObjectARB(m_cropShader);
-
   //---------------------------
   QString shaderString = PruneShaderFactory::crop(cropShaderString);
 
-  if (m_cropShader)
-    glDeleteObjectARB(m_cropShader);
-
-  m_cropShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_cropShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_cropShader, shaderString,
+		   QStringLiteral("prune/crop")))
+    return;
 
   Vec voxelScaling = Global::voxelScaling();
 
@@ -2700,6 +2768,7 @@ PruneHandler::crop(QString cropShaderString, Vec dmin)
   vlist << QVariant((float)(dmin.z));
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
   modifyPruneTexture(CropShader,
 		     m_pruneBuffer,
 		     pruneBuffer1,
@@ -2723,6 +2792,12 @@ PruneHandler::getMaxValue()
 
   pruneBuffer1 = newFBO();
   pruneBuffer2 = newFBO();
+  if (!pruneBuffer1 || !pruneBuffer2)
+    {
+      delete pruneBuffer1;
+      delete pruneBuffer2;
+      return maxVals;
+    }
 
   modifyPruneTexture(CopyShader,
 		     m_pruneBuffer,
@@ -2812,6 +2887,7 @@ PruneHandler::localThickness(int sz)
 
 
   QList<int> maxVals = getMaxValue();
+  if (maxVals.isEmpty()) return;
 
   int maxThickness = maxVals[0];
   QProgressDialog progress("Calculating local thickness",
@@ -2821,7 +2897,13 @@ PruneHandler::localThickness(int sz)
   progress.setCancelButton(0);
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
   QGLFramebufferObject *pruneBuffer2 = newFBO();
+  if (!pruneBuffer2)
+    {
+      delete pruneBuffer1;
+      return;
+    }
 
   modifyPruneTexture(CopyShader,
 		     m_pruneBuffer,
@@ -2877,6 +2959,7 @@ PruneHandler::smoothChannel(int chan)
   vlist << QVariant(chan);
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
   modifyPruneTexture(SmoothChannelShader,
 		     m_pruneBuffer,
@@ -2900,6 +2983,7 @@ PruneHandler::average(int chan1, int chan2, int dst)
   vlist << QVariant(dst);
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
 
   modifyPruneTexture(AverageShader,
@@ -2920,6 +3004,7 @@ PruneHandler::getHistogram(int chan)
   if (!standardChecks()) return histogram;
 
   QList<int> maxVals = getMaxValue();
+  if (chan < 0 || chan >= maxVals.count()) return histogram;
   int maxHistogram = maxVals[chan];
 
   QGLFramebufferObject *pruneBuffer1;
@@ -2927,6 +3012,12 @@ PruneHandler::getHistogram(int chan)
 
   pruneBuffer1 = newFBO();
   pruneBuffer2 = newFBO();
+  if (!pruneBuffer1 || !pruneBuffer2)
+    {
+      delete pruneBuffer1;
+      delete pruneBuffer2;
+      return histogram;
+    }
 
   for (int h=1; h<=maxHistogram; h++)
     {
@@ -3025,6 +3116,7 @@ PruneHandler::pattern(bool flag,
   vlist << QVariant(zd);
 
   QGLFramebufferObject *pruneBuffer1 = newFBO();
+  if (!pruneBuffer1) return;
 
 
   modifyPruneTexture(PatternShader,

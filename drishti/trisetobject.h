@@ -136,7 +136,7 @@ class TrisetObject
 		int, int);
 
   void makeReadyForPainting();
-  bool paint(Vec);
+  bool paint(Vec, float, Vec, int, float, int, Vec, float);
   
   void mirror(int);
   
@@ -195,11 +195,11 @@ private :
   GLuint m_glVertBuffer;
   GLuint m_glIndexBuffer;
   GLuint m_glVertArray;
-  GLuint m_origColorBuffer;
   
   float m_featherSize;
   
-  void loadVertexBufferData();
+  bool loadVertexBufferData();
+  bool updateVertexColorBuffer(const QVector<int>&);
   void drawTrisetBuffer(Camera*, float, float, bool,
 			GLuint, GLint*, bool);
 

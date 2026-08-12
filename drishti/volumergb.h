@@ -26,7 +26,10 @@ class VolumeRGB : public VolumeRGBBase
 
   QList<Vec> getSliceTextureSizeSlabs();
 
+  void deleteTextureSlab();
+  bool allocSlabs(int);
   uchar* getSubvolume();
+  uchar* getSlab(int, int, int);
   uchar* getDragSubvolumeTexture();
   Vec getDragSubvolumeTextureSize();
   int getDragSubvolumeSubsamplingLevel();
@@ -78,6 +81,7 @@ class VolumeRGB : public VolumeRGBBase
   Vec m_subvolumeSize, m_subvolumeTextureSize;
   int m_subvolumeSubsamplingLevel;
   unsigned char* m_subvolumeTexture;
+  int m_slabLayerCapacity;
 
   Vec m_dragSubvolumeTextureSize;
   int m_dragSubvolumeSubsamplingLevel;
@@ -103,6 +107,8 @@ class VolumeRGB : public VolumeRGBBase
   QList<QString> m_volumeFiles;
   
   QMutex m_mutex;
+
+  bool ensureWorkingBuffers();
 };
 
 #endif

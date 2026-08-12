@@ -1,5 +1,12 @@
 #include "staticfunctions.h"
 #include "filter.h"
+#include "../itkmemoryadmission.h"
+
+#include <QSaveFile>
+
+#include <limits>
+#include <memory>
+#include <stdexcept>
 #include "propertyeditor.h"
 
 #include "itkMeanImageFilter.h"
@@ -188,6 +195,7 @@ SmoothingFilter::start(VolumeFileManager *vfm,
   if (!StaticFunctions::checkExtension(flnm, ".raw"))
     flnm += ".raw";
 
+  bool succeeded = false;
   try
     {
       applyFilter(flnm,
@@ -197,10 +205,22 @@ SmoothingFilter::start(VolumeFileManager *vfm,
 		  chan,
 		  filterType,
 		  usePruneData);
+      succeeded = true;
+    }
+  catch (const std::exception& error)
+    {
+      QMessageBox::critical(0, "Error",
+                            QString("Cannot run the filter.\n%1")
+                            .arg(QString::fromLocal8Bit(error.what())));
     }
   catch ( ... )
     {
-      QMessageBox::information(0, "Error", "Sorry cannot run the filter.\nProbably cannot allocate enough memory or failure in the filter code.");
+      QMessageBox::critical(0, "Error", "Cannot run the filter because allocation or filter execution failed.");
+    }
+
+  if (!succeeded)
+    {
+      flnm.clear();
     }
 
 
@@ -220,9 +240,84 @@ SmoothingFilter::applyFilter(QString flnm,
 			     int filterType,
 			     bool usePruneData)
 {
-  int bpv = 1;
-  if (m_voxelType > 0) bpv = 2;
-  int nbytes = bpv*m_nY*m_nZ;
+  if (m_voxelType != VolumeFileManager::_UChar &&
+      m_voxelType != VolumeFileManager::_UShort)
+    throw std::runtime_error(
+        "Smoothing filters support only unsigned 8-bit and 16-bit volumes");
+  const int bpv = (m_voxelType == VolumeFileManager::_UShort ? 2 : 1);
+  if (m_nX <= 0 || m_nY <= 0 || m_nZ <= 0)
+    throw std::runtime_error("Filter volume dimensions must be positive");
+
+  qint64 voxelCount = m_nX;
+  if (voxelCount > std::numeric_limits<qint64>::max()/m_nY)
+    throw std::runtime_error("Filter volume dimensions overflow addressable memory");
+  voxelCount *= m_nY;
+  if (voxelCount > std::numeric_limits<qint64>::max()/m_nZ)
+    throw std::runtime_error("Filter volume dimensions overflow addressable memory");
+  voxelCount *= m_nZ;
+
+  const qint64 planeVoxels = static_cast<qint64>(m_nY)*m_nZ;
+  if (planeVoxels > std::numeric_limits<qint64>::max()/bpv ||
+      voxelCount > std::numeric_limits<qint64>::max()/bpv)
+    throw std::runtime_error("Filter volume dimensions overflow addressable memory");
+  const qint64 planeBytes64 = planeVoxels*bpv;
+  const qint64 rawBytes64 = voxelCount*bpv;
+  if (static_cast<quint64>(planeBytes64) > std::numeric_limits<size_t>::max() ||
+      static_cast<quint64>(rawBytes64) > std::numeric_limits<size_t>::max())
+    throw std::runtime_error("Filter volume exceeds addressable memory");
+
+  const size_t nbytes = static_cast<size_t>(planeBytes64);
+
+  if (m_width <= 0 || m_height <= 0)
+    throw std::runtime_error("Source slice dimensions must be positive");
+  const qint64 sourcePlaneVoxels = static_cast<qint64>(m_width)*m_height;
+  if (sourcePlaneVoxels > std::numeric_limits<qint64>::max()/bpv)
+    throw std::runtime_error("Source slice dimensions overflow addressable memory");
+  const qint64 sourcePlaneBytes64 = sourcePlaneVoxels*bpv;
+  if (planeBytes64 > sourcePlaneBytes64 ||
+      static_cast<quint64>(sourcePlaneBytes64) >
+      std::numeric_limits<size_t>::max())
+    throw std::runtime_error("Source slice is smaller than the requested filter plane");
+
+  const auto checkedPlaneIndex = [=](int row, int column) -> size_t
+    {
+      if (row < 0 || row >= m_nY || column < 0 || column >= m_nZ)
+        throw std::runtime_error("Filter plane index is out of bounds");
+      const qint64 index = static_cast<qint64>(row)*m_nZ + column;
+      if (index < 0 || index >= planeVoxels)
+        throw std::runtime_error("Filter plane index exceeds its buffer");
+      return static_cast<size_t>(index);
+    };
+  const auto checkedSourceIndex = [=](qint64 row, qint64 column) -> size_t
+    {
+      if (row < 0 || row >= m_width || column < 0 || column >= m_height)
+        throw std::runtime_error("Requested source voxel is outside its slice");
+      const qint64 index = row*m_height + column;
+      if (index < 0 || index >= sourcePlaneVoxels)
+        throw std::runtime_error("Source voxel index exceeds its slice buffer");
+      return static_cast<size_t>(index);
+    };
+
+  qint64 pruneVoxelCount = 0;
+  if (usePruneData)
+    {
+      if (m_pruneX <= 0 || m_pruneY <= 0 || m_pruneZ <= 0 ||
+          m_pruneLod <= 0 || chan < 0 || chan >= 3)
+        throw std::runtime_error("Prune data geometry or channel is invalid");
+      const qint64 prunePlane = static_cast<qint64>(m_pruneY)*m_pruneX;
+      if (prunePlane > std::numeric_limits<qint64>::max()/m_pruneZ)
+        throw std::runtime_error("Prune data dimensions overflow addressable memory");
+      pruneVoxelCount = prunePlane*m_pruneZ;
+      if (pruneVoxelCount > std::numeric_limits<qint64>::max()/3 ||
+          3*pruneVoxelCount > static_cast<qint64>(m_pruneData.size()))
+        throw std::runtime_error("Prune data buffer is smaller than its geometry");
+    }
+
+  requireItkMemoryAdmission(
+    ItkMemoryWorkload::Smoothing,
+    static_cast<std::uint64_t>(m_nX),
+    static_cast<std::uint64_t>(m_nY),
+    static_cast<std::uint64_t>(m_nZ));
 
   bool trim = (qRound(m_dataSize.x) < m_height ||
 	       qRound(m_dataSize.y) < m_width ||
@@ -257,9 +352,12 @@ SmoothingFilter::applyFilter(QString flnm,
   int d0z = d0 + qRound(m_dataMin.z);
   int d1z = d1 + qRound(m_dataMin.z);
 
-  uchar *rawVol = new uchar[bpv*m_nX*m_nY*m_nZ];
-  
-  uchar *tmp = new uchar[nbytes];
+  std::unique_ptr<uchar[]> rawVolOwner(
+      new uchar[static_cast<size_t>(rawBytes64)]);
+  uchar *rawVol = rawVolOwner.get();
+
+  std::unique_ptr<uchar[]> tmpOwner(new uchar[nbytes]);
+  uchar *tmp = tmpOwner.get();
 
   int i0 = 0;
   for(int i=d0z; i<=d1z; i++)
@@ -269,6 +367,10 @@ SmoothingFilter::applyFilter(QString flnm,
 
       int iv = qBound(0, i, m_depth-1);
       uchar *vslice = m_vfm->getSlice(iv);
+      if (!vslice)
+        throw std::runtime_error(
+            QString("Cannot read source slice %1: %2")
+            .arg(iv).arg(m_vfm->lastError()).toStdString());
 
       if (!trim)
 	memcpy(tmp, vslice, nbytes);
@@ -280,22 +382,35 @@ SmoothingFilter::applyFilter(QString flnm,
 	    {
 	      for(int w=0; w<m_nY; w++)
 		for(int h=0; h<m_nZ; h++)
-		  tmp[w*m_nZ + h] = vslice[(wmin+w)*m_height + (hmin+h)];
+		  {
+		    const size_t targetIndex = checkedPlaneIndex(w, h);
+		    const size_t sourceIndex = checkedSourceIndex(
+		        static_cast<qint64>(wmin)+w,
+		        static_cast<qint64>(hmin)+h);
+		    tmp[targetIndex] = vslice[sourceIndex];
+		  }
 	    }
 	  else
 	    {
 	      for(int w=0; w<m_nY; w++)
 		for(int h=0; h<m_nZ; h++)
-		  ((ushort*)tmp)[w*m_nZ + h] = ((ushort*)vslice)[(wmin+w)*m_height + (hmin+h)];
+		  {
+		    const size_t targetIndex = checkedPlaneIndex(w, h);
+		    const size_t sourceIndex = checkedSourceIndex(
+		        static_cast<qint64>(wmin)+w,
+		        static_cast<qint64>(hmin)+h);
+		    reinterpret_cast<ushort*>(tmp)[targetIndex] =
+		        reinterpret_cast<const ushort*>(vslice)[sourceIndex];
+		  }
 	    }
 	}
 
       if (usePruneData)
 	{
-	  int jk = 0;
 	  for(int j=0; j<m_nY; j++)
 	    for(int k=0; k<m_nZ; k++)
 	      {
+		const size_t planeIndex = checkedPlaneIndex(j, k);
 		Vec po = Vec(m_dataMin.x+k, m_dataMin.y+j, iv);
 		bool ok = true;
 		
@@ -309,8 +424,15 @@ SmoothingFilter::applyFilter(QString flnm,
 		  ppi = qBound(0, ppi, m_pruneX-1);
 		  ppj = qBound(0, ppj, m_pruneY-1);
 		  ppk = qBound(0, ppk, m_pruneZ-1);
-		  int mopidx = ppk*m_pruneY*m_pruneX + ppj*m_pruneX + ppi;
-		  mop = m_pruneData[3*mopidx + chan];
+		  const qint64 mopidx =
+		      (static_cast<qint64>(ppk)*m_pruneY + ppj)*m_pruneX + ppi;
+		  const qint64 mopOffset = 3*mopidx + chan;
+		  if (mopidx < 0 || mopidx >= pruneVoxelCount ||
+		      mopOffset < 0 ||
+		      mopOffset >= static_cast<qint64>(m_pruneData.size()) ||
+		      mopOffset > std::numeric_limits<int>::max())
+		    throw std::runtime_error("Prune data index is out of bounds");
+		  mop = m_pruneData.at(static_cast<int>(mopOffset));
 		  ok = (mop > 0);
 		}
 		
@@ -329,9 +451,9 @@ SmoothingFilter::applyFilter(QString flnm,
 		  {
 		    ushort v;
 		    if (m_voxelType == 0)
-		      v = tmp[j*m_nZ + k];
+		      v = tmp[planeIndex];
 		    else
-		      v = ((ushort*)tmp)[j*m_nZ + k];
+		      v = reinterpret_cast<const ushort*>(tmp)[planeIndex];
 		    ok = checkBlend(po, v, lut);
 		  }
 		
@@ -339,32 +461,35 @@ SmoothingFilter::applyFilter(QString flnm,
 		  {
 		    ushort v;
 		    if (m_voxelType == 0)
-		      v = tmp[j*m_nZ + k];
+		      v = tmp[planeIndex];
 		    else
-		      v = ((ushort*)tmp)[j*m_nZ + k];
+		      v = reinterpret_cast<const ushort*>(tmp)[planeIndex];
 		    ok = checkPathBlend(po, v, lut);
 		  }
 		
 		if (!ok)
 		  {
 		    if (m_voxelType == 0)
-		      tmp[jk] = 0;
+		      tmp[planeIndex] = 0;
 		    else
-		      ((ushort*)tmp)[jk] = 0;
+		      reinterpret_cast<ushort*>(tmp)[planeIndex] = 0;
 		  }
-		
-		jk ++;
 	      }
 	}
 
-      memcpy(rawVol + bpv*i0*m_nY*m_nZ, tmp, bpv*m_nY*m_nZ);
+      memcpy(rawVol + static_cast<size_t>(i0)*nbytes, tmp, nbytes);
       
       i0++;
     }
-  delete [] tmp;
   m_meshProgress->setValue(100);
   qApp->processEvents();
 
+  if (bpv == 2)
+    {
+      const ushort *rawVol16 = reinterpret_cast<const ushort*>(rawVol);
+      for(qint64 i=0; i<voxelCount; ++i)
+        rawVol[i] = static_cast<uchar>(rawVol16[i] >> 8);
+    }
 
   if (filterType == 0)
     MeanFilter(rawVol); 
@@ -378,16 +503,28 @@ SmoothingFilter::applyFilter(QString flnm,
     RecursiveGaussianFilter(rawVol);
    
 
-  QFile fp;
-  fp.setFileName(flnm);
-  fp.open(QFile::WriteOnly);
+  QSaveFile fp(flnm);
+  fp.setDirectWriteFallback(false);
+  if (!fp.open(QFile::WriteOnly))
+    throw std::runtime_error(
+        QString("Cannot open output file: %1").arg(fp.errorString()).toStdString());
   uchar vt = 0;
-  fp.write((char*)&vt, 1);
-  fp.write((char*)&m_nX, 4);
-  fp.write((char*)&m_nY, 4);
-  fp.write((char*)&m_nZ, 4);
-  fp.write((char*)rawVol, m_nX*m_nY*m_nZ);
-  fp.close();
+  if (fp.write((char*)&vt, 1) != 1 ||
+      fp.write((char*)&m_nX, 4) != 4 ||
+      fp.write((char*)&m_nY, 4) != 4 ||
+      fp.write((char*)&m_nZ, 4) != 4 ||
+      fp.write((char*)rawVol, voxelCount) != voxelCount)
+    {
+      const QString detail = fp.errorString();
+      fp.cancelWriting();
+      throw std::runtime_error(
+          QString("Cannot write complete output volume: %1")
+          .arg(detail).toStdString());
+    }
+  if (!fp.commit())
+    throw std::runtime_error(
+        QString("Cannot commit output volume: %1")
+        .arg(fp.errorString()).toStdString());
 
   m_meshLog->moveCursor(QTextCursor::End);
   m_meshLog->insertPlainText("SmoothingFilter data saved in "+flnm);
@@ -427,27 +564,53 @@ SmoothingFilter::savePvl(QString flnm)
 	  if (!StaticFunctions::checkExtension(pvlflnm, ".pvl.nc"))
 	    pvlflnm += ".pvl.nc";
 
-	  QFile fp(pvlflnm);
-	  if (fp.open(QFile::WriteOnly | QFile::Truncate))
+	  QSaveFile fp(pvlflnm);
+	  fp.setDirectWriteFallback(false);
+	  if (!fp.open(QFile::WriteOnly))
 	    {
-	      QDir pdir(QFileInfo(pvlflnm).absolutePath());
-	      QTextStream out(&fp);
-	      out << "<!DOCTYPE Drishti_Header>\n";
-	      out << "<PvlDotNcFileHeader>\n";
-	      out << QString("  <pvlnames>%1</pvlnames>\n").arg(pdir.relativeFilePath(flnm));
-	      out << "  <voxeltype>unsigned char</voxeltype>\n";
-	      out << "  <pvlvoxeltype>unsigned char</pvlvoxeltype>\n";
-	      out << QString("  <gridsize>%1 %2 %3</gridsize>\n").arg(m_nX).arg(m_nY).arg(m_nZ);
-	      out << "  <voxelunit>nounit</voxelunit>\n";
-	      out << "  <voxelsize>1 1 1</voxelsize>\n";
-	      out << "  <description></description>\n";
-	      out << QString("  <slabsize>%1</slabsize>\n").arg(m_nX+1);
-	      out << "  <rawmap>0 255 </rawmap>\n";
-	      out << "  <pvlmap>0 255 </pvlmap>\n";
-	      out << "</PvlDotNcFileHeader>\n";
+	      QMessageBox::warning(
+	          0, "PVL sidecar not saved",
+	          QString("The filtered volume was saved, but the PVL sidecar could not be opened.\n%1")
+	          .arg(fp.errorString()));
+	      return;
+	    }
 
-	      QMessageBox::information(0, "", QString("pvl.nc information saved in "+pvlflnm));
-	    }	  
+	  QDir pdir(QFileInfo(pvlflnm).absolutePath());
+	  QTextStream out(&fp);
+	  out << "<!DOCTYPE Drishti_Header>\n";
+	  out << "<PvlDotNcFileHeader>\n";
+	  out << QString("  <pvlnames>%1</pvlnames>\n").arg(pdir.relativeFilePath(flnm));
+	  out << "  <voxeltype>unsigned char</voxeltype>\n";
+	  out << "  <pvlvoxeltype>unsigned char</pvlvoxeltype>\n";
+	  out << QString("  <gridsize>%1 %2 %3</gridsize>\n").arg(m_nX).arg(m_nY).arg(m_nZ);
+	  out << "  <voxelunit>nounit</voxelunit>\n";
+	  out << "  <voxelsize>1 1 1</voxelsize>\n";
+	  out << "  <description></description>\n";
+	  out << QString("  <slabsize>%1</slabsize>\n").arg(m_nX+1);
+	  out << "  <rawmap>0 255 </rawmap>\n";
+	  out << "  <pvlmap>0 255 </pvlmap>\n";
+	  out << "</PvlDotNcFileHeader>\n";
+	  out.flush();
+	  if (out.status() != QTextStream::Ok)
+	    {
+	      const QString detail = fp.errorString();
+	      fp.cancelWriting();
+	      QMessageBox::warning(
+	          0, "PVL sidecar not saved",
+	          QString("The filtered volume was saved, but the PVL sidecar could not be written completely.\n%1")
+	          .arg(detail));
+	      return;
+	    }
+	  if (!fp.commit())
+	    {
+	      QMessageBox::warning(
+	          0, "PVL sidecar not saved",
+	          QString("The filtered volume was saved, but the PVL sidecar could not be committed.\n%1")
+	          .arg(fp.errorString()));
+	      return;
+	    }
+
+	  QMessageBox::information(0, "", QString("pvl.nc information saved in "+pvlflnm));
 	}
     }
 
@@ -503,7 +666,7 @@ SmoothingFilter::MeanFilter(uchar *inVol)
   image->Allocate();
   image->FillBuffer(0);
   uchar *iptr = (uchar*)image->GetBufferPointer();
-  memcpy(iptr, inVol, m_nX*m_nY*m_nZ);
+  memcpy(iptr, inVol, static_cast<size_t>(m_nX)*m_nY*m_nZ);
 
   typedef itk::MeanImageFilter<ImageType, ImageType> Filter;
   Filter::Pointer filter = Filter::New();
@@ -522,7 +685,7 @@ SmoothingFilter::MeanFilter(uchar *inVol)
   ImageType *dimg = filter->GetOutput();
   uchar *outVol = (uchar*)(dimg->GetBufferPointer());
   
-  memcpy(inVol, outVol, m_nX*m_nY*m_nZ);
+  memcpy(inVol, outVol, static_cast<size_t>(m_nX)*m_nY*m_nZ);
 }
 
 void
@@ -575,7 +738,7 @@ SmoothingFilter::MedianFilter(uchar *inVol)
   image->Allocate();
   image->FillBuffer(0);
   uchar *iptr = (uchar*)image->GetBufferPointer();
-  memcpy(iptr, inVol, m_nX*m_nY*m_nZ);
+  memcpy(iptr, inVol, static_cast<size_t>(m_nX)*m_nY*m_nZ);
 
   typedef itk::MedianImageFilter<ImageType, ImageType> Filter;
   Filter::Pointer filter = Filter::New();
@@ -594,7 +757,7 @@ SmoothingFilter::MedianFilter(uchar *inVol)
   ImageType *dimg = filter->GetOutput();
   uchar *outVol = (uchar*)(dimg->GetBufferPointer());
 
-  memcpy(inVol, outVol, m_nX*m_nY*m_nZ);
+  memcpy(inVol, outVol, static_cast<size_t>(m_nX)*m_nY*m_nZ);
 }
 
 void
@@ -640,7 +803,7 @@ SmoothingFilter::BinomialFilter(uchar *inVol)
   image->Allocate();
   image->FillBuffer(0);
   uchar *iptr = (uchar*)image->GetBufferPointer();
-  memcpy(iptr, inVol, m_nX*m_nY*m_nZ);
+  memcpy(iptr, inVol, static_cast<size_t>(m_nX)*m_nY*m_nZ);
 
   typedef itk::BinomialBlurImageFilter<ImageType, ImageType> Filter;
   Filter::Pointer filter = Filter::New();
@@ -659,7 +822,7 @@ SmoothingFilter::BinomialFilter(uchar *inVol)
   ImageType *dimg = filter->GetOutput();
   uchar *outVol = (uchar*)(dimg->GetBufferPointer());
 
-  memcpy(inVol, outVol, m_nX*m_nY*m_nZ);
+  memcpy(inVol, outVol, static_cast<size_t>(m_nX)*m_nY*m_nZ);
 }
 
 void
@@ -709,7 +872,7 @@ SmoothingFilter::DiscreteGaussianFilter(uchar *inVol)
   image->Allocate();
   image->FillBuffer(0);
   uchar *iptr = (uchar*)image->GetBufferPointer();
-  memcpy(iptr, inVol, m_nX*m_nY*m_nZ);
+  memcpy(iptr, inVol, static_cast<size_t>(m_nX)*m_nY*m_nZ);
 
   typedef itk::DiscreteGaussianImageFilter<ImageType, ImageType> Filter;
   Filter::Pointer filter = Filter::New();
@@ -729,7 +892,7 @@ SmoothingFilter::DiscreteGaussianFilter(uchar *inVol)
   ImageType *dimg = filter->GetOutput();
   uchar *outVol = (uchar*)(dimg->GetBufferPointer());
 
-  memcpy(inVol, outVol, m_nX*m_nY*m_nZ);
+  memcpy(inVol, outVol, static_cast<size_t>(m_nX)*m_nY*m_nZ);
 }
 
 void
@@ -776,7 +939,7 @@ SmoothingFilter::RecursiveGaussianFilter(uchar *inVol)
   image->Allocate();
   image->FillBuffer(0);
   uchar *iptr = (uchar*)image->GetBufferPointer();
-  memcpy(iptr, inVol, m_nX*m_nY*m_nZ);
+  memcpy(iptr, inVol, static_cast<size_t>(m_nX)*m_nY*m_nZ);
 
   typedef itk::SmoothingRecursiveGaussianImageFilter<ImageType, ImageType> Filter;
   Filter::Pointer filter = Filter::New();
@@ -795,7 +958,7 @@ SmoothingFilter::RecursiveGaussianFilter(uchar *inVol)
   ImageType *dimg = filter->GetOutput();
   uchar *outVol = (uchar*)(dimg->GetBufferPointer());
 
-  memcpy(inVol, outVol, m_nX*m_nY*m_nZ);
+  memcpy(inVol, outVol, static_cast<size_t>(m_nX)*m_nY*m_nZ);
 }
 
 bool

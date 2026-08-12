@@ -47,8 +47,8 @@ class Networks : public QObject
 
   bool keyPressEvent(QKeyEvent*);
 
-  void createSpriteShader();
-  void createShadowShader(Vec);
+  bool createSpriteShader();
+  bool createShadowShader(Vec);
 
   QList<NetworkInformation> get();
   void set(QList<NetworkInformation>);

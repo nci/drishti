@@ -10,10 +10,28 @@ CONFIG += no_batch
 
 TARGET = common
 
-FORMS += ../../propertyeditor.ui
+isEmpty(DRISHTI_PLUGIN_COMMON_LIB_DIR): DRISHTI_PLUGIN_COMMON_LIB_DIR = $$clean_path($$PWD)
+DESTDIR = $$DRISHTI_PLUGIN_COMMON_LIB_DIR
+
+FORMS += ../../mainwindow.ui \
+         ../../brickswidget.ui \
+         ../../captiondialog.ui \
+         ../../directionvectorwidget.ui \
+         ../../fileslistdialog.ui \
+         ../../lightingwidget.ui \
+         ../../load2volumes.ui \
+         ../../load3volumes.ui \
+         ../../load4volumes.ui \
+         ../../preferenceswidget.ui \
+         ../../propertyeditor.ui \
+         ../../profileviewer.ui \
+         ../../volumeinformation.ui \
+         ../../raycastmenu.ui \
+         ../../../common/src/widgets/saveimgseq.ui \
+         ../../../common/src/widgets/savemovie.ui
 
 win32 {
-  DESTDIR = ../common
+  TARGET = $$section(DRISHTI_COMMON_LIB, ., 0, 0)
 
  contains(Windows_Setup, Win64) {
 	message(drishti.exe : Win64 setup)
@@ -21,20 +39,15 @@ win32 {
 	DEFINES += _CRT_SECURE_NO_WARNINGS
 	INCLUDEPATH +=../../ \
                   ..\..\..\common\src\widgets	
-				 
-	INCLUDEPATH += $$VCPKG_INCLUDE_PATH	
-	QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
-  	LIBS += QGLViewer2.lib \
-			netcdfcpp.lib \
-	  		glew32.lib
+    LIBS += $$DRISHTI_QGLVIEWER_LIB \
+			$$DRISHTI_LEGACY_NETCDF_LIB \
+			$$DRISHTI_GLEW_LIB
  }
 }
 
 unix {
   !macx {
-
-  DESTDIR = ../common
 
   INCLUDEPATH += ../../ \
                  ..\..\..\common\src\widgets
@@ -50,8 +63,6 @@ unix {
 }
   
 macx {
-  DESTDIR = ../common
-
   INCLUDEPATH += ../../
 
   LIBS += -lGLEW \
@@ -75,7 +86,7 @@ HEADERS = ..\..\mainwindowui.h \
 	..\..\classes.h \
 	..\..\matrix.h \
 	..\..\global.h \
-	..\..\ply.h
+	..\..\..\common\src\mesh\binaryplywriter.h
 	
 
 SOURCES = ../../mainwindowui.cpp \
@@ -92,4 +103,4 @@ SOURCES = ../../mainwindowui.cpp \
 	../../classes.cpp \
 	../../matrix.cpp \
 	../../global.cpp \
-	../../ply.c
+	../../../common/src/mesh/binaryplywriter.cpp

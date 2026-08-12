@@ -12,6 +12,10 @@
 #include "geometryobjects.h"
 #include "prunehandler.h"
 
+#include <QDebug>
+
+#include <new>
+
 #define VECDIVIDE(a, b) Vec(a.x/b.x, a.y/b.y, a.z/b.z)
 
 QGLFramebufferObject *LightHandler::m_opacityBuffer=0;
@@ -26,6 +30,8 @@ GLuint LightHandler::m_emisTex[2]={0,0};
 bool LightHandler::m_doAll = false;
 bool LightHandler::m_onlyLightBuffers = false;
 bool LightHandler::m_lutChanged = false;
+bool LightHandler::m_available = true;
+QString LightHandler::m_failureReason;
 uchar* LightHandler::m_lut=0;
 
 GLuint LightHandler::m_lutTex=0;
@@ -153,6 +159,8 @@ LightHandler::checkCrops()
       m_crops = GeometryObjects::crops()->crops();    
 
       createCropShader();
+      if (!m_available)
+	return true;
       createBlendShader();
     }
 
@@ -193,7 +201,7 @@ LightHandler::checkClips(QList<Vec> cpos, QList<Vec> cnorm)
 
 GLuint LightHandler::texture()
 {
-  if (m_finalLightBuffer)
+  if (m_available && m_finalLightBuffer && m_finalLightBuffer->isValid())
     return m_finalLightBuffer->texture();
   else
     return 0;
@@ -221,7 +229,7 @@ LightHandler::lightBufferInfo(int &lgx, int &lgy, int &lgz,
   rows = m_nrows;
   cols = m_ncols;
   
-  lod = (!m_basicLight ? m_lightLod : -1);  
+  lod = (!basicLight() ? m_lightLod : -1);
 }
 
 GiLightInfo
@@ -448,23 +456,7 @@ void LightHandler::clean()
 {
   giLights()->clear();
 
-  if (m_opacityBuffer) delete m_opacityBuffer;
-  if (m_finalLightBuffer) delete m_finalLightBuffer;
-  if (m_pruneBuffer) delete m_pruneBuffer;
-
-  if (m_lightBuffer) glDeleteFramebuffers(1, &m_lightBuffer);
-  if (m_emisBuffer) glDeleteFramebuffers(1, &m_emisBuffer);
-  m_opacityBuffer = 0;  
-  m_finalLightBuffer = 0;
-  m_pruneBuffer = 0;
-  m_lightBuffer = 0;
-  m_emisBuffer = 0;
-
-  if (m_lightTex[0]) glDeleteTextures(2, m_lightTex);
-  m_lightTex[0] = m_lightTex[1] = 0;
-
-  if (m_emisTex[0]) glDeleteTextures(2, m_emisTex);
-  m_emisTex[0] = m_emisTex[1] = 0;
+  releaseBuffers();
 
   //if (m_lutTex) glDeleteTextures(1, &m_lutTex);
   //m_lutTex = 0;
@@ -483,6 +475,9 @@ void LightHandler::clean()
   if (m_invertLightShader) glDeleteObjectARB(m_invertLightShader);
   if (m_emisShader) glDeleteObjectARB(m_emisShader);
   if (m_expandLightShader) glDeleteObjectARB(m_expandLightShader);
+  if (m_clipShader) glDeleteObjectARB(m_clipShader);
+  if (m_cropShader) glDeleteObjectARB(m_cropShader);
+  if (m_blendShader) glDeleteObjectARB(m_blendShader);
   m_opacityShader = 0;
   m_mergeOpPruneShader = 0;
   m_aoLightShader = 0;
@@ -497,6 +492,11 @@ void LightHandler::clean()
   m_invertLightShader = 0;
   m_emisShader = 0;
   m_expandLightShader = 0;
+  m_clipShader = 0;
+  m_cropShader = 0;
+  m_blendShader = 0;
+  m_available = true;
+  m_failureReason.clear();
 }
 
 #define swapFBO(fbo1,  fbo2)			\
@@ -506,19 +506,114 @@ void LightHandler::clean()
     fbo2 = tpb;					\
   }
 
+void
+LightHandler::releaseBuffers()
+{
+  delete m_opacityBuffer;
+  delete m_finalLightBuffer;
+  delete m_pruneBuffer;
+  m_opacityBuffer = 0;
+  m_finalLightBuffer = 0;
+  m_pruneBuffer = 0;
+
+  if (m_lightBuffer) glDeleteFramebuffers(1, &m_lightBuffer);
+  if (m_emisBuffer) glDeleteFramebuffers(1, &m_emisBuffer);
+  m_lightBuffer = 0;
+  m_emisBuffer = 0;
+
+  if (m_lightTex[0]) glDeleteTextures(2, m_lightTex);
+  if (m_emisTex[0]) glDeleteTextures(2, m_emisTex);
+  m_lightTex[0] = m_lightTex[1] = 0;
+  m_emisTex[0] = m_emisTex[1] = 0;
+}
+
+void
+LightHandler::fail(const QString &label, const QString &detail)
+{
+  const QString message = QStringLiteral("%1 unavailable: %2").arg(label, detail);
+  m_available = false;
+  m_failureReason = message;
+  m_doAll = false;
+  m_onlyLightBuffers = false;
+  releaseBuffers();
+  qWarning().noquote() << message;
+  MainWindowUI::mainWindowUI()->statusBar->showMessage(message);
+}
+
+bool
+LightHandler::loadProgram(GLhandleARB &program,
+			  const QString &source,
+			  const QString &label)
+{
+  GLhandleARB candidate = glCreateProgramObjectARB();
+  if (!candidate || !ShaderFactory::loadShader(candidate, source))
+    {
+      const GLenum error = glGetError();
+      if (candidate) glDeleteObjectARB(candidate);
+      if (program) glDeleteObjectARB(program);
+      program = 0;
+      fail(label,
+	   QStringLiteral("shader compile/link failed (OpenGL error 0x%1)").arg(
+	     QString::number(static_cast<qulonglong>(error), 16)));
+      return false;
+    }
+
+  if (program) glDeleteObjectARB(program);
+  program = candidate;
+  return true;
+}
+
 QGLFramebufferObject*
 LightHandler::newFBO(int sx, int sy)
 {
-  QGLFramebufferObject* fbo;
-  fbo = new QGLFramebufferObject(QSize(sx, sy),				       
-				 QGLFramebufferObject::NoAttachment,
-				 GL_TEXTURE_RECTANGLE_EXT);
+  if (sx <= 0 || sy <= 0 ||
+      sx > Global::max2dTextureSize() || sy > Global::max2dTextureSize())
+    {
+      fail(QStringLiteral("lighting/framebuffer"),
+	   QStringLiteral("invalid size %1x%2 (limit %3)")
+	   .arg(sx).arg(sy).arg(Global::max2dTextureSize()));
+      return 0;
+    }
+
+  for (int i=0; i<32 && glGetError() != GL_NO_ERROR; ++i) {}
+  QGLFramebufferObject* fbo = new (std::nothrow) QGLFramebufferObject(
+    QSize(sx, sy), QGLFramebufferObject::NoAttachment,
+    GL_TEXTURE_RECTANGLE_EXT);
+  GLenum error = glGetError();
+  GLenum status = 0;
+  bool bound = false;
+  if (fbo && fbo->isValid() && fbo->texture())
+    {
+      bound = fbo->bind();
+      if (bound)
+	{
+	  status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
+	  fbo->release();
+	  const GLenum validationError = glGetError();
+	  if (error == GL_NO_ERROR) error = validationError;
+	}
+    }
+
+  if (!fbo || !fbo->isValid() || !fbo->texture() || !bound ||
+      status != GL_FRAMEBUFFER_COMPLETE_EXT || error != GL_NO_ERROR)
+    {
+      delete fbo;
+      fail(QStringLiteral("lighting/framebuffer"),
+	   QStringLiteral("creation failed (status 0x%1, OpenGL error 0x%2)")
+	   .arg(QString::number(static_cast<qulonglong>(status), 16),
+		QString::number(static_cast<qulonglong>(error), 16)));
+      return 0;
+    }
+
   return fbo;
 }
 
 bool
 LightHandler::standardChecks()
 {
+  if (!m_available)
+    return false;
+
   if (Global::volumeType() == Global::DummyVolume)
     {
       //QMessageBox::information(0, "Error Lighting", "Does not work on dummy or colour volumes");
@@ -533,6 +628,9 @@ LightHandler::createOpacityShader(bool bit16)
 {
   if (Global::volumeType() == Global::DummyVolume)
     return;
+
+  m_available = true;
+  m_failureReason.clear();
 
   QString shaderString;
 
@@ -550,13 +648,9 @@ LightHandler::createOpacityShader(bool bit16)
       shaderString = LightShaderFactory::genOpacityShader(nvol, bit16, m_amrData);
     }    
 
-  if (m_opacityShader)
-    glDeleteObjectARB(m_opacityShader);
-
-  m_opacityShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_opacityShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_opacityShader, shaderString,
+		   QStringLiteral("lighting/opacity")))
+    return;
 
   m_opacityParm[0] = glGetUniformLocationARB(m_opacityShader, "lutTex");
   m_opacityParm[1] = glGetUniformLocationARB(m_opacityShader, "dragTex");
@@ -586,26 +680,35 @@ void
 LightHandler::createLightShaders()
 {
   createFinalLightShader();
+  if (!m_available) return;
   createAmbientOcclusionLightShader();
+  if (!m_available) return;
   createDirectionalLightShader();
+  if (!m_available) return;
   createDiffuseLightShader();
+  if (!m_available) return;
   createInvertLightShader();
+  if (!m_available) return;
   createPointLightShader();
+  if (!m_available) return;
   createEmissiveShader();
+  if (!m_available) return;
   createExpandShader();
+  if (!m_available) return;
   createMergeOpPruneShader();
+  if (!m_available) return;
   createClipShader();
 }
 
 void
 LightHandler::createCropShader()
 {
-  if (m_cropShader)
-    glDeleteObjectARB(m_cropShader);
-  m_cropShader = 0;
-  
   if (m_crops.count() == 0)
-    return;
+    {
+      if (m_cropShader) glDeleteObjectARB(m_cropShader);
+      m_cropShader = 0;
+      return;
+    }
 
   int ncrops = 0;
   for (int ci=0; ci<m_crops.count(); ci++)
@@ -614,19 +717,18 @@ LightHandler::createCropShader()
 	ncrops ++;
     }
   if (ncrops == 0)
-    return;
+    {
+      if (m_cropShader) glDeleteObjectARB(m_cropShader);
+      m_cropShader = 0;
+      return;
+    }
 
   QString cropShaderString = CropShaderFactory::generateCropping(m_crops);
   QString shaderString = PruneShaderFactory::crop(cropShaderString);
 
-  m_cropShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_cropShader,
-				  shaderString))
-    {
-      QMessageBox::critical(0, "Error",
-			    "Cannot create CropShader for lighting calculations");
-      exit(0);
-    }
+  if (!loadProgram(m_cropShader, shaderString,
+		   QStringLiteral("lighting/crop")))
+    return;
 
   m_cropParm[0] = glGetUniformLocationARB(m_cropShader, "pruneTex");
   m_cropParm[1] = glGetUniformLocationARB(m_cropShader, "gridx");
@@ -642,12 +744,12 @@ LightHandler::createCropShader()
 void
 LightHandler::createBlendShader()
 {
-  if (m_blendShader)
-    glDeleteObjectARB(m_blendShader);
-  m_blendShader = 0;
-  
   if (m_crops.count() == 0)
-    return;
+    {
+      if (m_blendShader) glDeleteObjectARB(m_blendShader);
+      m_blendShader = 0;
+      return;
+    }
 
   int nblends = 0;
   for (int ci=0; ci<m_crops.count(); ci++)
@@ -657,19 +759,18 @@ LightHandler::createBlendShader()
 	nblends ++;
     }
   if (nblends == 0)
-    return;
+    {
+      if (m_blendShader) glDeleteObjectARB(m_blendShader);
+      m_blendShader = 0;
+      return;
+    }
 
   QString blendShaderString = BlendShaderFactory::generateBlend(m_crops);
   QString shaderString = LightShaderFactory::blend(blendShaderString);
 
-  m_blendShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_blendShader,
-				  shaderString))
-    {
-      QMessageBox::critical(0, "Error",
-			    "Cannot create BlendShader for lighting calculations");
-      exit(0);
-    }
+  if (!loadProgram(m_blendShader, shaderString,
+		   QStringLiteral("lighting/blend")))
+    return;
 
   m_blendParm[0] = glGetUniformLocationARB(m_blendShader, "opTex");
   m_blendParm[1] = glGetUniformLocationARB(m_blendShader, "gridx");
@@ -692,17 +793,9 @@ LightHandler::createClipShader()
 {
   QString shaderString = PruneShaderFactory::clip();
 
-  if (m_clipShader)
-    glDeleteObjectARB(m_clipShader);
-
-  m_clipShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_clipShader,
-				  shaderString))
-    {
-      QMessageBox::critical(0, "Error",
-			    "Cannot create ClipShader for lighting calculations");
-      exit(0);
-    }
+  if (!loadProgram(m_clipShader, shaderString,
+		   QStringLiteral("lighting/clip")))
+    return;
 
   m_clipParm[0] = glGetUniformLocationARB(m_clipShader, "pruneTex");
   m_clipParm[1] = glGetUniformLocationARB(m_clipShader, "gridx");
@@ -804,10 +897,9 @@ LightHandler::createMergeOpPruneShader()
     return;
 
   shaderString = LightShaderFactory::genMergeOpPruneShader();
-  m_mergeOpPruneShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_mergeOpPruneShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_mergeOpPruneShader, shaderString,
+		   QStringLiteral("lighting/merge-opacity-prune")))
+    return;
   m_mergeOpPruneParm[0] = glGetUniformLocationARB(m_mergeOpPruneShader, "lightTex");
   m_mergeOpPruneParm[1] = glGetUniformLocationARB(m_mergeOpPruneShader, "opTex");
 }
@@ -821,10 +913,9 @@ LightHandler::createFinalLightShader()
     return;
 
   shaderString = LightShaderFactory::genFinalLightShader();
-  m_fLightShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_fLightShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_fLightShader, shaderString,
+		   QStringLiteral("lighting/final")))
+    return;
   m_fLightParm[0] = glGetUniformLocationARB(m_fLightShader, "lightTex");
   m_fLightParm[1] = glGetUniformLocationARB(m_fLightShader, "lcol");
   //---------------------------
@@ -834,10 +925,13 @@ LightHandler::createFinalLightShader()
 
   shaderString = LightShaderFactory::genEFinalLightShader();
 
-  m_efLightShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_efLightShader,
-				  shaderString))
-    exit(0);
+  if (!loadProgram(m_efLightShader, shaderString,
+		   QStringLiteral("lighting/final-emissive")))
+    {
+      glDeleteObjectARB(m_fLightShader);
+      m_fLightShader = 0;
+      return;
+    }
 
   m_efLightParm[0] = glGetUniformLocationARB(m_efLightShader, "lightTex");
   m_efLightParm[1] = glGetUniformLocationARB(m_efLightShader, "eTex");
@@ -854,8 +948,9 @@ LightHandler::createDiffuseLightShader()
 
   //---------------------------
   shaderString = LightShaderFactory::genDiffuseLightShader();
-  m_diffuseLightShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_diffuseLightShader, shaderString)) exit(0);
+  if (!loadProgram(m_diffuseLightShader, shaderString,
+		   QStringLiteral("lighting/diffuse")))
+    return;
   m_diffuseLightParm[0] = glGetUniformLocationARB(m_diffuseLightShader, "lightTex");
   m_diffuseLightParm[1] = glGetUniformLocationARB(m_diffuseLightShader, "gridx");
   m_diffuseLightParm[2] = glGetUniformLocationARB(m_diffuseLightShader, "gridy");
@@ -875,8 +970,9 @@ LightHandler::createInvertLightShader()
 
   //---------------------------
   shaderString = LightShaderFactory::genInvertLightShader();
-  m_invertLightShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_invertLightShader, shaderString)) exit(0);
+  if (!loadProgram(m_invertLightShader, shaderString,
+		   QStringLiteral("lighting/invert")))
+    return;
   m_invertLightParm[0] = glGetUniformLocationARB(m_invertLightShader, "lightTex");
   //---------------------------
 }
@@ -891,8 +987,9 @@ LightHandler::createAmbientOcclusionLightShader()
 
   //---------------------------
   shaderString = LightShaderFactory::genAOLightShader();
-  m_aoLightShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_aoLightShader, shaderString)) exit(0);
+  if (!loadProgram(m_aoLightShader, shaderString,
+		   QStringLiteral("lighting/ambient-occlusion")))
+    return;
   m_aoLightParm[0] = glGetUniformLocationARB(m_aoLightShader, "opTex");
   m_aoLightParm[1] = glGetUniformLocationARB(m_aoLightShader, "gridx");
   m_aoLightParm[2] = glGetUniformLocationARB(m_aoLightShader, "gridy");
@@ -916,8 +1013,9 @@ LightHandler::createDirectionalLightShader()
 
   //---------------------------
   shaderString = LightShaderFactory::genDLightShader();
-  m_dLightShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_dLightShader, shaderString)) exit(0);
+  if (!loadProgram(m_dLightShader, shaderString,
+		   QStringLiteral("lighting/directional")))
+    return;
   m_dLightParm[0] = glGetUniformLocationARB(m_dLightShader, "lightTex");
   m_dLightParm[1] = glGetUniformLocationARB(m_dLightShader, "gridx");
   m_dLightParm[2] = glGetUniformLocationARB(m_dLightShader, "gridy");
@@ -930,8 +1028,13 @@ LightHandler::createDirectionalLightShader()
 
   //---------------------------
   shaderString = LightShaderFactory::genInitDLightShader();
-  m_initdLightShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_initdLightShader, shaderString)) exit(0);
+  if (!loadProgram(m_initdLightShader, shaderString,
+		   QStringLiteral("lighting/directional-init")))
+    {
+      glDeleteObjectARB(m_dLightShader);
+      m_dLightShader = 0;
+      return;
+    }
   m_initdLightParm[0] = glGetUniformLocationARB(m_initdLightShader, "opTex");
   m_initdLightParm[1] = glGetUniformLocationARB(m_initdLightShader, "gridx");
   m_initdLightParm[2] = glGetUniformLocationARB(m_initdLightShader, "gridy");
@@ -956,8 +1059,9 @@ LightHandler::createPointLightShader()
 
   //---------------------------
   shaderString = LightShaderFactory::genTubeLightShader();
-  m_pLightShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_pLightShader, shaderString)) exit(0);
+  if (!loadProgram(m_pLightShader, shaderString,
+		   QStringLiteral("lighting/point")))
+    return;
   m_pLightParm[0] = glGetUniformLocationARB(m_pLightShader, "lightTex");
   m_pLightParm[1] = glGetUniformLocationARB(m_pLightShader, "gridx");
   m_pLightParm[2] = glGetUniformLocationARB(m_pLightShader, "gridy");
@@ -972,8 +1076,13 @@ LightHandler::createPointLightShader()
 
   //---------------------------
   shaderString = LightShaderFactory::genInitTubeLightShader();
-  m_initpLightShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_initpLightShader, shaderString)) exit(0);
+  if (!loadProgram(m_initpLightShader, shaderString,
+		   QStringLiteral("lighting/point-init")))
+    {
+      glDeleteObjectARB(m_pLightShader);
+      m_pLightShader = 0;
+      return;
+    }
   m_initpLightParm[0] = glGetUniformLocationARB(m_initpLightShader, "opTex");
   m_initpLightParm[1] = glGetUniformLocationARB(m_initpLightShader, "gridx");
   m_initpLightParm[2] = glGetUniformLocationARB(m_initpLightShader, "gridy");
@@ -1003,8 +1112,9 @@ LightHandler::createExpandShader()
 
   //---------------------------
   shaderString = LightShaderFactory::genExpandLightShader();
-  m_expandLightShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_expandLightShader, shaderString)) exit(0);
+  if (!loadProgram(m_expandLightShader, shaderString,
+		   QStringLiteral("lighting/expand")))
+    return;
   m_expandLightParm[0] = glGetUniformLocationARB(m_expandLightShader, "lightTex");
   m_expandLightParm[1] = glGetUniformLocationARB(m_expandLightShader, "gridx");
   m_expandLightParm[2] = glGetUniformLocationARB(m_expandLightShader, "gridy");
@@ -1027,8 +1137,9 @@ LightHandler::createEmissiveShader()
 
   //---------------------------
   shaderString = LightShaderFactory::genEmissiveShader();
-  m_emisShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_emisShader, shaderString)) exit(0);
+  if (!loadProgram(m_emisShader, shaderString,
+		   QStringLiteral("lighting/emissive")))
+    return;
   m_emisParm[0] = glGetUniformLocationARB(m_emisShader, "lightTex");
   m_emisParm[1] = glGetUniformLocationARB(m_emisShader, "gridx");
   m_emisParm[2] = glGetUniformLocationARB(m_emisShader, "gridy");
@@ -1040,8 +1151,13 @@ LightHandler::createEmissiveShader()
 
   //---------------------------
   shaderString = LightShaderFactory::genInitEmissiveShader();
-  m_initEmisShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_initEmisShader, shaderString)) exit(0);
+  if (!loadProgram(m_initEmisShader, shaderString,
+		   QStringLiteral("lighting/emissive-init")))
+    {
+      glDeleteObjectARB(m_emisShader);
+      m_emisShader = 0;
+      return;
+    }
   m_initEmisParm[0] = glGetUniformLocationARB(m_initEmisShader, "opTex");
   m_initEmisParm[1] = glGetUniformLocationARB(m_initEmisShader, "gridx");
   m_initEmisParm[2] = glGetUniformLocationARB(m_initEmisShader, "gridy");
@@ -1055,7 +1171,7 @@ LightHandler::createEmissiveShader()
 void
 LightHandler::generateOpacityTexture()
 {
-  if (m_basicLight)
+  if (basicLight() || !m_opacityBuffer || !m_opacityShader)
     return;
   
   // enable lookup texture
@@ -1160,7 +1276,8 @@ LightHandler::generateOpacityTexture()
 void
 LightHandler::generateEmissiveTexture()
 {
-  if (m_basicLight)
+  if (basicLight() || !m_emisBuffer || !m_emisTex[0] ||
+      !m_initEmisShader)
     return;
 
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_emisBuffer);
@@ -1256,6 +1373,10 @@ LightHandler::generateEmissiveTexture()
 void
 LightHandler::dilateEmissiveTexture()
 {
+  if (basicLight() || !m_emisBuffer || !m_emisTex[0] ||
+      !m_diffuseLightShader)
+    return;
+
   int sX = m_ncols*m_gridx;
   int sY = m_nrows*m_gridy;
 
@@ -1428,53 +1549,62 @@ LightHandler::updateEmissiveBuffer(float ldecay)
   updateFinalLightBuffer(ct);
 }
 
-void
+bool
 LightHandler::genBuffers()
 {
-  int sX = m_ncols*m_gridx;
-  int sY = m_nrows*m_gridy;
+  const qint64 sx64 = static_cast<qint64>(m_ncols)*m_gridx;
+  const qint64 sy64 = static_cast<qint64>(m_nrows)*m_gridy;
+  if (sx64 <= 0 || sy64 <= 0 ||
+      sx64 > Global::max2dTextureSize() || sy64 > Global::max2dTextureSize())
+    {
+      fail(QStringLiteral("lighting/framebuffer"),
+	   QStringLiteral("computed size %1x%2 is invalid (limit %3)")
+	   .arg(sx64).arg(sy64).arg(Global::max2dTextureSize()));
+      return false;
+    }
+
+  const int sX = static_cast<int>(sx64);
+  const int sY = static_cast<int>(sy64);
 
   if (m_opacityBuffer)
     {
       if (m_opacityBuffer->width() != sX ||
-	  m_opacityBuffer->height() != sY)
-	{
-	  delete m_opacityBuffer;
-	  m_opacityBuffer = 0;
-
-	  delete m_finalLightBuffer;
-	  m_finalLightBuffer = 0;
-
-	  delete m_pruneBuffer;
-	  m_pruneBuffer = 0;
-
-	  if (m_lightBuffer) glDeleteFramebuffers(1, &m_lightBuffer);	  
-	  if (m_lightTex[0]) glDeleteTextures(2, m_lightTex);
-	  m_lightBuffer = 0;
-	  m_lightTex[0] = m_lightTex[1] = 0;
-
-	  if (m_emisBuffer) glDeleteFramebuffers(1, &m_emisBuffer);	  
-	  if (m_emisTex[0]) glDeleteTextures(2, m_emisTex);
-	  m_emisBuffer = 0;
-	  m_emisTex[0] = m_emisTex[1] = 0;
-	}
+	  m_opacityBuffer->height() != sY ||
+	  !m_opacityBuffer->isValid() ||
+	  !m_finalLightBuffer || !m_finalLightBuffer->isValid() ||
+	  !m_pruneBuffer || !m_pruneBuffer->isValid() ||
+	  !m_lightBuffer || !m_lightTex[0] || !m_lightTex[1] ||
+	  !m_emisBuffer || !m_emisTex[0] || !m_emisTex[1])
+	releaseBuffers();
     }
 
   if (!m_opacityBuffer)
     {
       m_opacityBuffer = newFBO(sX, sY);
+      if (!m_opacityBuffer) return false;
 
       m_pruneBuffer = newFBO(sX, sY);
+      if (!m_pruneBuffer) return false;
 
       glActiveTexture(GL_TEXTURE7);
       m_finalLightBuffer = newFBO(sX, sY);
+      if (!m_finalLightBuffer) return false;
       glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_finalLightBuffer->texture());
       glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
       glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
       m_finalLightBuffer->release();
 
+      for (int i=0; i<32 && glGetError() != GL_NO_ERROR; ++i) {}
       glGenFramebuffers(1, &m_lightBuffer);
       glGenTextures(2, m_lightTex);
+      if (!m_lightBuffer || !m_lightTex[0] || !m_lightTex[1])
+	{
+	  const GLenum error = glGetError();
+	  fail(QStringLiteral("lighting/work framebuffer"),
+	       QStringLiteral("OpenGL did not create all handles (error 0x%1)")
+	       .arg(QString::number(static_cast<qulonglong>(error), 16)));
+	  return false;
+	}
       for(int i=0; i<2; i++)
 	{
 	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[i]);
@@ -1495,6 +1625,14 @@ LightHandler::genBuffers()
 
       glGenFramebuffers(1, &m_emisBuffer);
       glGenTextures(2, m_emisTex);
+      if (!m_emisBuffer || !m_emisTex[0] || !m_emisTex[1])
+	{
+	  const GLenum error = glGetError();
+	  fail(QStringLiteral("lighting/emissive framebuffer"),
+	       QStringLiteral("OpenGL did not create all handles (error 0x%1)")
+	       .arg(QString::number(static_cast<qulonglong>(error), 16)));
+	  return false;
+	}
       for(int i=0; i<2; i++)
 	{
 	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_emisTex[i]);
@@ -1509,7 +1647,55 @@ LightHandler::genBuffers()
 		       //GL_UNSIGNED_BYTE,
 		       0);
 	}
+
+      const GLenum allocationError = glGetError();
+      if (allocationError != GL_NO_ERROR)
+	{
+	  fail(QStringLiteral("lighting/float textures"),
+	       QStringLiteral("allocation failed (OpenGL error 0x%1)")
+	       .arg(QString::number(static_cast<qulonglong>(allocationError), 16)));
+	  return false;
+	}
+
+      const auto validateAttachments = [&](GLuint buffer,
+					   GLuint *textures,
+					   const QString &label)
+	{
+	  glBindFramebuffer(GL_FRAMEBUFFER_EXT, buffer);
+	  for (int i=0; i<2; ++i)
+	    {
+	      glFramebufferTexture2D(GL_FRAMEBUFFER_EXT,
+				     GL_COLOR_ATTACHMENT0_EXT,
+				     GL_TEXTURE_RECTANGLE_ARB,
+				     textures[i], 0);
+	      const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
+	      const GLenum error = glGetError();
+	      if (status != GL_FRAMEBUFFER_COMPLETE_EXT || error != GL_NO_ERROR)
+		{
+		  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+		  fail(label,
+		       QStringLiteral("attachment %1 failed (status 0x%2, OpenGL error 0x%3)")
+		       .arg(i)
+		       .arg(QString::number(static_cast<qulonglong>(status), 16),
+			    QString::number(static_cast<qulonglong>(error), 16)));
+		  return false;
+		}
+	    }
+	  glFramebufferTexture2D(GL_FRAMEBUFFER_EXT,
+				 GL_COLOR_ATTACHMENT0_EXT,
+				 GL_TEXTURE_RECTANGLE_ARB, 0, 0);
+	  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+	  return true;
+	};
+
+      if (!validateAttachments(m_lightBuffer, m_lightTex,
+			       QStringLiteral("lighting/work framebuffer")) ||
+	  !validateAttachments(m_emisBuffer, m_emisTex,
+			       QStringLiteral("lighting/emissive framebuffer")))
+	return false;
     }
+
+  return true;
 }
 
 void
@@ -1565,7 +1751,12 @@ LightHandler::updateOpacityTexture(GLuint dataTex,
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle("**********Updating opacity buffer**********");
   
-  genBuffers();
+  if (!genBuffers())
+    {
+      MainWindowUI::mainWindowUI()->menubar->parentWidget()->
+	setWindowTitle(Global::DrishtiVersion());
+      return;
+    }
 
   generateOpacityTexture();
 
@@ -1764,6 +1955,10 @@ LightHandler::mergeOpPruneBuffers(int ct)
 void
 LightHandler::updatePruneBuffer()
 {
+  if (!m_available || !m_lightBuffer || !m_lightTex[0] ||
+      !m_pruneBuffer || !m_mergeOpPruneShader)
+    return;
+
   // clear both buffer attachments
   glBindFramebuffer(GL_FRAMEBUFFER_EXT, m_lightBuffer);
   for(int i=0; i<2; i++)
@@ -1804,7 +1999,8 @@ LightHandler::updateLightBuffers()
   m_lutChanged = false;
   m_onlyLightBuffers = false;
 
-  if (m_basicLight)
+  if (basicLight() || !m_finalLightBuffer || !m_pruneBuffer ||
+      !m_lightBuffer || !m_lightTex[0])
     return;
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
@@ -1916,6 +2112,9 @@ LightHandler::updateAndLoadLightTexture(GLuint dataTex,
 		       dataMin, dataMax,
 		       subVolSize,
 		       vlut);
+
+  if (!m_available || basicLight())
+    return;
 
   updateLightBuffers();
 }

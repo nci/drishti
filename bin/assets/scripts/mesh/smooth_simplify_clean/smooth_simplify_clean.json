@@ -3,5 +3,6 @@
     "interpreter" : "python",
     "script" : "smooth_simplify_clean.py",
     "description" : "Smooth+Simplify+Clean",
-    "menu_hierarchy" : "Filters->Composite"
+    "menu_hierarchy" : "Filters->Composite",
+    "packages" : ["PyQt5", "pyvista", "pyvistaqt", "pyacvd", "pymeshfix", "numpy"]
 }

@@ -50,6 +50,8 @@
 #include <vector>
 #include <queue>
 #include <limits>
+#include <set>
+#include <utility>
 
 #include <cstring>
 
@@ -324,7 +326,10 @@ static inline uint32 readU16( const unsigned char* ptr )
 
 static inline uint32 readU32( const unsigned char* ptr )
 {
-  return ptr[0]+(ptr[1]<<8)+(ptr[2]<<16)+(ptr[3]<<24);
+  return static_cast<uint32>(ptr[0])+
+         (static_cast<uint32>(ptr[1])<<8)+
+         (static_cast<uint32>(ptr[2])<<16)+
+         (static_cast<uint32>(ptr[3])<<24);
 }
 
 static inline void writeU16( unsigned char* ptr, uint32 data )
@@ -371,9 +376,8 @@ bool Header::valid()
   if( num_bat == 0 ) return false;
   //if( (num_bat > 109) && (num_bat > (num_mbat * 127) + 109)) return false; // dima: incorrect check, number may be arbitrary larger
   if( (num_bat < 109) && (num_mbat != 0) ) return false;
-  if( s_shift > b_shift ) return false;
-  if( b_shift <= 6 ) return false;
-  if( b_shift >=31 ) return false;
+  if( b_shift != 9 && b_shift != 12 ) return false;
+  if( s_shift != 6 ) return false;
   
   return true;
 }
@@ -523,6 +527,7 @@ void AllocTable::setChain( std::vector<uint64> chain )
 std::vector<uint64> AllocTable::follow( uint64 start )
 {
   std::vector<uint64> chain;
+  std::set<uint64> visited;
 
   if( start >= count() ) return chain; 
 
@@ -533,6 +538,7 @@ std::vector<uint64> AllocTable::follow( uint64 start )
     if( p == (uint64)Bat ) break;
     if( p == (uint64)MetaBat ) break;
     if( p >= count() ) break;
+    if( !visited.insert(p).second ) break;
     chain.push_back( p );
     if( data[p] >= count() ) break;
     p = data[ p ];
@@ -870,17 +876,31 @@ DirEntry* DirTree::entry( const std::string& name, bool create, int64 bigBlockSi
    return entry( index );
 }
 
-// helper function: recursively find siblings of index
-void dirtree_find_siblings( DirTree* dirtree, std::vector<uint64>& result, 
+// Preserve the directory tree's in-order traversal without trusting its depth.
+void dirtree_find_siblings( DirTree* dirtree, std::vector<uint64>& result,
   uint64 index )
 {
-    DirEntry* e = dirtree->entry( index );
-    if (!e) return;
-    if (e->prev != DirTree::End)
-        dirtree_find_siblings(dirtree, result, e->prev);
-    result.push_back(index);
-    if (e->next != DirTree::End)
-        dirtree_find_siblings(dirtree, result, e->next);
+    std::set<uint64> visited;
+    std::vector<std::pair<uint64, bool> > pending;
+    pending.push_back(std::make_pair(index, false));
+    while (!pending.empty())
+    {
+        const std::pair<uint64, bool> item = pending.back();
+        pending.pop_back();
+        if (item.second)
+        {
+            result.push_back(item.first);
+            continue;
+        }
+        if (!visited.insert(item.first).second) continue;
+        DirEntry* e = dirtree->entry(item.first);
+        if (!e || !e->valid) continue;
+        if (e->next != DirTree::End)
+            pending.push_back(std::make_pair(e->next, false));
+        pending.push_back(std::make_pair(item.first, true));
+        if (e->prev != DirTree::End)
+            pending.push_back(std::make_pair(e->prev, false));
+    }
 }
 
 std::vector<uint64> DirTree::children( uint64 index )
@@ -894,25 +914,26 @@ std::vector<uint64> DirTree::children( uint64 index )
   return result;
 }
 
-uint64 dirtree_find_sibling( DirTree* dirtree, uint64 index, const std::string& name, uint64& closest ) {
+uint64 dirtree_find_sibling( DirTree* dirtree, uint64 index,
+  const std::string& name, uint64& closest ) {
 
     uint64 count = dirtree->entryCount();
-    DirEntry* e = dirtree->entry( index );
-    if (!e || !e->valid) return 0;
-    int cval = e->compare(name);
-    if (cval == 0)
-        return index;
-    if (cval > 0)
+    std::set<uint64> visited;
+    while (index < count && visited.insert(index).second)
     {
-        if (e->prev > 0 && e->prev < count)
-            return dirtree_find_sibling( dirtree, e->prev, name, closest );
+        DirEntry* e = dirtree->entry(index);
+        if (!e || !e->valid) return 0;
+        const int cval = e->compare(name);
+        if (cval == 0) return index;
+        const uint64 nextIndex = cval > 0 ? e->prev : e->next;
+        if (nextIndex > 0 && nextIndex < count)
+        {
+            index = nextIndex;
+            continue;
+        }
+        closest = index;
+        return 0;
     }
-    else
-    {
-        if (e->next > 0 && e->next < count)
-            return dirtree_find_sibling( dirtree, e->next, name, closest );
-    }
-    closest = index;
     return 0;
 }
 
@@ -1231,7 +1252,7 @@ StorageIO::StorageIO( Storage* st, const char* fname )
   filesize(0),        
   writeable(false),        
   header(new Header()),        
-  dirtree(new DirTree(1 << header->b_shift)),        
+  dirtree(new DirTree(static_cast<uint64>(1) << header->b_shift)),
   bbat(new AllocTable()),        
   sbat(new AllocTable()),
   sb_blocks(),
@@ -1298,13 +1319,21 @@ void StorageIO::load(bool bWriteAccess)
   
   // find size of input file
   file.seekg(0, std::ios::end );
-  filesize = static_cast<uint64>(file.tellg());
+  const std::streampos endPosition = file.tellg();
+  if (endPosition == std::streampos(-1) ||
+      endPosition < std::streampos(512))
+    return;
+  filesize = static_cast<uint64>(endPosition);
 
   // load header
   buffer = new unsigned char[512];
   file.seekg( 0 ); 
   file.read( (char*)buffer, 512 );
-  fileCheck(file);
+  if (file.gcount() != 512)
+  {
+    delete[] buffer;
+    return;
+  }
   header->load( buffer );
   delete[] buffer;
 
@@ -1322,6 +1351,21 @@ void StorageIO::load(bool bWriteAccess)
   // important block size
   bbat->blockSize = (uint64) 1 << header->b_shift;
   sbat->blockSize = (uint64) 1 << header->s_shift;
+  if (filesize < bbat->blockSize+128)
+    return;
+  const uint64 availableBlocks =
+    (filesize+bbat->blockSize-1)/bbat->blockSize-1;
+  const uint64 entriesPerBat = bbat->blockSize/sizeof(uint32);
+  const uint64 maximumBatBlocks =
+    (availableBlocks+entriesPerBat-1)/entriesPerBat;
+  if (header->num_bat > maximumBatBlocks ||
+      header->dirent_start >= availableBlocks ||
+      header->num_sbat > availableBlocks ||
+      header->num_mbat > availableBlocks ||
+      (header->num_sbat > 0 && header->sbat_start >= availableBlocks) ||
+      (header->num_mbat > 0 && header->mbat_start >= availableBlocks) ||
+      header->num_bat > 109+header->num_mbat*(entriesPerBat-1))
+    return;
   
   blocks = getbbatBlocks(true);
   
@@ -1330,7 +1374,11 @@ void StorageIO::load(bool bWriteAccess)
   if( buflen > 0 )
   {
     buffer = new unsigned char[ buflen ];  
-    loadBigBlocks( blocks, buffer, buflen );
+    if (loadBigBlocks( blocks, buffer, buflen ) != buflen)
+    {
+      delete[] buffer;
+      return;
+    }
     bbat->load( buffer, buflen );
     delete[] buffer;
   }  
@@ -1342,7 +1390,11 @@ void StorageIO::load(bool bWriteAccess)
   if( buflen > 0 )
   {
     buffer = new unsigned char[ buflen ];  
-    loadBigBlocks( blocks, buffer, buflen );
+    if (loadBigBlocks( blocks, buffer, buflen ) != buflen)
+    {
+      delete[] buffer;
+      return;
+    }
     sbat->load( buffer, buflen );
     delete[] buffer;
   }  
@@ -1351,9 +1403,16 @@ void StorageIO::load(bool bWriteAccess)
   blocks.clear();
   blocks = bbat->follow( header->dirent_start );
   buflen = static_cast<uint64>(blocks.size())*bbat->blockSize;
+  if (buflen < 128)
+    return;
   buffer = new unsigned char[ buflen ];  
-  loadBigBlocks( blocks, buffer, buflen );
-  dirtree->load( buffer, buflen );
+  const uint64 directoryBytes = loadBigBlocks( blocks, buffer, buflen );
+  if (directoryBytes < 128)
+  {
+    delete[] buffer;
+    return;
+  }
+  dirtree->load( buffer, directoryBytes );
   unsigned sb_start = readU32( buffer + 0x74 );
   delete[] buffer;
   
@@ -1581,21 +1640,26 @@ uint64 StorageIO::loadBigBlocks( std::vector<uint64> blocks,
   if( !file.good() ) return 0;
   if( blocks.size() < 1 ) return 0;
   if( maxlen == 0 ) return 0;
+  if( bbat->blockSize == 0 || filesize < bbat->blockSize ) return 0;
 
   // read block one by one, seems fast enough
   uint64 bytes = 0;
-  for( unsigned int i=0; (i < blocks.size() ) & ( bytes<maxlen ); i++ )
+  for( unsigned int i=0; (i < blocks.size() ) && ( bytes<maxlen ); i++ )
   {
     uint64 block = blocks[i];
+    const uint64 availableBlocks =
+      (filesize+bbat->blockSize-1)/bbat->blockSize-1;
+    if( block >= availableBlocks ) break;
     uint64 pos =  bbat->blockSize * ( block+1 );
     uint64 p = (bbat->blockSize < maxlen-bytes) ? bbat->blockSize : maxlen-bytes;
-    if( pos + p > filesize )
-        p = filesize - pos;
+    if( pos >= filesize ) break;
+    if( p > filesize-pos ) p = filesize-pos;
     file.seekg( pos );
     file.read( (char*)data + bytes, p );
-    fileCheck(file);
-    // should use gcount to see how many bytes were really returned - eof check...
-    bytes += p;
+    const std::streamsize bytesRead = file.gcount();
+    if( bytesRead <= 0 ) break;
+    bytes += static_cast<uint64>(bytesRead);
+    if( static_cast<uint64>(bytesRead) != p ) break;
   }
 
   return bytes;
@@ -1678,7 +1742,7 @@ uint64 StorageIO::loadSmallBlocks( std::vector<uint64> blocks,
 
   // read small block one by one
   uint64 bytes = 0;
-  for( unsigned int i=0; ( i<blocks.size() ) & ( bytes<maxlen ); i++ )
+  for( unsigned int i=0; ( i<blocks.size() ) && ( bytes<maxlen ); i++ )
   {
     uint64 block = blocks[i];
 
@@ -1687,12 +1751,15 @@ uint64 StorageIO::loadSmallBlocks( std::vector<uint64> blocks,
     uint64 bbindex = pos / bbat->blockSize;
     if( bbindex >= sb_blocks.size() ) break;
 
-    loadBigBlock( sb_blocks[ bbindex ], buf, bbat->blockSize );
+    const uint64 loaded =
+      loadBigBlock( sb_blocks[ bbindex ], buf, bbat->blockSize );
 
     // copy the data
     uint64 offset = pos % bbat->blockSize;
+    if( loaded <= offset ) break;
     uint64 p = (maxlen-bytes < bbat->blockSize-offset ) ? maxlen-bytes :  bbat->blockSize-offset;
     p = (sbat->blockSize<p ) ? sbat->blockSize : p;
+    if( p > loaded-offset ) p = loaded-offset;
     memcpy( data + bytes, buf + offset, p );
     bytes += p;
   }
@@ -1799,7 +1866,7 @@ std::vector<uint64> StorageIO::getbbatBlocks(bool bLoading)
         mbat_data.clear();
         if( (header->num_bat > 109) && (header->num_mbat > 0) ) 
         {
-            unsigned char* buffer2 = new unsigned char[ bbat->blockSize ];
+            unsigned char* buffer2 = new unsigned char[ bbat->blockSize ]();
             uint64 k = 109;
             uint64 sector;
             uint64 mdidx = 0;
@@ -1814,7 +1881,12 @@ std::vector<uint64> StorageIO::getbbatBlocks(bool bLoading)
                 }
                 mbat_blocks.push_back(sector);
                 mbat_data.resize(mbat_blocks.size()*(bbat->blockSize/4));
-                loadBigBlock( sector, buffer2, bbat->blockSize );
+                if (loadBigBlock(sector, buffer2, bbat->blockSize) !=
+                    bbat->blockSize)
+                {
+                    blocks.clear();
+                    break;
+                }
                 for( uint64 s=0; s < bbat->blockSize; s+=4 )
                 {
                     if( k >= header->num_bat )
@@ -1974,7 +2046,7 @@ void StreamIO::setSize(uint64 newSize)
         if (len)
         {
             write(0, buffer, len);
-            delete buffer;
+            delete[] buffer;
         }
         if (savePos <= entry->size)
             seek(savePos);
@@ -2001,7 +2073,7 @@ int64 StreamIO::getch()
 {
   // past end-of-file ?
   DirEntry *entry = io->dirtree->entry(entryIdx);
-  if( m_pos >= entry->size ) return -1;
+  if( !entry || m_pos >= entry->size ) return -1;
 
   // need to update cache ?
   if( !cache_size || ( m_pos < cache_pos ) ||
@@ -2026,8 +2098,8 @@ uint64 StreamIO::read( uint64 pos, unsigned char* data, uint64 maxlen )
   uint64 totalbytes = 0;
   
   DirEntry *entry = io->dirtree->entry(entryIdx);
-  if (pos + maxlen > entry->size)
-      maxlen = entry->size - pos;
+  if( !entry || pos >= entry->size ) return 0;
+  if( maxlen > entry->size-pos ) maxlen = entry->size-pos;
   if ( entry->size < io->header->threshold )
   {
     // small file
@@ -2040,9 +2112,12 @@ uint64 StreamIO::read( uint64 pos, unsigned char* data, uint64 maxlen )
     while( totalbytes < maxlen )
     {
       if( index >= blocks.size() ) break;
-      io->loadSmallBlock( blocks[index], buf, io->bbat->blockSize );
+      const uint64 loaded =
+        io->loadSmallBlock( blocks[index], buf, io->sbat->blockSize );
       uint64 count = io->sbat->blockSize - offset;
       if( count > maxlen-totalbytes ) count = maxlen-totalbytes;
+      if( loaded <= offset ) break;
+      if( count > loaded-offset ) count = loaded-offset;
       memcpy( data+totalbytes, buf + offset, count );
       totalbytes += count;
       offset = 0;
@@ -2063,9 +2138,12 @@ uint64 StreamIO::read( uint64 pos, unsigned char* data, uint64 maxlen )
     while( totalbytes < maxlen )
     {
       if( index >= blocks.size() ) break;
-      io->loadBigBlock( blocks[index], buf, io->bbat->blockSize );
+      const uint64 loaded =
+        io->loadBigBlock( blocks[index], buf, io->bbat->blockSize );
       uint64 count = io->bbat->blockSize - offset;
       if( count > maxlen-totalbytes ) count = maxlen-totalbytes;
+      if( loaded <= offset ) break;
+      if( count > loaded-offset ) count = loaded-offset;
       memcpy( data+totalbytes, buf + offset, count );
       totalbytes += count;
       index++;
@@ -2262,26 +2340,38 @@ void Storage::GetStats(uint64 *pEntries, uint64 *pUnusedEntries,
     *pUnusedSmallBlocks = io->sbat->unusedCount();
 }
 
-// recursively collect stream names
-void CollectStreams( std::list<std::string>& result, DirTree* tree, DirEntry* parent, const std::string& path )
+void CollectStreamsInternal( std::list<std::string>& result, DirTree* tree,
+  DirEntry* parent, const std::string& path, std::set<uint64>& visited,
+  unsigned nesting )
 {
+  if( !parent || nesting > 64 ) return;
   DirEntry* c = tree->entry( parent->child );
   std::queue<DirEntry*> queue;
   if ( c ) queue.push( c );
   while ( !queue.empty() ) {
     DirEntry* e = queue.front();
     queue.pop();
+    uint64 index = tree->indexOf(e);
+    if ( index >= tree->entryCount() || !visited.insert(index).second )
+      continue;
     if ( e->dir )
-      CollectStreams( result, tree, e, path + e->name + "/" );
+      CollectStreamsInternal( result, tree, e, path + e->name + "/",
+                              visited, nesting+1 );
     else
       result.push_back( path + e->name );
     DirEntry* p = tree->entry( e->prev );
     if ( p ) queue.push( p );
     DirEntry* n = tree->entry( e->next );
     if ( n ) queue.push( n );
-    // not testing if p or n have already been processed; potential infinite loop in case of closed Entry chain
-    // it seems not to happen, though
   }
+}
+
+// Recursively collect stream names while bounding malformed hierarchies.
+void CollectStreams( std::list<std::string>& result, DirTree* tree,
+  DirEntry* parent, const std::string& path )
+{
+  std::set<uint64> visited;
+  CollectStreamsInternal(result, tree, parent, path, visited, 0);
 }
 
 std::list<std::string> Storage::GetAllStreams( const std::string& storageName )
@@ -2326,7 +2416,7 @@ uint64 Stream::size()
     if (!io)
         return 0;
     DirEntry *entry = io->io->dirtree->entry(io->entryIdx);
-    return entry->size;
+    return entry ? entry->size : 0;
 }
 
 void Stream::setSize(int64 newSize)

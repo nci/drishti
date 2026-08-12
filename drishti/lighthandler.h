@@ -7,6 +7,7 @@
 using namespace qglviewer;
 
 #include <QGLFramebufferObject>
+#include <QString>
 
 #include "gilights.h"
 #include "gilightinfo.h"
@@ -21,7 +22,7 @@ class LightHandler
 
     static void setLutTex(GLuint lt) { m_lutTex = lt; }
 
-    static bool basicLight() { return m_basicLight; }
+    static bool basicLight() { return (m_basicLight || !m_available); }
 
     static bool openPropertyEditor();
 
@@ -81,6 +82,8 @@ class LightHandler
   
  private :
     static bool m_initialized;
+    static bool m_available;
+    static QString m_failureReason;
     static GLuint m_dataTex;
 
     static bool m_doAll, m_onlyLightBuffers;
@@ -186,7 +189,10 @@ class LightHandler
     static void dilateEmissiveTexture();
 
     static bool standardChecks();
-    static void genBuffers();
+    static bool genBuffers();
+    static bool loadProgram(GLhandleARB&, const QString&, const QString&);
+    static void fail(const QString&, const QString&);
+    static void releaseBuffers();
 
     static void createAmbientOcclusionLightShader();
     static void createDirectionalLightShader();

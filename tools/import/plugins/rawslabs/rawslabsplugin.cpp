@@ -1,7 +1,11 @@
 #include <QtGui>
 #include "common.h"
 #include "rawslabsplugin.h"
+#include "../rawfileutils.h"
 #include <math.h>
+#include <cstring>
+#include <memory>
+#include <new>
 
 #if defined(Q_OS_WIN32)
 #define isnan _isnan
@@ -29,10 +33,12 @@ RawSlabsPlugin::init()
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
@@ -47,10 +53,12 @@ RawSlabsPlugin::clear()
   m_voxelUnit = _Micron;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
+  m_lastError.clear();
 }
 
 void
@@ -87,6 +95,16 @@ RawSlabsPlugin::setMinMax(float rmin, float rmax)
 float RawSlabsPlugin::rawMin() { return m_rawMin; }
 float RawSlabsPlugin::rawMax() { return m_rawMax; }
 QList<uint> RawSlabsPlugin::histogram() { return m_histogram; }
+QString RawSlabsPlugin::lastError() const { return m_lastError; }
+
+bool
+RawSlabsPlugin::setError(const QString& error, bool showDialog)
+{
+  m_lastError = error;
+  if (showDialog)
+    QMessageBox::critical(0, "RAW Slabs Import Error", error);
+  return false;
+}
 
 void
 RawSlabsPlugin::gridSize(int& d, int& w, int& h)
@@ -99,6 +117,23 @@ RawSlabsPlugin::gridSize(int& d, int& w, int& h)
 void
 RawSlabsPlugin::replaceFile(QString flnm)
 {
+  if (m_fileName.count() != 1 || m_slices.count() != 1)
+    {
+      setError("A multi-file RAW slab volume cannot be replaced by one file.");
+      return;
+    }
+
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(m_depth, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error) ||
+      !RawFileUtils::validateFileSize(flnm, layout.requiredFileBytes, error))
+    {
+      setError(error);
+      return;
+    }
+
+  m_lastError.clear();
   m_fileName.clear();
   m_fileName << flnm;
 }
@@ -106,159 +141,145 @@ RawSlabsPlugin::replaceFile(QString flnm)
 bool
 RawSlabsPlugin::setFile(QStringList files)
 {
+  m_lastError.clear();
+  if (files.isEmpty())
+    return setError("No RAW slab files were selected.");
+  for (int i=0; i<files.count(); ++i)
+    if (files[i].isEmpty())
+      return setError("The RAW slab file list contains an empty path.");
+
   m_fileName = files;
+  m_slices.clear();
 
-  {
-    m_slices.clear();
+  QFileInfo fi(files[0]);
+  const QString hdrflnm = QFileDialog::getOpenFileName(
+    0, "Load text header file", fi.absolutePath(), "Files (*.*)");
 
-    QFileInfo fi(files[0]);
+  QList<int> slabDepths;
+  int width = 0;
+  int height = 0;
+  if (hdrflnm.isEmpty())
+    {
+      m_headerBytes = m_skipBytes = 13;
+      for (int nf=0; nf<m_fileName.count(); ++nf)
+	{
+	  int voxelType = -1;
+	  int depth = 0;
+	  int slabWidth = 0;
+	  int slabHeight = 0;
+	  QString error;
+	  if (!RawFileUtils::readEmbeddedHeader(m_fileName[nf], voxelType,
+	                                        depth, slabWidth, slabHeight,
+	                                        error))
+	    return setError(error);
+	  if (nf == 0)
+	    {
+	      m_voxelType = voxelType;
+	      width = slabWidth;
+	      height = slabHeight;
+	    }
+	  else if (voxelType != m_voxelType || slabWidth != width ||
+	           slabHeight != height)
+	    return setError(QString("RAW slab %1 does not match voxel type and "
+	                            "slice dimensions of the first slab.")
+	                      .arg(m_fileName[nf]));
+	  slabDepths.append(depth);
+	}
+    }
+  else
+    {
+      QFile headerFile(hdrflnm);
+      if (!headerFile.open(QFile::ReadOnly | QFile::Text))
+	return setError(QString("Cannot open RAW slab text header %1: %2")
+	                  .arg(hdrflnm, headerFile.errorString()));
+      QTextStream in(&headerFile);
+      const QString firstLine = in.readLine().simplified();
+      const QStringList firstWords =
+	firstLine.split(" ", QString::SkipEmptyParts);
+      bool voxelOk = false;
+      bool headerOk = false;
+      const int voxelCode = firstWords.value(0).toInt(&voxelOk);
+      const int headerBytes = firstWords.value(1).toInt(&headerOk);
+      if (firstWords.count() < 2 || !voxelOk || !headerOk ||
+	  !RawFileUtils::decodeVoxelTypeCode(voxelCode, m_voxelType) ||
+	  headerBytes < 0)
+	return setError(QString("Invalid RAW slab header first line: %1")
+	                  .arg(firstLine));
+      m_headerBytes = m_skipBytes = headerBytes;
 
-    QString hdrflnm;
-    hdrflnm = QFileDialog::getOpenFileName(0,
-					"Load text header file",
-					fi.absolutePath(),
-					"Files (*.*)");
+      while (!in.atEnd())
+	{
+	  const QString line = in.readLine().simplified();
+	  if (line.isEmpty())
+	    continue;
+	  const QStringList words = line.split(" ", QString::SkipEmptyParts);
+	  bool depthOk = false;
+	  bool widthOk = false;
+	  bool heightOk = false;
+	  const int depth = words.value(0).toInt(&depthOk);
+	  const int slabWidth = words.value(1).toInt(&widthOk);
+	  const int slabHeight = words.value(2).toInt(&heightOk);
+	  if (words.count() < 3 || !depthOk || !widthOk || !heightOk)
+	    return setError(QString("Invalid RAW slab dimensions line: %1")
+	                      .arg(line));
+	  if (slabDepths.isEmpty())
+	    {
+	      width = slabWidth;
+	      height = slabHeight;
+	    }
+	  else if (slabWidth != width || slabHeight != height)
+	    return setError(QString("RAW slab dimensions %1 x %2 do not match "
+	                            "%3 x %4.")
+	                      .arg(slabWidth).arg(slabHeight)
+	                      .arg(width).arg(height));
+	  slabDepths.append(depth);
+	}
+      if (slabDepths.count() != m_fileName.count())
+	return setError(QString("RAW slab text header describes %1 files, but %2 "
+	                        "data files were selected.")
+	                  .arg(slabDepths.count()).arg(m_fileName.count()));
+    }
 
-    int nfX0, nfY0, nfZ0;
-    
-    if (hdrflnm.isEmpty())
-      {
-	uchar nvt0;
-	QFile fd(m_fileName[0]);
-	fd.open(QFile::ReadOnly);
-	fd.read((char*)&nvt0, sizeof(unsigned char));
-	fd.read((char*)&nfX0, sizeof(int));
-	fd.read((char*)&nfY0, sizeof(int));
-	fd.read((char*)&nfZ0, sizeof(int));
-	fd.close();
-    
-	m_voxelType = _UChar;
-	if (nvt0 == 0) m_voxelType = _UChar;
-	if (nvt0 == 1) m_voxelType = _Char;
-	if (nvt0 == 2) m_voxelType = _UShort;
-	if (nvt0 == 3) m_voxelType = _Short;
-	if (nvt0 == 4) m_voxelType = _Int;
-	if (nvt0 == 8) m_voxelType = _Float;
+  if (!RawFileUtils::bytesPerVoxel(m_voxelType, m_bytesPerVoxel))
+    return setError(QString("Unsupported RAW voxel type %1.")
+                      .arg(m_voxelType));
 
-	m_headerBytes = m_skipBytes = 13;
-	int nslices = nfX0;
-	m_slices.append(nslices);
-	
-	for (int nf=1; nf<m_fileName.count(); nf++)
-	  {
-	    uchar nvt;
-	    int nfX, nfY, nfZ;
-	    QFile fd(m_fileName[nf]);
-	    fd.open(QFile::ReadOnly);
-	    fd.read((char*)&nvt, sizeof(unsigned char));
-	    fd.read((char*)&nfX, sizeof(int));
-	    fd.read((char*)&nfY, sizeof(int));
-	    fd.read((char*)&nfZ, sizeof(int));
-	    fd.close();
-	    if (nvt != nvt0 || nfY != nfY0 || nfZ != nfZ0)
-	      {
-		QMessageBox::information(0, "", "Raw File format does not match");
-		return false;
-	      }
-	    
-	    nslices += nfX;
-	    m_slices.append(nslices);
-	  }
-      }
-    else
-      {
-	// load header information from a text file
-	
-	int nvt0, nvt;
-	int nfX, nfY, nfZ;
-	
-	QFile fd(hdrflnm);
-	fd.open(QFile::ReadOnly | QFile::Text);
-	QTextStream in(&fd);
+  qint64 totalDepth = 0;
+  for (int nf=0; nf<m_fileName.count(); ++nf)
+    {
+      RawFileUtils::Layout layout;
+      QString error;
+      if (!RawFileUtils::makeLayout(slabDepths[nf], width, height,
+	                            m_voxelType, m_skipBytes, layout, error) ||
+	  !RawFileUtils::validateFileSize(m_fileName[nf],
+	                                  layout.requiredFileBytes, error))
+	return setError(error);
+      if (!RawFileUtils::checkedAdd(totalDepth, slabDepths[nf], totalDepth) ||
+	  totalDepth > std::numeric_limits<int>::max())
+	return setError("The combined RAW slab depth exceeds the supported limit.");
+      m_slices.append(static_cast<int>(totalDepth));
+    }
 
-	QString line = (in.readLine()).simplified();
-	QStringList words = line.split(" ", QString::SkipEmptyParts);
-	if (words.count() >= 2)
-	  {
-	    int nvt0 = words[0].toInt();
-	    m_voxelType = _UChar;
-	    if (nvt0 == 0) m_voxelType = _UChar;
-	    if (nvt0 == 1) m_voxelType = _Char;
-	    if (nvt0 == 2) m_voxelType = _UShort;
-	    if (nvt0 == 3) m_voxelType = _Short;
-	    if (nvt0 == 4) m_voxelType = _Int;
-	    if (nvt0 == 8) m_voxelType = _Float;
-	    m_headerBytes = m_skipBytes = words[1].toInt();
-	  }
-	else
-	  {
-	    QMessageBox::information(0, "",
-	     QString("Expecting voxeltype and headerbytes\nGot this %1").arg(line));
-	    return false;
-	  }
-
-	int nslices = 0;
-	while (!in.atEnd())
-	  {
-	    line = (in.readLine()).simplified();
-	    words = line.split(" ", QString::SkipEmptyParts);
-	    if (words.count() >= 3)
-	      {
-		nfX = words[0].toInt();
-		nfY = words[1].toInt();
-		nfZ = words[2].toInt();
-		
-		if (nslices == 0)
-		  {
-		    nfY0 = nfY;
-		    nfZ0 = nfZ;
-		  }
-		else
-		  {
-		    if (nfY0 != nfY || nfZ0 != nfZ)
-		      {
-			QMessageBox::information(0, "",
-			   QString("Slice size not same :: %1 %2 : %3 %4").\
-			     arg(nfY0).arg(nfZ0).arg(nfY).arg(nfZ));
-			return false;
-		      }
-		  }
-
-		nslices += nfX;
-		m_slices.append(nslices);
-	      }
-	    else
-	      {
-		QMessageBox::information(0, "",
-	          QString("Expecting dimensions\nGot this %1").arg(line));
-		return false;
-	      }
-	  }	
-      }
-    m_depth = m_slices[m_slices.count()-1];
-    m_width = nfY0;
-    m_height = nfZ0;
-  }
-  //------------------------------
-  m_bytesPerVoxel = 1;
-  if (m_voxelType == _UChar) m_bytesPerVoxel = 1;
-  else if (m_voxelType == _Char) m_bytesPerVoxel = 1;
-  else if (m_voxelType == _UShort) m_bytesPerVoxel = 2;
-  else if (m_voxelType == _Short) m_bytesPerVoxel = 2;
-  else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
-  else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
+  m_depth = static_cast<int>(totalDepth);
+  m_width = width;
+  m_height = height;
 
   if (m_voxelType == _UChar ||
       m_voxelType == _Char ||
       m_voxelType == _UShort ||
       m_voxelType == _Short)
     {
-      findMinMaxandGenerateHistogram();
+      if (!findMinMaxandGenerateHistogram())
+	return setError(m_lastError);
     }
   else
     {
       findMinMax();
+      if (!m_lastError.isEmpty())
+	return setError(m_lastError);
       generateHistogram();
+      if (!m_lastError.isEmpty())
+	return setError(m_lastError);
     }
 
   return true;
@@ -266,46 +287,41 @@ RawSlabsPlugin::setFile(QStringList files)
 
 #define MINMAXANDHISTOGRAM()				\
   {							\
-    for(uint j=0; j<nY*nZ; j++)				\
+    for(qint64 j=0; j<voxelCount; j++)			\
       {							\
-	int val = ptr[j];				\
+	qint64 val = ptr[j];				\
 	m_rawMin = qMin(m_rawMin, (float)val);		\
 	m_rawMax = qMax(m_rawMax, (float)val);		\
 							\
-	int idx = val-rMin;				\
-	m_histogram[idx]++;				\
+	int idx = RawFileUtils::exactHistogramIndex(m_voxelType, val); \
+	if (idx < 0 || idx >= m_histogram.size())		\
+	  return setError("RAW slab histogram index is invalid.", false); \
+	if (m_histogram[idx] < std::numeric_limits<uint>::max()) \
+	  m_histogram[idx]++;				\
       }							\
   }
 
 
-void
+bool
 RawSlabsPlugin::findMinMaxandGenerateHistogram()
 {
-  float rSize;
-  float rMin;
   m_histogram.clear();
   if (m_voxelType == _UChar ||
       m_voxelType == _Char)
     {
-      if (m_voxelType == _UChar) rMin = 0;
-      if (m_voxelType == _Char) rMin = -127;
-      rSize = 255;
       for(uint i=0; i<256; i++)
 	m_histogram.append(0);
     }
   else if (m_voxelType == _UShort ||
       m_voxelType == _Short)
     {
-      if (m_voxelType == _UShort) rMin = 0;
-      if (m_voxelType == _Short) rMin = -32767;
-      rSize = 65535;
       for(uint i=0; i<65536; i++)
 	m_histogram.append(0);
     }
   else
     {
-      QMessageBox::information(0, "Error", "Why am i here ???");
-      return;
+      return setError("Unsupported voxel type for exact RAW slab histogram.",
+                      false);
     }
 
   //==================
@@ -323,25 +339,25 @@ RawSlabsPlugin::findMinMaxandGenerateHistogram()
 	{
 	  m_rawMin = 0;
 	  m_rawMax = 255;
-	  return;
+	  return true;
 	}
       else if (m_voxelType == _Char)
 	{
-	  m_rawMin = -127;
-	  m_rawMax = 128;
-	  return;
+	  m_rawMin = -128;
+	  m_rawMax = 127;
+	  return true;
 	}
       else if (m_voxelType == _UShort)
 	{
 	  m_rawMin = 0;
 	  m_rawMax = 65535;
-	  return;
+	  return true;
 	}
       else if (m_voxelType == _Short)
 	{
-	  m_rawMin = -32767;
-	  m_rawMax = 32768;
-	  return;
+	  m_rawMin = -32768;
+	  m_rawMax = 32767;
+	  return true;
 	}
     }
   //==================
@@ -353,66 +369,72 @@ RawSlabsPlugin::findMinMaxandGenerateHistogram()
 			   0);
   progress.setMinimumDuration(0);
 
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
+    return setError(error, false);
+  const qint64 voxelCount = layout.sliceVoxels;
+  const qint64 nbytes = layout.sliceBytes;
+  std::unique_ptr<uchar[]> tmp(new (std::nothrow)
+                               uchar[static_cast<std::size_t>(nbytes)]);
+  if (!tmp)
+    return setError(QString("Cannot allocate %1 bytes for a RAW slice.")
+                      .arg(nbytes), false);
 
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
 
   for (int nf=0; nf<m_fileName.count(); nf++)
     {
       QFile fin(m_fileName[nf]);
-      fin.open(QFile::ReadOnly);
-      fin.seek(m_skipBytes);
-      
-      m_rawMin = 10000000;
-      m_rawMax = -10000000;
+      if (!fin.open(QFile::ReadOnly) || !fin.seek(m_skipBytes))
+	return setError(QString("Cannot open or seek RAW slab %1: %2")
+	                  .arg(m_fileName[nf], fin.errorString()), false);
+
       int istart = ((nf > 0) ? m_slices[nf-1] : 0);
       int iend = m_slices[nf];
-      for(uint i=istart; i<iend; i++)
+      for(int i=istart; i<iend; i++)
 	{
 	  progress.setValue((int)(100.0*(float)i/(float)m_depth));
-	  qApp->processEvents();
+	  if (qApp) qApp->processEvents();
 	  
-	  fin.read((char*)tmp, nbytes);
+	  if (!RawFileUtils::readExact(fin, tmp.get(), nbytes, error))
+	    return setError(error, false);
 	  
 	  if (m_voxelType == _UChar)
 	    {
-	      uchar *ptr = tmp;
+	      uchar *ptr = tmp.get();
 	      MINMAXANDHISTOGRAM();
 	    }
 	  else if (m_voxelType == _Char)
 	    {
-	      char *ptr = (char*) tmp;
+	      qint8 *ptr = reinterpret_cast<qint8*>(tmp.get());
 	      MINMAXANDHISTOGRAM();
 	    }
 	  if (m_voxelType == _UShort)
 	    {
-	      ushort *ptr = (ushort*) tmp;
+	      quint16 *ptr = reinterpret_cast<quint16*>(tmp.get());
 	      MINMAXANDHISTOGRAM();
 	    }
 	  else if (m_voxelType == _Short)
 	    {
-	      short *ptr = (short*) tmp;
+	      qint16 *ptr = reinterpret_cast<qint16*>(tmp.get());
 	      MINMAXANDHISTOGRAM();
 	    }
 	  else if (m_voxelType == _Int)
 	    {
-	      int *ptr = (int*) tmp;
+	      qint32 *ptr = reinterpret_cast<qint32*>(tmp.get());
 	      MINMAXANDHISTOGRAM();
 	    }
 	  else if (m_voxelType == _Float)
 	    {
-	      float *ptr = (float*) tmp;
+	      float *ptr = reinterpret_cast<float*>(tmp.get());
 	      MINMAXANDHISTOGRAM();
 	    }
 	}
       fin.close();
     }
-
-  delete [] tmp;
 
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
@@ -420,22 +442,22 @@ RawSlabsPlugin::findMinMaxandGenerateHistogram()
 //    m_histogram.removeFirst();
 
   progress.setValue(100);
-  qApp->processEvents();
+  if (qApp) qApp->processEvents();
+  return true;
 }
 
 
 #define FINDMINMAX()					\
   {							\
-    for(int j=0; j<nY*nZ; j++)				\
+    for(qint64 j=0; j<voxelCount; j++)			\
       {							\
-	float val = ptr[j];				\
-	if (isnan(val)) val = 0;			\
+	float val = RawFileUtils::finiteValue(ptr[j]);		\
 	m_rawMin = qMin(m_rawMin, val);			\
 	m_rawMax = qMax(m_rawMax, val);			\
       }							\
   }
 
-void
+bool
 RawSlabsPlugin::findMinMax()
 {
   QProgressDialog progress("Finding Min and Max",
@@ -445,88 +467,96 @@ RawSlabsPlugin::findMinMax()
   progress.setMinimumDuration(0);
 
 
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
+    return setError(error, false);
+  const qint64 voxelCount = layout.sliceVoxels;
+  const qint64 nbytes = layout.sliceBytes;
+  std::unique_ptr<uchar[]> tmp(new (std::nothrow)
+                               uchar[static_cast<std::size_t>(nbytes)]);
+  if (!tmp)
+    return setError(QString("Cannot allocate %1 bytes for a RAW slice.")
+                      .arg(nbytes), false);
 
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  m_rawMin = std::numeric_limits<float>::max();
+  m_rawMax = std::numeric_limits<float>::lowest();
 
   for (int nf=0; nf<m_fileName.count(); nf++)
     {
       QFile fin(m_fileName[nf]);
-      fin.open(QFile::ReadOnly);
-      fin.seek(m_skipBytes);
+      if (!fin.open(QFile::ReadOnly) || !fin.seek(m_skipBytes))
+	return setError(QString("Cannot open or seek RAW slab %1: %2")
+	                  .arg(m_fileName[nf], fin.errorString()), false);
 
-      m_rawMin = 10000000;
-      m_rawMax = -10000000;
       int istart = ((nf > 0) ? m_slices[nf-1] : 0);
       int iend = m_slices[nf];
 
       for(int i=istart; i<iend; i++)
 	{
 	  progress.setValue((int)(100.0*(float)i/(float)m_depth));
-	  qApp->processEvents();
+	  if (qApp) qApp->processEvents();
 
-	  fin.read((char*)tmp, nbytes);
+	  if (!RawFileUtils::readExact(fin, tmp.get(), nbytes, error))
+	    return setError(error, false);
 
 	  if (m_voxelType == _UChar)
 	    {
-	      uchar *ptr = tmp;
+	      uchar *ptr = tmp.get();
 	      FINDMINMAX();
 	    }
 	  else if (m_voxelType == _Char)
 	    {
-	      char *ptr = (char*) tmp;
+	      qint8 *ptr = reinterpret_cast<qint8*>(tmp.get());
 	      FINDMINMAX();
 	    }
 	  if (m_voxelType == _UShort)
 	    {
-	      ushort *ptr = (ushort*) tmp;
+	      quint16 *ptr = reinterpret_cast<quint16*>(tmp.get());
 	      FINDMINMAX();
 	    }
 	  else if (m_voxelType == _Short)
 	    {
-	      short *ptr = (short*) tmp;
+	      qint16 *ptr = reinterpret_cast<qint16*>(tmp.get());
 	      FINDMINMAX();
 	    }
 	  else if (m_voxelType == _Int)
 	    {
-	      int *ptr = (int*) tmp;
+	      qint32 *ptr = reinterpret_cast<qint32*>(tmp.get());
 	      FINDMINMAX();
 	    }
 	  else if (m_voxelType == _Float)
 	    {
-	      float *ptr = (float*) tmp;
+	      float *ptr = reinterpret_cast<float*>(tmp.get());
 	      FINDMINMAX();
 	    }
 	}
       fin.close();
     }
   
-  delete [] tmp;
-
   progress.setValue(100);
-  qApp->processEvents();
+  if (qApp) qApp->processEvents();
+  return true;
 }
 
 #define GENHISTOGRAM()					\
   {							\
-    for(uint j=0; j<nY*nZ; j++)				\
+    for(qint64 j=0; j<voxelCount; j++)			\
       {							\
-	float val = ptr[j];				\
-	if (isnan(val)) val = 0;			\
-	float fidx = (val-m_rawMin)/rSize;		\
-	fidx = qBound(0.0f, fidx, 1.0f);		\
-	int idx = fidx*histogramSize;			\
-	m_histogram[idx]+=1;				\
+	float val = RawFileUtils::finiteValue(ptr[j]);		\
+	int idx = RawFileUtils::scaledHistogramIndex(		\
+	            val, m_rawMin, m_rawMax, histogramSize); \
+	if (idx >= 0 && idx < m_histogram.size() &&		\
+	    m_histogram[idx] < std::numeric_limits<uint>::max()) \
+	  m_histogram[idx]++;				\
       }							\
   }
 
 void
 RawSlabsPlugin::generateHistogram()
 {
+  m_lastError.clear();
   QProgressDialog progress("Generating Histogram",
 			   QString(),
 			   0, 100,
@@ -534,14 +564,24 @@ RawSlabsPlugin::generateHistogram()
   progress.setMinimumDuration(0);
 
 
-  float rSize = m_rawMax-m_rawMin;
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
+    {
+      setError(error, false);
+      return;
+    }
+  const qint64 voxelCount = layout.sliceVoxels;
+  const qint64 nbytes = layout.sliceBytes;
+  std::unique_ptr<uchar[]> tmp(new (std::nothrow)
+                               uchar[static_cast<std::size_t>(nbytes)]);
+  if (!tmp)
+    {
+      setError(QString("Cannot allocate %1 bytes for a RAW slice.")
+                 .arg(nbytes), false);
+      return;
+    }
 
   m_histogram.clear();
   if (m_voxelType == _UChar ||
@@ -549,7 +589,9 @@ RawSlabsPlugin::generateHistogram()
       m_voxelType == _UShort ||
       m_voxelType == _Short)
     {
-      for(uint i=0; i<rSize+1; i++)
+	const int bins = (m_voxelType == _UChar || m_voxelType == _Char) ?
+	                   256 : 65536;
+      for(int i=0; i<bins; i++)
 	m_histogram.append(0);
     }
   else
@@ -563,89 +605,120 @@ RawSlabsPlugin::generateHistogram()
   for (int nf=0; nf<m_fileName.count(); nf++)
     {
       QFile fin(m_fileName[nf]);
-      fin.open(QFile::ReadOnly);
-      fin.seek(m_skipBytes);
+      if (!fin.open(QFile::ReadOnly) || !fin.seek(m_skipBytes))
+	{
+	  setError(QString("Cannot open or seek RAW slab %1: %2")
+	             .arg(m_fileName[nf], fin.errorString()), false);
+	  return;
+	}
 
       int istart = ((nf > 0) ? m_slices[nf-1] : 0);
       int iend = m_slices[nf];
-      for(uint i=istart; i<iend; i++)
+      for(int i=istart; i<iend; i++)
 	{
 	  progress.setValue((int)(100.0*(float)i/(float)m_depth));
-	  qApp->processEvents();
+	  if (qApp) qApp->processEvents();
 
-	  fin.read((char*)tmp, nbytes);
+	  if (!RawFileUtils::readExact(fin, tmp.get(), nbytes, error))
+	    {
+	      setError(error, false);
+	      return;
+	    }
 	  
 	  if (m_voxelType == _UChar)
 	    {
-	      uchar *ptr = tmp;
+	      uchar *ptr = tmp.get();
 	      GENHISTOGRAM();
 	    }
 	  else if (m_voxelType == _Char)
 	    {
-	      char *ptr = (char*) tmp;
+	      qint8 *ptr = reinterpret_cast<qint8*>(tmp.get());
 	      GENHISTOGRAM();
 	    }
 	  if (m_voxelType == _UShort)
 	    {
-	      ushort *ptr = (ushort*) tmp;
+	      quint16 *ptr = reinterpret_cast<quint16*>(tmp.get());
 	      GENHISTOGRAM();
 	    }
 	  else if (m_voxelType == _Short)
 	    {
-	      short *ptr = (short*) tmp;
+	      qint16 *ptr = reinterpret_cast<qint16*>(tmp.get());
 	      GENHISTOGRAM();
 	    }
 	  else if (m_voxelType == _Int)
 	    {
-	      int *ptr = (int*) tmp;
+	      qint32 *ptr = reinterpret_cast<qint32*>(tmp.get());
 	      GENHISTOGRAM();
 	    }
 	  else if (m_voxelType == _Float)
 	    {
-	      float *ptr = (float*) tmp;
+	      float *ptr = reinterpret_cast<float*>(tmp.get());
 	      GENHISTOGRAM();
 	    }
 	}
       fin.close();
     }
 
-  delete [] tmp;
-
 //  while(m_histogram.last() == 0)
 //    m_histogram.removeLast();
 //  while(m_histogram.first() == 0)
 //    m_histogram.removeFirst();
 
-//  QMessageBox::information(0, "",  QString("%1 %2 : %3").\
-//			   arg(m_rawMin).arg(m_rawMax).arg(rSize));
-
   progress.setValue(100);
-  qApp->processEvents();
+  if (qApp) qApp->processEvents();
 }
 
 void
 RawSlabsPlugin::getDepthSlice(int slc,
 			     uchar *slice)
 {
-  qint64 nbytes = m_width*m_height*m_bytesPerVoxel;
-  if (slc < 0 || slc >= m_depth)
+  m_lastError.clear();
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
     {
-      memset(slice, 0, nbytes);
+      setError(error, false);
       return;
     }
-  int fno = 0;
+  const qint64 nbytes = layout.sliceBytes;
+  if (!slice)
+    {
+      setError("RAW slice destination is null.", false);
+      return;
+    }
+  if (slc < 0 || slc >= m_depth)
+    {
+      memset(slice, 0, static_cast<std::size_t>(nbytes));
+      setError(QString("RAW slab slice %1 is outside [0, %2).")
+                 .arg(slc).arg(m_depth), false);
+      return;
+    }
+  int fno = -1;
   for(int nf=0; nf<m_slices.count(); nf++)
     if (slc<m_slices[nf])
       {
 	fno = nf;
 	break;
       }
+  if (fno < 0 || fno >= m_fileName.count())
+    {
+      memset(slice, 0, static_cast<std::size_t>(nbytes));
+      setError("RAW slab index table is inconsistent.", false);
+      return;
+    }
   int slcno = ((fno > 0) ? slc-m_slices[fno-1] : slc);
-  QFile fin(m_fileName[fno]);
-  fin.open(QFile::ReadOnly);
-  fin.seek((qint64)(m_skipBytes + nbytes*slcno));
-  fin.read((char*)slice, (qint64)nbytes);
-  fin.close();
+  qint64 payloadOffset = 0;
+  qint64 fileOffset = 0;
+  if (!RawFileUtils::checkedMultiply(nbytes, slcno, payloadOffset) ||
+      !RawFileUtils::checkedAdd(m_skipBytes, payloadOffset, fileOffset) ||
+      !RawFileUtils::readAt(m_fileName[fno], fileOffset, slice, nbytes,
+                            error))
+    {
+      memset(slice, 0, static_cast<std::size_t>(nbytes));
+      setError(error.isEmpty() ? "RAW slab slice offset overflowed." : error,
+               false);
+    }
 }
 
 //void
@@ -746,70 +819,101 @@ RawSlabsPlugin::getDepthSlice(int slc,
 QVariant
 RawSlabsPlugin::rawValue(int d, int w, int h)
 {
+  m_lastError.clear();
   QVariant v;
   if (d < 0 || d >= m_depth ||
       w < 0 || w >= m_width ||
       h < 0 || h >= m_height)
     {
       v = QVariant("OutOfBounds");
+      setError("RAW voxel coordinates are out of bounds.", false);
       return v;
     }
 
   //-----------------------------
-  int fno = 0;
+  int fno = -1;
   for(int nf=0; nf<m_slices.count(); nf++)
     if (d<m_slices[nf])
       {
 	fno = nf;
 	break;
       }
+  if (fno < 0 || fno >= m_fileName.count())
+    {
+      setError("RAW slab index table is inconsistent.", false);
+      return QVariant("ReadError");
+    }
   int slcno = ((fno > 0) ? d-m_slices[fno-1] : d);
-  QFile fin(m_fileName[fno]);
-  fin.open(QFile::ReadOnly);
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  fin.seek((qint64)(m_skipBytes +
-	   m_bytesPerVoxel*(slcno*m_width*m_height +
-			    w*m_height +
-			    h)));
+
+  RawFileUtils::Layout layout;
+  QString error;
+  if (!RawFileUtils::makeLayout(1, m_width, m_height, m_voxelType,
+                                m_skipBytes, layout, error))
+    {
+      setError(error, false);
+      return QVariant("ReadError");
+    }
+
+  qint64 depthIndex = 0;
+  qint64 rowIndex = 0;
+  qint64 voxelIndex = 0;
+  qint64 byteIndex = 0;
+  qint64 fileOffset = 0;
+  if (!RawFileUtils::checkedMultiply(slcno, layout.sliceVoxels,
+                                     depthIndex) ||
+      !RawFileUtils::checkedMultiply(w, m_height, rowIndex) ||
+      !RawFileUtils::checkedAdd(depthIndex, rowIndex, voxelIndex) ||
+      !RawFileUtils::checkedAdd(voxelIndex, h, voxelIndex) ||
+      !RawFileUtils::checkedMultiply(voxelIndex, m_bytesPerVoxel, byteIndex) ||
+      !RawFileUtils::checkedAdd(m_skipBytes, byteIndex, fileOffset))
+    {
+      setError("RAW slab voxel offset overflowed.", false);
+      return QVariant("ReadError");
+    }
+
+  uchar bytes[sizeof(float)] = { 0, 0, 0, 0 };
+  if (!RawFileUtils::readAt(m_fileName[fno], fileOffset, bytes,
+                            m_bytesPerVoxel, error))
+    {
+      setError(error, false);
+      return QVariant("ReadError");
+    }
 
   if (m_voxelType == _UChar)
     {
-      unsigned char a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      unsigned char a = bytes[0];
       v = QVariant((uint)a);
     }
   else if (m_voxelType == _Char)
     {
-      char a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      qint8 a = 0;
+      memcpy(&a, bytes, sizeof(a));
       v = QVariant((int)a);
     }
   else if (m_voxelType == _UShort)
     {
-      unsigned short a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      quint16 a = 0;
+      memcpy(&a, bytes, sizeof(a));
       v = QVariant((uint)a);
     }
   else if (m_voxelType == _Short)
     {
-      short a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      qint16 a = 0;
+      memcpy(&a, bytes, sizeof(a));
       v = QVariant((int)a);
     }
   else if (m_voxelType == _Int)
     {
-      int a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      qint32 a = 0;
+      memcpy(&a, bytes, sizeof(a));
       v = QVariant((int)a);
     }
   else if (m_voxelType == _Float)
     {
-      float a;
-      fin.read((char*)&a, m_bytesPerVoxel);
+      float a = 0;
+      memcpy(&a, bytes, sizeof(a));
       v = QVariant((double)a);
     }
-  fin.close();
-
   return v;
 }
 

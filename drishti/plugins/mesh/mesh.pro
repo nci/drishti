@@ -15,35 +15,38 @@ TARGET = meshplugin
 FORMS += ../../propertyeditor.ui
 
 win32 {
-  DESTDIR = ../../../bin/renderplugins
+  DESTDIR = $$DRISHTI_RENDER_PLUGIN_DIR
 
-  LIBS += common.lib \
-	        QGLViewer2.lib \
-	        glew32.lib \
-          opengl32.lib \
-          glu32.lib \
-          vdb.lib
-          
   contains(Windows_Setup, Win64) {
      message(drishti.exe : Win64 setup)
 
      DEFINES += _CRT_SECURE_NO_WARNINGS
 
+     isEmpty(DRISHTI_PLUGIN_COMMON_LIB_DIR): DRISHTI_PLUGIN_COMMON_LIB_DIR = $$clean_path($$PWD/../common)
+     isEmpty(DRISHTI_COMMON_LIB_DIR): DRISHTI_COMMON_LIB_DIR = $$clean_path($$PWD/../../../common/lib)
+
      INCLUDEPATH += ../../ \
                     ../../../common/src/vdb \
                     ../../../common/src/mesh
                     
-     QMAKE_LIBDIR += ..\common \
-                     ..\..\..\common\lib     
+     QMAKE_LIBDIR += $$DRISHTI_PLUGIN_COMMON_LIB_DIR \
+                     $$DRISHTI_COMMON_LIB_DIR
                      
-     PRE_TARGETDEPS +=..\common\common.lib \
-                     ..\..\..\common\lib\vdb.lib     
+     PRE_TARGETDEPS += $$clean_path($$DRISHTI_PLUGIN_COMMON_LIB_DIR/$$DRISHTI_COMMON_LIB) \
+                       $$clean_path($$DRISHTI_COMMON_LIB_DIR/$$DRISHTI_VDB_LIB)
 
 
      ### /std:c++17 added because openvdb requires this
      QMAKE_CXXFLAGS*=/std:c++17
   
-     LIBS += Imath-3_2.lib openvdb.lib gmsh.dll.lib
+     LIBS += $$DRISHTI_COMMON_LIB \
+             $$DRISHTI_QGLVIEWER_LIB \
+             $$DRISHTI_GLEW_LIB \
+             $$DRISHTI_OPENGL_LIBS \
+             $$DRISHTI_VDB_LIB \
+             $$DRISHTI_IMATH_LIB \
+             $$DRISHTI_OPENVDB_LIB \
+             $$DRISHTI_GMSH_LIB
  }
 }
 

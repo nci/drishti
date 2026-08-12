@@ -7,8 +7,10 @@
 #include "propertyeditor.h"
 #include "volumeoperations.h"
 #include "volumemeasure.h"
+#include "../../framebufferbudget.h"
 
 #include <QDockWidget>
+#include <QDebug>
 #include <QInputDialog>
 #include <QProgressDialog>
 #include <QLabel>
@@ -22,6 +24,193 @@
 
 #include <QtConcurrentMap>
 
+#include <limits>
+#include <memory>
+#include <new>
+
+namespace
+{
+const int c_defaultTextureMemoryMiB = 512;
+const int c_minimumTextureMemoryMiB = 128;
+const int c_maximumTextureMemoryMiB = 512;
+const std::uint64_t c_framebufferBudgetBytes = 512ULL*1024ULL*1024ULL;
+const std::uint64_t c_framebufferBytesPerPixel = 5ULL*8ULL+2ULL*4ULL;
+
+bool checkedVolumeBytes(qint64 depth,
+			qint64 width,
+			qint64 height,
+			qint64 bytesPerVoxel,
+			qint64 &bytes)
+{
+  const qint64 factors[] = {depth, width, height, bytesPerVoxel};
+  qint64 result = 1;
+  for (int i=0; i<4; ++i)
+    {
+      if (factors[i] <= 0 ||
+	  result > std::numeric_limits<qint64>::max()/factors[i])
+	return false;
+      result *= factors[i];
+    }
+
+  if (static_cast<quint64>(result) >
+      static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    return false;
+
+  bytes = result;
+  return true;
+}
+
+void clearGlErrors()
+{
+  for (int i=0; i<32; ++i)
+    if (glGetError() == GL_NO_ERROR)
+      break;
+}
+
+QString glErrorMessage(const QString &operation, GLenum error)
+{
+  return QStringLiteral("%1 failed (OpenGL error 0x%2).")
+    .arg(operation,
+	 QString::number(static_cast<qulonglong>(error), 16));
+}
+
+QString glString(GLenum name)
+{
+  const GLubyte *value = glGetString(name);
+  if (!value)
+    return QStringLiteral("unknown");
+
+  return QString::fromLatin1(reinterpret_cast<const char*>(value));
+}
+
+QString contextDescription()
+{
+  return QStringLiteral("Vendor: %1\nRenderer: %2\nOpenGL: %3\nGLSL: %4")
+    .arg(glString(GL_VENDOR),
+         glString(GL_RENDERER),
+         glString(GL_VERSION),
+         glString(GL_SHADING_LANGUAGE_VERSION));
+}
+
+bool contextVersionAtLeast(GLint requiredMajor, GLint requiredMinor)
+{
+  GLint major = 0;
+  GLint minor = 0;
+  glGetIntegerv(GL_MAJOR_VERSION, &major);
+  glGetIntegerv(GL_MINOR_VERSION, &minor);
+  return major > requiredMajor ||
+         (major == requiredMajor && minor >= requiredMinor);
+}
+
+void deleteFramebufferSet(GLuint &framebuffer,
+			  GLuint &depthBuffer,
+			  GLuint *textures,
+			  int textureCount)
+{
+  if (framebuffer)
+    glDeleteFramebuffers(1, &framebuffer);
+  if (depthBuffer)
+    glDeleteRenderbuffers(1, &depthBuffer);
+  if (textures)
+    glDeleteTextures(textureCount, textures);
+
+  framebuffer = 0;
+  depthBuffer = 0;
+  for (int i=0; i<textureCount; ++i)
+    textures[i] = 0;
+}
+
+bool createFramebufferSet(int width,
+			  int height,
+			  int textureCount,
+			  GLuint &framebuffer,
+			  GLuint &depthBuffer,
+			  GLuint *textures,
+			  QString &error)
+{
+  framebuffer = 0;
+  depthBuffer = 0;
+  for (int i=0; i<textureCount; ++i)
+    textures[i] = 0;
+
+  clearGlErrors();
+  glGenFramebuffers(1, &framebuffer);
+  glGenRenderbuffers(1, &depthBuffer);
+  glGenTextures(textureCount, textures);
+  GLenum glError = glGetError();
+  if (glError != GL_NO_ERROR ||
+      !framebuffer || !depthBuffer || !textures[0])
+    {
+      error = QStringLiteral("OpenGL could not allocate the required framebuffer objects "
+                             "(error 0x%1).")
+        .arg(QString::number(static_cast<qulonglong>(glError), 16));
+      deleteFramebufferSet(framebuffer, depthBuffer, textures, textureCount);
+      return false;
+    }
+
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+  glBindRenderbuffer(GL_RENDERBUFFER, depthBuffer);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, width, height);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER,
+			    GL_DEPTH_ATTACHMENT,
+			    GL_RENDERBUFFER,
+			    depthBuffer);
+
+  for (int i=0; i<textureCount; ++i)
+    {
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, textures[i]);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
+		   0,
+		   GL_RGBA16F,
+		   width, height,
+		   0,
+		   GL_RGBA,
+		   GL_FLOAT,
+		   0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER,
+			     GL_COLOR_ATTACHMENT0,
+			     GL_TEXTURE_RECTANGLE_ARB,
+			     textures[i],
+			     0);
+      glDrawBuffer(GL_COLOR_ATTACHMENT0);
+
+      glError = glGetError();
+      const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+      if (glError != GL_NO_ERROR || status != GL_FRAMEBUFFER_COMPLETE)
+	{
+	  error = QStringLiteral("Required RGBA16F framebuffer failed "
+                                 "(error 0x%1, status 0x%2).")
+	    .arg(QString::number(static_cast<qulonglong>(glError), 16),
+                 QString::number(static_cast<qulonglong>(status), 16));
+	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
+	  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+	  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	  deleteFramebufferSet(framebuffer, depthBuffer, textures, textureCount);
+	  return false;
+	}
+    }
+
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, 0);
+  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  return true;
+}
+
+bool programLinked(GLhandleARB program)
+{
+  if (!program)
+    return false;
+
+  GLint linked = GL_FALSE;
+  glGetObjectParameterivARB(program, GL_OBJECT_LINK_STATUS_ARB, &linked);
+  return linked == GL_TRUE;
+}
+}
+
 Viewer::Viewer(QWidget *parent) :
   QGLViewer(parent)
 {
@@ -30,7 +219,8 @@ Viewer::Viewer(QWidget *parent) :
 
   m_draw = true;
 
-  m_memSize = 1000; // size in MB
+  // The data and mask textures share system RAM with an integrated GPU.
+  m_memSize = c_defaultTextureMemoryMiB; // size in MiB
 
   m_clipPlanes = GeometryObjects::clipplanes();
   m_crops = GeometryObjects::crops();
@@ -76,6 +266,14 @@ Viewer::Viewer(QWidget *parent) :
   m_skipLayers = 0;
 
   m_glewInitdone = false;
+  m_rendererReady = false;
+  m_rendererInitAttempted = false;
+  m_rendererInitialising = false;
+  m_raycastShaderReady = false;
+  m_raycastShaderFailureLatched = false;
+  m_failedRaycastShaderSource.clear();
+  m_rendererError = QStringLiteral("Renderer initialization has not completed.");
+  m_max3DTexSize = 0;
   
   m_spW = m_spH = 0;
   m_sketchPad = 0;
@@ -202,7 +400,7 @@ Viewer::setTextureMemorySize()
 
 
   QDomDocument document;
-  QFile f(flnm.toLatin1().data());
+  QFile f(flnm);
   if (f.open(QIODevice::ReadOnly))
     {
       document.setContent(&f);
@@ -216,7 +414,20 @@ Viewer::setTextureMemorySize()
       if (dlist.at(i).nodeName() == "texturememory")
 	{
 	  QString str = dlist.at(i).toElement().text();
-	  m_memSize = str.toInt();
+	  bool ok = false;
+	  int configuredMemoryMiB = str.toInt(&ok);
+	  if (ok && configuredMemoryMiB > 0)
+	    {
+	      int boundedMemoryMiB = qBound(c_minimumTextureMemoryMiB,
+					     configuredMemoryMiB,
+					     c_maximumTextureMemoryMiB);
+	      if (boundedMemoryMiB != configuredMemoryMiB)
+		qWarning() << "Clamping texturememory setting from"
+			   << configuredMemoryMiB << "to" << boundedMemoryMiB;
+	      m_memSize = boundedMemoryMiB;
+	    }
+	  else
+	    qWarning() << "Ignoring invalid texturememory setting" << str;
 	  return;
 	}
     }
@@ -225,26 +436,101 @@ Viewer::setTextureMemorySize()
 void
 Viewer::GlewInit()
 {
-  if (glewInit() != GLEW_OK)
-    QMessageBox::information(0, "Glew",
-			     "Failed to initialise glew");
-  
+  if (m_rendererReady || m_rendererInitAttempted)
+    return;
+
+  m_rendererInitAttempted = true;
+  m_rendererInitialising = true;
+  m_rendererError.clear();
+  m_glewInitdone = false;
+
+  makeCurrent();
+
+  glewExperimental = GL_TRUE;
+  GLenum glewStatus = glewInit();
+  QString contextInfo = contextDescription();
+  qInfo().noquote() << QStringLiteral("OpenGL context\n%1").arg(contextInfo);
+
+  if (glewStatus != GLEW_OK)
+    {
+      QString glewError = QString::fromLatin1(
+	reinterpret_cast<const char*>(glewGetErrorString(glewStatus)));
+      QMessageBox::critical(0, "OpenGL",
+			    QStringLiteral("Failed to initialise GLEW: %1\n\n%2")
+			    .arg(glewError, contextInfo));
+      failRenderer(QStringLiteral("GLEW initialization failed: %1").arg(glewError));
+      return;
+    }
+
+  // GLEW may leave GL_INVALID_ENUM behind while probing a modern context.
+  glGetError();
+
+#if defined(Q_OS_WIN32) || defined(Q_OS_LINUX)
+  // Intel compatibility-profile drivers can expose a valid 4.2+ context
+  // even when GLEW's aggregate flag is false because an unused entry point
+  // is unavailable.
+  if (!GLEW_VERSION_4_2 && !contextVersionAtLeast(4, 2))
+    {
+      QMessageBox::critical(0, "OpenGL",
+			    QStringLiteral("Drishti Paint requires OpenGL 4.2 or newer.\n\n%1")
+			    .arg(contextInfo));
+      failRenderer(QStringLiteral("OpenGL 4.2 or newer is required."));
+      return;
+    }
+
+  GLint profileMask = 0;
+  glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &profileMask);
+  if ((profileMask & GL_CONTEXT_COMPATIBILITY_PROFILE_BIT) == 0)
+    {
+      QMessageBox::critical(0, "OpenGL",
+			    QStringLiteral("Drishti Paint requires an OpenGL compatibility profile.\n\n%1")
+			    .arg(contextInfo));
+      failRenderer(QStringLiteral("An OpenGL compatibility profile is required."));
+      return;
+    }
+#else
   if (glewGetExtension("GL_ARB_fragment_shader")      != GL_TRUE ||
       glewGetExtension("GL_ARB_vertex_shader")        != GL_TRUE ||
       glewGetExtension("GL_ARB_shader_objects")       != GL_TRUE ||
       glewGetExtension("GL_ARB_shading_language_100") != GL_TRUE)
-    QMessageBox::information(0, "Glew",
-				 "Driver does not support OpenGL Shading Language.");
-  
-  
-  if (glewGetExtension("GL_EXT_framebuffer_object") != GL_TRUE)
-      QMessageBox::information(0, "Glew", 
-			       "Driver does not support Framebuffer Objects (GL_EXT_framebuffer_object)");
+    {
+      QMessageBox::critical(0, "OpenGL",
+			    QStringLiteral("Driver does not support OpenGL Shading Language.\n\n%1")
+			    .arg(contextInfo));
+      failRenderer(QStringLiteral("The OpenGL driver does not provide the required shader support."));
+      return;
+    }
+#endif
+
+  bool fboSupported = GLEW_VERSION_3_0 ||
+                      GLEW_ARB_framebuffer_object ||
+                      GLEW_EXT_framebuffer_object;
+  fboSupported = fboSupported && QGLFramebufferObject::hasOpenGLFramebufferObjects();
+  if (!fboSupported)
+    {
+      QMessageBox::critical(0, "OpenGL",
+			    QStringLiteral("Drishti Paint requires framebuffer objects.\n\n%1")
+			    .arg(contextInfo));
+      failRenderer(QStringLiteral("Framebuffer objects are not supported by this OpenGL driver."));
+      return;
+    }
 
   m_glewInitdone = true;
 
-  createShaders();
-  createFBO();
+  if (!createShaders() ||
+      !programLinked(m_rcShader) ||
+      !programLinked(m_eeShader) ||
+      !programLinked(m_depthShader))
+    {
+      failRenderer(QStringLiteral("A required startup shader could not be compiled or linked."));
+      return;
+    }
+
+  if (!createFBO())
+    return;
+
+  m_rendererInitialising = false;
+  m_rendererReady = true;
 
   glPixelStorei(GL_PACK_ALIGNMENT, 1);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -255,6 +541,118 @@ Viewer::GlewInit()
   camera()->frame()->setSpinningSensitivity(100.0);
 
   //QMessageBox::information(0, "", QString("%1").arg((char*)glGetString(GL_VERSION)));
+}
+
+void
+Viewer::cleanupRendererResources()
+{
+  if (m_glewInitdone)
+    {
+      if (m_rcShader)
+	glDeleteObjectARB(m_rcShader);
+      if (m_eeShader)
+	glDeleteObjectARB(m_eeShader);
+      if (m_depthShader)
+	glDeleteObjectARB(m_depthShader);
+      if (m_blurShader)
+	glDeleteObjectARB(m_blurShader);
+
+      deleteFramebufferSet(m_eBuffer, m_ebId, m_ebTex, 3);
+      deleteFramebufferSet(m_slcBuffer, m_rboId, m_slcTex, 2);
+    }
+
+  m_rcShader = 0;
+  m_raycastShaderReady = false;
+  m_raycastShaderFailureLatched = false;
+  m_failedRaycastShaderSource.clear();
+  m_eeShader = 0;
+  m_depthShader = 0;
+  m_blurShader = 0;
+  m_eBuffer = 0;
+  m_ebId = 0;
+  m_ebTex[0] = m_ebTex[1] = m_ebTex[2] = 0;
+  m_slcBuffer = 0;
+  m_rboId = 0;
+  m_slcTex[0] = m_slcTex[1] = 0;
+}
+
+void
+Viewer::failRenderer(const QString &error)
+{
+  cleanupRendererResources();
+  m_glewInitdone = false;
+  m_rendererReady = false;
+  m_rendererInitialising = false;
+  m_rendererError = error;
+  qWarning().noquote() << QStringLiteral("Renderer unavailable: %1").arg(error);
+  update();
+}
+
+void
+Viewer::releaseVolumeTextures()
+{
+  if (m_dataTex)
+    glDeleteTextures(1, &m_dataTex);
+  if (m_maskTex)
+    glDeleteTextures(1, &m_maskTex);
+
+  m_dataTex = 0;
+  m_maskTex = 0;
+}
+
+void
+Viewer::failVolumeTextureUpdate(const QString &error)
+{
+  releaseVolumeTextures();
+  m_corner = Vec(0,0,0);
+  m_vsize = Vec(1,1,1);
+  m_sslevel = 1;
+
+  const QString message = QStringLiteral(
+    "%1\n\nThe 3D preview has been disabled. CPU and 2D annotation data remain available.")
+    .arg(error);
+  qWarning().noquote() << QStringLiteral("3D preview update failed: %1").arg(error);
+  QMessageBox::warning(this, QStringLiteral("3D Preview"), message);
+  update();
+}
+
+void
+Viewer::paintRendererError()
+{
+  QPainter painter(this);
+  painter.fillRect(rect(), QColor(24, 24, 24));
+  painter.setRenderHint(QPainter::TextAntialiasing, true);
+  painter.setPen(QColor(235, 235, 235));
+
+  QFont titleFont = painter.font();
+  titleFont.setPointSize(qMax(14, titleFont.pointSize()+4));
+  titleFont.setBold(true);
+  painter.setFont(titleFont);
+
+  QRect textRect = rect().adjusted(24, 24, -24, -24);
+  painter.drawText(textRect, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap,
+		   QStringLiteral("Renderer unavailable"));
+
+  QFont detailFont = painter.font();
+  detailFont.setPointSize(qMax(10, detailFont.pointSize()-4));
+  detailFont.setBold(false);
+  painter.setFont(detailFont);
+  textRect.adjust(0, 48, 0, 0);
+  painter.drawText(textRect, Qt::AlignHCenter | Qt::AlignTop | Qt::TextWordWrap,
+		   m_rendererError);
+}
+
+void
+Viewer::paintEvent(QPaintEvent *event)
+{
+  if (m_rendererInitAttempted && !m_rendererReady)
+    {
+      Q_UNUSED(event);
+      paintRendererError();
+      return;
+    }
+
+  QGLViewer::paintEvent(event);
 }
 
 void
@@ -336,6 +734,9 @@ Viewer::init()
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
   m_rcShader = 0;
+  m_raycastShaderReady = false;
+  m_raycastShaderFailureLatched = false;
+  m_failedRaycastShaderSource.clear();
 
   if (m_eeShader)
     glDeleteObjectARB(m_eeShader);
@@ -408,97 +809,117 @@ Viewer::startDrawing()
 void
 Viewer::resizeGL(int width, int height)
 {
+  if (m_rendererInitAttempted &&
+      !m_rendererReady &&
+      !m_rendererInitialising)
+    return;
+
   QGLViewer::resizeGL(width, height);
 
-  if (!m_draw)
+  if (!m_draw ||
+      !m_glewInitdone ||
+      (!m_rendererReady && !m_rendererInitialising))
     return;
   
-  createFBO();
+  if (!createFBO())
+    return;
 
   if (m_sketchPadMode)
     grabScreenImage();
 }
 
-void
+bool
 Viewer::createFBO()
 {
-  if (!m_glewInitdone)
-    return;
-  
-  int wd = camera()->screenWidth();
-  int ht = camera()->screenHeight();
+  if (!m_glewInitdone ||
+      (!m_rendererReady && !m_rendererInitialising))
+    return false;
 
-  //-----------------------------------------
-  if (m_eBuffer) glDeleteFramebuffers(1, &m_eBuffer);
-  if (m_ebId) glDeleteRenderbuffers(1, &m_ebId);
-  if (m_ebTex[0]) glDeleteTextures(3, m_ebTex);
-  glGenFramebuffers(1, &m_eBuffer);
-  glGenRenderbuffers(1, &m_ebId);
-  glGenTextures(3, m_ebTex);
-  glBindFramebuffer(GL_FRAMEBUFFER, m_eBuffer);
-  glBindRenderbuffer(GL_RENDERBUFFER, m_ebId);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, wd, ht);
-  glBindRenderbuffer(GL_RENDERBUFFER, 0);
-  // attach the renderbuffer to depth attachment point
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER,      // 1. fbo target: GL_FRAMEBUFFER
-			    GL_DEPTH_ATTACHMENT, // 2. attachment point
-			    GL_RENDERBUFFER,     // 3. rbo target: GL_RENDERBUFFER
-			    m_ebId);              // 4. rbo ID
-  for(int i=0; i<3; i++)
+  makeCurrent();
+
+  int wd = qMax(1, camera()->screenWidth());
+  int ht = qMax(1, camera()->screenHeight());
+
+  GLint maximumTextureSize = 0;
+  GLint maximumRenderbufferSize = 0;
+  glGetIntegerv(GL_MAX_RECTANGLE_TEXTURE_SIZE, &maximumTextureSize);
+  glGetIntegerv(GL_MAX_RENDERBUFFER_SIZE, &maximumRenderbufferSize);
+  const int maximumDimension =
+    qMin(maximumTextureSize, maximumRenderbufferSize);
+  const FramebufferBudget::Admission admission =
+    FramebufferBudget::evaluate(wd, ht,
+                                c_framebufferBytesPerPixel,
+                                c_framebufferBudgetBytes,
+                                maximumDimension);
+  if (!admission.approved)
     {
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_ebTex[i]);
-      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-		   0,
-		   GL_RGBA16F,
-		   wd, ht,
-		   0,
-		   GL_RGBA,
-		   GL_FLOAT,
-		   0);
-    }
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  //-----------------------------------------
-
-
-  //-----------------------------------------
-  if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
-  if (m_rboId) glDeleteRenderbuffers(1, &m_rboId);
-  if (m_slcTex[0]) glDeleteTextures(2, m_slcTex);  
-
-  glGenFramebuffers(1, &m_slcBuffer);
-  glGenRenderbuffers(1, &m_rboId);
-  glGenTextures(2, m_slcTex);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, m_slcBuffer);
-  glBindRenderbuffer(GL_RENDERBUFFER, m_rboId);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, wd, ht);
-  glBindRenderbuffer(GL_RENDERBUFFER, 0);
-  // attach the renderbuffer to depth attachment point
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER,      // 1. fbo target: GL_FRAMEBUFFER
-			    GL_DEPTH_ATTACHMENT, // 2. attachment point
-			    GL_RENDERBUFFER,     // 3. rbo target: GL_RENDERBUFFER
-			    m_rboId);            // 4. rbo ID
-
-  for(int i=0; i<2; i++)
-    {
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[i]);
-      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-		   0,
-		   GL_RGBA16F,
-		   wd, ht,
-		   0,
-		   GL_RGBA,
-		   GL_FLOAT,
-		   0);
+      QString error;
+      if (admission.reason ==
+          FramebufferBudget::RejectionReason::HardwareDimensionLimit)
+        error = QStringLiteral("The 3D preview framebuffer %1x%2 exceeds "
+                               "the OpenGL dimension limit %3.")
+          .arg(wd).arg(ht).arg(maximumDimension);
+      else if (admission.reason ==
+               FramebufferBudget::RejectionReason::MemoryBudgetExceeded)
+        error = QStringLiteral("The 3D preview framebuffer %1x%2 needs "
+                               "approximately %3 MiB, above the %4 MiB "
+                               "integrated-GPU safety budget.")
+          .arg(wd).arg(ht)
+          .arg(static_cast<double>(admission.requiredBytes)/(1024.0*1024.0),
+               0, 'f', 1)
+          .arg(admission.budgetBytes/(1024ULL*1024ULL));
+      else
+        error = QStringLiteral("The 3D preview framebuffer size is invalid "
+                               "or overflowed its byte count.");
+      failRenderer(error);
+      return false;
     }
 
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  //-----------------------------------------
+  GLuint candidateEBuffer = 0;
+  GLuint candidateEbId = 0;
+  GLuint candidateEbTex[3] = {0, 0, 0};
+  GLuint candidateSlcBuffer = 0;
+  GLuint candidateRboId = 0;
+  GLuint candidateSlcTex[2] = {0, 0};
+  QString error;
+  if (!createFramebufferSet(wd, ht, 3,
+			    candidateEBuffer, candidateEbId,
+                            candidateEbTex, error) ||
+      !createFramebufferSet(wd, ht, 2,
+			    candidateSlcBuffer, candidateRboId,
+                            candidateSlcTex, error))
+    {
+      deleteFramebufferSet(candidateEBuffer, candidateEbId,
+                           candidateEbTex, 3);
+      deleteFramebufferSet(candidateSlcBuffer, candidateRboId,
+                           candidateSlcTex, 2);
+      failRenderer(error);
+      return false;
+    }
+
+  deleteFramebufferSet(m_eBuffer, m_ebId, m_ebTex, 3);
+  deleteFramebufferSet(m_slcBuffer, m_rboId, m_slcTex, 2);
+  m_eBuffer = candidateEBuffer;
+  m_ebId = candidateEbId;
+  for (int i=0; i<3; ++i)
+    m_ebTex[i] = candidateEbTex[i];
+  m_slcBuffer = candidateSlcBuffer;
+  m_rboId = candidateRboId;
+  for (int i=0; i<2; ++i)
+    m_slcTex[i] = candidateSlcTex[i];
+  return true;
 }
 
-void
+bool
 Viewer::createRaycastShader()
 {
+  if (!m_glewInitdone ||
+      (!m_rendererReady && !m_rendererInitialising))
+    {
+      m_raycastShaderReady = false;
+      return false;
+    }
+
   QString shaderString;
 
   int maxSteps = qSqrt(m_vsize.x*m_vsize.x +
@@ -511,17 +932,31 @@ Viewer::createRaycastShader()
 						    Global::bytesPerMask()==2,
 						    m_gradType,
 						    m_crops->crops());
-  
+
+  if (m_raycastShaderFailureLatched &&
+      m_failedRaycastShaderSource == shaderString)
+    {
+      m_raycastShaderReady = false;
+      return false;
+    }
+
+  GLhandleARB shader = glCreateProgramObjectARB();
+  if (!shader ||
+      !ShaderFactory::loadShader(shader, shaderString) ||
+      !programLinked(shader))
+    {
+      if (shader)
+	glDeleteObjectARB(shader);
+      m_raycastShaderReady = false;
+      m_raycastShaderFailureLatched = true;
+      m_failedRaycastShaderSource = shaderString;
+      QMessageBox::information(0, "", "Cannot create rc shader.");
+      return false;
+    }
+
   if (m_rcShader)
     glDeleteObjectARB(m_rcShader);
-
-  m_rcShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_rcShader,
-				  shaderString))
-    {
-      m_rcShader = 0;
-      QMessageBox::information(0, "", "Cannot create rc shader.");
-    }
+  m_rcShader = shader;
 
   m_rcParm[0] = glGetUniformLocationARB(m_rcShader, "dataTex");
   m_rcParm[1] = glGetUniformLocationARB(m_rcShader, "lutTex");
@@ -545,30 +980,43 @@ Viewer::createRaycastShader()
   m_rcParm[21] = glGetUniformLocationARB(m_rcShader, "minGrad");
   m_rcParm[22] = glGetUniformLocationARB(m_rcShader, "maxGrad");
   m_rcParm[23] = glGetUniformLocationARB(m_rcShader, "voxelSize");
+  m_raycastShaderReady = true;
+  m_raycastShaderFailureLatched = false;
+  m_failedRaycastShaderSource.clear();
+  return true;
 }
 
-void
+bool
 Viewer::createShaders()
 {
+  if (!m_glewInitdone ||
+      (!m_rendererReady && !m_rendererInitialising))
+    return false;
+
   QString shaderString;
 
-  createRaycastShader();
+  if (!createRaycastShader())
+    return false;
 
 
   //----------------------
   shaderString = ShaderFactory::genEdgeEnhanceShader(Global::bytesPerVoxel()==2,
 						     Global::bytesPerMask()==2);
 
+  GLhandleARB eeShader = glCreateProgramObjectARB();
+  if (!eeShader ||
+      !ShaderFactory::loadShader(eeShader, shaderString) ||
+      !programLinked(eeShader))
+    {
+      if (eeShader)
+	glDeleteObjectARB(eeShader);
+      QMessageBox::information(0, "", "Cannot create ee shader.");
+      return false;
+    }
+
   if (m_eeShader)
     glDeleteObjectARB(m_eeShader);
-
-  m_eeShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_eeShader,
-				  shaderString))
-    {
-      m_eeShader = 0;
-      QMessageBox::information(0, "", "Cannot create ee shader.");
-    }
+  m_eeShader = eeShader;
 
   m_eeParm[1] = glGetUniformLocationARB(m_eeShader, "minZ");
   m_eeParm[2] = glGetUniformLocationARB(m_eeShader, "maxZ");
@@ -591,19 +1039,27 @@ Viewer::createShaders()
   //----------------------
   shaderString = ShaderFactory::genDepthShader();
 
-  m_depthShader = glCreateProgramObjectARB();
-  if (! ShaderFactory::loadShader(m_depthShader,
-				    shaderString))
+  GLhandleARB depthShader = glCreateProgramObjectARB();
+  if (!depthShader ||
+      !ShaderFactory::loadShader(depthShader, shaderString) ||
+      !programLinked(depthShader))
     {
-      m_depthShader = 0;
+      if (depthShader)
+	glDeleteObjectARB(depthShader);
       QMessageBox::information(0, "", "Cannot create depth shader.");
+      return false;
     }
+
+  if (m_depthShader)
+    glDeleteObjectARB(m_depthShader);
+  m_depthShader = depthShader;
 
   m_depthParm[0] = glGetUniformLocationARB(m_depthShader, "minZ");
   m_depthParm[1] = glGetUniformLocationARB(m_depthShader, "maxZ");
   m_depthParm[2] = glGetUniformLocationARB(m_depthShader, "eyepos");
   m_depthParm[3] = glGetUniformLocationARB(m_depthShader, "viewDir");
   //----------------------  
+  return true;
 }
 
 
@@ -1750,7 +2206,14 @@ Viewer::processCommand(QString cmd)
 void
 Viewer::setGridSize(int d, int w, int h)
 {
-  createShaders();
+  if (!m_rendererReady)
+    return;
+
+  if (!createShaders())
+    {
+      failRenderer(QStringLiteral("A required volume shader could not be compiled or linked."));
+      return;
+    }
 
   m_depth = d;
   m_width = w;
@@ -1921,7 +2384,7 @@ Viewer::drawBoxes2D()
 void
 Viewer::drawBoxes3D()
 {
-  if (!Global::showBox3D)
+  if (!Global::showBox3D())
     return;
 
   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -1944,7 +2407,10 @@ Viewer::drawBoxes3D()
 void
 Viewer::draw()
 {
-  if (!m_dataTex)
+  if (!m_rendererReady)
+    return;
+
+  if (!m_dataTex || !m_maskTex)
     return;
   
   if (!m_draw)
@@ -2054,13 +2520,15 @@ Viewer::raycasting()
   glEnable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);
 
+  bool raycastReady = m_raycastShaderReady;
   if (m_crops->updated()) // recreate shader with new crop parameters
     {
       m_crops->collectCropInfoBeforeCheckCropped();
-      createRaycastShader();
+      raycastReady = createRaycastShader();
     }
 
-  volumeRaycast(minZ, maxZ, false); // run full raycast process
+  if (raycastReady)
+    volumeRaycast(minZ, maxZ, false); // run full raycast process
 
  
   glDisable(GL_DEPTH_TEST);
@@ -2235,187 +2703,254 @@ Viewer::updateVoxels()
   m_maxWSlice = qCeil(bmax.y);
   m_maxHSlice = qCeil(bmax.x);
 
-  updateVoxelsForRaycast();
+  if (!updateVoxelsForRaycast())
+    return;
 
   updateFilledBoxes();
 }
 
-void
+bool
 Viewer::updateVoxelsForRaycast()
-{  
-  if (!m_volPtr || !m_maskPtrUS)
-    return;
+{
+  if (!m_rendererReady || !m_volPtr || !m_maskPtrUS)
+    return false;
 
-  uchar *lut = Global::lut();
+  const qint64 sourceDepth = static_cast<qint64>(m_maxDSlice)-m_minDSlice;
+  const qint64 sourceWidth = static_cast<qint64>(m_maxWSlice)-m_minWSlice;
+  const qint64 sourceHeight = static_cast<qint64>(m_maxHSlice)-m_minHSlice;
+  const qint64 maxSourceDimension = qMax(sourceDepth,
+					qMax(sourceWidth, sourceHeight));
+  const int bytesPerVoxel = Global::bytesPerVoxel();
+  const qint64 memoryBudget = static_cast<qint64>(m_memSize*1024.0*1024.0);
 
-  if (!m_lutTex) glGenTextures(1, &m_lutTex);
-  if (!m_tagTex) glGenTextures(1, &m_tagTex);
-  if (!m_maskTex) glGenTextures(1, &m_maskTex);
-  if (!m_dataTex) glGenTextures(1, &m_dataTex);
-
-  qint64 dsz = (m_maxDSlice-m_minDSlice);
-  qint64 wsz = (m_maxWSlice-m_minWSlice);
-  qint64 hsz = (m_maxHSlice-m_minHSlice);
-  qint64 tsz = dsz*wsz*hsz*(Global::bytesPerVoxel()+2);
-
-//  if ((m_vsize-Vec(hsz, wsz, dsz)).squaredNorm() > 1)
+  if (sourceDepth <= 0 || sourceWidth <= 0 || sourceHeight <= 0 ||
+      (bytesPerVoxel != 1 && bytesPerVoxel != 2) ||
+      memoryBudget <= 0 || m_max3DTexSize <= 0)
     {
-      m_sslevel = 1;
-      while (tsz/1024.0/1024.0 > m_memSize ||
-	     dsz > m_max3DTexSize ||
-	     wsz > m_max3DTexSize ||
-	     hsz > m_max3DTexSize)
-	{
-	  m_sslevel++;
-	  dsz = (m_maxDSlice-m_minDSlice)/m_sslevel;
-	  wsz = (m_maxWSlice-m_minWSlice)/m_sslevel;
-	  hsz = (m_maxHSlice-m_minHSlice)/m_sslevel;
-	  
-	  if (dsz*m_sslevel < m_maxDSlice-m_minDSlice) dsz++;
-	  if (wsz*m_sslevel < m_maxWSlice-m_minWSlice) wsz++;
-	  if (hsz*m_sslevel < m_maxHSlice-m_minHSlice) hsz++;
-	  
-	  tsz = dsz*wsz*hsz*(Global::bytesPerVoxel()+2);
-	}
-
-      //-------------------------
-      m_sslevel = QInputDialog::getInt(this,
-				       "Subsampling Level",
-				       "Subsampling Level",
-				       m_sslevel, m_sslevel, 5, 1);
-      
-      dsz = (m_maxDSlice-m_minDSlice)/m_sslevel;
-      wsz = (m_maxWSlice-m_minWSlice)/m_sslevel;
-      hsz = (m_maxHSlice-m_minHSlice)/m_sslevel;
-      if (dsz*m_sslevel < m_maxDSlice-m_minDSlice) dsz++;
-      if (wsz*m_sslevel < m_maxWSlice-m_minWSlice) wsz++;
-      if (hsz*m_sslevel < m_maxHSlice-m_minHSlice) hsz++;
-      tsz = dsz*wsz*hsz*(Global::bytesPerVoxel()+2);
-      //-------------------------
+      failVolumeTextureUpdate(QStringLiteral("The selected 3D volume has invalid dimensions or texture limits."));
+      return false;
     }
-  
-  m_corner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
-  m_vsize = Vec(hsz, wsz, dsz);
-  
-  createRaycastShader();
 
-  uchar *voxelVol = new uchar[tsz];
+  const auto sampledDimension = [](qint64 extent, int level)
+    {
+      return extent/level + (extent%level != 0 ? 1 : 0);
+    };
 
+  int sslevel = 1;
+  qint64 dsz = 0;
+  qint64 wsz = 0;
+  qint64 hsz = 0;
+  qint64 combinedBytes = 0;
+  while (true)
+    {
+      dsz = sampledDimension(sourceDepth, sslevel);
+      wsz = sampledDimension(sourceWidth, sslevel);
+      hsz = sampledDimension(sourceHeight, sslevel);
 
-  QProgressDialog progress("Updating voxel structure",
+      const bool validSize = checkedVolumeBytes(dsz, wsz, hsz,
+						 bytesPerVoxel+2,
+						 combinedBytes);
+      if (validSize && combinedBytes <= memoryBudget &&
+	  dsz <= m_max3DTexSize &&
+	  wsz <= m_max3DTexSize &&
+	  hsz <= m_max3DTexSize)
+	break;
+
+      if (sslevel >= maxSourceDimension ||
+	  sslevel == std::numeric_limits<int>::max())
+	{
+	  failVolumeTextureUpdate(QStringLiteral("The selected 3D volume cannot fit the configured texture budget."));
+	  return false;
+	}
+      ++sslevel;
+    }
+
+  const int maximumSslevel = qMax(
+    5, static_cast<int>(qMin<qint64>(maxSourceDimension,
+				     std::numeric_limits<int>::max())));
+  sslevel = QInputDialog::getInt(this,
+				 "Subsampling Level",
+				 "Subsampling Level",
+				 sslevel, sslevel, maximumSslevel, 1);
+
+  dsz = sampledDimension(sourceDepth, sslevel);
+  wsz = sampledDimension(sourceWidth, sslevel);
+  hsz = sampledDimension(sourceHeight, sslevel);
+
+  qint64 dataBytes = 0;
+  qint64 maskBytes = 0;
+  if (!checkedVolumeBytes(dsz, wsz, hsz, bytesPerVoxel, dataBytes) ||
+      !checkedVolumeBytes(dsz, wsz, hsz, 2, maskBytes) ||
+      dataBytes > memoryBudget-maskBytes ||
+      dsz > m_max3DTexSize ||
+      wsz > m_max3DTexSize ||
+      hsz > m_max3DTexSize)
+    {
+      failVolumeTextureUpdate(QStringLiteral("The requested subsampling level exceeds the safe texture budget."));
+      return false;
+    }
+
+  const int textureDepth = static_cast<int>(dsz);
+  const int textureWidth = static_cast<int>(wsz);
+  const int textureHeight = static_cast<int>(hsz);
+
+  QProgressDialog progress("Updating 3D preview",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
-  //----------------------------
-  // load data volume
-  progress.setValue(20);
-  qApp->processEvents();
-  if (Global::bytesPerVoxel() == 1)
+  progress.setValue(0);
+
+  // Hide the old textures before processing events and avoid doubling the
+  // shared-memory GPU allocation while the replacement is uploaded.
+  releaseVolumeTextures();
+
+  GLuint volumeTextures[2] = {0, 0};
+  const auto failUpdate = [&](const QString &message)
     {
-      qint64 i = 0;
-      for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-	for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-	  for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
-	    {
-	      voxelVol[i] = m_volPtr[d*m_width*m_height + w*m_height + h];
-	      i++;
-	    }
+      glBindTexture(GL_TEXTURE_3D, 0);
+      glDisable(GL_TEXTURE_3D);
+      if (volumeTextures[0] || volumeTextures[1])
+	glDeleteTextures(2, volumeTextures);
+      progress.setValue(100);
+      failVolumeTextureUpdate(message);
+      return false;
+    };
+
+  clearGlErrors();
+  glGenTextures(2, volumeTextures);
+  GLenum glError = glGetError();
+  if (glError != GL_NO_ERROR || !volumeTextures[0] || !volumeTextures[1])
+    return failUpdate(glError == GL_NO_ERROR ?
+			      QStringLiteral("OpenGL did not create both 3D texture handles.") :
+			      glErrorMessage(QStringLiteral("Creating 3D textures"), glError));
+
+  uchar *voxelVol = new (std::nothrow)
+    uchar[static_cast<size_t>(dataBytes)];
+  if (!voxelVol)
+    return failUpdate(QStringLiteral("Not enough CPU memory to prepare the 3D data texture."));
+
+  progress.setValue(15);
+  qApp->processEvents();
+  qint64 i = 0;
+  if (bytesPerVoxel == 1)
+    {
+      for (qint64 d=m_minDSlice; d<m_maxDSlice; d+=sslevel)
+	for (qint64 w=m_minWSlice; w<m_maxWSlice; w+=sslevel)
+	  for (qint64 h=m_minHSlice; h<m_maxHSlice; h+=sslevel)
+	    voxelVol[i++] = m_volPtr[d*m_width*m_height + w*m_height + h];
     }
   else
     {
-      qint64 i = 0;
-      for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-	for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-	  for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
-	    {
-	      ((ushort*)voxelVol)[i] = m_volPtrUS[d*m_width*m_height + w*m_height + h];
-	      i++;
-	    }
+      ushort *voxelVolUS = reinterpret_cast<ushort*>(voxelVol);
+      for (qint64 d=m_minDSlice; d<m_maxDSlice; d+=sslevel)
+	for (qint64 w=m_minWSlice; w<m_maxWSlice; w+=sslevel)
+	  for (qint64 h=m_minHSlice; h<m_maxHSlice; h+=sslevel)
+	    voxelVolUS[i++] = m_volPtrUS[d*m_width*m_height + w*m_height + h];
     }
-  progress.setValue(50);
+
+  progress.setValue(45);
   qApp->processEvents();
-  
-  
   glActiveTexture(GL_TEXTURE2);
   glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_dataTex);	 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
+  glBindTexture(GL_TEXTURE_3D, volumeTextures[0]);
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  progress.setValue(70);
-  if (Global::bytesPerVoxel() == 1)
-    glTexImage3D(GL_TEXTURE_3D,
-		 0, // single resolution
-		 GL_RED,
-		 hsz, wsz, dsz,
-		 0, // no border
-		 GL_RED,
-		 GL_UNSIGNED_BYTE,
-		 voxelVol);
-  else
-    glTexImage3D(GL_TEXTURE_3D,
-		 0, // single resolution
-		 GL_R16,
-		 hsz, wsz, dsz,
-		 0, // no border
-		 GL_RED,
-		 GL_UNSIGNED_SHORT,
-		 voxelVol);
-  glDisable(GL_TEXTURE_3D);
+  clearGlErrors();
+  glTexImage3D(GL_TEXTURE_3D,
+	       0,
+	       bytesPerVoxel == 1 ? GL_R8 : GL_R16,
+	       textureHeight, textureWidth, textureDepth,
+	       0,
+	       GL_RED,
+	       bytesPerVoxel == 1 ? GL_UNSIGNED_BYTE : GL_UNSIGNED_SHORT,
+	       voxelVol);
+  glError = glGetError();
   delete [] voxelVol;
-  //----------------------------
+  voxelVol = 0;
+  if (glError != GL_NO_ERROR)
+    return failUpdate(glErrorMessage(QStringLiteral("Uploading the 3D data texture"), glError));
 
+  voxelVol = new (std::nothrow)
+    uchar[static_cast<size_t>(maskBytes)];
+  if (!voxelVol)
+    return failUpdate(QStringLiteral("Not enough CPU memory to prepare the 3D label texture."));
 
-
-  //----------------------------
-  // load mask volume
-  progress.setValue(60);
+  progress.setValue(65);
   qApp->processEvents();
-  
-  tsz = dsz*wsz*hsz*2; // 16bit label data
-  voxelVol = new uchar[tsz];
-  qint64 i = 0;
-  for(qint64 d=m_minDSlice; d<m_maxDSlice; d+=m_sslevel)
-    for(qint64 w=m_minWSlice; w<m_maxWSlice; w+=m_sslevel)
-      for(qint64 h=m_minHSlice; h<m_maxHSlice; h+=m_sslevel)
-	{
-	  ((ushort*)voxelVol)[i] = m_maskPtrUS[d*m_width*m_height + w*m_height + h];
-	  i++;
-	}
+  i = 0;
+  ushort *voxelVolUS = reinterpret_cast<ushort*>(voxelVol);
+  for (qint64 d=m_minDSlice; d<m_maxDSlice; d+=sslevel)
+    for (qint64 w=m_minWSlice; w<m_maxWSlice; w+=sslevel)
+      for (qint64 h=m_minHSlice; h<m_maxHSlice; h+=sslevel)
+	voxelVolUS[i++] = m_maskPtrUS[d*m_width*m_height + w*m_height + h];
 
-  progress.setValue(80);
+  progress.setValue(85);
   qApp->processEvents();
-      
   glActiveTexture(GL_TEXTURE4);
   glEnable(GL_TEXTURE_3D);
-  glBindTexture(GL_TEXTURE_3D, m_maskTex);	 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
-  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE); 
+  glBindTexture(GL_TEXTURE_3D, volumeTextures[1]);
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  progress.setValue(70);
+  clearGlErrors();
   glTexImage3D(GL_TEXTURE_3D,
-	       0, // single resolution
+	       0,
 	       GL_R16,
-	       hsz, wsz, dsz,
-	       0, // no border
+	       textureHeight, textureWidth, textureDepth,
+	       0,
 	       GL_RED,
 	       GL_UNSIGNED_SHORT,
 	       voxelVol);
-  glDisable(GL_TEXTURE_3D);
-  //----------------------------
-
-
+  glError = glGetError();
   delete [] voxelVol;
-  
-  progress.setValue(100);
+  voxelVol = 0;
+  glBindTexture(GL_TEXTURE_3D, 0);
+  glDisable(GL_TEXTURE_3D);
+  if (glError != GL_NO_ERROR)
+    return failUpdate(glErrorMessage(QStringLiteral("Uploading the 3D label texture"), glError));
 
+  Vec previousCorner = m_corner;
+  Vec previousVsize = m_vsize;
+  int previousSslevel = m_sslevel;
+  m_corner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
+  m_vsize = Vec(hsz, wsz, dsz);
+  m_sslevel = sslevel;
+  if (!createRaycastShader())
+    {
+      m_corner = previousCorner;
+      m_vsize = previousVsize;
+      m_sslevel = previousSslevel;
+      return failUpdate(QStringLiteral("The 3D preview shader could not be rebuilt for the new volume."));
+    }
+
+  m_dataTex = volumeTextures[0];
+  m_maskTex = volumeTextures[1];
+  volumeTextures[0] = volumeTextures[1] = 0;
+
+  clearGlErrors();
+  if (!m_lutTex) glGenTextures(1, &m_lutTex);
+  if (!m_tagTex) glGenTextures(1, &m_tagTex);
+  glError = glGetError();
+  if (glError != GL_NO_ERROR || !m_lutTex || !m_tagTex)
+    {
+      QString message = glError == GL_NO_ERROR ?
+	QStringLiteral("OpenGL did not create the lookup textures.") :
+	glErrorMessage(QStringLiteral("Creating lookup textures"), glError);
+      failVolumeTextureUpdate(message);
+      progress.setValue(100);
+      return false;
+    }
+
+  progress.setValue(100);
   update();
+  return true;
 }
 
 Vec
@@ -2499,6 +3034,8 @@ Vec
 Viewer::pointUnderPixel_RC(QPoint scr, bool& found)
 {
   found = false;
+  if (!m_raycastShaderReady || !m_rcShader)
+    return Vec();
       
   Vec box[8];
   box[0] = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
@@ -2811,6 +3348,9 @@ Viewer::generateBoxes()
 void
 Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 {
+  if (!m_raycastShaderReady || !m_rcShader)
+    return;
+
   Vec eyepos = camera()->position();
   Vec viewDir = camera()->viewDirection();
   Vec subvolcorner = Vec(m_minHSlice, m_minWSlice, m_minDSlice);
@@ -3133,6 +3673,9 @@ Viewer::volumeRaycast(float minZ, float maxZ, bool firstPartOnly)
 void
 Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 {
+  if (!m_rendererReady || !m_dataTex || !m_maskTex || !m_maskPtrUS)
+    return;
+
   int ds = m_minDSlice + m_sslevel*qFloor((dst-m_minDSlice)/m_sslevel);
   int ws = m_minWSlice + m_sslevel*qFloor((wst-m_minWSlice)/m_sslevel);
   int hs = m_minHSlice + m_sslevel*qFloor((hst-m_minHSlice)/m_sslevel);
@@ -3155,9 +3698,22 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
   if (dsz*m_sslevel < de-ds) dsz++;
   if (wsz*m_sslevel < we-ws) wsz++;
   if (hsz*m_sslevel < he-hs) hsz++;
-  qint64 tsz = dsz*wsz*hsz*2; // 16bit mask
+  if (dsz <= 0 || wsz <= 0 || hsz <= 0)
+    return;
 
-  uchar *voxelVol = new uchar[tsz];
+  qint64 tsz = 0;
+  if (!checkedVolumeBytes(dsz, wsz, hsz, 2, tsz))
+    {
+      failVolumeTextureUpdate(QStringLiteral("The updated 3D label region is too large."));
+      return;
+    }
+
+  uchar *voxelVol = new (std::nothrow) uchar[static_cast<size_t>(tsz)];
+  if (!voxelVol)
+    {
+      failVolumeTextureUpdate(QStringLiteral("Not enough CPU memory to update the 3D label texture."));
+      return;
+    }
   
   qint64 i = 0;
   for(qint64 d=ds; d<de; d+=m_sslevel)
@@ -3176,6 +3732,7 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
   glActiveTexture(GL_TEXTURE4);
   glEnable(GL_TEXTURE_3D);
   glBindTexture(GL_TEXTURE_3D, m_maskTex);	 
+  clearGlErrors();
   glTexSubImage3D(GL_TEXTURE_3D,
 		  0, // level
 		  hoff, woff, doff, // offset
@@ -3183,12 +3740,20 @@ Viewer::uploadMask(int dst, int wst, int hst, int ded, int wed, int hed)
 		  GL_RED,
 		  GL_UNSIGNED_SHORT,
 		  voxelVol);
+  GLenum glError = glGetError();
+  glBindTexture(GL_TEXTURE_3D, 0);
   glDisable(GL_TEXTURE_3D);
 
-  
-  update();
-
   delete [] voxelVol;
+
+  if (glError != GL_NO_ERROR)
+    {
+      failVolumeTextureUpdate(
+	glErrorMessage(QStringLiteral("Updating the 3D label texture"), glError));
+      return;
+    }
+
+  update();
 }
 
 void
@@ -3636,7 +4201,7 @@ Viewer::tagUsingScreenSketch()
       {
 	int rp = xp + yp*m_spW;
 	if (qRed(rgb[rp]) > 0)
-	  m_sketchPad[rp] = 65535;
+	  m_sketchPad[rp] = 255;
       }
 
   emit tagUsingSketchPad(bmin, bmax);
@@ -3774,7 +4339,10 @@ Viewer::saveImageSequence()
 
 
   if (StaticFunctions::checkExtension(flnm, ".mp4"))
-      startMovie(flnm, 25, 100, true);
+    {
+      if (!startMovie(flnm, 25, 100, true))
+        return;
+    }
 
   m_frameImageFile = flnm;
   m_currFrame = 0;
@@ -3936,17 +4504,32 @@ Viewer::startMovie(QString movieFile,
   m_videoEncoder.init();
   int wd = camera()->screenWidth();
   int ht = camera()->screenHeight();
-  int gop = fps;
-  int bitrate = wd * ht * fps;
-  m_videoEncoder.createFile(movieFile, wd, ht, bitrate, gop, fps);
-  
+  const qint64 bitrate64 = static_cast<qint64>(wd)*ht*fps;
+  if (wd <= 0 || ht <= 0 || fps <= 0 || bitrate64 <= 0 ||
+      bitrate64 > std::numeric_limits<unsigned>::max())
+    {
+      QMessageBox::critical(this, "Save Movie",
+                            "The movie dimensions or frame rate are unsupported.");
+      return false;
+    }
+  if (!m_videoEncoder.createFile(movieFile, wd, ht,
+                                 static_cast<unsigned>(bitrate64),
+                                 fps, fps))
+    {
+      QMessageBox::critical(this, "Save Movie", m_videoEncoder.lastError());
+      return false;
+    }
   return true;
 }
 
 bool
 Viewer::endMovie()
 {
-  m_videoEncoder.close();
+  if (!m_videoEncoder.close())
+    {
+      QMessageBox::critical(this, "Save Movie", m_videoEncoder.lastError());
+      return false;
+    }
   return true;
 }
 
@@ -3955,11 +4538,37 @@ Viewer::saveMovie()
 {
   int wd = width();
   int ht = height();
-  uchar *imgbuf = new uchar[wd*ht*4];
-  glReadPixels(0, 0, wd, ht, GL_RGBA, GL_UNSIGNED_BYTE, imgbuf);
+  const qint64 frameBytes = static_cast<qint64>(wd)*ht*4;
+  if (wd <= 0 || ht <= 0 || frameBytes <= 0 ||
+      static_cast<quint64>(frameBytes) >
+        static_cast<quint64>(std::numeric_limits<size_t>::max()))
+    {
+      m_savingImages = 0;
+      endMovie();
+      QMessageBox::critical(this, "Save Movie",
+                            "The movie frame dimensions are unsupported.");
+      return;
+    }
+  std::unique_ptr<uchar[]> imgbuf(
+    new (std::nothrow) uchar[static_cast<size_t>(frameBytes)]);
+  if (!imgbuf)
+    {
+      m_savingImages = 0;
+      endMovie();
+      QMessageBox::critical(this, "Save Movie",
+                            "There is not enough memory for a movie frame.");
+      return;
+    }
+  glReadPixels(0, 0, wd, ht, GL_RGBA, GL_UNSIGNED_BYTE, imgbuf.get());
 
-  m_videoEncoder.encodeImage(imgbuf, wd, ht, wd*4, QImage::Format_RGB32);
-  delete [] imgbuf;
+  if (!m_videoEncoder.encodeImage(imgbuf.get(), wd, ht, wd*4,
+                                  QImage::Format_RGB32))
+    {
+      const QString error = m_videoEncoder.lastError();
+      m_savingImages = 0;
+      endMovie();
+      QMessageBox::critical(this, "Save Movie", error);
+    }
 }
 
 void
@@ -4347,6 +4956,9 @@ Viewer::generateDrawBoxes()
 void
 Viewer::loadAllBoxesToVBO()
 {
+  if (!m_glewInitdone)
+    return;
+
   QProgressDialog progress("Loading box structure to vbo",
 			   QString(),
 			   0, 100,

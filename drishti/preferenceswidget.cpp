@@ -104,6 +104,7 @@ PreferencesWidget::on_textureMemorySize_valueChanged(int tms)
     val = 4096 + (tms-20)*1024;
   
   Global::setTextureMemorySize(val);
+  val = Global::textureMemorySize();
   
   if (val < 1024)
     ui.texMemLabel->setText(QString("<b>%1 MB</b>").arg(val));

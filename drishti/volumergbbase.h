@@ -4,6 +4,8 @@
 #include <GL/glew.h>
 
 #include <QGLViewer/vec.h>
+#include <QObject>
+#include <QString>
 using namespace qglviewer;
 
 class VolumeRGBBase : public QObject
@@ -25,7 +27,7 @@ class VolumeRGBBase : public QObject
   unsigned char* getLowresVolume();
   unsigned char* getLowresTextureVolume();
 
-  void createLowresTextureVolume();
+  bool createLowresTextureVolume();
 
  protected :
   QString m_volumeFile;
@@ -40,9 +42,16 @@ class VolumeRGBBase : public QObject
   int m_subSamplingLevel;
   unsigned char *m_lowresVolume;
   unsigned char *m_lowresTextureVolume;
+  bool m_loadingVolume;
 
-  void generateHistograms(bool);
-  void createLowresVolume(bool);
+  bool generateHistograms(bool);
+  bool createLowresVolume(bool);
+
+  bool ensureHistogramStorage();
+  void clearHistogramStorage();
+  bool setError(const QString&);
+
+  QString m_errorString;
 };
 
 #endif

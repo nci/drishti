@@ -4,6 +4,8 @@
 #include <GL/glew.h>
 
 #include <QGLViewer/vec.h>
+#include <QObject>
+#include <QString>
 using namespace qglviewer;
 
 class VolumeBase : public QObject
@@ -29,7 +31,7 @@ class VolumeBase : public QObject
   unsigned char* getLowresVolume();
   unsigned char* getLowresTextureVolume();
 
-  void createLowresTextureVolume();
+  bool createLowresTextureVolume();
 
  protected :
   QString m_volumeFile;
@@ -43,9 +45,9 @@ class VolumeBase : public QObject
   unsigned char *m_lowresVolume;
   unsigned char *m_lowresTextureVolume;
 
-  void createLowresVolume(bool);
+  bool createLowresVolume(bool);
 
-  void generateHistograms();
+  bool generateHistograms();
   
 };
 

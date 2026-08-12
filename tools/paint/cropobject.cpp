@@ -1,3 +1,5 @@
+#include <GL/glew.h>
+
 #include "volumeinformation.h"
 #include "global.h"
 #include "cropobject.h"

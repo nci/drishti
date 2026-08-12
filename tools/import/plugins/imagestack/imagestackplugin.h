@@ -35,6 +35,8 @@ class ImageStackPlugin : public QObject, VolInterface
   float rawMax();
    
   void getDepthSlice(int, uchar*);
+  Q_INVOKABLE QString lastError() const;
+  Q_INVOKABLE bool wasCanceled() const;
   //void getWidthSlice(int, uchar*);
   //void getHeightSlice(int, uchar*);
 
@@ -61,16 +63,19 @@ class ImageStackPlugin : public QObject, VolInterface
 
   int m_bytesPerVoxel;
   QList<QString> m_imageList;
+  QString m_lastError;
+  bool m_lastOperationCanceled;
 
-  void savePvlHeader(QString,
+  bool savePvlHeader(QString,
 		     int, int, int,
 		     QString,
-		     int);
+		     int,
+		     QString&);
 
   void saveTrimmedRGB(QString,
 		      int, int, int, int, int, int);
 
-  void setImageFiles(QStringList);
+  bool setImageFiles(QStringList);
 };
 
 #endif

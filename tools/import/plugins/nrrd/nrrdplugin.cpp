@@ -1,41 +1,501 @@
 #include <QtGui>
-#include "common.h"
-#include "nrrdplugin.h"
-#include <iostream>
-#include <itkImage.h>
-#include <itkImageFileWriter.h>
-#include <itkImageFileReader.h>
-#include <itkNrrdImageIO.h>
-#include <itkImageRegionIterator.h>
-#include <itkRegionOfInterestImageFilter.h>
 
+#include "common.h"
+#include "importmemoryadmission.h"
+#include "nrrdplugin.h"
+
+#include <QApplication>
+#include <QEventLoop>
+#include <QFutureWatcher>
+#include <QProgressDialog>
+#include <QTimer>
+#include <QVector>
+
+#include <QtConcurrent>
+
+#include <itkImageIOBase.h>
+#include <itkMacro.h>
+#include <itkNrrdImageIO.h>
+
+#include <atomic>
+#include <cmath>
+#include <cstring>
+#include <limits>
+#include <memory>
+#include <new>
+
+namespace
+{
+const quint64 kNrrdDecodeSafetyBytes = 256ULL*1024ULL*1024ULL;
+const quint64 kStatisticsChunkVoxels = 1024ULL*1024ULL;
+
+struct NrrdVolumeInfo
+{
+  int depth;
+  int width;
+  int height;
+  int voxelType;
+  int bytesPerVoxel;
+  float voxelSizeX;
+  float voxelSizeY;
+  float voxelSizeZ;
+  quint64 voxelCount;
+  quint64 volumeBytes;
+
+  NrrdVolumeInfo()
+    : depth(0), width(0), height(0), voxelType(_UChar),
+      bytesPerVoxel(1), voxelSizeX(1), voxelSizeY(1), voxelSizeZ(1),
+      voxelCount(0), volumeBytes(0)
+  {
+  }
+};
+
+struct NrrdLoadResult
+{
+  bool success;
+  bool canceled;
+  QString error;
+  NrrdVolumeInfo info;
+  std::shared_ptr<uchar> volume;
+  float rawMin;
+  float rawMax;
+  QList<uint> histogram;
+
+  NrrdLoadResult()
+    : success(false), canceled(false), rawMin(0), rawMax(0)
+  {
+  }
+};
+
+struct NrrdHistogramResult
+{
+  bool success;
+  bool canceled;
+  QString error;
+  QList<uint> histogram;
+
+  NrrdHistogramResult() : success(false), canceled(false) {}
+};
+
+QString memoryAmount(quint64 bytes)
+{
+  const double mib = static_cast<double>(bytes)/(1024.0*1024.0);
+  if (mib < 1024.0)
+    return QStringLiteral("%1 MiB").arg(mib, 0, 'f', 1);
+  return QStringLiteral("%1 GiB").arg(mib/1024.0, 0, 'f', 2);
+}
+
+QString memoryAdmissionError(const ImportMemoryAdmission &admission)
+{
+  switch (admission.reason)
+    {
+    case ImportMemoryAdmissionReason::MemoryStatusUnavailable:
+      return QStringLiteral(
+        "NRRD import stopped because available physical and commit memory "
+        "could not be measured safely.");
+    case ImportMemoryAdmissionReason::InsufficientPhysicalMemory:
+      return QStringLiteral(
+        "NRRD import needs about %1, but only %2 remains after reserving "
+        "memory for Windows and integrated graphics.")
+        .arg(memoryAmount(admission.requiredBytes),
+             memoryAmount(admission.availablePhysicalBudgetBytes));
+    case ImportMemoryAdmissionReason::InsufficientCommit:
+      return QStringLiteral(
+        "NRRD import needs about %1 of committed memory, but only %2 is "
+        "available after the safety reserve.")
+        .arg(memoryAmount(admission.requiredBytes),
+             memoryAmount(admission.availableCommitBudgetBytes));
+    case ImportMemoryAdmissionReason::AddressSpaceLimit:
+      return QStringLiteral(
+        "The NRRD volume is larger than this process can address.");
+    case ImportMemoryAdmissionReason::ArithmeticOverflow:
+    case ImportMemoryAdmissionReason::InvalidRequest:
+      return QStringLiteral(
+        "The NRRD volume size overflows the supported address space.");
+    case ImportMemoryAdmissionReason::Approved:
+      break;
+    }
+  return QStringLiteral("NRRD import was rejected by the memory safety check.");
+}
+
+bool componentLayout(itk::ImageIOBase::IOComponentType componentType,
+                     int &voxelType,
+                     int &bytesPerVoxel)
+{
+  switch (componentType)
+    {
+    case itk::ImageIOBase::UCHAR:
+      voxelType = _UChar;
+      bytesPerVoxel = 1;
+      return true;
+    case itk::ImageIOBase::CHAR:
+      voxelType = _Char;
+      bytesPerVoxel = 1;
+      return true;
+    case itk::ImageIOBase::USHORT:
+      voxelType = _UShort;
+      bytesPerVoxel = 2;
+      return true;
+    case itk::ImageIOBase::SHORT:
+      voxelType = _Short;
+      bytesPerVoxel = 2;
+      return true;
+    case itk::ImageIOBase::INT:
+      voxelType = _Int;
+      bytesPerVoxel = 4;
+      return true;
+    case itk::ImageIOBase::FLOAT:
+      voxelType = _Float;
+      bytesPerVoxel = 4;
+      return true;
+    default:
+      return false;
+    }
+}
+
+float validSpacing(double spacing)
+{
+  return std::isfinite(spacing) && spacing > 0.0 ?
+    static_cast<float>(spacing) : 1.0f;
+}
+
+bool readVolumeInfo(const QString &fileName,
+                    NrrdVolumeInfo &info,
+                    QString &error)
+{
+  try
+    {
+      const QByteArray encodedName = QFile::encodeName(fileName);
+      itk::NrrdImageIO::Pointer imageIO = itk::NrrdImageIO::New();
+      if (!imageIO->CanReadFile(encodedName.constData()))
+        {
+          error = QStringLiteral("The selected file is not a readable NRRD volume.");
+          return false;
+        }
+
+      imageIO->SetFileName(encodedName.constData());
+      imageIO->ReadImageInformation();
+      if (imageIO->GetNumberOfDimensions() != 3)
+        {
+          error = QStringLiteral("Drishti Import requires a three-dimensional NRRD volume.");
+          return false;
+        }
+      if (imageIO->GetPixelType() != itk::ImageIOBase::SCALAR ||
+          imageIO->GetNumberOfComponents() != 1)
+        {
+          error = QStringLiteral("Only scalar, single-component NRRD volumes are supported.");
+          return false;
+        }
+
+      const itk::ImageIOBase::SizeValueType dimX = imageIO->GetDimensions(0);
+      const itk::ImageIOBase::SizeValueType dimY = imageIO->GetDimensions(1);
+      const itk::ImageIOBase::SizeValueType dimZ = imageIO->GetDimensions(2);
+      const quint64 maxInt = static_cast<quint64>(
+        std::numeric_limits<int>::max());
+      if (dimX == 0 || dimY == 0 || dimZ == 0 ||
+          static_cast<quint64>(dimX) > maxInt ||
+          static_cast<quint64>(dimY) > maxInt ||
+          static_cast<quint64>(dimZ) > maxInt)
+        {
+          error = QStringLiteral("The NRRD dimensions are empty or exceed Drishti's limits.");
+          return false;
+        }
+
+      if (!componentLayout(imageIO->GetComponentType(),
+                           info.voxelType, info.bytesPerVoxel))
+        {
+          error = QStringLiteral(
+            "Supported NRRD component types are 8-bit and 16-bit signed or "
+            "unsigned integers, signed 32-bit integers, and 32-bit floats.");
+          return false;
+        }
+
+      info.height = static_cast<int>(dimX);
+      info.width = static_cast<int>(dimY);
+      info.depth = static_cast<int>(dimZ);
+      info.voxelSizeX = validSpacing(imageIO->GetSpacing(0));
+      info.voxelSizeY = validSpacing(imageIO->GetSpacing(1));
+      info.voxelSizeZ = validSpacing(imageIO->GetSpacing(2));
+
+      quint64 planeVoxels = 0;
+      if (!checkedImportMultiply(static_cast<quint64>(info.width),
+                                 static_cast<quint64>(info.height),
+                                 planeVoxels) ||
+          !checkedImportMultiply(static_cast<quint64>(info.depth),
+                                 planeVoxels, info.voxelCount) ||
+          !checkedImportMultiply(info.voxelCount,
+                                 static_cast<quint64>(info.bytesPerVoxel),
+                                 info.volumeBytes) ||
+          info.volumeBytes > static_cast<quint64>(
+            std::numeric_limits<std::size_t>::max()))
+        {
+          error = QStringLiteral("The NRRD volume size overflows the supported address space.");
+          return false;
+        }
+      return true;
+    }
+  catch (const itk::ExceptionObject &exception)
+    {
+      error = QStringLiteral("Cannot read NRRD metadata: %1").arg(exception.what());
+    }
+  catch (const std::exception &exception)
+    {
+      error = QStringLiteral("Cannot read NRRD metadata: %1").arg(exception.what());
+    }
+  catch (...)
+    {
+      error = QStringLiteral("Cannot read NRRD metadata because of an unknown error.");
+    }
+  return false;
+}
+
+bool sameLayout(const NrrdVolumeInfo &first, const NrrdVolumeInfo &second)
+{
+  return first.depth == second.depth &&
+         first.width == second.width &&
+         first.height == second.height &&
+         first.voxelType == second.voxelType &&
+         first.bytesPerVoxel == second.bytesPerVoxel &&
+         first.volumeBytes == second.volumeBytes;
+}
+
+void setProgress(std::atomic_int &progress,
+                 quint64 completed,
+                 quint64 total,
+                 int start,
+                 int end)
+{
+  if (total == 0)
+    {
+      progress.store(end);
+      return;
+    }
+  const double fraction = static_cast<double>(completed)/
+                          static_cast<double>(total);
+  progress.store(qBound(start,
+    start+static_cast<int>((end-start)*fraction), end));
+}
+
+void copyHistogram(const QVector<quint64> &source, QList<uint> &destination)
+{
+  destination.clear();
+  destination.reserve(source.size());
+  const quint64 maxCount = std::numeric_limits<uint>::max();
+  for (quint64 count : source)
+    destination.append(static_cast<uint>(qMin(count, maxCount)));
+}
+
+template <typename T>
+bool exactStatistics(const uchar *buffer,
+                     quint64 voxelCount,
+                     qint64 minimumValue,
+                     int binCount,
+                     std::atomic_bool &cancelRequested,
+                     std::atomic_int &progress,
+                     NrrdLoadResult &result)
+{
+  const T *values = reinterpret_cast<const T*>(buffer);
+  QVector<quint64> counts(binCount, 0);
+  T rawMinimum = std::numeric_limits<T>::max();
+  T rawMaximum = std::numeric_limits<T>::lowest();
+
+  for (quint64 start = 0; start < voxelCount;
+       start += kStatisticsChunkVoxels)
+    {
+      if (cancelRequested.load())
+        {
+          result.canceled = true;
+          result.error = QStringLiteral("NRRD import canceled");
+          return false;
+        }
+      const quint64 end = qMin(voxelCount, start+kStatisticsChunkVoxels);
+      for (quint64 index = start; index < end; ++index)
+        {
+          const T value = values[static_cast<std::size_t>(index)];
+          rawMinimum = qMin(rawMinimum, value);
+          rawMaximum = qMax(rawMaximum, value);
+          const qint64 histogramIndex = static_cast<qint64>(value)-minimumValue;
+          if (histogramIndex < 0 || histogramIndex >= binCount)
+            {
+              result.error = QStringLiteral("A NRRD histogram index is outside its valid range.");
+              return false;
+            }
+          ++counts[static_cast<int>(histogramIndex)];
+        }
+      setProgress(progress, end, voxelCount, 70, 100);
+    }
+
+  result.rawMin = static_cast<float>(rawMinimum);
+  result.rawMax = static_cast<float>(rawMaximum);
+  copyHistogram(counts, result.histogram);
+  return true;
+}
+
+template <typename T>
+bool mappedStatistics(const uchar *buffer,
+                      quint64 voxelCount,
+                      bool finiteOnly,
+                      std::atomic_bool &cancelRequested,
+                      std::atomic_int &progress,
+                      NrrdLoadResult &result)
+{
+  const T *values = reinterpret_cast<const T*>(buffer);
+  double rawMinimum = std::numeric_limits<double>::infinity();
+  double rawMaximum = -std::numeric_limits<double>::infinity();
+
+  for (quint64 start = 0; start < voxelCount;
+       start += kStatisticsChunkVoxels)
+    {
+      if (cancelRequested.load())
+        {
+          result.canceled = true;
+          result.error = QStringLiteral("NRRD import canceled");
+          return false;
+        }
+      const quint64 end = qMin(voxelCount, start+kStatisticsChunkVoxels);
+      for (quint64 index = start; index < end; ++index)
+        {
+          const double value = static_cast<double>(
+            values[static_cast<std::size_t>(index)]);
+          if (finiteOnly && !std::isfinite(value))
+            continue;
+          rawMinimum = qMin(rawMinimum, value);
+          rawMaximum = qMax(rawMaximum, value);
+        }
+      setProgress(progress, end, voxelCount, 70, 85);
+    }
+
+  if (!std::isfinite(rawMinimum) || !std::isfinite(rawMaximum))
+    {
+      result.error = QStringLiteral("The NRRD volume contains no finite voxel values.");
+      return false;
+    }
+
+  QVector<quint64> counts(65536, 0);
+  const double range = rawMaximum-rawMinimum;
+  for (quint64 start = 0; start < voxelCount;
+       start += kStatisticsChunkVoxels)
+    {
+      if (cancelRequested.load())
+        {
+          result.canceled = true;
+          result.error = QStringLiteral("NRRD import canceled");
+          return false;
+        }
+      const quint64 end = qMin(voxelCount, start+kStatisticsChunkVoxels);
+      for (quint64 index = start; index < end; ++index)
+        {
+          const double value = static_cast<double>(
+            values[static_cast<std::size_t>(index)]);
+          if (finiteOnly && !std::isfinite(value))
+            continue;
+          int histogramIndex = 0;
+          if (range > 0.0)
+            histogramIndex = qBound(0,
+              static_cast<int>(65535.0*(value-rawMinimum)/range), 65535);
+          ++counts[histogramIndex];
+        }
+      setProgress(progress, end, voxelCount, 85, 100);
+    }
+
+  result.rawMin = static_cast<float>(rawMinimum);
+  result.rawMax = static_cast<float>(rawMaximum);
+  copyHistogram(counts, result.histogram);
+  return true;
+}
+
+bool calculateStatistics(const NrrdVolumeInfo &info,
+                         const uchar *buffer,
+                         std::atomic_bool &cancelRequested,
+                         std::atomic_int &progress,
+                         NrrdLoadResult &result)
+{
+  switch (info.voxelType)
+    {
+    case _UChar:
+      return exactStatistics<uchar>(buffer, info.voxelCount, 0, 256,
+                                    cancelRequested, progress, result);
+    case _Char:
+      return exactStatistics<signed char>(buffer, info.voxelCount, -128, 256,
+                                          cancelRequested, progress, result);
+    case _UShort:
+      return exactStatistics<ushort>(buffer, info.voxelCount, 0, 65536,
+                                     cancelRequested, progress, result);
+    case _Short:
+      return exactStatistics<short>(buffer, info.voxelCount, -32768, 65536,
+                                    cancelRequested, progress, result);
+    case _Int:
+      return mappedStatistics<int>(buffer, info.voxelCount, false,
+                                   cancelRequested, progress, result);
+    case _Float:
+      return mappedStatistics<float>(buffer, info.voxelCount, true,
+                                     cancelRequested, progress, result);
+    default:
+      result.error = QStringLiteral("The NRRD voxel type is unsupported.");
+      return false;
+    }
+}
+
+template <typename T>
+bool histogramForRange(const uchar *buffer,
+                       quint64 voxelCount,
+                       double rawMinimum,
+                       double rawMaximum,
+                       bool finiteOnly,
+                       std::atomic_bool &cancelRequested,
+                       std::atomic_int &progress,
+                       NrrdHistogramResult &result)
+{
+  const T *values = reinterpret_cast<const T*>(buffer);
+  QVector<quint64> counts(65536, 0);
+  const double range = rawMaximum-rawMinimum;
+  for (quint64 start = 0; start < voxelCount;
+       start += kStatisticsChunkVoxels)
+    {
+      if (cancelRequested.load())
+        {
+          result.canceled = true;
+          result.error = QStringLiteral("NRRD histogram generation canceled");
+          return false;
+        }
+      const quint64 end = qMin(voxelCount, start+kStatisticsChunkVoxels);
+      for (quint64 index = start; index < end; ++index)
+        {
+          const double value = static_cast<double>(
+            values[static_cast<std::size_t>(index)]);
+          if (finiteOnly && !std::isfinite(value))
+            continue;
+          int histogramIndex = 0;
+          if (range > 0.0)
+            histogramIndex = qBound(0,
+              static_cast<int>(65535.0*(value-rawMinimum)/range), 65535);
+          ++counts[histogramIndex];
+        }
+      setProgress(progress, end, voxelCount, 0, 100);
+    }
+  copyHistogram(counts, result.histogram);
+  result.success = true;
+  return true;
+}
+}
+
+NrrdPlugin::NrrdPlugin()
+{
+  init();
+}
+
+NrrdPlugin::~NrrdPlugin() = default;
 
 QStringList
 NrrdPlugin::registerPlugin()
 {
-  QStringList regString;
-  regString << "files";
-  regString << "NRRD Files";
-  
-  return regString;
+  return QStringList() << "files" << "NRRD Files";
 }
 
 void
 NrrdPlugin::init()
 {
-  m_fileName.clear();
-  m_description.clear();
-  m_depth = m_width = m_height = 0;
-  m_voxelType = _UChar;
-  m_voxelUnit = _Millimeter;
-  m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
-  m_skipBytes = 0;
-  m_bytesPerVoxel = 1;
-  m_rawMin = m_rawMax = 0;
-  m_histogram.clear();
-  m_4dvol = false;
-
-  m_entireVolume = 0;
+  clear();
 }
 
 void
@@ -45,851 +505,444 @@ NrrdPlugin::clear()
   m_description.clear();
   m_depth = m_width = m_height = 0;
   m_voxelType = _UChar;
-  m_voxelUnit = _Micron;
+  m_voxelUnit = _Millimeter;
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
+  m_headerBytes = 0;
   m_bytesPerVoxel = 1;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;
-
-  if (m_entireVolume)
-    delete [] m_entireVolume;
-  m_entireVolume = 0;
+  m_entireVolume.reset();
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 }
 
+void NrrdPlugin::set4DVolume(bool flag) { m_4dvol = flag; }
+
 void
-NrrdPlugin::set4DVolume(bool flag)
+NrrdPlugin::voxelSize(float &vx, float &vy, float &vz)
 {
-  m_4dvol = flag;
+  vx = m_voxelSizeX;
+  vy = m_voxelSizeY;
+  vz = m_voxelSizeZ;
 }
 
-void
-NrrdPlugin::voxelSize(float& vx, float& vy, float& vz)
-  {
-    vx = m_voxelSizeX;
-    vy = m_voxelSizeY;
-    vz = m_voxelSizeZ;
-  }
 QString NrrdPlugin::description() { return m_description; }
 int NrrdPlugin::voxelType() { return m_voxelType; }
 int NrrdPlugin::voxelUnit() { return m_voxelUnit; }
 int NrrdPlugin::headerBytes() { return m_headerBytes; }
-
-void
-NrrdPlugin::setMinMax(float rmin, float rmax)
-{
-  m_rawMin = rmin;
-  m_rawMax = rmax;
-  
-  if (m_voxelType == _UChar ||
-      m_voxelType == _Char ||
-      m_voxelType == _UShort ||
-      m_voxelType == _Short)
-    return;
-  generateHistogram();
-}
 float NrrdPlugin::rawMin() { return m_rawMin; }
 float NrrdPlugin::rawMax() { return m_rawMax; }
 QList<uint> NrrdPlugin::histogram() { return m_histogram; }
+QString NrrdPlugin::lastError() const { return m_lastError; }
+bool NrrdPlugin::wasCanceled() const { return m_lastOperationCanceled; }
 
 void
-NrrdPlugin::gridSize(int& d, int& w, int& h)
+NrrdPlugin::gridSize(int &depth, int &width, int &height)
 {
-  d = m_depth;
-  w = m_width;
-  h = m_height;
-}
-
-void
-NrrdPlugin::replaceFile(QString flnm)
-{
-  m_fileName.clear();
-  m_fileName << flnm;
-}
-
-
-template <class T>
-void
-NrrdPlugin::readSlice(int idx[3], int sz[3],
-		       int nbytes, uchar *slice)
-{
-  //-----------------
-  qint64 offset = m_bytesPerVoxel;
-  offset = offset * idx[2] * m_width * m_height;
-  memcpy(slice,
-	 m_entireVolume + offset,
-	 m_bytesPerVoxel*m_width*m_height);
-  return;
-  //-----------------
-
-  
-//  typedef itk::Image<T, 3> ImageType;
-//
-//  typedef itk::ImageFileReader<ImageType> ReaderType;
-//  ReaderType::Pointer reader = ReaderType::New();
-//  reader->SetFileName(m_fileName[0].toUtf8().data());
-//  typedef itk::NrrdImageIO NrrdIOType;
-//  NrrdIOType::Pointer nrrdIO = NrrdIOType::New();
-//  reader->SetImageIO(nrrdIO);
-//
-//  typedef itk::RegionOfInterestImageFilter<ImageType,ImageType> RegionExtractor;
-//
-//  ImageType::RegionType region;
-//  ImageType::SizeType size;
-//  ImageType::IndexType index;
-//  index[2] = idx[2];
-//  index[1] = idx[1];
-//  index[0] = idx[0];
-//  size[2] = sz[2];
-//  size[1] = sz[1];
-//  size[0] = sz[0];
-//  region.SetIndex(index);
-//  region.SetSize(size);
-//  
-//  // Extract the relevant sub-region.
-//  RegionExtractor::Pointer extractor = RegionExtractor::New();
-//  extractor->SetInput(reader->GetOutput());
-//  extractor->SetRegionOfInterest(region);
-//  extractor->Update();
-//  ImageType *dimg = extractor->GetOutput();
-//  char *tdata = (char*)(dimg->GetBufferPointer());
-//  memcpy(slice, tdata, nbytes);
-}
-
-template <class T>
-void
-NrrdPlugin::readEntireVolume()
-{
-  qint64 nbytes = m_bytesPerVoxel;
-  nbytes = nbytes * m_depth * m_width * m_height;
-
-  m_entireVolume = new uchar[nbytes];
-  
-  typedef itk::Image<T, 3> ImageType;
-
-  typedef itk::ImageFileReader<ImageType> ReaderType;
-  ReaderType::Pointer reader = ReaderType::New();
-  reader->SetFileName(m_fileName[0].toUtf8().data());
-  typedef itk::NrrdImageIO NrrdIOType;
-  NrrdIOType::Pointer nrrdIO = NrrdIOType::New();
-  reader->SetImageIO(nrrdIO);
-
-  typedef itk::RegionOfInterestImageFilter<ImageType,ImageType> RegionExtractor;
-
-  ImageType::RegionType region;
-  ImageType::SizeType size;
-  ImageType::IndexType index;
-  index[2] = 0;
-  index[1] = 0;
-  index[0] = 0;
-  size[2] = m_depth;
-  size[1] = m_width;
-  size[0] = m_height;
-  region.SetIndex(index);
-  region.SetSize(size);
-  
-  // Extract the relevant sub-region.
-  RegionExtractor::Pointer extractor = RegionExtractor::New();
-  extractor->SetInput(reader->GetOutput());
-  extractor->SetRegionOfInterest(region);
-  extractor->Update();
-  ImageType *dimg = extractor->GetOutput();
-  char *tdata = (char*)(dimg->GetBufferPointer());
-  //memcpy(slice, tdata, nbytes);
-
-  memcpy((char*)m_entireVolume, tdata, nbytes);
-
-  //QMessageBox::information(0, "", "read entire volume");
+  depth = m_depth;
+  width = m_width;
+  height = m_height;
 }
 
 bool
 NrrdPlugin::setFile(QStringList files)
 {
-  m_fileName = files;
- 
-  typedef itk::Image<unsigned char, 3> ImageType;
-  typedef itk::ImageFileReader<ImageType> ReaderType;
-  ReaderType::Pointer reader = ReaderType::New();
-  reader->SetFileName(m_fileName[0].toUtf8().data());
-
-  typedef itk::NrrdImageIO NrrdIOType;
-  NrrdIOType::Pointer nrrdIO = NrrdIOType::New();
-  reader->SetImageIO(nrrdIO);
-  reader->Update();
-
-  itk::ImageIOBase::Pointer imageIO = reader->GetImageIO();
-
-  m_height = imageIO->GetDimensions(0);
-  m_width = imageIO->GetDimensions(1);
-  m_depth = imageIO->GetDimensions(2);
-
-//  QMessageBox::information(0, "", QString("%1 %2 %3").		\
-//  	   arg(m_height).arg(m_width).arg(m_depth));
-  
-
-  m_voxelSizeX = imageIO->GetSpacing(0);
-  m_voxelSizeY = imageIO->GetSpacing(1);
-  m_voxelSizeZ = imageIO->GetSpacing(2);
-
-  int et = imageIO->GetComponentType();
-  if (et == itk::ImageIOBase::UCHAR) m_voxelType = _UChar;
-  if (et == itk::ImageIOBase::CHAR) m_voxelType = _Char;
-  if (et == itk::ImageIOBase::USHORT) m_voxelType = _UShort;
-  if (et == itk::ImageIOBase::SHORT) m_voxelType = _Short;
-  if (et == itk::ImageIOBase::INT) m_voxelType = _Int;
-  if (et == itk::ImageIOBase::FLOAT) m_voxelType = _Float;
-
-  m_skipBytes = m_headerBytes = 0;
-
-  m_bytesPerVoxel = 1;
-  if (m_voxelType == _UChar) m_bytesPerVoxel = 1;
-  else if (m_voxelType == _Char) m_bytesPerVoxel = 1;
-  else if (m_voxelType == _UShort) m_bytesPerVoxel = 2;
-  else if (m_voxelType == _Short) m_bytesPerVoxel = 2;
-  else if (m_voxelType == _Int) m_bytesPerVoxel = 4;
-  else if (m_voxelType == _Float) m_bytesPerVoxel = 4;
-
-
-  if (m_voxelType == _UChar)
-    readEntireVolume<unsigned char>();
-  else if (m_voxelType == _Char)
-    readEntireVolume<char>();
-  else if (m_voxelType == _UShort)
-    readEntireVolume<unsigned short>();
-  else if (m_voxelType == _Short)
-    readEntireVolume<short>();
-  else if (m_voxelType == _Int)
-    readEntireVolume<int>();
-  else if (m_voxelType == _Float)
-    readEntireVolume<float>();
-
-      
-//  QMessageBox::information(0, "", QString("%1 : %2").arg(m_voxelType).arg(m_bytesPerVoxel));
-
-  if (m_4dvol) // do not perform further calculations.
-    return true;
-
-  if (m_voxelType == _UChar ||
-      m_voxelType == _Char ||
-      m_voxelType == _UShort ||
-      m_voxelType == _Short)
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
+  if (files.size() != 1 || files.first().trimmed().isEmpty())
     {
-      findMinMaxandGenerateHistogram();
-    }
-  else
-    {
-      findMinMax();
-      generateHistogram();
+      m_lastError = QStringLiteral("Select exactly one NRRD volume file.");
+      return false;
     }
 
+  const QString selectedFile = QFileInfo(files.first()).absoluteFilePath();
+  const QFileInfo fileInfo(selectedFile);
+  if (!fileInfo.exists() || !fileInfo.isFile() || !fileInfo.isReadable())
+    {
+      m_lastError = QStringLiteral("The selected NRRD file is missing or unreadable: %1")
+        .arg(selectedFile);
+      return false;
+    }
+
+  NrrdVolumeInfo expectedInfo;
+  if (!readVolumeInfo(selectedFile, expectedInfo, m_lastError))
+    return false;
+
+  quint64 histogramBytes = 0;
+  quint64 requiredBytes = 0;
+  if (!checkedImportMultiply(65536, sizeof(quint64), histogramBytes) ||
+      !checkedImportAdd(expectedInfo.volumeBytes, histogramBytes,
+                        requiredBytes) ||
+      !checkedImportAdd(requiredBytes, kNrrdDecodeSafetyBytes,
+                        requiredBytes))
+    {
+      m_lastError = QStringLiteral("The NRRD working-set calculation overflowed.");
+      return false;
+    }
+
+  const ImportMemoryAdmission admission =
+    evaluateImportMemoryAdmission(requiredBytes);
+  if (!admission.approved)
+    {
+      m_lastError = memoryAdmissionError(admission);
+      return false;
+    }
+
+  std::atomic_bool cancelRequested(false);
+  std::atomic_int progressValue(0);
+  QProgressDialog progress(QStringLiteral("Loading NRRD volume"),
+                           QStringLiteral("Cancel"), 0, 100,
+                           QApplication::activeWindow());
+  progress.setWindowModality(Qt::ApplicationModal);
+  progress.setMinimumDuration(0);
+  progress.setAutoClose(false);
+  progress.setAutoReset(false);
+  progress.show();
+
+  QEventLoop waitLoop;
+  QTimer progressTimer;
+  QFutureWatcher<NrrdLoadResult> watcher;
+  QObject::connect(&progress, &QProgressDialog::canceled,
+                   [&cancelRequested]() { cancelRequested.store(true); });
+  QObject::connect(&progressTimer, &QTimer::timeout,
+                   [&progress, &progressValue]()
+                   { progress.setValue(progressValue.load()); });
+  QObject::connect(&watcher, &QFutureWatcher<NrrdLoadResult>::finished,
+                   &waitLoop, &QEventLoop::quit);
+
+  const QFuture<NrrdLoadResult> future = QtConcurrent::run(
+    [selectedFile, expectedInfo, &cancelRequested, &progressValue]()
+    {
+      NrrdLoadResult result;
+      result.info = expectedInfo;
+      try
+        {
+          if (cancelRequested.load())
+            {
+              result.canceled = true;
+              result.error = QStringLiteral("NRRD import canceled");
+              return result;
+            }
+
+          NrrdVolumeInfo currentInfo;
+          if (!readVolumeInfo(selectedFile, currentInfo, result.error))
+            return result;
+          if (!sameLayout(expectedInfo, currentInfo))
+            {
+              result.error = QStringLiteral(
+                "The NRRD file changed after its metadata was inspected.");
+              return result;
+            }
+          progressValue.store(5);
+
+          uchar *allocated = new (std::nothrow)
+            uchar[static_cast<std::size_t>(expectedInfo.volumeBytes)];
+          if (!allocated)
+            {
+              result.error = QStringLiteral(
+                "NRRD import could not allocate the admitted volume buffer.");
+              return result;
+            }
+          result.volume = std::shared_ptr<uchar>(
+            allocated, std::default_delete<uchar[]>());
+          progressValue.store(10);
+
+          itk::NrrdImageIO::Pointer imageIO = itk::NrrdImageIO::New();
+          const QByteArray encodedName = QFile::encodeName(selectedFile);
+          imageIO->SetFileName(encodedName.constData());
+          imageIO->ReadImageInformation();
+          if (cancelRequested.load())
+            {
+              result.canceled = true;
+              result.error = QStringLiteral("NRRD import canceled");
+              return result;
+            }
+
+          imageIO->Read(result.volume.get());
+          progressValue.store(70);
+          if (cancelRequested.load())
+            {
+              result.canceled = true;
+              result.error = QStringLiteral("NRRD import canceled");
+              return result;
+            }
+
+          if (!calculateStatistics(expectedInfo, result.volume.get(),
+                                   cancelRequested, progressValue, result))
+            return result;
+
+          result.success = true;
+          progressValue.store(100);
+        }
+      catch (const itk::ExceptionObject &exception)
+        {
+          result.canceled = cancelRequested.load();
+          result.error = result.canceled ?
+            QStringLiteral("NRRD import canceled") :
+            QStringLiteral("NRRD decoding failed: %1").arg(exception.what());
+        }
+      catch (const std::bad_alloc &)
+        {
+          result.error = QStringLiteral(
+            "NRRD decoding exhausted memory despite the admission check.");
+        }
+      catch (const std::exception &exception)
+        {
+          result.error = QStringLiteral("NRRD decoding failed: %1")
+            .arg(exception.what());
+        }
+      catch (...)
+        {
+          result.error = QStringLiteral(
+            "NRRD decoding failed because of an unknown error.");
+        }
+      return result;
+    });
+
+  watcher.setFuture(future);
+  progressTimer.start(50);
+  waitLoop.exec();
+  progressTimer.stop();
+  // Closing QProgressDialog emits canceled(); hide it so a completed worker
+  // cannot leave the cancellation flag set after a successful import.
+  progress.hide();
+
+  const NrrdLoadResult result = watcher.result();
+  if (!result.success)
+    {
+      m_lastOperationCanceled = result.canceled;
+      m_lastError = result.error.isEmpty() ?
+        QStringLiteral("The NRRD decoder rejected the selected volume.") :
+        result.error;
+      return false;
+    }
+
+  m_fileName = QStringList() << selectedFile;
+  m_description = QStringLiteral("NRRD volume");
+  m_depth = result.info.depth;
+  m_width = result.info.width;
+  m_height = result.info.height;
+  m_voxelType = result.info.voxelType;
+  m_bytesPerVoxel = result.info.bytesPerVoxel;
+  m_voxelUnit = _Millimeter;
+  m_voxelSizeX = result.info.voxelSizeX;
+  m_voxelSizeY = result.info.voxelSizeY;
+  m_voxelSizeZ = result.info.voxelSizeZ;
+  m_skipBytes = 0;
+  m_headerBytes = 0;
+  m_rawMin = result.rawMin;
+  m_rawMax = result.rawMax;
+  m_histogram = result.histogram;
+  m_entireVolume = result.volume;
   return true;
 }
 
-
-#define MINMAXANDHISTOGRAM()				\
-  {							\
-    for(int j=0; j<nY*nZ; j++)				\
-      {							\
-	int val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, (float)val);		\
-	m_rawMax = qMax(m_rawMax, (float)val);		\
-							\
-	int idx = val-rMin;				\
-	m_histogram[idx]++;				\
-      }							\
-  }
-
+void
+NrrdPlugin::replaceFile(QString fileName)
+{
+  setFile(QStringList() << fileName);
+}
 
 void
-NrrdPlugin::findMinMaxandGenerateHistogram()
+NrrdPlugin::setMinMax(float rawMinimum, float rawMaximum)
 {
-  QProgressDialog progress("Generating Histogram",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-  float rSize;
-  float rMin;
-  m_histogram.clear();
-  if (m_voxelType == _UChar ||
-      m_voxelType == _Char)
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
+  if (!std::isfinite(rawMinimum) || !std::isfinite(rawMaximum) ||
+      rawMinimum > rawMaximum)
     {
-      if (m_voxelType == _UChar) rMin = 0;
-      if (m_voxelType == _Char) rMin = -127;
-      rSize = 255;
-      for(int i=0; i<256; i++)
-	m_histogram.append(0);
-    }
-  else if (m_voxelType == _UShort ||
-      m_voxelType == _Short)
-    {
-      if (m_voxelType == _UShort) rMin = 0;
-      if (m_voxelType == _Short) rMin = -32767;
-      rSize = 65535;
-      for(int i=0; i<65536; i++)
-	m_histogram.append(0);
-    }
-  else
-    {
-      QMessageBox::information(0, "Error", "Why am i here ???");
+      m_lastError = QStringLiteral("The requested NRRD histogram range is invalid.");
       return;
     }
 
-//  //==================
-//  // do not calculate histogram
-//  if (m_voxelType == _UChar)
-//    {
-//      m_rawMin = 0;
-//      m_rawMax = 255;
-//      progress.setValue(100);
-//      return;
-//    }
-//  if (m_voxelType == _UShort)
-//    {
-//      m_rawMin = 0;
-//      m_rawMax = 65535;
-//      progress.setValue(100);
-//      return;
-//    }
-//  //==================
-
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  int idx[3];
-  int sz[3];
-  idx[0] = idx[1] = idx[2] = 0;
-  sz[0] = m_height;
-  sz[1] = m_width;
-  sz[2] = 1;
-
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
-  for(int i=0; i<m_depth; i++)
+  const float previousRawMinimum = m_rawMin;
+  const float previousRawMaximum = m_rawMax;
+  const QList<uint> previousHistogram = m_histogram;
+  m_rawMin = rawMinimum;
+  m_rawMax = rawMaximum;
+  if (m_voxelType == _Int || m_voxelType == _Float)
     {
-      progress.setValue((int)(100.0*(float)i/(float)m_depth));
-      qApp->processEvents();
-
-      idx[2] = i;
-
-      if (m_voxelType == _UChar)
-	readSlice<unsigned char>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Char)
-	readSlice<char>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _UShort)
-	readSlice<unsigned short>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Short)
-	readSlice<short>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Int)
-	readSlice<int>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Float)
-	readSlice<float>(idx, sz, nbytes, tmp);
- 
-      if (m_voxelType == _UChar)
-	{
-	  uchar *ptr = tmp;
-	  MINMAXANDHISTOGRAM();
-	}
-      else if (m_voxelType == _Char)
-	{
-	  char *ptr = (char*) tmp;
-	  MINMAXANDHISTOGRAM();
-	}
-      if (m_voxelType == _UShort)
-	{
-	  ushort *ptr = (ushort*) tmp;
-	  MINMAXANDHISTOGRAM();
-	}
-      else if (m_voxelType == _Short)
-	{
-	  short *ptr = (short*) tmp;
-	  MINMAXANDHISTOGRAM();
-	}
-      else if (m_voxelType == _Int)
-	{
-	  int *ptr = (int*) tmp;
-	  MINMAXANDHISTOGRAM();
-	}
-      else if (m_voxelType == _Float)
-	{
-	  float *ptr = (float*) tmp;
-	  MINMAXANDHISTOGRAM();
-	}
+      generateHistogram();
+      if (!m_lastError.isEmpty() || m_lastOperationCanceled)
+        {
+          m_rawMin = previousRawMinimum;
+          m_rawMax = previousRawMaximum;
+          m_histogram = previousHistogram;
+        }
     }
-
-  delete [] tmp;
-
-//  while(m_histogram.last() == 0)
-//    m_histogram.removeLast();
-//  while(m_histogram.first() == 0)
-//    m_histogram.removeFirst();
-
-  progress.setValue(100);
-  qApp->processEvents();
 }
-
-
-#define FINDMINMAX()					\
-  {							\
-    for(int j=0; j<nY*nZ; j++)				\
-      {							\
-	float val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, val);			\
-	m_rawMax = qMax(m_rawMax, val);			\
-      }							\
-  }
-
-void
-NrrdPlugin::findMinMax()
-{
-  QProgressDialog progress("Finding Min and Max",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  int idx[3];
-  int sz[3];
-  idx[0] = idx[1] = idx[2] = 0;
-  sz[0] = m_height;
-  sz[1] = m_width;
-  sz[2] = 1;
-
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
-  for(int i=0; i<nX; i++)
-    {
-      progress.setValue((int)(100.0*(float)i/(float)nX));
-      qApp->processEvents();
-
-      idx[2] = i;
-
-      if (m_voxelType == _UChar)
-	readSlice<unsigned char>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Char)
-	readSlice<char>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _UShort)
-	readSlice<unsigned short>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Short)
-	readSlice<short>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Int)
-	readSlice<int>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Float)
-	readSlice<float>(idx, sz, nbytes, tmp);
-
-      if (m_voxelType == _UChar)
-	{
-	  uchar *ptr = tmp;
-	  FINDMINMAX();
-	}
-      else if (m_voxelType == _Char)
-	{
-	  char *ptr = (char*) tmp;
-	  FINDMINMAX();
-	}
-      if (m_voxelType == _UShort)
-	{
-	  ushort *ptr = (ushort*) tmp;
-	  FINDMINMAX();
-	}
-      else if (m_voxelType == _Short)
-	{
-	  short *ptr = (short*) tmp;
-	  FINDMINMAX();
-	}
-      else if (m_voxelType == _Int)
-	{
-	  int *ptr = (int*) tmp;
-	  FINDMINMAX();
-	}
-      else if (m_voxelType == _Float)
-	{
-	  float *ptr = (float*) tmp;
-	  FINDMINMAX();
-	}
-    }
-
-  delete [] tmp;
-
-  progress.setValue(100);
-  qApp->processEvents();
-}
-
-#define GENHISTOGRAM()					\
-  {							\
-    for(int j=0; j<nY*nZ; j++)				\
-      {							\
-	float fidx = (ptr[j]-m_rawMin)/rSize;		\
-	fidx = qBound(0.0f, fidx, 1.0f);		\
-	int idx = fidx*histogramSize;			\
-	m_histogram[idx]+=1;				\
-      }							\
-  }
 
 void
 NrrdPlugin::generateHistogram()
 {
-  QProgressDialog progress("Generating Histogram",
-			   QString(),
-			   0, 100,
-			   0);
-  progress.setMinimumDuration(0);
-
-
-  float rSize = m_rawMax-m_rawMin;
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  m_histogram.clear();
-  if (m_voxelType == _UChar ||
-      m_voxelType == _Char ||
-      m_voxelType == _UShort ||
-      m_voxelType == _Short)
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
+  if (!m_entireVolume || m_depth <= 0 || m_width <= 0 || m_height <= 0)
     {
-      for(int i=0; i<rSize+1; i++)
-	m_histogram.append(0);
+      m_lastError = QStringLiteral("No NRRD volume is loaded.");
+      return;
     }
-  else
-    {      
-      for(int i=0; i<65536; i++)
-	m_histogram.append(0);
-    }
-
-  int histogramSize = m_histogram.size()-1;
-
-  int idx[3];
-  int sz[3];
-  idx[0] = idx[1] = idx[2] = 0;
-  sz[0] = m_height;
-  sz[1] = m_width;
-  sz[2] = 1;
-
-  for(int i=0; i<nX; i++)
+  if (m_voxelType != _Int && m_voxelType != _Float)
+    return;
+  if (!std::isfinite(m_rawMin) || !std::isfinite(m_rawMax) ||
+      m_rawMax < m_rawMin)
     {
-      progress.setValue((int)(100.0*(float)i/(float)nX));
-      qApp->processEvents();
-
-      idx[2] = i;
-
-      if (m_voxelType == _UChar)
-	readSlice<unsigned char>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Char)
-	readSlice<char>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _UShort)
-	readSlice<unsigned short>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Short)
-	readSlice<short>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Int)
-	readSlice<int>(idx, sz, nbytes, tmp);
-      else if (m_voxelType == _Float)
-	readSlice<float>(idx, sz, nbytes, tmp);
-
-      if (m_voxelType == _UChar)
-	{
-	  uchar *ptr = tmp;
-	  GENHISTOGRAM();
-	}
-      else if (m_voxelType == _Char)
-	{
-	  char *ptr = (char*) tmp;
-	  GENHISTOGRAM();
-	}
-      if (m_voxelType == _UShort)
-	{
-	  ushort *ptr = (ushort*) tmp;
-	  GENHISTOGRAM();
-	}
-      else if (m_voxelType == _Short)
-	{
-	  short *ptr = (short*) tmp;
-	  GENHISTOGRAM();
-	}
-      else if (m_voxelType == _Int)
-	{
-	  int *ptr = (int*) tmp;
-	  GENHISTOGRAM();
-	}
-      else if (m_voxelType == _Float)
-	{
-	  float *ptr = (float*) tmp;
-	  GENHISTOGRAM();
-	}
-    }
-
-  delete [] tmp;
-
-//  while(m_histogram.last() == 0)
-//    m_histogram.removeLast();
-//  while(m_histogram.first() == 0)
-//    m_histogram.removeFirst();
-
-//  QMessageBox::information(0, "",  QString("%1 %2 : %3").\
-//			   arg(m_rawMin).arg(m_rawMax).arg(rSize));
-
-  progress.setValue(100);
-  qApp->processEvents();
-}
-
-void
-NrrdPlugin::getDepthSlice(int slc,
-			 uchar *slice)
-{
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  if (slc < 0 || slc >= m_depth)
-    {
-      memset(slice, 0, nbytes);
+      m_lastError = QStringLiteral("The requested NRRD histogram range is invalid.");
       return;
     }
 
-  int idx[3];
-  int sz[3];
-  idx[0] = idx[1] = 0;
-  idx[2] = slc;
-  sz[0] = m_height;
-  sz[1] = m_width;
-  sz[2] = 1;
+  quint64 planeVoxels = 0;
+  quint64 voxelCount = 0;
+  if (!checkedImportMultiply(static_cast<quint64>(m_width),
+                             static_cast<quint64>(m_height), planeVoxels) ||
+      !checkedImportMultiply(static_cast<quint64>(m_depth),
+                             planeVoxels, voxelCount))
+    {
+      m_lastError = QStringLiteral("The NRRD histogram size overflowed.");
+      return;
+    }
 
-  if (m_voxelType == _UChar)
-    readSlice<unsigned char>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Char)
-    readSlice<char>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _UShort)
-    readSlice<unsigned short>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Short)
-    readSlice<short>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Int)
-    readSlice<int>(idx, sz, nbytes, slice);
-  else if (m_voxelType == _Float)
-    readSlice<float>(idx, sz, nbytes, slice);
+  std::atomic_bool cancelRequested(false);
+  std::atomic_int progressValue(0);
+  QProgressDialog progress(QStringLiteral("Generating NRRD histogram"),
+                           QStringLiteral("Cancel"), 0, 100,
+                           QApplication::activeWindow());
+  progress.setWindowModality(Qt::ApplicationModal);
+  progress.setMinimumDuration(0);
+  progress.setAutoClose(false);
+  progress.setAutoReset(false);
+
+  QEventLoop waitLoop;
+  QTimer progressTimer;
+  QFutureWatcher<NrrdHistogramResult> watcher;
+  QObject::connect(&progress, &QProgressDialog::canceled,
+                   [&cancelRequested]() { cancelRequested.store(true); });
+  QObject::connect(&progressTimer, &QTimer::timeout,
+                   [&progress, &progressValue]()
+                   { progress.setValue(progressValue.load()); });
+  QObject::connect(&watcher, &QFutureWatcher<NrrdHistogramResult>::finished,
+                   &waitLoop, &QEventLoop::quit);
+
+  const std::shared_ptr<uchar> volume = m_entireVolume;
+  const int voxelType = m_voxelType;
+  const double rawMinimum = m_rawMin;
+  const double rawMaximum = m_rawMax;
+  const QFuture<NrrdHistogramResult> future = QtConcurrent::run(
+    [volume, voxelType, voxelCount, rawMinimum, rawMaximum,
+     &cancelRequested, &progressValue]()
+    {
+      NrrdHistogramResult result;
+      if (voxelType == _Int)
+        histogramForRange<int>(volume.get(), voxelCount,
+                               rawMinimum, rawMaximum, false,
+                               cancelRequested, progressValue, result);
+      else
+        histogramForRange<float>(volume.get(), voxelCount,
+                                 rawMinimum, rawMaximum, true,
+                                 cancelRequested, progressValue, result);
+      return result;
+    });
+
+  watcher.setFuture(future);
+  progressTimer.start(50);
+  waitLoop.exec();
+  progressTimer.stop();
+  // Keep programmatic completion distinct from a user pressing Cancel.
+  progress.hide();
+
+  const NrrdHistogramResult result = watcher.result();
+  if (!result.success)
+    {
+      m_lastOperationCanceled = result.canceled;
+      m_lastError = result.error;
+      return;
+    }
+  m_histogram = result.histogram;
 }
 
-//void
-//NrrdPlugin::getWidthSlice(int slc,
-//			 uchar *slice)
-//{
-//  int nbytes = m_depth*m_height*m_bytesPerVoxel;
-//  if (slc < 0 || slc >= m_width)
-//    {
-//      memset(slice, 0, nbytes);
-//      return;
-//    }
-//
-//  int idx[3];
-//  int sz[3];
-//  idx[0] = 0;
-//  idx[1] = slc;
-//  idx[2] = 0;
-//  sz[0] = m_height;
-//  sz[1] = 1;
-//  sz[2] = m_depth;
-//
-//  if (m_voxelType == _UChar)
-//    readSlice<unsigned char>(idx, sz, nbytes, slice);
-//  else if (m_voxelType == _Char)
-//    readSlice<char>(idx, sz, nbytes, slice);
-//  else if (m_voxelType == _UShort)
-//    readSlice<unsigned short>(idx, sz, nbytes, slice);
-//  else if (m_voxelType == _Short)
-//    readSlice<short>(idx, sz, nbytes, slice);
-//  else if (m_voxelType == _Int)
-//    readSlice<int>(idx, sz, nbytes, slice);
-//  else if (m_voxelType == _Float)
-//    readSlice<float>(idx, sz, nbytes, slice);
-//}
-//
-//void
-//NrrdPlugin::getHeightSlice(int slc,
-//			  uchar *slice)
-//{
-//  int nbytes = m_depth*m_width*m_bytesPerVoxel;
-//  if (slc < 0 || slc >= m_height)
-//    {
-//      memset(slice, 0, nbytes);
-//      return;
-//    }
-//
-//  int idx[3];
-//  int sz[3];
-//  idx[0] = slc;
-//  idx[1] = 0;
-//  idx[2] = 0;
-//  sz[0] = 1;
-//  sz[1] = m_width;
-//  sz[2] = m_depth;
-//
-//  if (m_voxelType == _UChar)
-//    readSlice<unsigned char>(idx, sz, nbytes, slice);
-//  else if (m_voxelType == _Char)
-//    readSlice<char>(idx, sz, nbytes, slice);
-//  else if (m_voxelType == _UShort)
-//    readSlice<unsigned short>(idx, sz, nbytes, slice);
-//  else if (m_voxelType == _Short)
-//    readSlice<short>(idx, sz, nbytes, slice);
-//  else if (m_voxelType == _Int)
-//    readSlice<int>(idx, sz, nbytes, slice);
-//  else if (m_voxelType == _Float)
-//    readSlice<float>(idx, sz, nbytes, slice);
-//}
+void
+NrrdPlugin::getDepthSlice(int sliceIndex, uchar *slice)
+{
+  m_lastError.clear();
+  quint64 sliceVoxels = 0;
+  quint64 sliceBytes = 0;
+  quint64 offset = 0;
+  if (!slice || !m_entireVolume || sliceIndex < 0 || sliceIndex >= m_depth ||
+      !checkedImportMultiply(static_cast<quint64>(m_width),
+                             static_cast<quint64>(m_height), sliceVoxels) ||
+      !checkedImportMultiply(sliceVoxels,
+                             static_cast<quint64>(m_bytesPerVoxel),
+                             sliceBytes) ||
+      !checkedImportMultiply(static_cast<quint64>(sliceIndex),
+                             sliceBytes, offset) ||
+      sliceBytes > static_cast<quint64>(
+        std::numeric_limits<std::size_t>::max()) ||
+      offset > static_cast<quint64>(
+        std::numeric_limits<std::size_t>::max()))
+    {
+      m_lastError = QStringLiteral("NRRD slice %1 is invalid.").arg(sliceIndex);
+      return;
+    }
+
+  std::memcpy(slice,
+              m_entireVolume.get()+static_cast<std::size_t>(offset),
+              static_cast<std::size_t>(sliceBytes));
+}
 
 QVariant
-NrrdPlugin::rawValue(int d, int w, int h)
+NrrdPlugin::rawValue(int depth, int width, int height)
 {
-  QVariant v;
+  if (!m_entireVolume || depth < 0 || depth >= m_depth ||
+      width < 0 || width >= m_width ||
+      height < 0 || height >= m_height)
+    return QVariant(QStringLiteral("OutOfBounds"));
 
-  if (d < 0 || d >= m_depth ||
-      w < 0 || w >= m_width ||
-      h < 0 || h >= m_height)
-    {
-      v = QVariant("OutOfBounds");
-      return v;
-    }
+  quint64 planeVoxels = 0;
+  quint64 voxelIndex = 0;
+  if (!checkedImportMultiply(static_cast<quint64>(m_width),
+                             static_cast<quint64>(m_height), planeVoxels) ||
+      !checkedImportMultiply(static_cast<quint64>(depth),
+                             planeVoxels, voxelIndex) ||
+      !checkedImportAdd(voxelIndex,
+                        static_cast<quint64>(width)*m_height+height,
+                        voxelIndex))
+    return QVariant(QStringLiteral("ReadError"));
 
-  int idx[3];
-  int sz[3];
-  idx[0] = h;
-  idx[1] = w;
-  idx[2] = d;
-  sz[0] = 1;
-  sz[1] = 1;
-  sz[2] = 1;
-
+  const uchar *address = m_entireVolume.get()+
+    static_cast<std::size_t>(voxelIndex)*m_bytesPerVoxel;
   if (m_voxelType == _UChar)
+    return QVariant(static_cast<uint>(*address));
+  if (m_voxelType == _Char)
     {
-      unsigned char a;
-      readSlice<unsigned char>(idx, sz, 1, &a);
-      v = QVariant((uint)a);
+      signed char value = 0;
+      std::memcpy(&value, address, sizeof(value));
+      return QVariant(static_cast<int>(value));
     }
-  else if (m_voxelType == _Char)
+  if (m_voxelType == _UShort)
     {
-      char a;
-      readSlice<char>(idx, sz, 1, (uchar*)&a);
-      v = QVariant((int)a);
+      ushort value = 0;
+      std::memcpy(&value, address, sizeof(value));
+      return QVariant(static_cast<uint>(value));
     }
-  else if (m_voxelType == _UShort)
+  if (m_voxelType == _Short)
     {
-      unsigned short a;
-      readSlice<unsigned short>(idx, sz, 2, (uchar*)&a);
-      v = QVariant((uint)a);
+      short value = 0;
+      std::memcpy(&value, address, sizeof(value));
+      return QVariant(static_cast<int>(value));
     }
-  else if (m_voxelType == _Short)
+  if (m_voxelType == _Int)
     {
-      short a;
-      readSlice<short>(idx, sz, 2, (uchar*)&a);
-      v = QVariant((int)a);
+      int value = 0;
+      std::memcpy(&value, address, sizeof(value));
+      return QVariant(value);
     }
-  else if (m_voxelType == _Int)
+  if (m_voxelType == _Float)
     {
-      int a;
-      readSlice<short>(idx, sz, 4, (uchar*)&a);
-      v = QVariant((int)a);
+      float value = 0;
+      std::memcpy(&value, address, sizeof(value));
+      return QVariant(static_cast<double>(value));
     }
-  else if (m_voxelType == _Float)
-    {
-      float a;
-      readSlice<short>(idx, sz, 4, (uchar*)&a);
-      v = QVariant((double)a);
-    }
-
-  return v;
+  return QVariant(QStringLiteral("ReadError"));
 }
-
-//void
-//NrrdPlugin::saveTrimmed(QString trimFile,
-//			     int dmin, int dmax,
-//			     int wmin, int wmax,
-//			     int hmin, int hmax)
-//{
-//  QProgressDialog progress("Saving trimmed volume",
-//			   QString(),
-//			   0, 100,
-//			   0);
-//  progress.setMinimumDuration(0);
-//
-//  int nX, nY, nZ;
-//  nX = m_depth;
-//  nY = m_width;
-//  nZ = m_height;
-//
-//  int mX, mY, mZ;
-//  mX = dmax-dmin+1;
-//  mY = wmax-wmin+1;
-//  mZ = hmax-hmin+1;
-//
-//  int nbytes = nY*nZ*m_bytesPerVoxel;
-//  uchar *tmp = new uchar[nbytes];
-//
-//  uchar vt;
-//  if (m_voxelType == _UChar) vt = 0; // unsigned byte
-//  if (m_voxelType == _Char) vt = 1; // signed byte
-//  if (m_voxelType == _UShort) vt = 2; // unsigned short
-//  if (m_voxelType == _Short) vt = 3; // signed short
-//  if (m_voxelType == _Int) vt = 4; // int
-//  if (m_voxelType == _Float) vt = 8; // float
-//  
-//  QFile fout(trimFile);
-//  fout.open(QFile::WriteOnly);
-//
-//  fout.write((char*)&vt, 1);
-//  fout.write((char*)&mX, 4);
-//  fout.write((char*)&mY, 4);
-//  fout.write((char*)&mZ, 4);
-//
-//
-//  int idx[3];
-//  int sz[3];
-//  idx[0] = hmin;
-//  idx[1] = wmin;
-//  idx[2] = dmin;
-//  sz[0] = mZ;
-//  sz[1] = mY;
-//  sz[2] = 1;
-//
-//  for(int i=dmin; i<=dmax; i++)
-//    {
-//      idx[2] = i;
-//
-//      if (m_voxelType == _UChar)
-//	readSlice<unsigned char>(idx, sz, nbytes, tmp);
-//      else if (m_voxelType == _Char)
-//	readSlice<char>(idx, sz, nbytes, tmp);
-//      else if (m_voxelType == _UShort)
-//	readSlice<unsigned short>(idx, sz, nbytes, tmp);
-//      else if (m_voxelType == _Short)
-//	readSlice<short>(idx, sz, nbytes, tmp);
-//      else if (m_voxelType == _Int)
-//	readSlice<int>(idx, sz, nbytes, tmp);
-//      else if (m_voxelType == _Float)
-//	readSlice<float>(idx, sz, nbytes, tmp);
-//
-//      fout.write((char*)tmp, mY*mZ*m_bytesPerVoxel);
-//
-//      progress.setValue((int)(100*(float)(i-dmin)/(float)mX));
-//      qApp->processEvents();
-//    }
-//  fout.close();
-//
-//  delete [] tmp;
-//
-//  m_headerBytes = 13; // to be used for applyMapping function
-//}

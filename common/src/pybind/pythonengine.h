@@ -28,8 +28,6 @@ public:
     void print(const std::string& code);
 
 private:
-    static std::unique_ptr<PythonEngine> m_instance;
-
     PythonEngine(const PythonEngine&) = delete;
     PythonEngine& operator=(const PythonEngine&) = delete;
 

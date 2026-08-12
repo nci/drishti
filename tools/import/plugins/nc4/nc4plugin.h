@@ -47,6 +47,7 @@ class NcPlugin : public QObject, VolInterface
 
   void generateHistogram();
   void set4DVolume(bool);
+  Q_INVOKABLE QString lastError() const;
  private :
   QStringList m_fileName;
   bool m_4dvol;
@@ -67,6 +68,7 @@ class NcPlugin : public QObject, VolInterface
 
   QList<int> m_depthList;
   QString m_varName;
+  QString m_lastError;
 
   QList<QString> listAllVariables();
   QList<QString> listAllAttributes();
@@ -74,7 +76,7 @@ class NcPlugin : public QObject, VolInterface
   void findMinMax();
   void findMinMaxandGenerateHistogram();
 
-  void getSlice(int, int, int, NcVar, int, uchar*);
+  bool getSlice(int, int, int, NcVar, int, uchar*);
 };
 
 #endif

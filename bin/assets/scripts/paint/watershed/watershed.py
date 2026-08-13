@@ -73,6 +73,9 @@ def process_volume() :
         pd.mask[:] = particle_labels.astype(np.uint16)
         pd.paint_obj.update_3d_view()
         pd.paint_obj.update_slice_view()
+
+        num_particles = len(np.unique(pd.mask)) - (1 if 0 in pd.mask else 0)
+        print('Number of Labels : ', num_particles)
         print('done')
     except Exception as e :
         print('Error : ', str(e))

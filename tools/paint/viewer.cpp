@@ -1140,41 +1140,6 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0] == "ws")
-    {
-      int tag = -1;
-      int size = -1;
-      if (list.size() == 2)
-	{
-	  size = list[1].toInt(&ok);
-	  if (size > 0)
-	    {
-	      watershed(tag, size);
-	      return;
-	    }
-	}
-      if (list.size() == 3)
-	{
-	  tag = list[1].toInt(&ok);
-	  size = list[2].toInt(&ok);
-	  if (tag > 0 && size > 0)
-	    {
-	      watershed(tag, size);
-	      return;
-	    }
-	}
-
-      QMessageBox::information(0, "Watershed", "Expecting - ws <tag> <size>");
-      
-      return;
-    }
-
-  if (list[0] == "ws+")
-    {
-      watershedPlus();
-      return;
-    }
-
   if (list[0] == "removecomponents")
     {
       int tag = -1;

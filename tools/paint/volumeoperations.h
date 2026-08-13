@@ -142,28 +142,6 @@ class VolumeOperations
 				  int&, int&,
 				  int&, int&,
 				  int, float, float);
-  
-
-  static void watershed(Vec, Vec, int,
-			int,
-			int&, int&,
-			int&, int&,
-			int&, int&,
-			int, float, float);
-
-  static void watershedPlus(Vec, Vec,
-			    int&, int&,
-			    int&, int&,
-			    int&, int&,
-			    int, float, float);
-
-  static void watershedPriorityQueue(Vec, Vec, int,
-				     int,
-				     int&, int&,
-				     int&, int&,
-				     int&, int&,
-				     int, float, float);
-
 
   static void distanceTransform(Vec, Vec, int,
 				int&, int&,
@@ -430,11 +408,6 @@ class VolumeOperations
 			   MyBitArray&,
 			   qint64, qint64, qint64,
 			   int);
-
-  static VOXEL findSteepestDescent(float*,
-				   int, int, int,
-				   qint64, qint64, qint64);
-
 };
 
 #endif

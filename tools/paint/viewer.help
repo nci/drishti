@@ -245,34 +245,6 @@ Distance Transform
 #end
 
 
-#begin
-ws
-ws
-ws <label> <size>
-
-Watershed segmentation for the given visible <label> region.
-If no <label> is specified (i.e. only 1 value is specified, it is taken as <size>) then watershed segmentation for all visible region is found.
-
-The algorithm consists of following steps :
-1. Erode region by <size> parameter
-2. Identify markers using connected components
-3. Watersed using markers
-
-Clipping planes are obeyed - clipped region is not taken into account.
-#end
-
-
-#begin
-ws+
-ws+
-
-Watershed segmentation for the visible region using user provided markers.
-Non-zero regions are assumed as markers for watershed segmentation.
-
-
-Clipping planes are obeyed - clipped region is not taken into account.
-#end
-
 
 #begin
 removecomponents

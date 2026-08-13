@@ -11,6 +11,8 @@ class paint_data :
         self.mask = 0
         self.lut = 0
         self.label_color = 0
+        self.boxmin = np.zeros(3, np.int32)
+        self.boxmax = np.zeros(3, np.int32)
         self.depth = 0
         self.width = 0
         self.height = 0
@@ -33,6 +35,8 @@ def set_paint_data(py_obj) :
         pd.mask = py_obj.get_mask_view()
         pd.lut = py_obj.get_lut_view()
         pd.label_color = py_obj.get_labelcolors_view()
+        pd.boxmin = py_obj.get_boxmin();
+        pd.boxmax = py_obj.get_boxmax();
         pd.depth = py_obj.depth
         pd.width = py_obj.width
         pd.height = py_obj.height
@@ -104,17 +108,39 @@ def process_volume() :
         
         #model='model_svl_step=2.h5'
         #model='sam_vit_l_0b3195.pth'
-        results = deep_learning(pd.volume,
-                                #mask_data=pd.mask,
-                                mask_data=mask,
-                                path_to_model=model,
-                                predict=True,
-                                epochs=epochs,
-                                min_particle_size=min_particle_size,
-                                downsample=downsample,
-                                batch_size=512)
-        
-        pd.mask[:] = results['regular'].astype(np.uint16)
+        print(pd.boxmin, pd.boxmax)
+        box = pd.boxmax-pd.boxmin
+        if np.all(box-pd.dim == 0) :
+            results = deep_learning(pd.volume,
+                                    #mask_data=pd.mask,
+                                    mask_data=mask,
+                                    path_to_model=model,
+                                    predict=True,
+                                    epochs=epochs,
+                                    min_particle_size=min_particle_size,
+                                    downsample=downsample,
+                                    batch_size=512)        
+            pd.mask[:] = results['regular'].astype(np.uint16)
+        else :
+            roi = pd.volume[pd.boxmin[0]:pd.boxmax[0],
+                            pd.boxmin[1]:pd.boxmax[1],
+                            pd.boxmin[2]:pd.boxmax[2]]
+            mask = mask[pd.boxmin[0]:pd.boxmax[0],
+                        pd.boxmin[1]:pd.boxmax[1],
+                        pd.boxmin[2]:pd.boxmax[2]]
+            results = deep_learning(roi,
+                                    #mask_data=pd.mask,
+                                    mask_data=mask,
+                                    path_to_model=model,
+                                    predict=True,
+                                    epochs=epochs,
+                                    min_particle_size=min_particle_size,
+                                    downsample=downsample,
+                                    batch_size=512)        
+            pd.mask[pd.boxmin[0]:pd.boxmax[0],
+                    pd.boxmin[1]:pd.boxmax[1],
+                    pd.boxmin[2]:pd.boxmax[2]] = results['regular'].astype(np.uint16)
+            
         pd.paint_obj.update_3d_view()
         pd.paint_obj.update_slice_view()
     except Exception as e :

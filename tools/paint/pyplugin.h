@@ -14,7 +14,10 @@ class PyPlugin : public QObject
     ~PyPlugin();
 
     void clear();
-    bool init(QString, QString, uchar*, ushort*, uchar*, uchar*, int, int, int);
+    bool init(QString, QString,
+	      uchar*, ushort*, uchar*, uchar*,
+	      int, int, int,
+	      int*, int*);
     QString scriptName();
 
     bool hasInit();

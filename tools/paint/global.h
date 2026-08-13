@@ -22,6 +22,12 @@ class Global
   static uchar* lut();
   static void setLut(uchar*);
 
+  static int* boxMin();
+  static void setBoxMin(int, int, int);
+
+  static int* boxMax();
+  static void setBoxMax(int, int, int);
+
   static int filteredData();
   static void setFilteredData(int);
 
@@ -139,6 +145,8 @@ class Global
   static QString m_documentationPath;
   static int m_lutSize;
   static uchar* m_lut;
+  static int m_boxMin[3];
+  static int m_boxMax[3];
   static QString m_previousDirectory;
   static bool m_use1D;
   static uchar *m_tagColors;

@@ -50,7 +50,9 @@ class PyWidget : public QWidget
    uchar *m_lut;
    uchar *m_tag;
    int m_depth, m_width, m_height;
-
+   int *m_boxMin;
+   int *m_boxMax;
+  
    PyWidgetMenu *m_menu;
   
    QStringList m_scripts;

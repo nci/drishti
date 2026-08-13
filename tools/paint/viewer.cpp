@@ -1041,6 +1041,14 @@ Viewer::processCommand(QString cmd)
 
   if (list[0] == "script")
     {
+      int minDSlice, maxDSlice;
+      int minWSlice, maxWSlice;
+      int minHSlice, maxHSlice;
+      getBox(minDSlice, maxDSlice,
+	     minWSlice, maxWSlice,
+	     minHSlice, maxHSlice);
+      Global::setBoxMin(minDSlice, minWSlice, minHSlice);
+      Global::setBoxMax(maxDSlice, maxWSlice, maxHSlice);
       QStringList words = ocmd.split(" ", QString::SkipEmptyParts);
       QString fnc = words[1];
       emit callFunctionFromScript(fnc);

@@ -2636,7 +2636,11 @@ ImageWidget::processInScript()
 	      imageData[idx] = imageData[i*m_imgWidth+j];
 	      idx++;
       }
-  
+
+  //------
+  Global::setBoxMin(m_minDSlice, m_minWSlice, m_minHSlice);
+  Global::setBoxMax(m_maxDSlice, m_maxWSlice, m_maxHSlice);
+  //------
   
   if (Global::pywidget()->processSlice(imageData, maskData, 
                                       size2, size1,

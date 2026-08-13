@@ -42,7 +42,8 @@ void PyPlugin::clear()
 bool 
 PyPlugin::init(QString pluginflnm, QString script, 
                uchar* data, ushort* mask, uchar* lut, uchar* tag, 
-               int width, int height, int depth)
+               int width, int height, int depth,
+	       int *boxMin, int *boxMax)
 {
     QPluginLoader loader(pluginflnm);
 
@@ -53,7 +54,10 @@ PyPlugin::init(QString pluginflnm, QString script,
         m_plugin = qobject_cast<PyPluginInterface*>(plugin);
         if (m_plugin)
         {
-            m_plugin->init(script, data, mask, lut, tag, width, height, depth);
+	    m_plugin->init(script,
+			   data, mask, lut, tag,
+			   width, height, depth,
+			   boxMin, boxMax);
             std::cout << "Python version loaded - " << pluginflnm.toLatin1().data() << "\n";
             return true;
         }

@@ -19,6 +19,8 @@ PYBIND11_EMBEDDED_MODULE(paintmod, m) {
         .def("get_mask_view", &PaintVolMask::get_mask_view)
         .def("get_lut_view", &PaintVolMask::get_lut_view)
         .def("get_labelcolors_view", &PaintVolMask::get_tag_view)
+        .def("get_boxmin", &PaintVolMask::get_boxmin)
+        .def("get_boxmax", &PaintVolMask::get_boxmax)
 
         .def("update_slice_view", &PaintVolMask::update_slice_view)
         .def("update_3d_view", &PaintVolMask::update_3d_view);
@@ -63,6 +65,23 @@ PaintVolMask::get_mask_view()
                                {sizeof(uint16_t)},
                                mask, 
                                py::cast(nullptr));
+}
+
+py::array_t<int> 
+PaintVolMask::get_boxmin() 
+{
+  return py::array_t<int>({3}, 
+			  {sizeof(int)},
+			  boxmin, 
+			  py::cast(nullptr));
+}
+py::array_t<int> 
+PaintVolMask::get_boxmax() 
+{
+  return py::array_t<int>({3}, 
+			  {sizeof(int)},
+			  boxmax, 
+			  py::cast(nullptr));
 }
 
 void 

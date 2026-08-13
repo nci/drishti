@@ -31,7 +31,8 @@ void
 PyVersion::init(QString script,
                 uchar *vol, ushort *mask, 
                 uchar *lut, uchar *tag,
-                int depth, int width, int height)
+                int depth, int width, int height,
+		int* boxmin, int* boxmax)
 {    
   PythonEngine &pythonGuard = PythonEngine::instance();
   (&pythonGuard)->init(true);
@@ -48,6 +49,8 @@ PyVersion::init(QString script,
   PaintVolMask::global_paint_vol_mask->depth = depth;
   PaintVolMask::global_paint_vol_mask->width = width;
   PaintVolMask::global_paint_vol_mask->height = height;
+  PaintVolMask::global_paint_vol_mask->boxmin = boxmin;
+  PaintVolMask::global_paint_vol_mask->boxmax = boxmax;  
 }
 
 void

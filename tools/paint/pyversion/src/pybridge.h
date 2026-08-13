@@ -21,12 +21,16 @@ public:
     PaintVolMask() : volume(nullptr), mask(nullptr), 
                      lut(nullptr), tag(nullptr),
                      depth(0), width(0), height(0),
+		     boxmin(nullptr), boxmax(nullptr), 
                      scriptActive(false) {}
 
     py::array_t<uint8_t> get_volume_view();
     py::array_t<uint8_t> get_lut_view();
     py::array_t<uint8_t> get_tag_view();
     py::array_t<uint16_t> get_mask_view();
+    py::array_t<int> get_boxmin();
+    py::array_t<int> get_boxmax();
+
 
     void update_slice_view();
     void update_3d_view();
@@ -39,6 +43,8 @@ public:
     uint8_t *tag;
     uint8_t *label_colors;
     int depth, width, height;
+    int *boxmin;
+    int *boxmax;
 
     py::dict pyDict;
 

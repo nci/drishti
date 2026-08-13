@@ -13,6 +13,9 @@ class paint_data :
         self.volume = 0
         self.mask = 0
         self.lut = 0
+        self.label_color = 0
+        self.boxmin = np.zeros(3, np.int32)
+        self.boxmax = np.zeros(3, np.int32)
         self.depth = 0
         self.width = 0
         self.height = 0
@@ -27,6 +30,9 @@ def set_paint_data(py_obj) :
     pd.volume = py_obj.get_volume_view()
     pd.mask = py_obj.get_mask_view()
     pd.lut = py_obj.get_lut_view()
+    pd.label_color = py_obj.get_labelcolors_view()
+    pd.boxmin = py_obj.get_boxmin();
+    pd.boxmax = py_obj.get_boxmax();
     pd.depth = py_obj.depth
     pd.width = py_obj.width
     pd.height = py_obj.height
@@ -60,17 +66,25 @@ def process_volume() :
         #foreground = pd.volume >= threshold_otsu(pd.volume)
         foreground = np.take(pd.lut[::4]>0, pd.volume)
         
+        print(pd.boxmin, pd.boxmax)
+        foreground = foreground[pd.boxmin[0]:pd.boxmax[0],
+                                pd.boxmin[1]:pd.boxmax[1],
+                                pd.boxmin[2]:pd.boxmax[2]]
+        
         distance_img = distance_transform_edt(foreground)
         
         peaks = peak_local_max(distance_img, labels=label(foreground), min_distance=5)
         
         # We do some minor tweaking to get the peaks data into the right format for watershed
-        markers = peaks_to_markers_3d(pd.volume, peaks)
+        markers = peaks_to_markers_3d(foreground, peaks)
         
         # Watershed segmentation
         particle_labels = watershed(-distance_img, markers, mask=foreground)
         particle_labels = np.where(np.isnan(particle_labels), 0, particle_labels)
-        pd.mask[:] = particle_labels.astype(np.uint16)
+        #pd.mask[:] = particle_labels.astype(np.uint16)
+        pd.mask[pd.boxmin[0]:pd.boxmax[0],
+                pd.boxmin[1]:pd.boxmax[1],
+                pd.boxmin[2]:pd.boxmax[2]] = particle_labels.astype(np.uint16)
         pd.paint_obj.update_3d_view()
         pd.paint_obj.update_slice_view()
 

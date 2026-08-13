@@ -88,6 +88,25 @@ void Global::setLut(uchar *lt)
   memcpy(m_lut, lt, 4*256*256);
 }
 
+int Global::m_boxMin[3];
+int* Global::boxMin() { return &m_boxMin[0]; }
+void Global::setBoxMin(int d, int w, int h)
+{
+  m_boxMin[0] = d;
+  m_boxMin[1] = w;
+  m_boxMin[2] = h;
+}
+
+int Global::m_boxMax[3];
+int* Global::boxMax() { return &m_boxMax[0]; }
+void Global::setBoxMax(int d, int w, int h)
+{
+  m_boxMax[0] = d;
+  m_boxMax[1] = w;
+  m_boxMax[2] = h;
+}
+
+
 
 bool Global::m_use1D = true;
 bool Global::use1D() { return m_use1D; }

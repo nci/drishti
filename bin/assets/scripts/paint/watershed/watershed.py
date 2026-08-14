@@ -28,7 +28,7 @@ pd = paint_data()
 def set_paint_data(py_obj) :
     pd.paint_obj = py_obj
     pd.volume = py_obj.get_volume_view()
-    pd.mask = py_obj.get_mask_view()
+    pd.labels = py_obj.get_mask_view()
     pd.lut = py_obj.get_lut_view()
     pd.label_color = py_obj.get_labelcolors_view()
     pd.boxmin = py_obj.get_boxmin();
@@ -47,7 +47,7 @@ def set_paint_data(py_obj) :
 def init() :
     print('init watershed')
     pd.volume = pd.volume.reshape(pd.dim)  
-    pd.mask = pd.mask.reshape(pd.dim)  
+    pd.labels = pd.labels.reshape(pd.dim)  
 
     
 def peaks_to_markers_3d(image, peaks):
@@ -64,7 +64,14 @@ def process_volume() :
     try : 
         # define foreground by visibility instead of otsu threshold
         #foreground = pd.volume >= threshold_otsu(pd.volume)
-        foreground = np.take(pd.lut[::4]>0, pd.volume)
+        #foreground = np.take(pd.lut[3::4]>0, pd.volume)
+        #mask = np.take(pd.label_color[3::4]>0, pd.labels) # consider label visibility
+        #foreground = np.where(mask>0, foreground, 0)
+        foreground = np.where(
+            np.take(pd.label_color[3::4] > 0, pd.labels, mode='clip'),
+            np.take(pd.lut[3::4] > 0, pd.volume, mode='clip'),
+            0
+        )
         
         print(pd.boxmin, pd.boxmax)
         foreground = foreground[pd.boxmin[0]:pd.boxmax[0],
@@ -80,15 +87,14 @@ def process_volume() :
         
         # Watershed segmentation
         particle_labels = watershed(-distance_img, markers, mask=foreground)
-        particle_labels = np.where(np.isnan(particle_labels), 0, particle_labels)
-        #pd.mask[:] = particle_labels.astype(np.uint16)
-        pd.mask[pd.boxmin[0]:pd.boxmax[0],
-                pd.boxmin[1]:pd.boxmax[1],
-                pd.boxmin[2]:pd.boxmax[2]] = particle_labels.astype(np.uint16)
+        #pd.labels[:] = particle_labels.astype(np.uint16)
+        pd.labels[pd.boxmin[0]:pd.boxmax[0],
+                  pd.boxmin[1]:pd.boxmax[1],
+                  pd.boxmin[2]:pd.boxmax[2]] = particle_labels.astype(np.uint16)
         pd.paint_obj.update_3d_view()
         pd.paint_obj.update_slice_view()
 
-        num_particles = len(np.unique(pd.mask)) - (1 if 0 in pd.mask else 0)
+        num_particles = len(np.unique(pd.labels)) - (1 if 0 in pd.labels else 0)
         print('Number of Labels : ', num_particles)
         print('done')
     except Exception as e :

@@ -6600,6 +6600,12 @@ DrishtiPaint::processVolumeFromScript()
 void
 DrishtiPaint::callFunctionFromScript(QString fnc)
 {
+  if (!m_pyWidget)
+    {
+      QMessageBox::warning(this, "Error", "No active python script");
+      return;
+    }
+  
   m_pyWidget->callFunctionFromScript(fnc);
 }
 
@@ -6634,7 +6640,11 @@ DrishtiPaint::on_actionCommand_triggered()
   addDockWidget(Qt::RightDockWidgetArea, m_dock4, Qt::Vertical);
   ui.menuView->addAction(m_dock4->toggleViewAction());
 
-  connect(m_pyWidget, &PyWidget::pyWidgetClosed, [=](){m_pyWidget=0;});
+  connect(m_pyWidget, &PyWidget::pyWidgetClosed, [=]()
+  {
+    m_pyWidget=0;
+    Global::setPyWidget(m_pyWidget);
+  });
 
   connect(m_pyWidget, &PyWidget::volumeProcessingDone, 
           this, &DrishtiPaint::reloadAllMask);

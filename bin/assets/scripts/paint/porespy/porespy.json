@@ -1,0 +1,14 @@
+{
+    "script" : "porespy_snow.py",
+    "doc" :
+"This script uses SNOW partitioning routine from .
+Avaialble in 2D and 3D.
+
+Available functions for 3D processing :
+   process_volume
+
+Modules Required : porespy, numpy
+
+https://porespy.org/
+"
+}

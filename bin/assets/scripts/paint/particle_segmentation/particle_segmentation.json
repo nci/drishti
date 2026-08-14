@@ -15,7 +15,10 @@
     },
     "doc" :
 "This script uses Biomedisa tool from https://biomedisa.info/
-Works on 3D data.
+Available in 2D and 3D.
+
+Available functions for 3D processing :
+    process_volume
 
 Modules Required : biomedisa, zarr, torch, torchvision, scikit_image,
                    medpy, numba, importlib_metadata, cv2, matplotlib,

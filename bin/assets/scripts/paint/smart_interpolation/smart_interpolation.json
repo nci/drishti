@@ -21,7 +21,10 @@
     },
     "doc" :
 "This script uses Biomedisa tool from https://biomedisa.info/
-Works on 3D data.
+Works only on 3D data.
+
+Available functions for 3D processing :
+    process_volume
 
 Modules Required : biomedisa, torch, torchvision, scikit_image,
                    medpy, simpleitkscipy, numba, importlib_metadata

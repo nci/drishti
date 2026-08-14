@@ -32,7 +32,7 @@ def set_paint_data(py_obj) :
     try :
         pd.paint_obj = py_obj
         pd.volume = py_obj.get_volume_view()
-        pd.mask = py_obj.get_mask_view()
+        pd.labels = py_obj.get_mask_view()
         pd.lut = py_obj.get_lut_view()
         pd.label_color = py_obj.get_labelcolors_view()
         pd.boxmin = py_obj.get_boxmin();
@@ -55,9 +55,9 @@ def set_paint_data(py_obj) :
 def init() :
     print('init biomedisa particle segmentation')
     pd.volume = pd.volume.reshape(pd.dim)
-    pd.mask = pd.mask.reshape(pd.dim)
+    pd.labels = pd.labels.reshape(pd.dim)
     print(pd.volume.shape, pd.volume.dtype)
-    print(pd.mask.shape, pd.mask.dtype)
+    print(pd.labels.shape, pd.labels.dtype)
 
 
 def process_slice(img, mask, width, height, tag) :
@@ -103,8 +103,10 @@ def process_volume() :
         model = path_to_models + pd.paint_obj.script_args["model"]
 
         # define mask by visibility
-        mask = np.take(pd.lut[::4]>0, pd.volume)
-        #mask[:] = pd.mask
+        mask = np.take(pd.lut[3::4]>0, pd.volume)
+        visible = np.take(pd.label_color[3::4]>0, pd.labels) # consider label visibility
+        mask = np.where(visible>0, mask, 0)
+        #mask[:] = pd.labels
         
         #model='model_svl_step=2.h5'
         #model='sam_vit_l_0b3195.pth'
@@ -112,7 +114,7 @@ def process_volume() :
         box = pd.boxmax-pd.boxmin
         if np.all(box-pd.dim == 0) :
             results = deep_learning(pd.volume,
-                                    #mask_data=pd.mask,
+                                    #mask_data=pd.labels,
                                     mask_data=mask,
                                     path_to_model=model,
                                     predict=True,
@@ -120,7 +122,7 @@ def process_volume() :
                                     min_particle_size=min_particle_size,
                                     downsample=downsample,
                                     batch_size=512)        
-            pd.mask[:] = results['regular'].astype(np.uint16)
+            pd.labels[:] = results['regular'].astype(np.uint16)
         else :
             roi = pd.volume[pd.boxmin[0]:pd.boxmax[0],
                             pd.boxmin[1]:pd.boxmax[1],
@@ -129,7 +131,7 @@ def process_volume() :
                         pd.boxmin[1]:pd.boxmax[1],
                         pd.boxmin[2]:pd.boxmax[2]]
             results = deep_learning(roi,
-                                    #mask_data=pd.mask,
+                                    #mask_data=pd.labels,
                                     mask_data=mask,
                                     path_to_model=model,
                                     predict=True,
@@ -137,9 +139,9 @@ def process_volume() :
                                     min_particle_size=min_particle_size,
                                     downsample=downsample,
                                     batch_size=512)        
-            pd.mask[pd.boxmin[0]:pd.boxmax[0],
-                    pd.boxmin[1]:pd.boxmax[1],
-                    pd.boxmin[2]:pd.boxmax[2]] = results['regular'].astype(np.uint16)
+            pd.labels[pd.boxmin[0]:pd.boxmax[0],
+                      pd.boxmin[1]:pd.boxmax[1],
+                      pd.boxmin[2]:pd.boxmax[2]] = results['regular'].astype(np.uint16)
             
         pd.paint_obj.update_3d_view()
         pd.paint_obj.update_slice_view()

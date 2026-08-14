@@ -2,6 +2,7 @@
 #define PYPLUGIN_H
 
 #include <QObject>
+#include <QPluginLoader>
 
 #include "pyplugininterface.h"
 
@@ -43,6 +44,8 @@ class PyPlugin : public QObject
 
   private :
     PyPluginInterface* m_plugin;
+    QObject* m_pluginInstance;
+    QPluginLoader m_loader;
     QString m_script;
     bool m_hasInit;
     bool m_hasDataAllocator;

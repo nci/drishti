@@ -2571,6 +2571,12 @@ ImageWidget::getSliceLimits(int &size1, int &size2,
 void
 ImageWidget::processInScript()
 {
+  if (!Global::pywidget())
+    {
+      QMessageBox::warning(this, "Error", "No active python script");
+      return;
+    }
+
   uint8_t *imageData = new uchar[m_imgWidth*m_imgHeight];
   ushort *maskData = new ushort[m_imgWidth*m_imgHeight];
 

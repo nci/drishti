@@ -1,5 +1,4 @@
 #include "pyplugin.h"
-#include <QPluginLoader>
 #include <QMessageBox>
 #include <iostream>
 
@@ -21,7 +20,9 @@ PyPlugin::~PyPlugin()
             delete m_plugin;
         }
     m_plugin = nullptr;
-}
+    //delete m_pluginInstance;
+    m_loader.unload();
+  }
 
 QString PyPlugin::scriptName() { return m_script; }
 bool PyPlugin::hasInit() { return m_hasInit;}
@@ -35,8 +36,10 @@ void PyPlugin::clear()
     {
         m_plugin->clear();
         delete m_plugin;
-        m_plugin = nullptr;
     }
+    m_plugin = nullptr;
+    //delete m_pluginInstance;
+    m_loader.unload();
 }
 
 bool 
@@ -45,13 +48,13 @@ PyPlugin::init(QString pluginflnm, QString script,
                int width, int height, int depth,
 	       int *boxMin, int *boxMax)
 {
-    QPluginLoader loader(pluginflnm);
+    m_loader.setFileName(pluginflnm);
 
-    QObject *plugin = loader.instance();
+    m_pluginInstance = m_loader.instance();
 
-    if (plugin)
+    if (m_pluginInstance)
     {
-        m_plugin = qobject_cast<PyPluginInterface*>(plugin);
+        m_plugin = qobject_cast<PyPluginInterface*>(m_pluginInstance);
         if (m_plugin)
         {
 	    m_plugin->init(script,

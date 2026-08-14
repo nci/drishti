@@ -1,13 +1,11 @@
 {
     "script" : "watershed.py",
     "doc" :
-"This script uses watershed routine from OpenCV2.
-Works on 2D slices.
-Currently 3D version is not implemented
+"This script uses watershed routine from skimage.
+Available in 2D and 3D.
 
-Modules Required : numpy, skimage, scipy",
-    
-    "arguments" : {
-	"output" : "%DIR%/text.raw"
-    }
+Available functions for 3D processing :
+    process_volume
+
+Modules Required : numpy, skimage, scipy"
 }

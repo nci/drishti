@@ -1589,6 +1589,7 @@ TIFF 混合方向、Paint harness 断言/保存状态、正式 GUI、Drishti 渲
 `include/QGLViewer` 而是安装根目录下直接包含 `QGLViewer/` 编译失败；修正 include
 父目录后成功构建并通过 lifecycle smoke。至此，旧 Conda smoke 证据缺口已经关闭。
 
-打包溯源也同步修正为只统计已跟踪文件的脏状态；`.lab-agent`、自动生成 Makefile、
-对象文件和缓存等明确排除的本地构建产物不再污染 `BUILD_INFO.txt`。最终 ZIP 必须在本节
-源码提交完成且已跟踪工作区为干净状态后重新生成，并以同目录 SHA-256 校验值为转移依据。
+打包溯源也同步修正为只统计已跟踪文件的脏状态，并排除 qmake 自动重写、含本机构建路径的
+`drishti/drishti_resource.rc`；`.lab-agent`、自动生成 Makefile、对象文件和缓存等明确排除
+的本地构建产物不再污染 `BUILD_INFO.txt`。最终 ZIP 必须在本节源码提交完成后重新生成，
+并以同目录 SHA-256 校验值为转移依据。

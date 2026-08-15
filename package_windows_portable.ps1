@@ -805,7 +805,8 @@ if ($missingDependencies.Count -ne 0)
   }
 
 $gitCommit = (& git -C $RepositoryRoot rev-parse HEAD).Trim()
-$dirtyEntryCount = @(& git -C $RepositoryRoot status --porcelain --untracked-files=no).Count
+$dirtyEntryCount = @(& git -C $RepositoryRoot status --porcelain --untracked-files=no --
+  . ':(exclude)drishti/drishti_resource.rc').Count
 $buildInfo = @(
   "Package: $PackageName",
   "Created: $([DateTimeOffset]::Now.ToString('o'))",

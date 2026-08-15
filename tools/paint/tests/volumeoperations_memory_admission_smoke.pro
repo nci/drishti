@@ -8,7 +8,8 @@ TARGET = volumeoperations_memory_admission_smoke
 INCLUDEPATH += ..
 
 SOURCES += volumeoperations_memory_admission_smoke.cpp \
-           ../getmemorysize.cpp
+           ../getmemorysize.cpp \
+           ../../../common/src/memoryreservation.cpp
 
 HEADERS += ../volumeoperations.h \
            ../getmemorysize.h

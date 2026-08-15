@@ -31,6 +31,7 @@ class VolumeSingle : public VolumeBase
   bool setMaxDimensions(int, int, int);
 
   int timestepNumber(int);
+  int currentVolumeNumber() const { return m_volnum; }
 
   void startHistogramCalculation();
   void endHistogramCalculation();

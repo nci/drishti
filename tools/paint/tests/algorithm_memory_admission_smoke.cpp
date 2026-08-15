@@ -98,6 +98,16 @@ int main()
       probe.availablePhysicalBudgetBytes < 2)
     return fail("known-memory probe was not admitted with reserves");
 
+  if (!reservePaintAlgorithmMemory(probe) ||
+      !probe.reservation || !probe.reservation->active())
+    return fail("an admitted Paint algorithm did not acquire its reservation");
+  PaintAlgorithmMemoryAdmission competing =
+    evaluateRequiredBytes(probe.availablePhysicalBudgetBytes,
+                          physicalProvider);
+  if (reservePaintAlgorithmMemory(competing))
+    return fail("concurrent Paint algorithm reservation was incorrectly admitted");
+  probe.reservation.reset();
+
   const std::uint64_t physicalBoundary =
     probe.availablePhysicalBudgetBytes;
   PaintAlgorithmMemoryAdmission justBelowPhysical =

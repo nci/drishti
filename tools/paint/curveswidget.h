@@ -103,10 +103,11 @@ class CurvesWidget : public QWidget
   void keyPressEvent(QKeyEvent*);
   void setLivewire(bool);
   void setCurve(bool);
-  void saveCurves(QString);
-  void saveCurves();
-  void loadCurves();
-  void loadCurves(QString);
+  bool saveCurves(QString);
+  bool saveCurves();
+  bool validateCurves(QString);
+  bool loadCurves();
+  bool loadCurves(QString);
   void setSmoothType(int);
   void setGradType(int);
   void freezeLivewire(bool);
@@ -268,17 +269,19 @@ class CurvesWidget : public QWidget
   void paintUsingCurves(uchar*);
 
 
-  void saveCurves(QFile*, CurveGroup*);
-  void loadCurves(QFile*, CurveGroup*);
+  bool saveCurves(QFileDevice*, CurveGroup*);
+  void loadCurves(QFile*, CurveGroup*, int* objectCount = 0);
 
-  void saveMorphedCurves(QFile*, CurveGroup*);
-  void loadMorphedCurves(QFile*, CurveGroup*);
+  bool saveMorphedCurves(QFileDevice*, CurveGroup*);
+  void loadMorphedCurves(QFile*, CurveGroup*, int* objectCount);
 
-  void saveShrinkwrapCurves(QFile*, CurveGroup*);
-  void loadShrinkwrapCurves(QFile*, CurveGroup*);
+  bool saveShrinkwrapCurves(QFileDevice*, CurveGroup*);
+  void loadShrinkwrapCurves(QFile*, CurveGroup*, int* objectCount);
 
-  void saveCurveData(QFile*, int, Curve*);
-  QPair<int, Curve> loadCurveData(QFile*);
+  bool saveCurveData(QFileDevice*, int, Curve*);
+  QPair<int, Curve> loadCurveData(QFile*, int* objectCount);
+
+  bool m_curveIoError;
 
   void curveModeKeyPressEvent(QKeyEvent*);
   void curveMousePressEvent(QMouseEvent*);
@@ -304,6 +307,7 @@ class CurvesWidget : public QWidget
   void applyGradLimits();
 
   void onlyImageScaled();
+  void reportLivewireError();
 };
 
 

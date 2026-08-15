@@ -14,9 +14,18 @@ class Volume : public QObject
 
   bool valid();
 
+  // Volume loading is committed by MainWindow only after the rendering
+  // resources have been created.  A failed post-load step can therefore
+  // restore the previous CPU-side volume instead of leaving a half-loaded
+  // workset active.
+  void commitPendingLoad();
+  void rollbackPendingLoad();
+
+
   void clearVolumes();
 
   int timestepNumber(int, int);
+  int currentVolumeNumber(int vol=0) const;
 
   void startHistogramCalculation();
   void endHistogramCalculation();
@@ -155,6 +164,8 @@ class Volume : public QObject
   float bbScale();
 
  private :
+  void swapState(Volume&);
+
   QList<VolumeSingle*> m_volume;
 
   VolumeRGB* m_volumeRGB;
@@ -169,6 +180,21 @@ class Volume : public QObject
   uchar* m_lowresTexture;
 
   float m_bbScale;
+  bool m_loadingCandidate;
+  Volume *m_pendingOldState;
+  bool m_pendingGlobalStateValid;
+  int m_pendingVolumeType;
+  int m_pendingPvlVoxelType;
+  int m_pendingLod;
+  Vec m_pendingRelativeVoxelScaling;
+  VolumeInformation m_pendingInformation[4];
+
+  void rememberPendingGlobalState(const int volumeType,
+                                  const int pvlVoxelType,
+                                  const int lod,
+                                  const Vec& relativeVoxelScaling,
+                                  const VolumeInformation *information);
+  void restorePendingGlobalState();
 };
 
 #endif

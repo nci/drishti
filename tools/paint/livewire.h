@@ -3,6 +3,7 @@
 
 
 #include <QtGui>
+#include <atomic>
 
 class LiveWire
 {
@@ -12,7 +13,7 @@ class LiveWire
 
   void resetPoly();
   void reset();
-  void setImageData(int, int, uchar*);
+  bool setImageData(int, int, uchar*);
 
   bool mousePressEvent(int, int, QMouseEvent*);
   bool mouseMoveEvent(int, int, QMouseEvent*);
@@ -33,7 +34,7 @@ class LiveWire
   void setSmoothType(int s) { m_smoothType = s; };
   void setGradType(int g) { m_gradType = g; };
 
-  void freeze();
+  bool freeze();
 
   void setWeightG(float);
   void setWeightN(float);
@@ -56,6 +57,8 @@ class LiveWire
 
   void setLod(int);
   int lod() { return m_lod; }
+  bool valid() const { return m_valid; }
+  QString errorMessage() const { return m_errorMessage; }
 
  private :
   QVector<QPointF> m_poly;
@@ -91,6 +94,9 @@ class LiveWire
   int m_smoothType;
 
   int m_lod;
+  bool m_valid;
+  QString m_errorMessage;
+  std::atomic_bool m_cancelRequested;
 
   QVector<float> m_edgeWeight;
   QVector<float> m_cost;
@@ -100,9 +106,9 @@ class LiveWire
 
   void calculateEdgeWeights();
   void calculateGradients();
-  void calculateCost(int, int, int boxSize=100);
+  bool calculateCost(int, int, int boxSize=100);
   void calculateCost1(int, int, int boxSize=100);
-  void calculateLivewire(int, int);
+  bool calculateLivewire(int, int);
 
   void applySmoothing(uchar*, int, int, int);
   void gaussBlur_4(uchar*, uchar*, int, int, int);
@@ -111,16 +117,16 @@ class LiveWire
   void boxBlurH_4(uchar*, uchar*, int, int, int);
   void boxBlurT_4(uchar*, uchar*, int, int, int);
 
-  void updateLivewireFromSeeds(int, int);
+  bool updateLivewireFromSeeds(int, int);
   void splitPolygon(int);
   int  getActiveSeed(int, int);
   int  insertSeed(int, int);
   int  removeSeed(int, int);
 
   int getActiveSeedFromShape(int, int);
-  void updateShapeFromSeeds(int, int);
-  void updatePolygonFromSeeds();
-  void updateEllipseFromSeeds();
+  bool updateShapeFromSeeds(int, int);
+  bool updatePolygonFromSeeds();
+  bool updateEllipseFromSeeds();
 };
 
 #endif

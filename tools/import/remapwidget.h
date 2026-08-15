@@ -60,6 +60,7 @@ class RemapWidget : public QWidget
   bool saveTrimmed(int, int,
 		   int, int,
 		   int, int);
+  bool saveQuickRaw();
   void saveIsosurface(int, int,
 		      int, int,
 		      int, int);
@@ -102,6 +103,7 @@ class RemapWidget : public QWidget
   void showWidgets();
   void hideWidgets();
   bool saveTrimmedResult(int, int, int, int, int, int);
+  bool m_quickRawRequested;
 
 };
 

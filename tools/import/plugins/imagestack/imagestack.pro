@@ -13,10 +13,12 @@ INCLUDEPATH += ../../
 HEADERS = imagestackplugin.h \
 	  imagestackpixelconversion.h \
 	  ../../tiffinputrouting.h \
+	  ../../sourcefilesprovider.h \
 	  ../../volumefilemanager.h \
 	  ../../importmemoryadmission.h
 
 SOURCES = imagestackplugin.cpp \
 	  ../../volumefilemanager.cpp \
-	  ../../importmemoryadmission.cpp
+	  ../../importmemoryadmission.cpp \
+          ../../../../common/src/memoryreservation.cpp
 

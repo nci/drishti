@@ -5,6 +5,7 @@
 #include "mainwindowui.h"
 #include "xmlheaderfunctions.h"
 #include "volumeinformation.h"
+#include "../common/src/pvlmanifest.h"
 
 #include <QDomDocument>
 #include <QFile>
@@ -99,55 +100,14 @@ readDimensions(const QString& volumeFile,
 	       int& depth, int& width, int& height,
 	       QString& error)
 {
-  QFile file(volumeFile);
-  if (!file.open(QIODevice::ReadOnly))
-    {
-      error = QString("Cannot open colour volume header %1: %2")
-	      .arg(volumeFile, file.errorString());
-      return false;
-    }
-
-  QDomDocument document;
-  QString parseError;
-  int errorLine = 0;
-  int errorColumn = 0;
-  if (!document.setContent(&file, &parseError, &errorLine, &errorColumn))
-    {
-      error = QString("Invalid colour volume XML at line %1, column %2: %3")
-	      .arg(errorLine).arg(errorColumn).arg(parseError);
-      return false;
-    }
-
-  const QDomNodeList gridNodes = document.elementsByTagName("gridsize");
-  if (gridNodes.count() != 1)
-    {
-      error = "Colour volume header must contain exactly one gridsize element";
-      return false;
-    }
-
-  const QStringList dimensions =
-    gridNodes.at(0).toElement().text().simplified()
-             .split(' ', QString::SkipEmptyParts);
-  if (dimensions.count() != 3)
-    {
-      error = "Colour volume gridsize must contain exactly three integers";
-      return false;
-    }
-
-  int* outputs[3] = {&depth, &width, &height};
-  for (int axis=0; axis<3; ++axis)
-    {
-      bool ok = false;
-      const qlonglong value = dimensions.at(axis).toLongLong(&ok);
-      if (!ok || value <= 0 || value > std::numeric_limits<int>::max())
-	{
-	  error = QString("Invalid colour volume gridsize value '%1'")
-	          .arg(dimensions.at(axis));
-	  return false;
-	}
-      *outputs[axis] = static_cast<int>(value);
-    }
-
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(volumeFile, manifest, false))
+    { error = manifest.error; return false; }
+  if (!manifest.isColor)
+    { error = "Colour volume header does not declare RGB or RGBA"; return false; }
+  depth = manifest.depth;
+  width = manifest.width;
+  height = manifest.height;
   return true;
 }
 
@@ -235,28 +195,26 @@ class BoolFlagScope
 
 bool
 configureFileManagers(VolumeFileManager (&managers)[4],
-		      const QString& volumeFile,
+		      const QStringList& channelNames,
 		      int depth, int width, int height,
 		      int slabSize, int channels,
 		      QString& error)
 {
-  if (volumeFile.length() < 6)
-    {
-      error = "Colour volume filename is too short to identify channel files";
-      return false;
-    }
-
   if (slabSize <= 0)
     {
       error = "Colour volume has an invalid slab size";
       return false;
     }
 
-  QString baseFilename = volumeFile;
-  baseFilename.chop(6);
   for (int channel=0; channel<channels; ++channel)
     {
-      managers[channel].setBaseFilename(baseFilename+channelName(channel));
+      if (channel >= channelNames.count() || channelNames.at(channel).isEmpty())
+        {
+          error = QString("Colour manifest has no %1 channel filename")
+                  .arg(channelName(channel));
+          return false;
+        }
+      managers[channel].setBaseFilename(channelNames.at(channel));
       managers[channel].setDepth(depth);
       managers[channel].setWidth(width);
       managers[channel].setHeight(height);
@@ -439,16 +397,22 @@ VolumeRGBBase::loadVolume(const char* volfile, bool redo)
       return false;
     }
 
-  int depth = 0;
-  int width = 0;
-  int height = 0;
-  QString dimensionError;
-  if (!readDimensions(volumeFile, depth, width, height, dimensionError))
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(volumeFile, manifest, true))
     {
-      setError(dimensionError);
+      setError(manifest.error);
       QMessageBox::information(0, "Error", m_errorString);
       return false;
     }
+  if (!manifest.isColor)
+    {
+      setError("Colour volume header does not declare RGB or RGBA voxel type");
+      QMessageBox::information(0, "Error", m_errorString);
+      return false;
+    }
+  const int depth = manifest.depth;
+  const int width = manifest.width;
+  const int height = manifest.height;
 
   qint64 sliceVoxels = 0;
   qint64 volumeVoxels = 0;
@@ -556,10 +520,15 @@ VolumeRGBBase::generateHistograms(bool redo)
   Q_UNUSED(redo);
 
   const int channels = channelCount();
-  const int slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFile);
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(m_volumeFile, manifest, true))
+    return setError(manifest.error);
+  if (!manifest.isColor || manifest.channelNames.count() != channels)
+    return setError("Colour manifest does not match the active channel count");
+  const int slabSize = manifest.slabSize;
   VolumeFileManager fileManagers[4];
   QString error;
-  if (!configureFileManagers(fileManagers, m_volumeFile,
+  if (!configureFileManagers(fileManagers, manifest.channelNames,
 			     m_depth, m_width, m_height,
 			     slabSize, channels, error))
     return setError(error);
@@ -712,10 +681,13 @@ VolumeRGBBase::createLowresVolume(bool redo)
       !checkedProduct({planeElements, static_cast<size_t>(depth)}, outputBytes))
     return setError("Low-resolution colour volume allocation size overflows");
 
-  const int slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFile);
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(m_volumeFile, manifest, true))
+    return setError(manifest.error);
+  const int slabSize = manifest.slabSize;
   VolumeFileManager fileManagers[4];
   QString error;
-  if (!configureFileManagers(fileManagers, m_volumeFile,
+  if (!configureFileManagers(fileManagers, manifest.channelNames,
 			     m_depth, m_width, m_height,
 			     slabSize, channels, error))
     return setError(error);

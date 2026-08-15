@@ -141,11 +141,12 @@ void Curves::resetSliceType() { m_curvesWidget->resetSliceType();}
 void Curves::setVolPtr(uchar *v) { m_curvesWidget->setVolPtr(v); }
 //void Curves::setMaskPtr(uchar *v) { m_curvesWidget->setMaskPtr(v); }
 
-void Curves::saveCurves() { m_curvesWidget->saveCurves(); }
-void Curves::saveCurves(QString curvesfile) { m_curvesWidget->saveCurves(curvesfile); }
+bool Curves::saveCurves() { return m_curvesWidget->saveCurves(); }
+bool Curves::saveCurves(QString curvesfile) { return m_curvesWidget->saveCurves(curvesfile); }
+bool Curves::validateCurves(QString curvesfile) { return m_curvesWidget->validateCurves(curvesfile); }
 
-void Curves::loadCurves() { m_curvesWidget->loadCurves(); }
-void Curves::loadCurves(QString curvesfile) { m_curvesWidget->loadCurves(curvesfile); }
+bool Curves::loadCurves() { return m_curvesWidget->loadCurves(); }
+bool Curves::loadCurves(QString curvesfile) { return m_curvesWidget->loadCurves(curvesfile); }
 
 void Curves::setCurve(bool b) { m_curvesWidget->setCurve(b); }
 void Curves::setLivewire(bool b) { m_curvesWidget->setLivewire(b); }

@@ -14,12 +14,19 @@
 #include "enums.h"
 #include "prunehandler.h"
 #include "mainwindowui.h"
+#include "../framebufferbudget.h"
 
 #include <QInputDialog>
 #include <QFileDialog>
 #include <QDataStream>
 #include <QDebug>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QDateTime>
+#include <QTextStream>
 
+#include <cstring>
 #include <limits>
 #include <new>
 
@@ -36,6 +43,17 @@ void reportVolumeResourceFailure(const QString &label,
 {
   const QString message = QStringLiteral("%1 unavailable: %2").arg(label, detail);
   qWarning().noquote() << message;
+  if (QCoreApplication::instance())
+    {
+      QFile log(QDir(QCoreApplication::applicationDirPath())
+                .filePath(QStringLiteral("drishti-runtime.log")));
+      if (log.open(QIODevice::Append | QIODevice::Text))
+        {
+          QTextStream stream(&log);
+          stream << QDateTime::currentDateTime().toString(Qt::ISODate)
+                 << " " << message << "\n";
+        }
+    }
   MainWindowUI::mainWindowUI()->statusBar->showMessage(message);
 }
 
@@ -85,11 +103,23 @@ bool replaceVolumeShader(GLhandleARB &program,
 			 const QString &label)
 {
   GLhandleARB candidate = glCreateProgramObjectARB();
-  if (!candidate || !ShaderFactory::loadShader(candidate, source))
+  if (!candidate)
     {
       const GLenum error = glGetError();
-      if (candidate)
-	glDeleteObjectARB(candidate);
+      if (program)
+	glDeleteObjectARB(program);
+      program = 0;
+      reportVolumeResourceFailure(
+	label,
+	QStringLiteral("program creation returned zero (OpenGL error %1)").arg(
+	  glErrorText(error)));
+      return false;
+    }
+
+  if (!ShaderFactory::loadShader(candidate, source))
+    {
+      const GLenum error = glGetError();
+      glDeleteObjectARB(candidate);
       if (program)
 	glDeleteObjectARB(program);
       program = 0;
@@ -273,20 +303,120 @@ DrawHiresVolume::setRenderQuality(int rq)
   MainWindowUI::mainWindowUI()->actionShadowRender->setChecked(m_lightInfo.applyShadows);
 }
 
-void
-DrawHiresVolume::loadVolume()
+bool
+DrawHiresVolume::loadVolume(bool resetScene)
 {
+  m_lastError.clear();
+  while (glGetError() != GL_NO_ERROR) {}
+
+  const auto logLoadStep = [](const QString &step)
+    {
+      if (!QCoreApplication::instance()) return;
+      QFile log(QDir(QCoreApplication::applicationDirPath())
+                .filePath(QStringLiteral("drishti-runtime.log")));
+      if (log.open(QIODevice::Append | QIODevice::Text))
+        {
+          QTextStream stream(&log);
+          stream << QDateTime::currentDateTime().toString(Qt::ISODate)
+                 << " hires-load " << step << "\n";
+        }
+    };
+  logLoadStep(QStringLiteral("begin"));
+
+  const auto checkStage = [this](const QString &stage) -> bool
+    {
+      const GLenum error = glGetError();
+      if (error == GL_NO_ERROR)
+	return true;
+      m_lastError = QStringLiteral("%1 failed (OpenGL error 0x%2)")
+	  .arg(stage)
+	  .arg(QString::number(static_cast<qulonglong>(error), 16));
+      qWarning().noquote() << m_lastError;
+      if (QCoreApplication::instance())
+	{
+	  QFile log(QDir(QCoreApplication::applicationDirPath())
+		    .filePath(QStringLiteral("drishti-runtime.log")));
+	  if (log.open(QIODevice::Append | QIODevice::Text))
+	    {
+	      QTextStream stream(&log);
+	      stream << QDateTime::currentDateTime().toString(Qt::ISODate)
+		     << " shader-stage-fail " << m_lastError << "\n";
+	    }
+	}
+      return false;
+    };
+
   PruneHandler::clean();
   PruneHandler::createPruneShader((m_Volume->pvlVoxelType(0) > 0));
+  if (!checkStage(QStringLiteral("prune shader setup")))
+    return false;
   PruneHandler::createMopShaders();
+  if (!checkStage(QStringLiteral("prune morphology shader setup")))
+    return false;
   
   LightHandler::createOpacityShader((m_Volume->pvlVoxelType(0) > 0));
+  if (!checkStage(QStringLiteral("opacity shader setup")))
+    return false;
   LightHandler::createLightShaders();
+  if (!checkStage(QStringLiteral("lighting shader setup")))
+    return false;
 
   createShaders();
+  logLoadStep(QStringLiteral("after createShaders default=%1 copy=%2")
+              .arg(m_defaultShader != 0).arg(Global::copyShader() != 0));
+  if (!checkStage(QStringLiteral("volume shader setup")))
+    return false;
+  if (!m_passthruShader || !m_lutShader || !m_defaultShader ||
+      !m_blurShader || !m_backplaneShader1 || !m_backplaneShader2 ||
+      !Global::copyShader() || !Global::reduceShader() ||
+      !Global::extractSliceShader())
+    {
+      m_lastError = QStringLiteral(
+        "required volume shader missing (pass=%1 lut=%2 default=%3 blur=%4 "
+        "backplane1=%5 backplane2=%6 copy=%7 reduce=%8 extract=%9)")
+        .arg(m_passthruShader != 0)
+        .arg(m_lutShader != 0)
+        .arg(m_defaultShader != 0)
+        .arg(m_blurShader != 0)
+        .arg(m_backplaneShader1 != 0)
+        .arg(m_backplaneShader2 != 0)
+        .arg(Global::copyShader() != 0)
+        .arg(Global::reduceShader() != 0)
+        .arg(Global::extractSliceShader() != 0);
+      qWarning().noquote() << m_lastError;
+      return false;
+    }
 
-  m_bricks->reset();
-  GeometryObjects::clipplanes()->reset();
+  if (resetScene)
+    {
+      if (QCoreApplication::instance())
+        {
+          QFile log(QDir(QCoreApplication::applicationDirPath())
+                    .filePath(QStringLiteral("drishti-runtime.log")));
+          if (log.open(QIODevice::Append | QIODevice::Text))
+            {
+              QTextStream stream(&log);
+              stream << QDateTime::currentDateTime().toString(Qt::ISODate)
+                     << " hires-load scene-reset begin\n";
+            }
+        }
+      m_bricks->reset();
+      GeometryObjects::clipplanes()->reset();
+      if (QCoreApplication::instance())
+        {
+          QFile log(QDir(QCoreApplication::applicationDirPath())
+                    .filePath(QStringLiteral("drishti-runtime.log")));
+          if (log.open(QIODevice::Append | QIODevice::Text))
+            {
+              QTextStream stream(&log);
+              stream << QDateTime::currentDateTime().toString(Qt::ISODate)
+                     << " hires-load scene-reset done\n";
+            }
+        }
+    }
+  if (!checkStage(QStringLiteral("volume scene setup")))
+    return false;
+  return true;
 }
 
 // only called when we have not volume data
@@ -624,6 +754,21 @@ DrawHiresVolume::initShadowBuffers(bool force)
   const int shdSizeH = m_Viewer->camera()->screenHeight();
   const int textureLimit = qMax(1, static_cast<int>(Global::max2dTextureSize()));
 
+  GLint savedFramebuffer = 0;
+  GLint savedActiveTexture = GL_TEXTURE0;
+  GLint savedRectangleTexture = 0;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING_EXT, &savedFramebuffer);
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &savedActiveTexture);
+  glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE_ARB, &savedRectangleTexture);
+  const auto restoreGlState = [&]()
+    {
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT,
+                        static_cast<GLuint>(savedFramebuffer));
+      glActiveTexture(static_cast<GLenum>(savedActiveTexture));
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB,
+                    static_cast<GLuint>(savedRectangleTexture));
+    };
+
   if (shdSizeW <= 0 || shdSizeH <= 0 ||
       shdSizeW > textureLimit || shdSizeH > textureLimit)
     {
@@ -634,18 +779,48 @@ DrawHiresVolume::initShadowBuffers(bool force)
       return false;
     }
 
+  const std::uint64_t candidateBytes =
+    static_cast<std::uint64_t>(shdSizeW) * shdSizeH * 12ULL +
+    static_cast<std::uint64_t>(qMax(1, shdSizeW/m_shadowLod)) *
+    static_cast<std::uint64_t>(qMax(1, shdSizeH/m_shadowLod)) * 8ULL;
+  const std::uint64_t oldBytes =
+    (m_shadowWidth > 0 && m_shadowHeight > 0) ?
+      static_cast<std::uint64_t>(m_shadowWidth) * m_shadowHeight * 12ULL +
+      static_cast<std::uint64_t>(qMax(1, m_shadowWidth/m_shadowLod)) *
+      static_cast<std::uint64_t>(qMax(1, m_shadowHeight/m_shadowLod)) * 8ULL : 0;
+  const std::uint64_t budgetBytes = 512ULL*1024ULL*1024ULL;
+  const bool budgetApproved = candidateBytes <= budgetBytes &&
+                              oldBytes <= budgetBytes - candidateBytes;
+  if (!budgetApproved)
+    {
+      reportVolumeResourceFailure(
+	QStringLiteral("volume/highres framebuffer"),
+	QStringLiteral("candidate plus old attachments require %1 MiB (budget %2 MiB)")
+	.arg(static_cast<double>(candidateBytes + oldBytes)/(1024.0*1024.0), 0, 'f', 1)
+	.arg(budgetBytes/(1024ULL*1024ULL)));
+      restoreGlState();
+      return false;
+    }
+
+  const int oldShadowWidth = m_shadowWidth;
+  const int oldShadowHeight = m_shadowHeight;
+  GLuint oldDofBuffer = m_dofBuffer;
+  GLuint oldDofTex[3] = {m_dofTex[0], m_dofTex[1], m_dofTex[2]};
+  GLuint oldShdBuffer = m_shdBuffer;
+  GLuint oldShdTex[2] = {m_shdTex[0], m_shdTex[1]};
+  GLuint candidateDofBuffer = 0;
+  GLuint candidateDofTex[3] = {0, 0, 0};
+  GLuint candidateShdBuffer = 0;
+  GLuint candidateShdTex[2] = {0, 0};
   m_shadowWidth = shdSizeW;
   m_shadowHeight = shdSizeH;
-
-  if (m_dofBuffer) glDeleteFramebuffers(1, &m_dofBuffer);
-  if (m_dofTex[0]) glDeleteTextures(3, m_dofTex);
-  m_dofBuffer = 0;
-  m_dofTex[0] = m_dofTex[1] = m_dofTex[2] = 0;
-
-  if (m_shdBuffer) glDeleteFramebuffers(1, &m_shdBuffer);
-  if (m_shdTex[0]) glDeleteTextures(2, m_shdTex);
-  m_shdBuffer = 0;
-  m_shdTex[0] = m_shdTex[1] = 0;
+  m_dofBuffer = candidateDofBuffer;
+  m_dofTex[0] = candidateDofTex[0];
+  m_dofTex[1] = candidateDofTex[1];
+  m_dofTex[2] = candidateDofTex[2];
+  m_shdBuffer = candidateShdBuffer;
+  m_shdTex[0] = candidateShdTex[0];
+  m_shdTex[1] = candidateShdTex[1];
 
   const auto releaseBuffers = [&]()
     {
@@ -705,6 +880,13 @@ DrawHiresVolume::initShadowBuffers(bool force)
 	QStringLiteral("OpenGL did not create all handles (error %1)").arg(
 	  glErrorText(error)));
       releaseBuffers();
+      m_shadowWidth = oldShadowWidth;
+      m_shadowHeight = oldShadowHeight;
+      m_dofBuffer = oldDofBuffer;
+      memcpy(m_dofTex, oldDofTex, sizeof(oldDofTex));
+      m_shdBuffer = oldShdBuffer;
+      memcpy(m_shdTex, oldShdTex, sizeof(oldShdTex));
+      restoreGlState();
       return false;
     }
 
@@ -732,6 +914,13 @@ DrawHiresVolume::initShadowBuffers(bool force)
 	  QStringLiteral("texture allocation failed (OpenGL error %1)").arg(
 	    glErrorText(error)));
       releaseBuffers();
+      m_shadowWidth = oldShadowWidth;
+      m_shadowHeight = oldShadowHeight;
+      m_dofBuffer = oldDofBuffer;
+      memcpy(m_dofTex, oldDofTex, sizeof(oldDofTex));
+      m_shdBuffer = oldShdBuffer;
+      memcpy(m_shdTex, oldShdTex, sizeof(oldShdTex));
+      restoreGlState();
       return false;
     }
 
@@ -746,6 +935,13 @@ DrawHiresVolume::initShadowBuffers(bool force)
 	QStringLiteral("OpenGL did not create all handles (error %1)").arg(
 	  glErrorText(error)));
       releaseBuffers();
+      m_shadowWidth = oldShadowWidth;
+      m_shadowHeight = oldShadowHeight;
+      m_dofBuffer = oldDofBuffer;
+      memcpy(m_dofTex, oldDofTex, sizeof(oldDofTex));
+      m_shdBuffer = oldShdBuffer;
+      memcpy(m_shdTex, oldShdTex, sizeof(oldShdTex));
+      restoreGlState();
       return false;
     }
 
@@ -775,9 +971,21 @@ DrawHiresVolume::initShadowBuffers(bool force)
 	  QStringLiteral("texture allocation failed (OpenGL error %1)").arg(
 	    glErrorText(error)));
       releaseBuffers();
+      m_shadowWidth = oldShadowWidth;
+      m_shadowHeight = oldShadowHeight;
+      m_dofBuffer = oldDofBuffer;
+      memcpy(m_dofTex, oldDofTex, sizeof(oldDofTex));
+      m_shdBuffer = oldShdBuffer;
+      memcpy(m_shdTex, oldShdTex, sizeof(oldShdTex));
+      restoreGlState();
       return false;
     }
 
+  if (oldDofBuffer) glDeleteFramebuffers(1, &oldDofBuffer);
+  if (oldDofTex[0]) glDeleteTextures(3, oldDofTex);
+  if (oldShdBuffer) glDeleteFramebuffers(1, &oldShdBuffer);
+  if (oldShdTex[0]) glDeleteTextures(2, oldShdTex);
+  restoreGlState();
   return true;
 }
 
@@ -828,12 +1036,22 @@ DrawHiresVolume::updateSubvolume(int volnum,
   if (!m_updateSubvolume)
     return;
 
+  const Vec oldMin = m_dataMin;
+  const Vec oldMax = m_dataMax;
+  const int oldVolnum = m_Volume->currentVolumeNumber();
   if (m_Volume->setSubvolume(boxMin, boxMax,
 			     volnum,
 			     force) == false)
     return;
 
-  postUpdateSubvolume(boxMin, boxMax);
+  if (!postUpdateSubvolume(boxMin, boxMax))
+    {
+      if (m_Volume->setSubvolume(oldMin, oldMax, oldVolnum, true))
+	postUpdateSubvolume(oldMin, oldMax);
+
+      m_Volume->closePvlFileManager();
+      return;
+    }
 
   m_Volume->closePvlFileManager();
 }
@@ -846,12 +1064,21 @@ DrawHiresVolume::updateSubvolume(int volnum1, int volnum2,
   if (!m_updateSubvolume)
     return;
 
+  const Vec oldMin = m_dataMin;
+  const Vec oldMax = m_dataMax;
+  const int oldVolnum1 = m_Volume->currentVolumeNumber(0);
+  const int oldVolnum2 = m_Volume->currentVolumeNumber(1);
   if (m_Volume->setSubvolume(boxMin, boxMax,
 			     volnum1, volnum2,
 			     force) == false)
     return;
 
-  postUpdateSubvolume(boxMin, boxMax);
+  if (!postUpdateSubvolume(boxMin, boxMax))
+    {
+      if (m_Volume->setSubvolume(oldMin, oldMax,
+				 oldVolnum1, oldVolnum2, true))
+	postUpdateSubvolume(oldMin, oldMax);
+    }
 }
 
 void
@@ -862,12 +1089,22 @@ DrawHiresVolume::updateSubvolume(int volnum1, int volnum2, int volnum3,
   if (!m_updateSubvolume)
     return;
 
+  const Vec oldMin = m_dataMin;
+  const Vec oldMax = m_dataMax;
+  const int oldVolnum1 = m_Volume->currentVolumeNumber(0);
+  const int oldVolnum2 = m_Volume->currentVolumeNumber(1);
+  const int oldVolnum3 = m_Volume->currentVolumeNumber(2);
   if (m_Volume->setSubvolume(boxMin, boxMax,
 			     volnum1, volnum2, volnum3,
 			     force) == false)
     return;
 
-  postUpdateSubvolume(boxMin, boxMax);
+  if (!postUpdateSubvolume(boxMin, boxMax))
+    {
+      if (m_Volume->setSubvolume(oldMin, oldMax,
+				 oldVolnum1, oldVolnum2, oldVolnum3, true))
+	postUpdateSubvolume(oldMin, oldMax);
+    }
 }
 
 void
@@ -879,15 +1116,27 @@ DrawHiresVolume::updateSubvolume(int volnum1, int volnum2,
   if (!m_updateSubvolume)
     return;
 
+  const Vec oldMin = m_dataMin;
+  const Vec oldMax = m_dataMax;
+  const int oldVolnum1 = m_Volume->currentVolumeNumber(0);
+  const int oldVolnum2 = m_Volume->currentVolumeNumber(1);
+  const int oldVolnum3 = m_Volume->currentVolumeNumber(2);
+  const int oldVolnum4 = m_Volume->currentVolumeNumber(3);
   if (m_Volume->setSubvolume(boxMin, boxMax,
 			     volnum1, volnum2, volnum3, volnum4,
 			     force) == false)
     return;
 
-  postUpdateSubvolume(boxMin, boxMax);
+  if (!postUpdateSubvolume(boxMin, boxMax))
+    {
+      if (m_Volume->setSubvolume(oldMin, oldMax,
+				 oldVolnum1, oldVolnum2, oldVolnum3, oldVolnum4,
+				 true))
+	postUpdateSubvolume(oldMin, oldMax);
+    }
 }
 
-void
+bool
 DrawHiresVolume::postUpdateSubvolume(Vec boxMin, Vec boxMax)
 {
   Vec textureSize = m_Volume->getSubvolumeTextureSize();
@@ -909,12 +1158,24 @@ DrawHiresVolume::postUpdateSubvolume(Vec boxMin, Vec boxMax)
 
 
   m_Volume->startHistogramCalculation();
-  loadTextureMemory();
-  m_Volume->endHistogramCalculation();
+  const bool textureLoaded = loadTextureMemory();
+  // A failed texture upload can leave the drag buffer unset.  Do not run
+  // histogram/gradient post-processing on that partial allocation; doing so
+  // used to dereference a null m_dragSubvolumeTexture and crash the process.
+  if (textureLoaded)
+    {
+      m_Volume->endHistogramCalculation();
+      // The gradient pass consumes the CPU drag texture.  Release the
+      // temporary slab buffers only after that pass has completed.
+      m_Volume->deleteTextureSlab();
+    }
+
+  if (!textureLoaded)
+    return false;
 
   if (Global::volumeType() != Global::DummyVolume &&
       (m_dataTexSize <= 0 || !m_dataTex))
-    return;
+    return false;
 
 
   // update saved buffer after every subvolume change
@@ -944,9 +1205,11 @@ DrawHiresVolume::postUpdateSubvolume(Vec boxMin, Vec boxMax)
 
       if (!Global::useDragVolume())
 	emit histogramUpdated(m_histogram1D, m_histogram2D);
-      else
+	else
 	emit histogramUpdated(m_histogramDrag1D, m_histogramDrag2D);
     }
+
+  return true;
 }
 
 void
@@ -1020,7 +1283,7 @@ DrawHiresVolume::updateAndLoadLightTexture()
 }
 
 
-void
+bool
 DrawHiresVolume::loadTextureMemory()
 {
   if (Global::volumeType() == Global::DummyVolume)
@@ -1035,7 +1298,7 @@ DrawHiresVolume::loadTextureMemory()
       m_dataTex = 0;
       m_dataTexSize = 0;
       m_loadingData = false;
-      return;
+      return true;
     }
 
   m_loadingData = true;
@@ -1049,8 +1312,20 @@ DrawHiresVolume::loadTextureMemory()
       m_dataTex = 0;
       m_dataTexSize = 0;
     };
-  const auto finishLoading = [&](const QString &message, bool success)
+  const auto finishLoading = [&](const QString &message, bool success) -> bool
     {
+      if (QCoreApplication::instance())
+        {
+          QFile log(QDir(QCoreApplication::applicationDirPath())
+                    .filePath(QStringLiteral("drishti-runtime.log")));
+          if (log.open(QIODevice::Append | QIODevice::Text))
+            {
+              QTextStream stream(&log);
+              stream << QDateTime::currentDateTime().toString(Qt::ISODate)
+                     << " hires-texture " << (success ? "ready: " : "failed: ")
+                     << message << "\n";
+            }
+        }
       if (!success)
 	{
 	  deleteDataTextures();
@@ -1058,7 +1333,8 @@ DrawHiresVolume::loadTextureMemory()
 	  qWarning().noquote() << message;
 	}
 
-      m_Volume->deleteTextureSlab();
+      if (!success)
+        m_Volume->deleteTextureSlab();
       Global::hideProgressBar();
       MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
 	setWindowTitle(QString("Drishti"));
@@ -1070,6 +1346,8 @@ DrawHiresVolume::loadTextureMemory()
 	  Global::enableViewerUpdate();
 	  MainWindowUI::changeDrishtiIcon(true);
 	}
+
+      return success;
     };
   const auto clearGlErrors = []()
     {
@@ -1119,8 +1397,7 @@ DrawHiresVolume::loadTextureMemory()
   m_dataTexSize = m_textureSlab.count();
   if (m_dataTexSize < 2)
     {
-      finishLoading("High-resolution texture does not fit the configured GPU budget", false);
-      return;
+      return finishLoading("High-resolution texture does not fit the configured GPU budget", false);
     }
 
   Vec vsz = m_Volume->getSubvolumeTextureSize();
@@ -1129,8 +1406,7 @@ DrawHiresVolume::loadTextureMemory()
   const int textureLimit = qMax(1, static_cast<int>(Global::max2dTextureSize()));
   if (hsz <= 0 || wsz <= 0 || hsz > textureLimit || wsz > textureLimit)
     {
-      finishLoading("High-resolution texture dimensions exceed the OpenGL limit", false);
-      return;
+      return finishLoading("High-resolution texture dimensions exceed the OpenGL limit", false);
     }
 			   
   // -- disable screen updates 
@@ -1145,8 +1421,7 @@ DrawHiresVolume::loadTextureMemory()
   m_dataTex = new (std::nothrow) GLuint[m_dataTexSize];
   if (!m_dataTex)
     {
-      finishLoading("Cannot allocate the texture handle table", false);
-      return;
+      return finishLoading("Cannot allocate the texture handle table", false);
     }
   memset(m_dataTex, 0, static_cast<size_t>(m_dataTexSize)*sizeof(GLuint));
 
@@ -1161,8 +1436,7 @@ DrawHiresVolume::loadTextureMemory()
       const QString message = glError == GL_NO_ERROR ?
 	"OpenGL did not create all texture handles" :
 	glErrorMessage("glGenTextures", glError);
-      finishLoading(message, false);
-      return;
+      return finishLoading(message, false);
     }
 
   
@@ -1178,8 +1452,7 @@ DrawHiresVolume::loadTextureMemory()
       maxLayerCount > Global::maxArrayTextureLayers() ||
       !m_Volume->allocSlabs(maxLayerCount))
     {
-      finishLoading("Cannot allocate bounded CPU buffers for texture upload", false);
-      return;
+      return finishLoading("Cannot allocate bounded CPU buffers for texture upload", false);
     }
 
   for(int i=1; i<m_dataTexSize; i++)
@@ -1189,21 +1462,18 @@ DrawHiresVolume::loadTextureMemory()
       const int layerCount = static_cast<int>(m_textureSlab[i].x);
       if (layerCount <= 0 || layerCount > maxLayerCount)
 	{
-	  finishLoading("Invalid texture slab layer count", false);
-	  return;
+	  return finishLoading("Invalid texture slab layer count", false);
 	}
 
       uchar *voxelVol = m_Volume->getSubvolumeTextureSlab(
 	startZSlice, endZSlice, layerCount);
       if (!voxelVol)
 	{
-	  finishLoading("CPU decoding failed while preparing a texture slab", false);
-	  return;
+	  return finishLoading("CPU decoding failed while preparing a texture slab", false);
 	}
 
       clearGlErrors();
       glActiveTexture(GL_TEXTURE1);
-      glEnable(GL_TEXTURE_2D_ARRAY);
       glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[i]);
       glTexImage3D(GL_TEXTURE_2D_ARRAY,
 		   0, // single resolution
@@ -1217,13 +1487,10 @@ DrawHiresVolume::loadTextureMemory()
       glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
       glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glDisable(GL_TEXTURE_2D_ARRAY);
-
       glError = glGetError();
       if (glError != GL_NO_ERROR)
 	{
-	  finishLoading(glErrorMessage("High-resolution texture upload", glError), false);
-	  return;
+	  return finishLoading(glErrorMessage("High-resolution texture upload", glError), false);
 	}
       qApp->processEvents();
     }
@@ -1240,13 +1507,11 @@ DrawHiresVolume::loadTextureMemory()
       dragWidth > textureLimit || dragHeight > textureLimit ||
       dragDepth > Global::maxArrayTextureLayers())
     {
-      finishLoading("Drag texture data is missing or exceeds the OpenGL limit", false);
-      return;
+      return finishLoading("Drag texture data is missing or exceeds the OpenGL limit", false);
     }
 
   clearGlErrors();
   glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_2D_ARRAY);
   glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex[0]);
   glTexImage3D(GL_TEXTURE_2D_ARRAY,
 	       0, // single resolution
@@ -1260,15 +1525,14 @@ DrawHiresVolume::loadTextureMemory()
   glTexParameterf(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glDisable(GL_TEXTURE_2D_ARRAY);
   glError = glGetError();
   if (glError != GL_NO_ERROR)
     {
-      finishLoading(glErrorMessage("Drag texture upload", glError), false);
-      return;
+      return finishLoading(glErrorMessage("Drag texture upload", glError), false);
     }
 
   finishLoading("Ready", true);
+  return true;
 }
 
 void DrawHiresVolume::setImageSizeRatio(float ratio) { m_imgSizeRatio = ratio; }
@@ -1556,7 +1820,15 @@ DrawHiresVolume::createPassThruShader()
       return;
     }
   m_lutParm[0] = glGetUniformLocationARB(m_lutShader, "lutTex");
+  // Uniform updates are only valid for the currently bound program.  The
+  // shader factory deliberately leaves the newly-created program unbound;
+  // calling glUniform here otherwise raises GL_INVALID_OPERATION and causes
+  // the strict resource checks to abort creation of all remaining shaders.
+  GLint previousProgram = 0;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
+  glUseProgramObjectARB(m_lutShader);
   glUniform1iARB(m_lutParm[0], 0); // lutTex
+  glUseProgramObjectARB(static_cast<GLhandleARB>(previousProgram));
 }
 
 void
@@ -1572,14 +1844,60 @@ DrawHiresVolume::runLutShader(bool flag)
 void
 DrawHiresVolume::createShaders()
 { 
-  createPassThruShader();
-  createCopyShader();
-  createReduceShader();
-  createExtractSliceShader();
+  const auto logShaderStep = [](const QString &step)
+    {
+      if (!QCoreApplication::instance()) return;
+      QFile log(QDir(QCoreApplication::applicationDirPath())
+                .filePath(QStringLiteral("drishti-runtime.log")));
+      if (log.open(QIODevice::Append | QIODevice::Text))
+        {
+          QTextStream stream(&log);
+          stream << QDateTime::currentDateTime().toString(Qt::ISODate)
+                 << " shader-step " << step << "\n";
+        }
+    };
+  const auto checkShaderStage = [this](const QString &stage) -> bool
+    {
+      const GLenum error = glGetError();
+      if (error == GL_NO_ERROR)
+	return true;
+      m_lastError = QStringLiteral("%1 failed (OpenGL error 0x%2)")
+	  .arg(stage)
+	  .arg(QString::number(static_cast<qulonglong>(error), 16));
+      qWarning().noquote() << m_lastError;
+      return false;
+    };
 
+  logShaderStep(QStringLiteral("pass-through begin"));
+  createPassThruShader();
+  logShaderStep(QStringLiteral("pass-through handle=%1").arg(m_passthruShader != 0));
+  if (!checkShaderStage(QStringLiteral("pass-through shader"))) return;
+  logShaderStep(QStringLiteral("copy begin"));
+  createCopyShader();
+  logShaderStep(QStringLiteral("copy handle=%1").arg(Global::copyShader() != 0));
+  if (!checkShaderStage(QStringLiteral("copy shader"))) return;
+  logShaderStep(QStringLiteral("reduce begin"));
+  createReduceShader();
+  logShaderStep(QStringLiteral("reduce handle=%1").arg(Global::reduceShader() != 0));
+  if (!checkShaderStage(QStringLiteral("reduce shader"))) return;
+  logShaderStep(QStringLiteral("extract begin"));
+  createExtractSliceShader();
+  logShaderStep(QStringLiteral("extract handle=%1").arg(Global::extractSliceShader() != 0));
+  if (!checkShaderStage(QStringLiteral("extract-slice shader"))) return;
+
+  logShaderStep(QStringLiteral("default begin"));
   createDefaultShader();
+  logShaderStep(QStringLiteral("default handle=%1").arg(m_defaultShader != 0));
+  if (!checkShaderStage(QStringLiteral("default volume shader"))) return;
+  logShaderStep(QStringLiteral("blur begin"));
   createBlurShader();
+  logShaderStep(QStringLiteral("blur handle=%1").arg(m_blurShader != 0));
+  if (!checkShaderStage(QStringLiteral("blur shader"))) return;
+  logShaderStep(QStringLiteral("backplane begin"));
   createBackplaneShader(m_lightInfo.backplaneIntensity);
+  logShaderStep(QStringLiteral("backplane handles=%1/%2")
+                .arg(m_backplaneShader1 != 0).arg(m_backplaneShader2 != 0));
+  checkShaderStage(QStringLiteral("backplane shader"));
 }
 //--------------------------------------------------------
 
@@ -7320,14 +7638,18 @@ DrawHiresVolume::saveReslicedVolume(QString pFile,
 	  rawMap << f;
 	  pvlMap << b;
 	}
-      StaticFunctions::savePvlHeader(pFile,
-				     false, "",
-				     vtype,vtype, pvlInfo.voxelUnit,
-				     nslices, ht, wd,
-				     vx, vy, vz,
-				     rawMap, pvlMap,
-				     pvlInfo.description,
-				     slabSize);
+      if (!StaticFunctions::savePvlHeader(pFile,
+						   false, "",
+						   vtype,vtype, pvlInfo.voxelUnit,
+						   nslices, ht, wd,
+						   vx, vy, vz,
+						   rawMap, pvlMap,
+						   pvlInfo.description,
+						   slabSize))
+		{
+		  m_loadingData = false;
+		  return;
+		}
       
       
     }
@@ -7666,7 +7988,6 @@ DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
 
   //---------------------------
   glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_2D_ARRAY);
   uchar *imgData = new (std::nothrow) uchar[static_cast<size_t>(nbytes)];
   if (!imgData)
     return false;
@@ -7685,12 +8006,10 @@ DrawHiresVolume::saveForDrishtiPrayog(QString sfile)
   if (readError != GL_NO_ERROR)
     {
       delete [] imgData;
-      glDisable(GL_TEXTURE_2D_ARRAY);
       return false;
     }
   fout.write((char *)imgData, nbytes);
   delete [] imgData;
-  glDisable(GL_TEXTURE_2D_ARRAY);	    
   //---------------------------
 
   sprintf(keyword, "enddrishtiprayog");

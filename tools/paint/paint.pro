@@ -40,6 +40,7 @@ FORMS += drishtipaint.ui viewermenu.ui \
          INCLUDEPATH += ../../common/src/vdb \
                         ../../common/src/widgets \
                         ../../common/src/mesh \
+                        ../../common/src \
                         ..\..\common\src\videoencoder
 
          INCLUDEPATH += $$VCPKG_INCLUDE_PATH
@@ -77,6 +78,7 @@ unix {
     INCLUDEPATH += ../../common/src/vdb \
                    ../../common/src/widgets \
                    ../../common/src/mesh \
+                   ../../common/src \
                    /home/acl900/drishtilib/openvdb/openvdb \
                    /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
                    /home/acl900/drishtilib/openvdb/build/openvdb/openvdb/openvdb \
@@ -180,6 +182,9 @@ HEADERS += connectviewer.h \
 	../../common/src/widgets/gradienteditor.h \
         ../../common/src/widgets/gradienteditorwidget.h \
         ../../common/src/mesh/meshtools.h \
+        ../../common/src/pvlmanifest.h \
+        ../../common/src/memoryreservation.h \
+        ../../common/src/recoveryjournal.h \
         ../../common/src/videoencoder/videoencoder.h
         
 SOURCES += drishtipaint.cpp \
@@ -250,4 +255,7 @@ SOURCES += drishtipaint.cpp \
 	../../common/src/widgets/gradienteditor.cpp \
 	../../common/src/widgets/gradienteditorwidget.cpp \
         ../../common/src/mesh/meshtools.cpp \
+        ../../common/src/pvlmanifest.cpp \
+        ../../common/src/memoryreservation.cpp \
+        ../../common/src/recoveryjournal.cpp \
         ../../common/src/videoencoder/videoencoder.cpp

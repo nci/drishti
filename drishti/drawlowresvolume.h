@@ -15,6 +15,16 @@ class DrawLowresVolume : public QObject
   Q_OBJECT
 
  public :
+  struct State
+  {
+    Vec dataMin;
+    Vec dataMax;
+    Vec subvolumeMin;
+    Vec subvolumeMax;
+    bool showing;
+    int currentVolume;
+  };
+
   DrawLowresVolume(Viewer*, Volume*);
   ~DrawLowresVolume();
 
@@ -23,8 +33,9 @@ class DrawLowresVolume : public QObject
   void lower();
   void activateBounds();
   void init();
-  void load3dTexture();
-  void loadVolume();
+  bool load3dTexture(bool updateViewer = true);
+  bool loadVolume(bool updateViewer = true);
+  QString lastError() const { return m_lastError; }
   QImage histogramImage1D();
   QImage histogramImage2D();
   int* histogram1D();
@@ -38,8 +49,12 @@ class DrawLowresVolume : public QObject
 
   bool keyPressEvent(QKeyEvent*);
 
-  void load(const char*);
-  void save(const char*);
+  bool load(const char*);
+  bool validate(const char*) const;
+  bool readState(const char*, State&) const;
+  void applyState(const State&);
+  State captureState() const;
+  bool save(const char*);
 
   void setCurrentVolume(int vnum=0);
 
@@ -78,6 +93,7 @@ class DrawLowresVolume : public QObject
   GLuint m_dataTex;
   GLhandleARB m_fragObj, m_progObj;
   bool m_shaderUnavailable;
+  QString m_lastError;
   GLint m_parm[20];
 
   BoundingBox m_boundingBox;

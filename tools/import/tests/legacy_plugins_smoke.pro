@@ -7,6 +7,8 @@ SOURCES += legacy_plugins_smoke.cpp
 INCLUDEPATH += ..
 
 win32 {
-  INCLUDEPATH += D:/drishti-deps/vcpkg/installed/x64-windows/include
-  LIBS += /LIBPATH:D:/drishti-deps/vcpkg/installed/x64-windows/lib netcdf.lib
+  isEmpty(DRISHTI_VCPKG_ROOT): DRISHTI_VCPKG_ROOT = $$(DRISHTI_VCPKG_ROOT)
+  isEmpty(DRISHTI_VCPKG_ROOT): DRISHTI_VCPKG_ROOT = $$clean_path($$PWD/../../../.lab-agent/dependencies/install/vcpkg)
+  INCLUDEPATH += $$clean_path($$DRISHTI_VCPKG_ROOT/installed/x64-windows/include)
+  LIBS += /LIBPATH:$$clean_path($$DRISHTI_VCPKG_ROOT/installed/x64-windows/lib) netcdf.lib
 }

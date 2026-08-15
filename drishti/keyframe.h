@@ -13,7 +13,7 @@ class KeyFrame : public QObject
 
   void clear();
 
-  void load(fstream&);
+  bool load(fstream&);
   void import(QString);
 
   void save(fstream&);
@@ -59,6 +59,10 @@ class KeyFrame : public QObject
 		     float&);
 
   int numberOfKeyFrames();
+
+  void swapState(KeyFrame& other);
+  bool validateRendererCandidate();
+  bool commitRendererCandidate();
 
  public slots :
   void playFrameNumber(int);
@@ -123,6 +127,7 @@ class KeyFrame : public QObject
   Quaternion interpolateOrientation(int, int, float);
 
   void updateCameraPath();
+  void applyRendererCandidate(const KeyFrameInformation&);
 
   QMap<QString, QPair<QVariant, bool> > copyProperties(QString);
 };

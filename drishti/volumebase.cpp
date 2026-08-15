@@ -4,6 +4,7 @@
 #include "volumefilemanager.h"
 #include "mainwindowui.h"
 #include "xmlheaderfunctions.h"
+#include "../common/src/pvlmanifest.h"
 #include "volumeinformation.h"
 
 #include <cstring>
@@ -305,6 +306,13 @@ VolumeBase::loadVolume(const char* volfile, bool redo)
 
   const QString volumeFile = QString::fromUtf8(volfile);
 
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(volumeFile, manifest, true))
+    {
+      showVolumeError(manifest.error);
+      return false;
+    }
+
   if (!VolumeInformation::xmlHeaderFile(volumeFile))
     {
       showVolumeError(
@@ -312,19 +320,10 @@ VolumeBase::loadVolume(const char* volfile, bool redo)
       return false;
     }
 
-  int depth = 0;
-  int width = 0;
-  int height = 0;
-  XmlHeaderFunctions::getDimensionsFromHeader(volumeFile, depth, width, height);
-  if (depth <= 0 || width <= 0 || height <= 0)
-    {
-      showVolumeError(QString("%1 has invalid volume dimensions %2 x %3 x %4")
-		      .arg(volumeFile).arg(depth).arg(width).arg(height));
-      return false;
-    }
-
-  const int pvlVoxelType =
-    XmlHeaderFunctions::getPvlVoxelTypeFromHeader(volumeFile);
+  const int depth = manifest.depth;
+  const int width = manifest.width;
+  const int height = manifest.height;
+  const int pvlVoxelType = manifest.voxelType;
   int bytesPerVoxel = 0;
   if (!supportedPvlVoxelType(pvlVoxelType, bytesPerVoxel))
     {
@@ -480,11 +479,16 @@ VolumeBase::createLowresVolume(bool redo)
     }
 
   VolumeFileManager pvlFileManager;
-  int slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFile);
-  int headerSize = XmlHeaderFunctions::getPvlHeadersizeFromHeader(m_volumeFile);
-  QStringList pvlnames = XmlHeaderFunctions::getPvlNamesFromHeader(m_volumeFile);
-  if (pvlnames.count() > 0)
-    pvlFileManager.setFilenameList(pvlnames);
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(m_volumeFile, manifest, true))
+    {
+      showVolumeError(manifest.error);
+      return false;
+    }
+  int slabSize = manifest.slabSize;
+  int headerSize = manifest.headerSize;
+  QStringList pvlnames = manifest.pvlNames;
+  pvlFileManager.setFilenameList(pvlnames);
   pvlFileManager.setBaseFilename(m_volumeFile);
   pvlFileManager.setVoxelType(m_pvlVoxelType);
   pvlFileManager.setDepth(m_depth);

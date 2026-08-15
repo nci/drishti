@@ -4,7 +4,7 @@
 
 ClipInformation::ClipInformation() { clear(); }
 ClipInformation::~ClipInformation() { clear(); }
-int ClipInformation::size() { return pos.size(); }
+int ClipInformation::size() const { return pos.size(); }
 
 ClipInformation::ClipInformation(const ClipInformation& ci)
 {

@@ -14,16 +14,20 @@
 #include <QSaveFile>
 #include <QTemporaryFile>
 #include <QTimer>
+#include <QDateTime>
 
 #include "blosc.h"
 
+#include <algorithm>
 #include <limits>
 #include <new>
+#include <utility>
 
 namespace
 {
 const int kBackgroundSaveNoProgressTimeoutMs = 30*1000;
 const int kThreadShutdownTimeoutMs = 30*1000;
+const qint64 kOrphanSnapshotMaxAgeMs = 24LL*60LL*60LL*1000LL;
 
 bool
 usesCompressedMaskFormat(const QStringList& filenames)
@@ -31,6 +35,26 @@ usesCompressedMaskFormat(const QStringList& filenames)
   return !filenames.isEmpty() &&
          (StaticFunctions::checkExtension(filenames[0], ".mask.sc") ||
           StaticFunctions::checkExtension(filenames[0], ".mask"));
+}
+
+void cleanupOrphanSnapshots(const QDir& directory)
+{
+  if (!directory.exists())
+    return;
+
+  const QDateTime cutoff = QDateTime::currentDateTimeUtc().addMSecs(
+    -kOrphanSnapshotMaxAgeMs);
+  const QFileInfoList snapshots = directory.entryInfoList(
+    QStringList() << ".drishti-mask-snapshot-*.tmp"
+                   << ".drishti-mask-base-*.tmp",
+    QDir::Files | QDir::Hidden | QDir::Readable,
+    QDir::Time);
+  for (int i = 0; i < snapshots.count(); ++i)
+    {
+      const QFileInfo& info = snapshots.at(i);
+      if (info.lastModified().toUTC() < cutoff)
+        (void)QFile::remove(info.absoluteFilePath());
+    }
 }
 }
 
@@ -58,6 +82,8 @@ VolumeFileManager::VolumeFileManager()
   m_saveRequested = false;
   m_backgroundSaveFailed = false;
   m_snapshotPath.clear();
+  m_snapshotBasePath.clear();
+  m_dirtySnapshotChunks.clear();
   m_saveDebounceTimer = new QTimer(this);
   m_saveDebounceTimer->setSingleShot(true);
   m_saveDebounceTimer->setInterval(350);
@@ -541,47 +567,195 @@ VolumeFileManager::createSaveSnapshot(QString& snapshotName,
     }
 
   const QFileInfo targetInfo(m_filenames[0]);
-  QTemporaryFile snapshot(
-    QDir(targetInfo.absolutePath()).filePath(
-      ".drishti-mask-snapshot-XXXXXX.tmp"));
-  snapshot.setAutoRemove(false);
-  if (!snapshot.open())
-    return setError(QString("%1: cannot create a snapshot beside '%2': %3")
-                    .arg(operation).arg(m_filenames[0])
-                    .arg(snapshot.errorString()));
+  // A process crash can leave the immutable raw snapshot or its reusable
+  // baseline behind. Only remove files older than a day so an active save in
+  // another process is never mistaken for an orphan.
+  cleanupOrphanSnapshots(targetInfo.absoluteDir());
 
   const qint64 copyBlockBytes = 8LL*1024LL*1024LL;
-  qint64 written = 0;
-  bool ok = true;
-  while (written < volumeBytes)
+  QProgressDialog progress(QStringLiteral("Preparing mask save"),
+                           QStringLiteral("Cancel"), 0, 100, 0);
+  progress.setMinimumDuration(500);
+  progress.setAutoClose(true);
+  progress.setAutoReset(true);
+  const quint64 snapshotGeneration = m_changeGeneration;
+  const bool fullRefresh = m_snapshotBasePath.isEmpty() ||
+    !QFileInfo::exists(m_snapshotBasePath) ||
+    QFileInfo(m_snapshotBasePath).size() != volumeBytes ||
+    m_dirtySnapshotChunks.contains(-1) || m_dirtySnapshotChunks.isEmpty();
+  if (fullRefresh)
     {
-      const qint64 bytes = qMin(copyBlockBytes, volumeBytes-written);
-      const qint64 count = snapshot.write(
-        reinterpret_cast<const char*>(m_volData)+written, bytes);
-      if (count <= 0)
+      QString basePath = m_snapshotBasePath;
+      if (basePath.isEmpty())
         {
-          ok = setError(QString("%1: short write after %2 of %3 bytes: %4")
-                        .arg(operation).arg(written).arg(volumeBytes)
-                        .arg(snapshot.errorString()));
+          QTemporaryFile baseName(
+            QDir(targetInfo.absolutePath()).filePath(
+              ".drishti-mask-base-XXXXXX.tmp"));
+          baseName.setAutoRemove(false);
+          if (!baseName.open())
+            return setError(QString("%1: cannot create a baseline beside '%2': %3")
+                            .arg(operation).arg(m_filenames[0])
+                            .arg(baseName.errorString()));
+          basePath = baseName.fileName();
+          baseName.close();
+          QFile::remove(basePath);
+        }
+      QSaveFile base(basePath);
+      base.setDirectWriteFallback(false);
+      if (!base.open(QIODevice::WriteOnly))
+        return setError(QString("%1: cannot open baseline '%2': %3")
+                        .arg(operation).arg(basePath).arg(base.errorString()));
+      qint64 written = 0;
+      while (written < volumeBytes)
+        {
+          QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+          if (progress.wasCanceled())
+            {
+              base.cancelWriting();
+              return setError(QStringLiteral(
+                "mask save snapshot canceled; dirty data was preserved"));
+            }
+          const qint64 bytes = qMin(copyBlockBytes, volumeBytes-written);
+          const qint64 count = base.write(
+            reinterpret_cast<const char*>(m_volData)+written, bytes);
+          if (count != bytes)
+            {
+              base.cancelWriting();
+              return setError(QString("%1: short baseline write after %2 of %3 bytes: %4")
+                              .arg(operation).arg(written).arg(volumeBytes)
+                              .arg(base.errorString()));
+            }
+          written += count;
+          progress.setValue(static_cast<int>(
+            qMin<qint64>(100, (written*100)/qMax<qint64>(1, volumeBytes))));
+        }
+      if (!base.commit())
+        return setError(QString("%1: cannot commit baseline '%2': %3")
+                        .arg(operation).arg(basePath).arg(base.errorString()));
+      m_snapshotBasePath = basePath;
+    }
+  else if (!m_dirtySnapshotChunks.isEmpty())
+    {
+      QFile base(m_snapshotBasePath);
+      if (!base.open(QIODevice::ReadWrite))
+        return setError(QString("%1: cannot update baseline '%2': %3")
+                        .arg(operation).arg(m_snapshotBasePath)
+                        .arg(base.errorString()));
+      QList<qint64> chunks = m_dirtySnapshotChunks.values();
+      std::sort(chunks.begin(), chunks.end());
+      for (const qint64 chunk : chunks)
+        {
+          if (chunk < 0)
+            continue;
+          QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+          if (progress.wasCanceled())
+            {
+              base.close();
+              return setError(QStringLiteral(
+                "mask save snapshot canceled; dirty data was preserved"));
+            }
+          const qint64 offset = chunk*copyBlockBytes;
+          if (offset < 0 || offset >= volumeBytes ||
+              !base.seek(offset))
+            {
+              const QString detail = base.errorString();
+              base.close();
+              return setError(QString("%1: cannot seek baseline chunk %2: %3")
+                              .arg(operation).arg(chunk).arg(detail));
+            }
+          const qint64 bytes = qMin(copyBlockBytes, volumeBytes-offset);
+          if (base.write(reinterpret_cast<const char*>(m_volData)+offset,
+                         bytes) != bytes)
+            {
+              const QString detail = base.errorString();
+              base.close();
+              return setError(QString("%1: cannot update baseline chunk %2: %3")
+                              .arg(operation).arg(chunk).arg(detail));
+            }
+          progress.setValue(static_cast<int>(
+            qMin<qint64>(100, ((chunk+1)*100)/
+                         qMax<qint64>(1, 1+(volumeBytes-1)/copyBlockBytes))));
+        }
+      if (!base.flush())
+        {
+          const QString detail = base.errorString();
+          base.close();
+          return setError(QString("%1: cannot flush baseline: %2")
+                          .arg(operation).arg(detail));
+        }
+      base.close();
+    }
+
+  // The baseline is now complete. Make an immutable generation for the
+  // worker, so later edits cannot race its compressor.
+  QTemporaryFile snapshotNameTemplate(
+    QDir(targetInfo.absolutePath()).filePath(
+      ".drishti-mask-snapshot-XXXXXX.tmp"));
+  snapshotNameTemplate.setAutoRemove(false);
+  if (!snapshotNameTemplate.open())
+    return setError(QString("%1: cannot create a snapshot beside '%2': %3")
+                    .arg(operation).arg(m_filenames[0])
+                    .arg(snapshotNameTemplate.errorString()));
+  snapshotName = snapshotNameTemplate.fileName();
+  snapshotNameTemplate.close();
+  QFile::remove(snapshotName);
+  QFile sourceSnapshot(m_snapshotBasePath);
+  QFile materializedSnapshot(snapshotName);
+  bool materialized = sourceSnapshot.open(QIODevice::ReadOnly) &&
+                      materializedSnapshot.open(QIODevice::WriteOnly |
+                                                QIODevice::Truncate);
+  qint64 copied = 0;
+  const qint64 copyBufferBytes = 8LL*1024LL*1024LL;
+  QByteArray copyBuffer;
+  if (materialized)
+    copyBuffer.resize(static_cast<int>(qMin(copyBufferBytes,
+                                            qMax<qint64>(1, volumeBytes))));
+  while (materialized && copied < volumeBytes)
+    {
+      const qint64 requested = qMin(copyBufferBytes, volumeBytes-copied);
+      const qint64 got = sourceSnapshot.read(copyBuffer.data(), requested);
+      if (got != requested)
+        {
+          materialized = false;
           break;
         }
-      written += count;
+      if (materializedSnapshot.write(copyBuffer.constData(), got) != got)
+        {
+          materialized = false;
+          break;
+        }
+      copied += got;
     }
-
-  if (ok && (!snapshot.flush() || snapshot.size() != volumeBytes))
-    ok = setError(QString("%1: cannot flush the complete %2-byte snapshot: %3")
-                  .arg(operation).arg(volumeBytes).arg(snapshot.errorString()));
-
-  snapshotName = snapshot.fileName();
-  snapshot.close();
-  if (!ok)
+  char trailingByte = 0;
+  if (materialized &&
+      (copied != volumeBytes || sourceSnapshot.read(&trailingByte, 1) != 0 ||
+       !materializedSnapshot.flush()))
+    materialized = false;
+  sourceSnapshot.close();
+  materializedSnapshot.close();
+  if (!materialized || QFileInfo(snapshotName).size() != volumeBytes)
     {
+      const QString detail = QString("source '%1' (%2 bytes), destination '%3' (%4 bytes), "
+                                     "source error '%5', destination error '%6'")
+                               .arg(m_snapshotBasePath)
+                               .arg(QFileInfo(m_snapshotBasePath).size())
+                               .arg(snapshotName)
+                               .arg(QFileInfo(snapshotName).size())
+                               .arg(sourceSnapshot.errorString())
+                               .arg(materializedSnapshot.errorString());
       QFile::remove(snapshotName);
       snapshotName.clear();
-      return false;
+      return setError(QString("%1: cannot materialize immutable snapshot: %2")
+                      .arg(operation).arg(detail));
     }
 
-  generation = m_changeGeneration;
+  // If no edits arrived while the chunks were copied, the baseline is now
+  // current and future saves can update only dirty chunks.  When edits did
+  // arrive, retain the dirty set so the next generation refreshes them.
+  if (snapshotGeneration == m_changeGeneration)
+    m_dirtySnapshotChunks.clear();
+
+  generation = snapshotGeneration;
   return true;
 }
 
@@ -724,6 +898,46 @@ VolumeFileManager::markChanged()
   ++m_changeGeneration;
   if (m_changeGeneration == 0)
     ++m_changeGeneration;
+  // -1 means that the complete baseline must be refreshed.  Callers that
+  // know an exact byte range can use markChangedRange() instead.
+  m_dirtySnapshotChunks.clear();
+  m_dirtySnapshotChunks.insert(-1);
+}
+
+void
+VolumeFileManager::markChangedRange(qint64 offset, qint64 bytes)
+{
+  m_memChanged = true;
+  ++m_changeGeneration;
+  if (m_changeGeneration == 0)
+    ++m_changeGeneration;
+  const qint64 chunkBytes = 8LL*1024LL*1024LL;
+  if (offset < 0 || bytes <= 0 ||
+      offset > std::numeric_limits<qint64>::max()-bytes)
+    {
+      m_dirtySnapshotChunks.clear();
+      m_dirtySnapshotChunks.insert(-1);
+      return;
+    }
+  if (m_dirtySnapshotChunks.contains(-1))
+    return;
+  const qint64 first = offset/chunkBytes;
+  const qint64 last = (offset+bytes-1)/chunkBytes;
+  for (qint64 chunk = first; chunk <= last; ++chunk)
+    {
+      m_dirtySnapshotChunks.insert(chunk);
+      if (chunk == std::numeric_limits<qint64>::max())
+        break;
+    }
+}
+
+void
+VolumeFileManager::discardSnapshotBaseline()
+{
+  if (!m_snapshotBasePath.isEmpty())
+    QFile::remove(m_snapshotBasePath);
+  m_snapshotBasePath.clear();
+  m_dirtySnapshotChunks.clear();
 }
 
 bool
@@ -844,6 +1058,7 @@ bool VolumeFileManager::setMemMapped(bool b)
   m_saveDSlices.clear();
   m_saveWSlices.clear();
   m_saveHSlices.clear();
+  discardSnapshotBaseline();
   m_changeGeneration = 0;
   m_saveGeneration = 0;
   return true;
@@ -911,8 +1126,73 @@ VolumeFileManager::reset()
   if (!m_snapshotPath.isEmpty())
     QFile::remove(m_snapshotPath);
   m_snapshotPath.clear();
+  if (!m_snapshotBasePath.isEmpty())
+    QFile::remove(m_snapshotBasePath);
+  m_snapshotBasePath.clear();
+  m_dirtySnapshotChunks.clear();
   m_changeGeneration = 0;
   m_saveGeneration = 0;
+  return true;
+}
+
+bool
+VolumeFileManager::prepareForStateSwap()
+{
+  return stopFileHandlerThread(true);
+}
+
+bool
+VolumeFileManager::swapState(VolumeFileManager& other)
+{
+  if (this == &other)
+    return true;
+  if (m_thread || m_handler || other.m_thread || other.m_handler)
+    {
+      m_lastError = "Cannot swap volume state while a save worker is running";
+      return false;
+    }
+
+  m_qfile.close();
+  other.m_qfile.close();
+  using std::swap;
+  swap(m_fileHandlerBusy, other.m_fileHandlerBusy);
+  swap(m_waitingOnFileHandler, other.m_waitingOnFileHandler);
+  swap(m_saveRequested, other.m_saveRequested);
+  swap(m_backgroundSaveFailed, other.m_backgroundSaveFailed);
+  swap(m_memmapped, other.m_memmapped);
+  swap(m_memChanged, other.m_memChanged);
+  swap(m_saveFreq, other.m_saveFreq);
+  swap(m_mcTimes, other.m_mcTimes);
+  swap(m_baseFilename, other.m_baseFilename);
+  swap(m_filenames, other.m_filenames);
+  swap(m_header, other.m_header);
+  swap(m_slabSize, other.m_slabSize);
+  swap(m_depth, other.m_depth);
+  swap(m_width, other.m_width);
+  swap(m_height, other.m_height);
+  swap(m_voxelType, other.m_voxelType);
+  swap(m_bytesPerVoxel, other.m_bytesPerVoxel);
+  swap(m_slice, other.m_slice);
+  swap(m_sliceCapacity, other.m_sliceCapacity);
+  swap(m_block, other.m_block);
+  swap(m_blockCapacity, other.m_blockCapacity);
+  swap(m_blockSlices, other.m_blockSlices);
+  swap(m_startBlock, other.m_startBlock);
+  swap(m_endBlock, other.m_endBlock);
+  swap(m_filename, other.m_filename);
+  swap(m_slabno, other.m_slabno);
+  swap(m_prevslabno, other.m_prevslabno);
+  swap(m_volData, other.m_volData);
+  swap(m_volDataCapacity, other.m_volDataCapacity);
+  swap(m_lastError, other.m_lastError);
+  swap(m_changeGeneration, other.m_changeGeneration);
+  swap(m_saveGeneration, other.m_saveGeneration);
+  swap(m_snapshotPath, other.m_snapshotPath);
+  swap(m_snapshotBasePath, other.m_snapshotBasePath);
+  swap(m_dirtySnapshotChunks, other.m_dirtySnapshotChunks);
+  swap(m_saveDSlices, other.m_saveDSlices);
+  swap(m_saveWSlices, other.m_saveWSlices);
+  swap(m_saveHSlices, other.m_saveHSlices);
   return true;
 }
 
@@ -2682,6 +2962,7 @@ VolumeFileManager::loadMemFile()
       m_saveDSlices.clear();
       m_saveWSlices.clear();
       m_saveHSlices.clear();
+      discardSnapshotBaseline();
       m_changeGeneration = 0;
       m_saveGeneration = 0;
       return true;
@@ -2758,6 +3039,7 @@ VolumeFileManager::loadMemFile()
   m_saveDSlices.clear();
   m_saveWSlices.clear();
   m_saveHSlices.clear();
+  discardSnapshotBaseline();
   m_changeGeneration = 0;
   m_saveGeneration = 0;
   progress.setValue(100);
@@ -2781,6 +3063,7 @@ VolumeFileManager::createMemFile()
   if (m_volData && m_volDataCapacity >= static_cast<size_t>(volumeBytes))
     {
       memset(m_volData, 0, static_cast<size_t>(volumeBytes));
+      discardSnapshotBaseline();
       return true;
     }
 
@@ -2794,6 +3077,7 @@ VolumeFileManager::createMemFile()
   delete [] m_volData;
   m_volData = replacement;
   m_volDataCapacity = static_cast<size_t>(volumeBytes);
+  discardSnapshotBaseline();
   return true;
 }
 
@@ -2829,7 +3113,7 @@ VolumeFileManager::setDepthSliceMem(int d, uchar *tmp)
   memcpy(m_volData+destinationOffset, tmp, static_cast<size_t>(bps));
   if (!m_saveDSlices.contains(d))
     m_saveDSlices << d;
-  markChanged();
+  markChangedRange(destinationOffset, bps);
   m_mcTimes++;
   if (m_mcTimes > m_saveFreq)
     return requestSave();
@@ -3122,7 +3406,7 @@ VolumeFileManager::setValueMem(int d, int w, int h, int val)
 //  QMessageBox::information(0, "", QString("%1 %2 %3 : %4").\
 //			   arg(d).arg(w).arg(h).arg(m_volData[d*m_width*m_height + w*m_height + h]));
 
-  markChanged();
+  markChangedRange(voxelIndex*m_bytesPerVoxel, m_bytesPerVoxel);
   m_mcTimes++;
   if (m_mcTimes > m_saveFreq)
     return requestSave();

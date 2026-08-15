@@ -8,6 +8,8 @@ TARGET = import_memory_admission_smoke
 INCLUDEPATH += ..
 
 SOURCES += import_memory_admission_smoke.cpp \
-           ../importmemoryadmission.cpp
+           ../importmemoryadmission.cpp \
+           ../../../common/src/memoryreservation.cpp
 
-HEADERS += ../importmemoryadmission.h
+HEADERS += ../importmemoryadmission.h \
+           ../../../common/src/memoryreservation.h

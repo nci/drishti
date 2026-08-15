@@ -37,6 +37,35 @@ WARRANTY OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
 #include <string.h>
 #include "ply.h"
 
+static int s_ply_error = PLY_OKAY;
+static char s_ply_error_message[256] = { 0 };
+
+static void ply_set_error(const char *message)
+{
+  s_ply_error = PLY_ERROR;
+  if (!message)
+    message = "unknown PLY error";
+  strncpy(s_ply_error_message, message, sizeof(s_ply_error_message)-1);
+  s_ply_error_message[sizeof(s_ply_error_message)-1] = '\0';
+  fprintf(stderr, "PLY error: %s\n", s_ply_error_message);
+}
+
+void ply_clear_error(void)
+{
+  s_ply_error = PLY_OKAY;
+  s_ply_error_message[0] = '\0';
+}
+
+int ply_last_error(void)
+{
+  return s_ply_error;
+}
+
+const char *ply_last_error_message(void)
+{
+  return s_ply_error_message;
+}
+
 char *type_names[]      = {  /* names of scalar types */
 "invalid",
 "int8", "int16", "int32", "uint8", "uint16", "uint32", "float32", "float64",
@@ -141,11 +170,17 @@ PlyFile *ply_write( FILE *fp, int nelems, char **elem_names, int file_type )
   plyfile = ( PlyFile *  ) myalloc ( sizeof ( PlyFile ) );
   plyfile->file_type = file_type;
   plyfile->num_comments = 0;
+  plyfile->comments = NULL;
   plyfile->num_obj_info = 0;
+  plyfile->obj_info = NULL;
   plyfile->num_elem_types = nelems;
   plyfile->version = 1.0;
   plyfile->fp = fp;
+  plyfile->elems = NULL;
   plyfile->other_elems = NULL;
+  plyfile->which_elem = NULL;
+  plyfile->current_rules = NULL;
+  plyfile->rule_list = NULL;
 
   /* tuck aside the names of the elements */
 
@@ -157,6 +192,10 @@ PlyFile *ply_write( FILE *fp, int nelems, char **elem_names, int file_type )
     elem->name = strdup ( elem_names[i] );
     elem->num = 0;
     elem->nprops = 0;
+    elem->props = NULL;
+    elem->store_prop = NULL;
+    elem->other_offset = NO_OTHER_PROPS;
+    elem->other_size = 0;
   }
 
   /* return pointer to the file descriptor */
@@ -195,6 +234,8 @@ PlyFile *open_for_writing_ply( char *filename, int nelems, char **elem_names, in
   fp = fopen ( name, "w" );
   if ( fp == NULL )
   {
+    ply_set_error("open_for_writing_ply: cannot open output file");
+    free(name);
     return ( NULL );
   }
 
@@ -202,7 +243,14 @@ PlyFile *open_for_writing_ply( char *filename, int nelems, char **elem_names, in
 
   plyfile = ply_write ( fp, nelems, elem_names, file_type );
   if ( plyfile == NULL )
+  {
+    fclose(fp);
+    ply_set_error("open_for_writing_ply: cannot allocate file descriptor");
+    free(name);
     return ( NULL );
+  }
+
+  free(name);
 
   /* return pointer to the file descriptor */
   return ( plyfile );
@@ -232,7 +280,8 @@ void element_layout_ply( PlyFile *plyfile, char *elem_name, int nelems, int npro
   if ( elem == NULL )
   {
     fprintf( stderr,"element_layout_ply: can't find element '%s'\n",elem_name );
-    exit ( -1 );
+    ply_set_error("element_layout_ply: element not found");
+    return;
   }
 
   elem->num = nelems;
@@ -320,7 +369,8 @@ void element_count_ply( PlyFile *plyfile, char *elem_name, int nelems )
   if ( elem == NULL )
   {
     fprintf( stderr,"element_count_ply: can't find element '%s'\n",elem_name );
-    exit ( -1 );
+    ply_set_error("element_count_ply: element not found");
+    return;
   }
 
   elem->num = nelems;
@@ -358,7 +408,8 @@ void header_complete_ply( PlyFile *plyfile )
     default:
       fprintf ( stderr, "ply_header_complete: bad file type = %d\n",
       plyfile->file_type );
-      exit ( -1 );
+      ply_set_error("header_complete_ply: invalid file type");
+      return;
   }
 
   /* write out the comments */
@@ -425,7 +476,8 @@ void put_element_setup_ply( PlyFile *plyfile, char *elem_name )
   if ( elem == NULL )
   {
     fprintf( stderr, "put_element_setup_ply: can't find element '%s'\n", elem_name );
-    exit ( -1 );
+    ply_set_error("put_element_setup_ply: element not found");
+    return;
   }
 
   plyfile->which_elem = elem;
@@ -613,13 +665,17 @@ PlyFile *ply_read( FILE *fp, int *nelems, char ***elem_names )
   int         nwords;
   char*      *words;
   int         found_format  = 0;
+  int         found_end_header = 0;
   char*      *elist;
   PlyElement *elem;
   char       *orig_line;
 
   /* check for NULL file pointer */
-  if ( fp == NULL )
+  if ( fp == NULL || !nelems || !elem_names )
+  {
+    ply_set_error("ply_read: invalid input arguments");
     return ( NULL );
+  }
 
   /* create record for this object */
 
@@ -630,14 +686,22 @@ PlyFile *ply_read( FILE *fp, int *nelems, char ***elem_names )
   plyfile->obj_info = NULL;
   plyfile->num_obj_info = 0;
   plyfile->fp = fp;
+  plyfile->elems = NULL;
   plyfile->other_elems = NULL;
+  plyfile->which_elem = NULL;
+  plyfile->current_rules = NULL;
   plyfile->rule_list = NULL;
 
   /* read and parse the file's header */
 
   words = get_words ( plyfile->fp, &nwords, &orig_line );
-  if ( !words || !equal_strings ( words[0], "ply" ) )
+  if ( !words || nwords == 0 || !words[0] || !equal_strings ( words[0], "ply" ) )
+  {
+    ply_set_error("ply_read: missing PLY header");
+    free(words);
+    free_ply(plyfile);
     return ( NULL );
+  }
 
   while ( words )
   {
@@ -646,7 +710,12 @@ PlyFile *ply_read( FILE *fp, int *nelems, char ***elem_names )
     if ( equal_strings ( words[0], "format" ) )
     {
       if ( nwords != 3 )
+      {
+        ply_set_error("ply_read: malformed format declaration");
+        free(words);
+        free_ply(plyfile);
         return ( NULL );
+      }
       if ( equal_strings ( words[1], "ascii" ) )
         plyfile->file_type = PLY_ASCII;
       else if ( equal_strings ( words[1], "binary_big_endian" ) )
@@ -654,26 +723,48 @@ PlyFile *ply_read( FILE *fp, int *nelems, char ***elem_names )
       else if ( equal_strings ( words[1], "binary_little_endian" ) )
         plyfile->file_type = PLY_BINARY_LE;
       else
+      {
+        ply_set_error("ply_read: unsupported format");
+        free(words);
+        free_ply(plyfile);
         return ( NULL );
+      }
       plyfile->version = ( float ) atof ( words[2] );
       found_format = 1;
     }
     else if ( equal_strings ( words[0], "element" ) )
-      add_element ( plyfile, words, nwords );
+      {
+        add_element ( plyfile, words, nwords );
+        if (ply_last_error()) { free(words); free_ply(plyfile); return NULL; }
+      }
     else if ( equal_strings ( words[0], "property" ) )
-      add_property ( plyfile, words, nwords );
+      {
+        add_property ( plyfile, words, nwords );
+        if (ply_last_error()) { free(words); free_ply(plyfile); return NULL; }
+      }
     else if ( equal_strings ( words[0], "comment" ) )
       add_comment ( plyfile, orig_line );
     else if ( equal_strings ( words[0], "obj_info" ) )
       add_obj_info ( plyfile, orig_line );
     else if ( equal_strings ( words[0], "end_header" ) )
-      break;
+      {
+        found_end_header = 1;
+        break;
+      }
 
     /* free up words space */
     free ( words );
 
     words = get_words ( plyfile->fp, &nwords, &orig_line );
   }
+
+  free(words);
+  if (!found_format || !found_end_header || plyfile->num_elem_types <= 0)
+    {
+      ply_set_error("ply_read: incomplete PLY header");
+      free_ply(plyfile);
+      return NULL;
+    }
 
   /* create tags for each property of each element, to be used */
   /* later to say whether or not to store each property for the user */
@@ -733,11 +824,23 @@ PlyFile *ply_open_for_reading( char *filename, int *nelems, char ***elem_names, 
 
   fp = fopen ( name, "r" );
   if ( fp == NULL )
+  {
+    free(name);
     return ( NULL );
+  }
 
   /* create the PlyFile data structure */
 
   plyfile = ply_read ( fp, nelems, elem_names );
+
+  if ( plyfile == NULL )
+  {
+    fclose(fp);
+    free(name);
+    return ( NULL );
+  }
+
+  free(name);
 
   /* determine the file type and version */
 
@@ -1178,6 +1281,9 @@ PlyOtherElems *get_other_element_ply( PlyFile *plyfile )
   /* create a list to hold all the current elements */
   other->other_data = ( OtherData *  *  )
   malloc ( sizeof ( OtherData *  ) * other->elem_count );
+  if (other->other_data)
+    memset(other->other_data, 0,
+           sizeof ( OtherData * ) * other->elem_count);
 
   /* set up for getting elements */
   other->other_props = ply_get_other_properties ( plyfile, elem_name,
@@ -1188,6 +1294,8 @@ PlyOtherElems *get_other_element_ply( PlyFile *plyfile )
   {
     /* grab and element from the file */
     other->other_data[i] = ( OtherData *  ) malloc ( sizeof ( OtherData ) );
+    if (other->other_data[i])
+      memset(other->other_data[i], 0, sizeof(OtherData));
     ply_get_element ( plyfile, ( void * ) other->other_data[i] );
   }
 
@@ -1235,6 +1343,48 @@ other_elems - data structure to free up
 
 void free_other_elements_ply( PlyOtherElems *other_elems )
 {
+  int i, j;
+  if (!other_elems) return;
+  for (i=0; i<other_elems->num_elems; ++i)
+    {
+      OtherElem *other = &other_elems->other_list[i];
+      if (other->other_data)
+        for (j=0; j<other->elem_count; ++j)
+          {
+            OtherData *data = other->other_data[j];
+            if (!data) continue;
+            if (data->other_props && other->other_props)
+              {
+                int p;
+                for (p=0; p<other->other_props->nprops; ++p)
+                  {
+                    PlyProperty *prop = other->other_props->props[p];
+                    if (prop && (prop->is_list == PLY_LIST || prop->is_list == PLY_STRING))
+                      free(*(char **)((char *)data->other_props + prop->offset));
+                  }
+              }
+            free(data->other_props);
+            free(data);
+          }
+      free(other->other_data);
+      if (other->other_props)
+        {
+          for (j=0; j<other->other_props->nprops; ++j)
+            {
+              if (other->other_props->props[j])
+                {
+                  free(other->other_props->props[j]->name);
+                  free(other->other_props->props[j]);
+                }
+            }
+          free(other->other_props->props);
+          free(other->other_props->name);
+          free(other->other_props);
+        }
+      free(other->elem_name);
+    }
+  free(other_elems->other_list);
+  free(other_elems);
 }
 
 
@@ -1427,6 +1577,8 @@ void ascii_get_element( PlyFile *plyfile, char *elem_ptr )
     other_flag = 1;
     /* make room for other_props */
     other_data = ( char * ) myalloc ( elem->other_size );
+    if (other_data)
+      memset(other_data, 0, elem->other_size);
     /* store pointer in user's structure to the other_props */
     ptr = ( char * *  ) ( elem_ptr + elem->other_offset );
     *ptr = other_data;
@@ -1440,7 +1592,8 @@ void ascii_get_element( PlyFile *plyfile, char *elem_ptr )
   if ( words == NULL )
   {
     fprintf ( stderr, "ply_get_element: unexpected end of file\n" );
-    exit ( -1 );
+    ply_set_error("ply_get_element: unexpected end of file");
+    return;
   }
 
   which_word = 0;
@@ -1577,6 +1730,8 @@ void binary_get_element( PlyFile *plyfile, char *elem_ptr )
     other_flag = 1;
     /* make room for other_props */
     other_data = ( char * ) myalloc ( elem->other_size );
+    if (other_data)
+      memset(other_data, 0, elem->other_size);
     /* store pointer in user's structure to the other_props */
     ptr = ( char * *  ) ( elem_ptr + elem->other_offset );
     *ptr = other_data;
@@ -1688,7 +1843,8 @@ void write_scalar_type( FILE *fp, int code )
   if ( code <= StartType || code >= EndType )
   {
     fprintf ( stderr, "write_scalar_type: bad data code = %d\n", code );
-    exit ( -1 );
+    ply_set_error("write_scalar_type: invalid data type");
+    return;
   }
 
   /* write the code to a file */
@@ -1729,6 +1885,7 @@ char **get_words( FILE *fp, int *nwords, char **orig_line )
   result = fgets ( str, BIG_STRING, fp );
   if ( result == NULL )
   {
+    free(words);
     *nwords = 0;
     *orig_line = NULL;
     return ( NULL );
@@ -1885,7 +2042,8 @@ double get_item_value( char *item, int type )
       return ( double_value );
     default:
       fprintf ( stderr, "get_item_value: bad type = %d\n", type );
-      exit ( -1 );
+      ply_set_error("get_item_value: invalid data type");
+      return ( 0.0 );
   }
 
   return ( 0.0 );  /* never actually gets here */
@@ -1944,7 +2102,8 @@ void write_binary_item( FILE *fp, int int_val, unsigned int uint_val, double dou
       break;
     default:
       fprintf ( stderr, "write_binary_item: bad type = %d\n", type );
-      exit ( -1 );
+      ply_set_error("write_binary_item: invalid data type");
+      return;
   }
 }
 
@@ -1980,7 +2139,8 @@ void write_ascii_item( FILE *fp, int int_val, unsigned int uint_val, double doub
       break;
     default:
       fprintf ( stderr, "write_ascii_item: bad type = %d\n", type );
-      exit ( -1 );
+      ply_set_error("write_ascii_item: invalid data type");
+      return;
   }
 }
 
@@ -2045,7 +2205,8 @@ void get_stored_item( void *ptr, int type, int *int_val, unsigned int *uint_val,
       break;
     default:
       fprintf ( stderr, "get_stored_item: bad type = %d\n", type );
-      exit ( -1 );
+      ply_set_error("get_stored_item: invalid data type");
+      return;
   }
 }
 
@@ -2123,7 +2284,8 @@ void get_binary_item( FILE *fp, int type, int *int_val, unsigned int *uint_val, 
       break;
     default:
       fprintf ( stderr, "get_binary_item: bad type = %d\n", type );
-      exit ( -1 );
+      ply_set_error("get_binary_item: invalid data type");
+      return;
   }
 }
 
@@ -2171,7 +2333,8 @@ void get_ascii_item( char *word, int type, int *int_val, unsigned int *uint_val,
 
     default:
       fprintf ( stderr, "get_ascii_item: bad type = %d\n", type );
-      exit ( -1 );
+      ply_set_error("get_ascii_item: invalid data type");
+      return;
   }
 }
 
@@ -2235,7 +2398,8 @@ void store_item( char *item, int type, int int_val, unsigned int uint_val, doubl
       break;
     default:
       fprintf ( stderr, "store_item: bad type = %d\n", type );
-      exit ( -1 );
+      ply_set_error("store_item: invalid data type");
+      return;
   }
 }
 
@@ -2253,11 +2417,29 @@ void add_element( PlyFile *plyfile, char **words, int nwords )
 {
   PlyElement *elem;
 
+  if (!plyfile || !words || nwords != 3 || !words[1] || !words[2])
+    {
+      ply_set_error("add_element: malformed element declaration");
+      return;
+    }
+
   /* create the new element */
   elem = ( PlyElement *  ) myalloc ( sizeof ( PlyElement ) );
   elem->name = strdup ( words[1] );
   elem->num = atoi ( words[2] );
   elem->nprops = 0;
+  elem->props = NULL;
+  elem->store_prop = NULL;
+  elem->other_offset = NO_OTHER_PROPS;
+  elem->other_size = 0;
+
+  if (!elem->name || elem->num < 0)
+    {
+      ply_set_error("add_element: malformed element declaration");
+      free(elem->name);
+      free(elem);
+      return;
+    }
 
   /* make room for new element in the object's list of elements */
   if ( plyfile->num_elem_types == 0 )
@@ -2315,6 +2497,22 @@ void add_property( PlyFile *plyfile, char **words, int nwords )
   PlyProperty  *prop;
   PlyElement   *elem;
 
+  if (!plyfile || plyfile->num_elem_types <= 0 || !words || nwords < 3)
+    {
+      ply_set_error("add_property: malformed property declaration");
+      return;
+    }
+  if (equal_strings(words[1], "list") && nwords != 5)
+    {
+      ply_set_error("add_property: malformed list declaration");
+      return;
+    }
+  if (!equal_strings(words[1], "list") && !equal_strings(words[1], "string") && nwords != 3)
+    {
+      ply_set_error("add_property: malformed scalar declaration");
+      return;
+    }
+
   /* create the new property */
 
   prop = ( PlyProperty *  ) myalloc ( sizeof ( PlyProperty ) );
@@ -2342,6 +2540,15 @@ void add_property( PlyFile *plyfile, char **words, int nwords )
     prop->name = strdup ( words[2] );
     prop->is_list = PLY_SCALAR;
   }
+
+  if (!prop->name || prop->external_type == StartType ||
+      (prop->is_list == PLY_LIST && prop->count_external == StartType))
+    {
+      ply_set_error("add_property: unsupported property type");
+      free(prop->name);
+      free(prop);
+      return;
+    }
 
   /* add this property to the list of properties of the current element */
 
@@ -2613,7 +2820,13 @@ plyfile - identifier of file to close
 
 void close_ply( PlyFile *plyfile )
 {
-  fclose ( plyfile->fp );
+  if (!plyfile || !plyfile->fp)
+    {
+      ply_set_error("close_ply: invalid file");
+      return;
+    }
+  if (fclose ( plyfile->fp ) != 0)
+    ply_set_error("close_ply: file close/flush failed");
 }
 
 
@@ -2626,7 +2839,50 @@ plyfile - identifier of file
 
 void free_ply( PlyFile *plyfile )
 {
-  /* free up memory associated with the PLY file */
+  int i, j;
+  if (!plyfile) return;
+  if (plyfile->other_elems)
+    free_other_elements_ply(plyfile->other_elems);
+  if (plyfile->elems)
+    for (i=0; i<plyfile->num_elem_types; ++i)
+      {
+        PlyElement *elem = plyfile->elems[i];
+        if (!elem) continue;
+        if (elem->props)
+          for (j=0; j<elem->nprops; ++j)
+            {
+              if (elem->props[j])
+                {
+                  free(elem->props[j]->name);
+                  free(elem->props[j]);
+                }
+            }
+        free(elem->props);
+        free(elem->store_prop);
+        free(elem->name);
+        free(elem);
+      }
+  free(plyfile->elems);
+  for (i=0; i<plyfile->num_comments; ++i) free(plyfile->comments[i]);
+  free(plyfile->comments);
+  for (i=0; i<plyfile->num_obj_info; ++i) free(plyfile->obj_info[i]);
+  free(plyfile->obj_info);
+  while (plyfile->rule_list)
+    {
+      PlyRuleList *next = plyfile->rule_list->next;
+      free(plyfile->rule_list->name);
+      free(plyfile->rule_list->element);
+      free(plyfile->rule_list->property);
+      free(plyfile->rule_list);
+      plyfile->rule_list = next;
+    }
+  if (plyfile->current_rules)
+    {
+      free(plyfile->current_rules->rule_list);
+      free(plyfile->current_rules->props);
+      free(plyfile->current_rules->weights);
+      free(plyfile->current_rules);
+    }
   free ( plyfile );
 }
 
@@ -2765,7 +3021,8 @@ void describe_element_ply( PlyFile *plyfile, char *elem_name, int nelems )
   if ( elem == NULL )
   {
     fprintf( stderr,"describe_element_ply: can't find element '%s'\n",elem_name );
-    exit ( -1 );
+    ply_set_error("describe_element_ply: element not found");
+    return;
   }
 
   elem->num = nelems;
@@ -2950,7 +3207,8 @@ PlyPropRules *init_rule_ply( PlyFile *ply, char *elem_name )
   if ( elem == NULL )
   {
     fprintf ( stderr, "init_rule_ply: Can't find element '%s'\n", elem_name );
-    exit ( -1 );
+    ply_set_error("init_rule_ply: element not found");
+    return NULL;
   }
 
   rules = ( PlyPropRules *  ) myalloc ( sizeof ( PlyPropRules ) );
@@ -3028,7 +3286,8 @@ void modify_rule_ply( PlyPropRules *rules, char *prop_name, int rule_type )
 
   /* we didn't find the property if we get here */
   fprintf ( stderr, "modify_rule_ply: Can't find property '%s'\n", prop_name );
-  exit ( -1 );
+  ply_set_error("modify_rule_ply: property not found");
+  return;
 }
 
 
@@ -3208,14 +3467,16 @@ void *get_new_props_ply( PlyFile *ply )
           {
             fprintf ( stderr,
             "get_new_props_ply: Error combining properties that should be the same.\n" );
-            exit ( -1 );
+            ply_set_error("get_new_props_ply: SAME rule mismatch");
+            return NULL;
           }
         break;
       }
       default:
         fprintf ( stderr, "get_new_props_ply: Bad rule = %d\n",
         rules->rule_list[i] );
-        exit ( -1 );
+        ply_set_error("get_new_props_ply: invalid rule");
+        return NULL;
     }
 
     /* store the combined value */

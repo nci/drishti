@@ -85,9 +85,16 @@ Global::documentationPath()
 #else
 
   QDir app = QCoreApplication::applicationDirPath();
-  app.cdUp();
-  app.cd("docs");
-  app.cd("drishti");
+  if (app.exists("docs/drishti"))
+    app.cd("docs/drishti");
+  else if (app.exists("docs"))
+    app.cd("docs");
+  else
+    {
+      app.cdUp();
+      app.cd("docs");
+      app.cd("drishti");
+    }
 #endif // defined(Q_OS_LINUX)
 
   QString page = QFileInfo(app, "drishti.qhc").absoluteFilePath();
@@ -99,14 +106,24 @@ Global::documentationPath()
     }
   else
     {
-      QString path;
-      path = QFileDialog::getExistingDirectory(0,
-			  "Drishti Documentation Directory",
-			   QCoreApplication::applicationDirPath());
-      if (path.isEmpty() == false)
-	m_documentationPath = path;
+      // Portable packages may contain PDF help without Qt help collections.
+      // Use that documented directory directly instead of blocking startup
+      // on a directory picker.
+      QDir pdfDirectory = app;
+      if (pdfDirectory.entryList(QStringList() << "*.pdf",
+                                 QDir::Files).isEmpty())
+        pdfDirectory.cdUp();
+      if (pdfDirectory.exists("DrishtiPaint.pdf") ||
+          !pdfDirectory.entryList(QStringList() << "*.pdf",
+                                  QDir::Files).isEmpty())
+        m_documentationPath = pdfDirectory.absolutePath();
       else
-	m_documentationPath = "dontask";
+        {
+          QString path = QFileDialog::getExistingDirectory(
+            0, "Drishti Documentation Directory",
+            QCoreApplication::applicationDirPath());
+          m_documentationPath = path.isEmpty() ? "dontask" : path;
+        }
     }
   m_documentationPath = QDir(m_documentationPath).canonicalPath();
   return m_documentationPath;

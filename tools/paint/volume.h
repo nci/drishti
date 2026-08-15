@@ -24,11 +24,12 @@ class Volume : public QObject
 
   bool setFile(QString);
   QString fileName() { return m_fileName; }
+  QString maskPvlFileName() const { return m_mask.pvlFileName(); }
 
   void setMaskVoxelType(int vt) { m_mask.setVoxelType(vt); }
   
   
-  void saveTagNames(QStringList);
+  bool saveTagNames(QStringList);
   QStringList loadTagNames();
 
   bool exportMask();
@@ -94,6 +95,10 @@ class Volume : public QObject
   void progressReset();
 
  private :
+  bool loadFileInternal(QString);
+  bool prepareForStateSwap();
+  bool swapState(Volume&);
+
   bool m_valid;
 
   VolumeFileManager m_pvlFileManager;

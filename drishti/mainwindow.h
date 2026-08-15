@@ -126,7 +126,7 @@ class MainWindow : public QMainWindow
    void openRecentFile();   
    void loadProject(const char*);
    void loadTransferFunctionsOnly(const char*);
-   void saveProject(QString);
+   bool saveProject(QString);
    void GlewInit();
    void loadLookupTable();
    void lightDirectionChanged(Vec);
@@ -268,40 +268,43 @@ class MainWindow : public QMainWindow
 
    void initTagColors();
 
-   void loadDummyVolume(int, int, int);
+   bool loadDummyVolume(int, int, int);
 
    void loadVolumeFromUrls(QList<QUrl>);
    void loadVolumeRGBFromUrls(QList<QUrl>);
 
-   void loadKeyFrames(const char*);
-   void saveKeyFrames(const char*);
+   bool loadKeyFrames(const char*, bool commit = true);
+   bool commitPendingKeyFrames();
+   bool saveKeyFrames(const char*);
 
-   void loadVolumeList(QList<QString>, bool);
-   void loadVolume(QList<QString>);
-   void loadVolumeRGB(char*);
+   bool loadVolumeList(QList<QString>, bool);
+   bool loadVolume(QList<QString>);
+   bool loadVolumeRGB(char*);
 
-   void loadVolume2List(QList<QString>, QList<QString>, bool);
+   bool loadVolume2List(QList<QString>, QList<QString>, bool);
    bool loadVolume2(QList<QString>, QList<QString>);
 
-   void loadVolume3List(QList<QString>, QList<QString>,
+   bool loadVolume3List(QList<QString>, QList<QString>,
 			QList<QString>, bool);
    bool loadVolume3(QList<QString>, QList<QString>,
 		    QList<QString>);
 
-   void loadVolume4List(QList<QString>, QList<QString>,
+   bool loadVolume4List(QList<QString>, QList<QString>,
 			QList<QString>, QList<QString>, bool);
    bool loadVolume4(QList<QString>, QList<QString>,
 		    QList<QString>, QList<QString>);
 
-   void saveVolumeIntoProject(const char*, QString);
-   int loadVolumeFromProject(const char*);
+   bool saveVolumeIntoProject(const char*, QString);
+   bool loadVolumeFromProject(const char*, int&,
+                              QList<QString>&, QList<QString>&,
+                              QList<QString>&, QList<QString>&);
 
    void setTextureMemory(bool bruteforce=false);
    void loadSettings();
    void saveSettings();
 
   void preLoadVolume();
-  void postLoadVolume();
+  bool postLoadVolume();
   void recoverFromFailedVolumeLoad(const QString&);
 
    void updateRecentFileAction();
@@ -314,10 +317,43 @@ class MainWindow : public QMainWindow
 
    bool haveGrid();
 
+   void rollbackProjectVolumeLoad();
+   void captureVolumeLoadRollback();
+
    void registerPlugins();
    void registerMenuViewerFunctions();
 
    void runPlugin(int, bool);
+
+   bool m_deferVolumeCommit;
+   bool m_projectRollbackValid;
+   bool m_projectRollbackPreferencesValid;
+   bool m_projectRollbackLowresValid;
+   DrawLowresVolume::State m_projectRollbackLowresState;
+   bool m_projectRollbackDockTFVisible;
+   bool m_projectRollbackEmptySpaceSkipEnabled;
+   bool m_projectRollbackEmptySpaceSkipChecked;
+   QString m_projectRollbackCurrentProject;
+   QString m_projectRollbackPreviousDirectory;
+   QList<QString> m_projectRollbackVolFiles1;
+   QList<QString> m_projectRollbackVolFiles2;
+   QList<QString> m_projectRollbackVolFiles3;
+   QList<QString> m_projectRollbackVolFiles4;
+   Vec m_projectRollbackBoundsMin;
+   Vec m_projectRollbackBoundsMax;
+   bool m_projectRollbackHires;
+   bool m_projectRollbackTFEnabled;
+   bool m_projectRollbackUse1D;
+   bool m_projectRollbackEmptySpaceSkip;
+   float m_projectRollbackGamma;
+   int m_projectRollbackLutSize;
+   int m_projectRollbackVolumeNumbers[4];
+   QList<SplineInformation> m_projectRollbackTF;
+   PreferencesWidget::State m_projectRollbackPreferences;
+   KeyFrame *m_pendingKeyFrameCandidate;
+   bool m_pendingKeyFrameValid;
+   DrawLowresVolume::State m_pendingLowresState;
+   bool m_pendingLowresStateValid;
 };
 
 

@@ -36,9 +36,16 @@ Global::documentationPath()
 #elif defined(Q_OS_WIN32)
 
   QDir app = QCoreApplication::applicationDirPath();
-  app.cdUp();
-  app.cd("docs");
-  app.cd("paint");
+  if (app.exists("docs/paint"))
+    app.cd("docs/paint");
+  else if (app.exists("docs"))
+    app.cd("docs");
+  else
+    {
+      app.cdUp();
+      app.cd("docs");
+      app.cd("paint");
+    }
 
 #else
   #error Unsupported platform.
@@ -53,14 +60,21 @@ Global::documentationPath()
     }
   else
     {
-      QString path;
-      path = QFileDialog::getExistingDirectory(0,
-			  "Drishti Paint Documentation Directory",
-			   QCoreApplication::applicationDirPath());
-      if (path.isEmpty() == false)
-	m_documentationPath = path;
+      QDir pdfDirectory = app;
+      if (pdfDirectory.entryList(QStringList() << "*.pdf",
+                                  QDir::Files).isEmpty())
+        pdfDirectory.cdUp();
+      if (pdfDirectory.exists("DrishtiPaint.pdf") ||
+          !pdfDirectory.entryList(QStringList() << "*.pdf",
+                                  QDir::Files).isEmpty())
+        m_documentationPath = pdfDirectory.absolutePath();
       else
-	m_documentationPath = "dontask";
+        {
+          QString path = QFileDialog::getExistingDirectory(
+            0, "Drishti Paint Documentation Directory",
+            QCoreApplication::applicationDirPath());
+          m_documentationPath = path.isEmpty() ? "dontask" : path;
+        }
     }
   m_documentationPath = QDir(m_documentationPath).canonicalPath();
   return m_documentationPath;

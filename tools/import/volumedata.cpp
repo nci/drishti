@@ -207,12 +207,30 @@ VolumeData::VolumeData()
 {
   m_image = 0;
   m_volInterface = 0;
+  m_pluginObject = 0;
   clear();
 }
 
 VolumeData::~VolumeData()
 {
   clear();
+}
+
+QStringList
+VolumeData::sourceFiles() const
+{
+  if (m_pluginObject)
+    {
+      SourceFilesProvider *provider =
+        qobject_cast<SourceFilesProvider*>(m_pluginObject);
+      if (provider)
+        {
+          const QStringList resolved = provider->sourceFiles();
+          if (!resolved.isEmpty())
+            return resolved;
+        }
+    }
+  return m_fileName;
 }
 
 void
@@ -225,6 +243,7 @@ VolumeData::clear()
       delete m_volInterface;
       m_volInterface = 0;
     }
+  m_pluginObject = 0;
 
   m_scriptsPluginActive = false;
 
@@ -503,7 +522,10 @@ VolumeData::loadPlugin(QString pluginflnm)
     {
       m_volInterface = qobject_cast<VolInterface *>(plugin);
       if (m_volInterface)
-	      return true;
+	{
+          m_pluginObject = plugin;
+          return true;
+	}
     }
 
   QMessageBox::information(0, "Error", "Cannot load plugin");

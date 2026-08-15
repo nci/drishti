@@ -295,6 +295,8 @@ class DrishtiPaint : public QMainWindow
 
   void loadSettings();
   void saveSettings();
+  bool saveCurvesTransaction(const QString&, QString* error = 0);
+  bool saveWorkTransaction(bool forceMask, QString* error = 0);
 
   void updateRecentFileAction();
   QString loadVolumeFromProject(const char*);
@@ -322,7 +324,7 @@ class DrishtiPaint : public QMainWindow
   void connectCurvesWidget();
   void miscConnections();
 
-  void updateCurveMask(uchar*,
+  bool updateCurveMask(uchar*,
 		       int, int, int,
 		       int, int, int,
 		       int, int, int,

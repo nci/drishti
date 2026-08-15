@@ -26,4 +26,5 @@ macx {
 SOURCES += tiff_plugin_orientation_smoke.cpp
 
 HEADERS += ../volinterface.h \
+           ../sourcefilesprovider.h \
            ../common.h

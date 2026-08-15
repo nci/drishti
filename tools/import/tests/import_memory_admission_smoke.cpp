@@ -77,6 +77,20 @@ int main()
       !approved.commitMemoryChecked)
     return fail("a bounded conversion was not admitted");
 
+  ImportMemoryAdmission saturated = approved;
+  saturated.requiredBytes = saturated.availablePhysicalBudgetBytes;
+  std::shared_ptr<ProcessMemoryReservation> firstReservation;
+  if (!reserveImportMemory(saturated, firstReservation) ||
+      !firstReservation || !firstReservation->active())
+    return fail("an admitted conversion did not acquire its reservation");
+  std::shared_ptr<ProcessMemoryReservation> competingReservation;
+  if (reserveImportMemory(saturated, competingReservation))
+    return fail("concurrent conversion reservation was incorrectly admitted");
+  firstReservation.reset();
+  if (!reserveImportMemory(saturated, competingReservation))
+    return fail("released conversion reservation was not reusable");
+  competingReservation.reset();
+
   FakeProvider physical = knownMemory(5*kGiB, 18*kGiB);
   ImportMemoryAdmission physicalRejected = evaluateImportMemoryAdmission(
     1024ULL*1024ULL*1024ULL, provideStatus, &physical);

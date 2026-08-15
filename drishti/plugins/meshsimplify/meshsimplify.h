@@ -56,7 +56,7 @@ class MeshSimplify
 		    float, int,
 		    int, int);
 
-  void savePLY(QString);
+  bool savePLY(QString);
   bool loadPLY(QString);
 
   bool getValues(float&, int&, int&, int&);

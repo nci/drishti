@@ -704,14 +704,25 @@ ImageStackPlugin::setFile(QStringList files)
 
       if (!setImageFiles(imageList))
 	return false;
-      m_fileName = files;
+      // Persist the resolved slice order, not only the source directory.
+      // This keeps the PVL provenance identical to the pages actually read.
+      m_fileName = imageList;
       return true;
     }
 
+  // The file-list dialog presents a natural default and returns the user's
+  // confirmed order. Preserve that order here; re-sorting would silently
+  // discard an intentional Z-order adjustment.
   if (!setImageFiles(files))
     return false;
   m_fileName = files;
   return true;
+}
+
+QStringList
+ImageStackPlugin::sourceFiles() const
+{
+  return m_fileName;
 }
 
 void
@@ -1227,6 +1238,32 @@ ImageStackPlugin::savePvlHeader(QString pvlFilename,
     topElement.appendChild(de0);
   }
 
+  // RGB/RGBA exports are a separate multi-channel manifest.  The channel
+  // files use the same base name as the PVL header plus red/green/blue/alpha.
+  {
+    QDomElement de0 = doc.createElement("pvlvoxeltype");
+    de0.appendChild(doc.createTextNode(voxelType));
+    topElement.appendChild(de0);
+  }
+  {
+    QDomElement channels = doc.createElement("channelnames");
+    QFileInfo headerInfo(pvlFilename);
+    QString base = pvlFilename;
+    if (base.endsWith(".pvl.nc"))
+      base.chop(6);
+    const QStringList suffixes = voxelType == "RGBA" ?
+      (QStringList() << "red" << "green" << "blue" << "alpha") :
+      (QStringList() << "red" << "green" << "blue");
+    for (int i = 0; i < suffixes.count(); ++i)
+      {
+        QDomElement name = doc.createElement("name");
+        name.appendChild(doc.createTextNode(
+          headerInfo.absoluteDir().relativeFilePath(base + suffixes.at(i))));
+        channels.appendChild(name);
+      }
+    topElement.appendChild(channels);
+  }
+
   {      
     QDomElement de0 = doc.createElement("voxelsize");
     QDomText tn0;
@@ -1243,13 +1280,26 @@ ImageStackPlugin::savePvlHeader(QString pvlFilename,
     topElement.appendChild(de0);
   }
 
-  {      
+  {
     QDomElement de0 = doc.createElement("slabsize");
     QDomText tn0;
     tn0 = doc.createTextNode(QString("%1").arg(slabSize));
     de0.appendChild(tn0);
     topElement.appendChild(de0);
   }  
+  // RGB/RGBA output is a channel manifest.  Do not emit scalar <pvlnames>:
+  // those files do not exist for this writer and would make a strict reader
+  // interpret the colour volume as a second, unrelated scalar volume.
+  {
+    QDomElement de0 = doc.createElement("pvlheadersize");
+    de0.appendChild(doc.createTextNode("13"));
+    topElement.appendChild(de0);
+  }
+  {
+    QDomElement de0 = doc.createElement("rawheadersize");
+    de0.appendChild(doc.createTextNode("13"));
+    topElement.appendChild(de0);
+  }
   
   QSaveFile f(xmlfile);
   if (!f.open(QIODevice::WriteOnly))

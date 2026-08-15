@@ -311,6 +311,7 @@ DrishtiImport::loadFiles(QStringList flnms,
       fld.exec();
       if (fld.result() == QDialog::Rejected)
 	return;
+      flnms = fld.files();
     }
 
   QFileInfo f(flnms[0]);
@@ -327,12 +328,15 @@ DrishtiImport::loadFiles(QStringList flnms,
 	    arg(i+1).arg(m_pluginFileTypes[i]);
 	}
 
+      bool accepted = false;
       QString option = QInputDialog::getItem(0,
 					     "Select File Type",
 					     "File Type",
 					     ftypes,
 					     0,
-					     false);
+					     false, &accepted);
+      if (!accepted)
+	return;
   
       idx = ftypes.indexOf(option);
 
@@ -421,12 +425,15 @@ DrishtiImport::loadDirectory(QString dirname, int pluginidx)
 	    arg(i+1).arg(m_pluginDirTypes[i]);
 	}
 
+      bool accepted = false;
       QString option = QInputDialog::getItem(0,
 					     "Select Directory Type",
 					     "Directory Type",
 					     dtypes,
 					     0,
-					     false);  
+					     false, &accepted);
+      if (!accepted)
+	return;
       idx = dtypes.indexOf(option);
       
       if (idx == -1)
@@ -587,12 +594,15 @@ DrishtiImport::on_actionMergeVolumes_triggered()
 	arg(i+1).arg(m_pluginFileTypes[i]);
     }
 
+  bool accepted = false;
   QString option = QInputDialog::getItem(0,
 					 "Select File Type",
 					 "File Type",
 					 ftypes,
 					 0,
-					 false);
+					 false, &accepted);
+  if (!accepted)
+    return;
   
   int idx = ftypes.indexOf(option);
   
@@ -629,12 +639,15 @@ DrishtiImport::on_actionTimeSeries_triggered()
 	arg(i+1).arg(m_pluginFileTypes[i]);
     }
 
+  bool accepted = false;
   QString option = QInputDialog::getItem(0,
 					 "Select File Type",
 					 "File Type",
 					 ftypes,
 					 0,
-					 false);
+					 false, &accepted);
+  if (!accepted)
+    return;
   
   int idx = ftypes.indexOf(option);
   
@@ -741,6 +754,7 @@ DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
       fld.exec();
       if (fld.result() == QDialog::Rejected)
 	return;
+      flnms = fld.files();
     }
 
   QFileInfo f(flnms[0]);
@@ -757,12 +771,15 @@ DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
 	    arg(i+1).arg(m_pluginDirTypes[i]);
 	}
 
+      bool accepted = false;
       QString option = QInputDialog::getItem(0,
 					     "Select Directory Type",
 					     "Directory Type",
 					     dtypes,
 					     0,
-					     false);  
+					     false, &accepted);
+      if (!accepted)
+	return;
       idx = dtypes.indexOf(option);
       
       if (idx == -1)
@@ -821,7 +838,7 @@ DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
 	  progress.setValue(50);
 	  qApp->processEvents();
 
-	  if (!m_remapWidget->saveTrimmed(0,0,0, 0,0,0))
+	  if (!m_remapWidget->saveQuickRaw())
 	    {
 	      progress.setValue(100);
 	      return;
@@ -939,7 +956,7 @@ DrishtiImport::on_actionMimics_triggered()
       progress.setValue(50);
       qApp->processEvents();
       
-      if (!m_remapWidget->saveTrimmed(0,0,0, 0,0,0))
+	  if (!m_remapWidget->saveQuickRaw())
 	{
 	  progress.setValue(100);
 	  removeTemporaryRawFiles();

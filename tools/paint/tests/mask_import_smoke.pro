@@ -14,7 +14,8 @@ unix: LIBS += -lblosc
 
 SOURCES += mask_import_smoke.cpp \
            ../maskimportutils.cpp \
-           ../getmemorysize.cpp
+           ../getmemorysize.cpp \
+           ../../../common/src/memoryreservation.cpp
 
 HEADERS += ../maskimportutils.h \
            ../getmemorysize.h

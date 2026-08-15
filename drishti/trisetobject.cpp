@@ -3,7 +3,6 @@
 #include "staticfunctions.h"
 #include "trisetobject.h"
 #include "matrix.h"
-#include "ply.h"
 #include "matrix.h"
 #include "volumeinformation.h"
 #include "captiondialog.h"

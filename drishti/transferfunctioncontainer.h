@@ -14,6 +14,7 @@ class TransferFunctionContainer : public QObject
  
   int count();
   int maxSets();
+  void swapState(TransferFunctionContainer&);
   SplineTransferFunction* transferFunctionPtr(int);
   QImage composite(int col=0);
   void setCheckState(int, int, bool);

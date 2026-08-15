@@ -1,6 +1,8 @@
 #include "global.h"
 #include "remapimage.h"
 
+#include <cmath>
+
 RemapImage::RemapImage(QWidget *parent) :
   QWidget(parent)
 {
@@ -124,8 +126,11 @@ RemapImage::loadLimits()
 					   false,
 					   &ok);
   
+
       if (ok && item == "Yes")
 	{
+	  if (h <= 1 || w <= 1 || d <= 1)
+	    return;
 	  scaleh = (float)m_Height/(float)(h-1);
 	  scalew = (float)m_Width/(float)(w-1);
 	  scaled = (float)m_Depth/(float)(d-1);
@@ -310,36 +315,43 @@ RemapImage::setSliceType(int st)
   // update rubberband extents
   float left, right, top, bottom;
 
+  // m_* stores the maximum valid index, so a one-voxel axis has a zero
+  // denominator.  Use a unit denominator for the normalized rubber-band
+  // coordinates while retaining the exact integer ROI in the sliders.
+  const float safeDepth = qMax(1, m_Depth);
+  const float safeWidth = qMax(1, m_Width);
+  const float safeHeight = qMax(1, m_Height);
+
   float width, height;
   if (m_sliceType == DSlice)
     {
-      left = (float)m_minHSlice/(float)m_Height;
-      right = (float)m_maxHSlice/(float)m_Height;
-      top = (float)m_minWSlice/(float)m_Width;
-      bottom = (float)m_maxWSlice/(float)m_Width;
+      left = (float)m_minHSlice/safeHeight;
+      right = (float)m_maxHSlice/safeHeight;
+      top = (float)m_minWSlice/safeWidth;
+      bottom = (float)m_maxWSlice/safeWidth;
 
-      width = m_Height;
-      height = m_Width;
+      width = qMax(1, m_Height);
+      height = qMax(1, m_Width);
     }
   else if (m_sliceType == WSlice)
     {
-      left = (float)m_minHSlice/(float)m_Height;
-      right = (float)m_maxHSlice/(float)m_Height;
-      top = (float)m_minDSlice/(float)m_Depth;
-      bottom = (float)m_maxDSlice/(float)m_Depth;
+      left = (float)m_minHSlice/safeHeight;
+      right = (float)m_maxHSlice/safeHeight;
+      top = (float)m_minDSlice/safeDepth;
+      bottom = (float)m_maxDSlice/safeDepth;
 
-      width = m_Height;
-      height = m_Depth;
+      width = qMax(1, m_Height);
+      height = qMax(1, m_Depth);
     }
   else
     {
-      left = (float)m_minWSlice/(float)m_Width;
-      right = (float)m_maxWSlice/(float)m_Width;
-      top = (float)m_minDSlice/(float)m_Depth;
-      bottom = (float)m_maxDSlice/(float)m_Depth;
+      left = (float)m_minWSlice/safeWidth;
+      right = (float)m_maxWSlice/safeWidth;
+      top = (float)m_minDSlice/safeDepth;
+      bottom = (float)m_maxDSlice/safeDepth;
 
-      width = m_Width;
-      height = m_Depth;
+      width = qMax(1, m_Width);
+      height = qMax(1, m_Depth);
     }
 
   left = qBound(0.0f, left, 1.0f);
@@ -1059,26 +1071,36 @@ RemapImage::updateLimits()
   float right = m_rubberBand.right();
   float top = m_rubberBand.top();
   float bottom = m_rubberBand.bottom();
+  auto axisRange = [](float low, float high, int maximum,
+                      int& minimumIndex, int& maximumIndex)
+    {
+      const float originalLow = low;
+      const float originalHigh = high;
+      low = qBound(0.0f, qMin(originalLow, originalHigh), 1.0f);
+      high = qBound(0.0f, qMax(originalLow, originalHigh), 1.0f);
+      if (maximum <= 0)
+        {
+          minimumIndex = maximumIndex = 0;
+          return;
+        }
+      minimumIndex = qBound(0, static_cast<int>(std::floor(low*maximum)), maximum);
+      maximumIndex = qBound(minimumIndex,
+                            static_cast<int>(std::ceil(high*maximum)), maximum);
+    };
   if (m_sliceType == DSlice)
     {
-      m_minHSlice = left*m_Height;
-      m_maxHSlice = right*m_Height;
-      m_minWSlice = top*m_Width;
-      m_maxWSlice = bottom*m_Width;
+      axisRange(left, right, m_Height, m_minHSlice, m_maxHSlice);
+      axisRange(top, bottom, m_Width, m_minWSlice, m_maxWSlice);
     }
   else if (m_sliceType == WSlice)
     {
-      m_minHSlice = left*m_Height;
-      m_maxHSlice = right*m_Height;
-      m_minDSlice = top*m_Depth;
-      m_maxDSlice = bottom*m_Depth;
+      axisRange(left, right, m_Height, m_minHSlice, m_maxHSlice);
+      axisRange(top, bottom, m_Depth, m_minDSlice, m_maxDSlice);
     }
   else
     {
-      m_minWSlice = left*m_Width;
-      m_maxWSlice = right*m_Width;
-      m_minDSlice = top*m_Depth;
-      m_maxDSlice = bottom*m_Depth;
+      axisRange(left, right, m_Width, m_minWSlice, m_maxWSlice);
+      axisRange(top, bottom, m_Depth, m_minDSlice, m_maxDSlice);
     }
 }
 

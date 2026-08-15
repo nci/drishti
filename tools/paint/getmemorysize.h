@@ -9,6 +9,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+
+#include "../../common/src/memoryreservation.h"
+
 
 struct SystemMemoryStatus
 {
@@ -77,6 +81,7 @@ struct PaintAlgorithmMemoryAdmission
   std::uint64_t availablePhysicalBudgetBytes;
   std::uint64_t availableCommitBudgetBytes;
   PaintAlgorithmMemoryAdmissionReason reason;
+  std::shared_ptr<ProcessMemoryReservation> reservation;
 
   PaintAlgorithmMemoryAdmission();
 };
@@ -95,6 +100,10 @@ bool evaluatePaintMemoryAdmission(std::uint64_t depth,
                                   std::uint32_t maskBytesPerVoxel,
                                   const SystemMemoryStatus& status,
                                   PaintMemoryAdmission& admission);
+
+bool reservePaintVolumeMemory(
+  const PaintMemoryAdmission& admission,
+  std::shared_ptr<ProcessMemoryReservation>& reservation);
 
 bool calculatePaintAlgorithmRequiredBytes(std::uint64_t depth,
                                           std::uint64_t width,
@@ -119,6 +128,8 @@ PaintAlgorithmMemoryAdmission evaluatePaintAlgorithmMemoryAdmission(
   std::uint64_t fixedOverheadBytes,
   PaintMemoryStatusProvider provider = nullptr,
   void *providerContext = nullptr);
+
+bool reservePaintAlgorithmMemory(PaintAlgorithmMemoryAdmission& admission);
 
 // Retained for source compatibility with older callers.
 std::size_t getMemorySize();

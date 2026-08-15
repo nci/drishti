@@ -13,5 +13,6 @@ HEADERS = txmplugin.h \
 
 SOURCES = txmplugin.cpp \
 	  pole.cpp \
-          ../../importmemoryadmission.cpp
+          ../../importmemoryadmission.cpp \
+          ../../../../common/src/memoryreservation.cpp
 

@@ -37,7 +37,8 @@ class VolumeFileManager
   void setHeight(int);
   bool createFile(bool);
 
-  bool commitFileCreation();
+  bool commitFileCreation(bool releaseBackup=true);
+  bool finalizeFileCreation();
   bool rollbackFileCreation();
   QString lastError() const;
   

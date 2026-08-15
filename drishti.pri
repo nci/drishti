@@ -6,6 +6,12 @@ HEADERS += commonqtclasses.h
 
 Windows_Setup = Win64
 
+# Keep the default build self-contained.  CI or a developer machine may still
+# override these values through qmake variables or environment variables, but
+# a checkout with the canonical dependency workspace should not fall back to
+# unrelated machine-wide installs.
+DRISHTI_DEPS_ROOT = $$clean_path($$PWD/.lab-agent/dependencies)
+
 # Dependency locations can be supplied on the qmake command line or through
 # matching environment variables.  The historical paths remain fallbacks so
 # existing developer machines keep working.
@@ -14,27 +20,27 @@ isEmpty(DRISHTI_VCPKG_TRIPLET): DRISHTI_VCPKG_TRIPLET = x64-windows
 
 isEmpty(DRISHTI_VCPKG_ROOT): DRISHTI_VCPKG_ROOT = $$(DRISHTI_VCPKG_ROOT)
 isEmpty(DRISHTI_VCPKG_ROOT): DRISHTI_VCPKG_ROOT = $$(VCPKG_ROOT)
-isEmpty(DRISHTI_VCPKG_ROOT): DRISHTI_VCPKG_ROOT = C:/Apps/vcpkg
+isEmpty(DRISHTI_VCPKG_ROOT): DRISHTI_VCPKG_ROOT = $$clean_path($$DRISHTI_DEPS_ROOT/install/vcpkg)
 
 isEmpty(VCPKG_INCLUDE_PATH): VCPKG_INCLUDE_PATH = $$clean_path($$DRISHTI_VCPKG_ROOT/installed/$$DRISHTI_VCPKG_TRIPLET/include)
 isEmpty(VCPKG_LIBRARY_PATH): VCPKG_LIBRARY_PATH = $$clean_path($$DRISHTI_VCPKG_ROOT/installed/$$DRISHTI_VCPKG_TRIPLET/lib)
 
 isEmpty(DRISHTI_QGLVIEWER_ROOT): DRISHTI_QGLVIEWER_ROOT = $$(DRISHTI_QGLVIEWER_ROOT)
-isEmpty(DRISHTI_QGLVIEWER_ROOT): DRISHTI_QGLVIEWER_ROOT = C:/Qt/Qt-5/libQGLViewer/libQGLViewer-2.6.4
+isEmpty(DRISHTI_QGLVIEWER_ROOT): DRISHTI_QGLVIEWER_ROOT = $$clean_path($$DRISHTI_DEPS_ROOT/install/qglviewer-2.6.4)
 isEmpty(QGLVIEWER_INCLUDE_PATH): QGLVIEWER_INCLUDE_PATH = $$clean_path($$DRISHTI_QGLVIEWER_ROOT)
 isEmpty(QGLVIEWER_LIBRARY_PATH): QGLVIEWER_LIBRARY_PATH = $$clean_path($$DRISHTI_QGLVIEWER_ROOT/lib)
 
 isEmpty(DRISHTI_ITK_VERSION): DRISHTI_ITK_VERSION = $$(DRISHTI_ITK_VERSION)
 isEmpty(DRISHTI_ITK_VERSION): DRISHTI_ITK_VERSION = 5.0
 isEmpty(DRISHTI_ITK_SOURCE_ROOT): DRISHTI_ITK_SOURCE_ROOT = $$(DRISHTI_ITK_SOURCE_ROOT)
-isEmpty(DRISHTI_ITK_SOURCE_ROOT): DRISHTI_ITK_SOURCE_ROOT = C:/InsightToolkit-$${DRISHTI_ITK_VERSION}.1
+isEmpty(DRISHTI_ITK_SOURCE_ROOT): DRISHTI_ITK_SOURCE_ROOT = $$clean_path($$DRISHTI_DEPS_ROOT/source/ITK-5.0.1)
 isEmpty(DRISHTI_ITK_BUILD_ROOT): DRISHTI_ITK_BUILD_ROOT = $$(DRISHTI_ITK_BUILD_ROOT)
-isEmpty(DRISHTI_ITK_BUILD_ROOT): DRISHTI_ITK_BUILD_ROOT = C:/ITK
+isEmpty(DRISHTI_ITK_BUILD_ROOT): DRISHTI_ITK_BUILD_ROOT = $$clean_path($$DRISHTI_DEPS_ROOT/build/ITK-5.0.1)
 
 isEmpty(DRISHTI_PYTHON_ROOT): DRISHTI_PYTHON_ROOT = $$(DRISHTI_PYTHON_ROOT)
-isEmpty(DRISHTI_PYTHON_ROOT): DRISHTI_PYTHON_ROOT = C:/Apps/Python314
+isEmpty(DRISHTI_PYTHON_ROOT): DRISHTI_PYTHON_ROOT = $$clean_path($$DRISHTI_DEPS_ROOT/toolchain/Python313)
 isEmpty(DRISHTI_PYTHON_LIB): DRISHTI_PYTHON_LIB = $$(DRISHTI_PYTHON_LIB)
-isEmpty(DRISHTI_PYTHON_LIB): DRISHTI_PYTHON_LIB = python314.lib
+isEmpty(DRISHTI_PYTHON_LIB): DRISHTI_PYTHON_LIB = python313.lib
 
 isEmpty(DRISHTI_BIN_DIR): DRISHTI_BIN_DIR = $$(DRISHTI_BIN_DIR)
 isEmpty(DRISHTI_BIN_DIR): DRISHTI_BIN_DIR = $$clean_path($$PWD/bin)

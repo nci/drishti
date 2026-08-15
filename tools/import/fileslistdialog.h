@@ -2,6 +2,7 @@
 #define FILESLISTDIALOG_H
 
 #include "ui_fileslistdialog.h"
+#include <QStringList>
 
 class FilesListDialog : public QDialog
 {
@@ -10,6 +11,8 @@ class FilesListDialog : public QDialog
  public :
   FilesListDialog(QList<QString>,
 		  QWidget *parent=NULL);
+
+  QStringList files() const;
 
  private:
   Ui::FilesListDialog ui;

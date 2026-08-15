@@ -347,9 +347,11 @@ int ncerr = NC_NOERR ;
 
 /*
  * The subroutines in error.c emit no messages unless NC_VERBOSE bit is on.
- * They call exit() when NC_FATAL bit is on.
+ * Import embeds this compatibility layer in a GUI host, so errors are
+ * reported through return values rather than terminating the process.
  */
-int ncopts = (NC_FATAL | NC_VERBOSE) ;
+/* Keep the legacy C API non-fatal inside the Import host process. */
+int ncopts = NC_VERBOSE ;
 #endif
 
 /* End globals */
@@ -387,10 +389,7 @@ nc_advise(const char *routine_name, int err, const char *fmt,...)
 		(void) fflush(stderr);	/* to ensure log files are current */
 	}
 
-	if( (ncopts & NC_FATAL) && err != NC_NOERR )
-	{
-		exit(ncopts);
-	}
+	/* Errors are returned to the caller; never terminate the host process. */
 }
 
 /* End error handling */

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <new>
 
 #if defined(_WIN32)
 #ifndef NOMINMAX
@@ -86,7 +87,8 @@ ImportMemoryAdmission::ImportMemoryAdmission()
     integratedGpuReserveBytes(0),
     availablePhysicalBudgetBytes(0),
     availableCommitBudgetBytes(0),
-    reason(ImportMemoryAdmissionReason::InvalidRequest)
+    reason(ImportMemoryAdmissionReason::InvalidRequest),
+    reservation()
 {
 }
 
@@ -249,4 +251,25 @@ evaluateImportMemoryAdmission(std::uint64_t requiredBytes,
   admission.approved = true;
   admission.reason = ImportMemoryAdmissionReason::Approved;
   return admission;
+}
+
+bool
+reserveImportMemory(const ImportMemoryAdmission& admission,
+                    std::shared_ptr<ProcessMemoryReservation>& reservation)
+{
+  reservation.reset();
+  if (!admission.approved || admission.requiredBytes == 0)
+    return false;
+
+  std::shared_ptr<ProcessMemoryReservation> candidate(
+    new (std::nothrow) ProcessMemoryReservation());
+  if (!candidate || !candidate->acquire(
+        admission.requiredBytes,
+        admission.availablePhysicalBudgetBytes,
+        admission.commitMemoryChecked,
+        admission.availableCommitBudgetBytes))
+    return false;
+
+  reservation = candidate;
+  return true;
 }

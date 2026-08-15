@@ -2,6 +2,42 @@
 #include "global.h"
 
 #include <QMessageBox>
+#include <QCoreApplication>
+#include <QEventLoop>
+#include <cstdint>
+#include <limits>
+#include <new>
+
+namespace
+{
+bool checkedImageBytes(int width, int height, std::size_t channels,
+                       std::size_t *bytes)
+{
+  if (!bytes || width <= 0 || height <= 0 || channels == 0)
+    return false;
+  const std::uint64_t pixels = static_cast<std::uint64_t>(width) *
+                               static_cast<std::uint64_t>(height);
+  if (pixels > std::numeric_limits<std::uint64_t>::max()/channels)
+    return false;
+  const std::uint64_t total = pixels*channels;
+  if (total > static_cast<std::uint64_t>(
+                std::numeric_limits<std::size_t>::max()))
+    return false;
+  *bytes = static_cast<std::size_t>(total);
+  return true;
+}
+
+bool checkedGraphCount(int width, int height, std::size_t multiplier,
+                       int *count)
+{
+  std::size_t bytes = 0;
+  if (!count || !checkedImageBytes(width, height, multiplier, &bytes) ||
+      bytes > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+    return false;
+  *count = static_cast<int>(bytes);
+  return true;
+}
+}
 
 LiveWire::LiveWire()
 {
@@ -45,6 +81,8 @@ LiveWire::LiveWire()
   m_type = 0;
 
   m_lod = 1;
+  m_valid = true;
+  m_cancelRequested.store(false);
 }
 
 bool LiveWire::seedMoveMode() { return m_seedMoveMode; }
@@ -103,6 +141,15 @@ LiveWire::setPolygonToUpdate(QVector<QPointF> pts,
   m_closed = closed;
   m_type = type;
   m_livewire.clear();
+  for (const int position : m_seedpos)
+    if (position < 0 || position >= m_poly.count())
+      {
+        m_seedMoveMode = false;
+        m_activeSeed = -1;
+        m_errorMessage = QStringLiteral("LiveWire polygon seed state is invalid.");
+        return;
+      }
+  m_errorMessage.clear();
 }
 
 void LiveWire::setUseDynamicTraining(bool b) { m_useDynamicTraining = b; }
@@ -152,7 +199,13 @@ LiveWire::reset()
   m_guessCurve.clear();
   m_guessSeeds.clear();
 
-  m_gradCost = new float[256];
+  m_gradCost = new (std::nothrow) float[256];
+  if (!m_gradCost)
+    {
+      m_valid = false;
+      m_errorMessage = QStringLiteral("LiveWire could not allocate its gradient cost table.");
+      return;
+    }
   for(int i=0; i<256; i++)
     {
       float gc = 1.0 - (float)i/255.0;
@@ -162,6 +215,9 @@ LiveWire::reset()
     }
 
   m_lod = 1;
+  m_valid = true;
+  m_errorMessage.clear();
+  m_cancelRequested.store(false);
 }
 
 QVector<QPointF> LiveWire::poly() { return m_poly; }
@@ -183,16 +239,55 @@ LiveWire::setLod(int lod)
   m_width = m_Owidth/m_lod;
   m_height = m_Oheight/m_lod;
 
-  m_image = new uchar[m_width*m_height];
-  m_grad = new float[sizeof(float)*m_width*m_height];  
-  m_normal = new float[2*sizeof(float)*m_width*m_height];  
+  if (!m_Oimage || m_width <= 0 || m_height <= 0)
+    {
+      m_valid = false;
+      m_errorMessage = QStringLiteral("LiveWire received an empty image for the selected level of detail.");
+      return;
+    }
+  std::size_t pixels = 0;
+  std::size_t normalValues = 0;
+  if (!checkedImageBytes(m_width, m_height, 1, &pixels) ||
+      !checkedImageBytes(m_width, m_height, 2, &normalValues))
+    {
+      m_valid = false;
+      m_errorMessage = QStringLiteral("LiveWire image dimensions overflow its buffers.");
+      return;
+    }
+  m_image = new (std::nothrow) uchar[pixels];
+  m_grad = new (std::nothrow) float[pixels];
+  m_normal = new (std::nothrow) float[normalValues];
+  if (!m_image || !m_grad || !m_normal)
+    {
+      delete [] m_image; delete [] m_grad; delete [] m_normal;
+      m_image = 0; m_grad = 0; m_normal = 0;
+      m_valid = false;
+      m_errorMessage = QStringLiteral("LiveWire could not allocate image gradient buffers.");
+      return;
+    }
   
   m_edgeWeight.clear();
   m_cost.clear();
   m_prev.clear();
-  m_edgeWeight.resize(8*m_width*m_height);
-  m_cost.resize(m_width*m_height);
-  m_prev.resize(m_width*m_height);
+  try
+    {
+      int graphCount = 0;
+      int pixelCount = 0;
+      if (!checkedGraphCount(m_width, m_height, 8, &graphCount) ||
+          !checkedGraphCount(m_width, m_height, 1, &pixelCount))
+        throw std::bad_alloc();
+      m_edgeWeight.resize(graphCount);
+      m_cost.resize(pixelCount);
+      m_prev.resize(pixelCount);
+    }
+  catch (...)
+    {
+      delete [] m_image; delete [] m_grad; delete [] m_normal;
+      m_image = 0; m_grad = 0; m_normal = 0;
+      m_valid = false;
+      m_errorMessage = QStringLiteral("LiveWire could not allocate graph buffers.");
+      return;
+    }
 
 
   if (m_lod == 1)
@@ -208,11 +303,21 @@ LiveWire::setLod(int lod)
   applySmoothing(m_image, m_width, m_height, m_smoothType);
   calculateGradients();
   calculateEdgeWeights();
+  m_valid = true;
+  m_errorMessage.clear();
 }
 
-void
+bool
 LiveWire::setImageData(int w, int h, uchar *img)
 {
+  m_valid = false;
+  m_errorMessage.clear();
+  m_cancelRequested.store(false);
+  if (!img || w <= 0 || h <= 0)
+    {
+      m_errorMessage = QStringLiteral("LiveWire received an invalid image buffer.");
+      return false;
+    }
   //if (m_width != w || m_height != h)
   if (m_Owidth != w ||
       m_Oheight != h ||
@@ -227,22 +332,57 @@ LiveWire::setImageData(int w, int h, uchar *img)
 
       m_Owidth = w;
       m_Oheight = h;
-      m_Oimage = new uchar[m_Owidth*m_Oheight];
-
       m_width = w/m_lod;
       m_height = h/m_lod;
+      std::size_t originalPixels = 0;
+      std::size_t reducedPixels = 0;
+      std::size_t reducedNormals = 0;
+      std::size_t temporaryPixels = 0;
+      if (!checkedImageBytes(m_Owidth, m_Oheight, 1, &originalPixels) ||
+          !checkedImageBytes(m_width, m_height, 1, &reducedPixels) ||
+          !checkedImageBytes(m_width, m_height, 2, &reducedNormals) ||
+          !checkedImageBytes(m_Owidth, m_Oheight, 4, &temporaryPixels))
+        {
+          reset();
+          m_valid = false;
+          m_errorMessage = QStringLiteral("LiveWire image dimensions overflow its buffers.");
+          return false;
+        }
+      m_Oimage = new (std::nothrow) uchar[originalPixels];
 
-      m_image = new uchar[m_width*m_height];
-      m_grad = new float[sizeof(float)*m_width*m_height];  
-      m_normal = new float[2*sizeof(float)*m_width*m_height];  
-      m_tmp = new uchar[4*m_Owidth*m_Oheight];  
+      m_image = new (std::nothrow) uchar[reducedPixels];
+      m_grad = new (std::nothrow) float[reducedPixels];
+      m_normal = new (std::nothrow) float[reducedNormals];
+      m_tmp = new (std::nothrow) uchar[temporaryPixels];
+      if (!m_Oimage || !m_image || !m_grad || !m_normal || !m_tmp)
+        {
+          reset();
+          m_valid = false;
+          m_errorMessage = QStringLiteral("LiveWire could not allocate image buffers.");
+          return false;
+        }
 
       m_edgeWeight.clear();
       m_cost.clear();
       m_prev.clear();
-      m_edgeWeight.resize(8*m_width*m_height);
-      m_cost.resize(m_width*m_height);
-      m_prev.resize(m_width*m_height);
+      try
+        {
+          int graphCount = 0;
+          int pixelCount = 0;
+          if (!checkedGraphCount(m_width, m_height, 8, &graphCount) ||
+              !checkedGraphCount(m_width, m_height, 1, &pixelCount))
+            throw std::bad_alloc();
+          m_edgeWeight.resize(graphCount);
+          m_cost.resize(pixelCount);
+          m_prev.resize(pixelCount);
+        }
+      catch (...)
+        {
+          reset();
+          m_valid = false;
+          m_errorMessage = QStringLiteral("LiveWire could not allocate graph buffers.");
+          return false;
+        }
     }
 
   memcpy(m_Oimage, img, m_Owidth*m_Oheight);
@@ -259,6 +399,8 @@ LiveWire::setImageData(int w, int h, uchar *img)
   applySmoothing(m_image, m_width, m_height, m_smoothType);
   calculateGradients();
   calculateEdgeWeights();
+  m_valid = true;
+  return true;
 }
 
 void
@@ -270,6 +412,7 @@ LiveWire::mouseReleaseEvent(QMouseEvent *event)
 bool
 LiveWire::mousePressEvent(int xpos, int ypos, QMouseEvent *event)
 {
+  m_cancelRequested.store(false);
   bool shiftModifier = event->modifiers() & Qt::ShiftModifier;
 
   if (m_seedMoveMode)
@@ -292,14 +435,20 @@ LiveWire::mousePressEvent(int xpos, int ypos, QMouseEvent *event)
 
   if (button == Qt::LeftButton)
     {
+      const int previousPolyCount = m_poly.count();
+      const int previousSeedCount = m_seedpos.count();
       m_poly += m_livewire;
       m_poly << QPointF(xpos, ypos);
 
       m_seedpos << m_poly.count()-1;
 
       m_livewire.clear();
-      calculateCost(xpos, ypos, 500);
-
+      if (!calculateCost(xpos, ypos, 500))
+        {
+          m_poly.resize(previousPolyCount);
+          m_seedpos.resize(previousSeedCount);
+          return false;
+        }
       return true;
     }
 
@@ -325,9 +474,10 @@ LiveWire::mousePressEvent(int xpos, int ypos, QMouseEvent *event)
 		}
 	      //---------------
 
-	      m_livewire.clear();
-	      calculateCost(xpos, ypos, 500);
-	      break;
+      m_livewire.clear();
+      if (!calculateCost(xpos, ypos, 500))
+        return false;
+      break;
 	    }
 	}
       return true;
@@ -348,31 +498,34 @@ LiveWire::mouseMoveEvent(int xpos, int ypos, QMouseEvent *event)
   if (m_seedMoveMode)
     {
       if (event->buttons() == Qt::LeftButton)
-	updateLivewireFromSeeds(xpos, ypos);
+	return updateLivewireFromSeeds(xpos, ypos);
       return true;
     }
 
   if (m_poly.count() > 0)
     {
-      calculateLivewire(xpos, ypos);
-      return true;
+      return calculateLivewire(xpos, ypos);
     }
   
   return false;
 }
 
-void
+bool
 LiveWire::freeze()
 {
   // close the livewire by connecting to the first point
-  if (m_poly.count() > 0)
+  if (m_poly.count() <= 0)
     {
-      int xpos = m_poly[0].x();
-      int ypos = m_poly[0].y();
-      m_livewire.clear();
-      calculateLivewire(xpos, ypos);
-      m_poly += m_livewire;
+      m_errorMessage = QStringLiteral("LiveWire has no points to close.");
+      return false;
     }
+  int xpos = m_poly[0].x();
+  int ypos = m_poly[0].y();
+  m_livewire.clear();
+  if (!calculateLivewire(xpos, ypos))
+    return false;
+  m_poly += m_livewire;
+  return true;
 }
 
 bool
@@ -384,6 +537,7 @@ LiveWire::keyPressEvent(QKeyEvent *event)
 
   if (event->key() == Qt::Key_Escape)
     {
+      m_cancelRequested.store(true);
       resetPoly();
       return true;
     }
@@ -568,16 +722,37 @@ LiveWire::calculateEdgeWeights()
       }
 }
 
-void
+bool
 LiveWire::calculateCost(int wposO, int hposO, int boxSizeO)
 {
+  m_errorMessage.clear();
   int wpos = wposO/m_lod;
   int hpos = hposO/m_lod;
   int boxSize = boxSizeO/m_lod;
 
   if (wposO < 0 || wposO >= m_Owidth ||
       hposO < 0 || hposO >= m_Oheight)
-    return;
+    {
+      m_errorMessage = QStringLiteral("LiveWire path start is outside the image.");
+      return false;
+    }
+  if (!m_valid || m_width <= 0 || m_height <= 0)
+    {
+      if (m_errorMessage.isEmpty())
+        m_errorMessage = QStringLiteral("LiveWire graph is not ready.");
+      return false;
+    }
+  if (m_useDynamicTraining && !m_gradCost)
+    {
+      m_errorMessage = QStringLiteral("LiveWire gradient cost table is not ready.");
+      return false;
+    }
+
+  if (wpos < 0 || wpos >= m_width || hpos < 0 || hpos >= m_height)
+    {
+      m_errorMessage = QStringLiteral("LiveWire path start is outside the reduced image.");
+      return false;
+    }
 
   for(int i=0; i<m_cost.count(); i++)
     m_cost[i] = 10000000.0;
@@ -588,8 +763,20 @@ LiveWire::calculateCost(int wposO, int hposO, int boxSizeO)
   // used as priority queue
   QMultiMap<float, QPointF> qmap;
 
-  bool *visited = new bool[m_width*m_height];
-  memset(visited, 0, m_width*m_height);
+  int pixelCount = 0;
+  if (!checkedGraphCount(m_width, m_height, 1, &pixelCount))
+    {
+      m_errorMessage = QStringLiteral("LiveWire graph dimensions overflow its visited buffer.");
+      return false;
+    }
+  std::unique_ptr<bool[]> visited(new (std::nothrow) bool[
+    static_cast<size_t>(pixelCount)]);
+  if (!visited)
+    {
+      m_errorMessage = QStringLiteral("LiveWire could not allocate its visited buffer.");
+      return false;
+    }
+  memset(visited.get(), 0, static_cast<size_t>(pixelCount));
 
   int x = hpos;
   int y = wpos;
@@ -600,6 +787,17 @@ LiveWire::calculateCost(int wposO, int hposO, int boxSizeO)
   
   while(qmap.count() > 0)
     {
+      if ((qmap.count() & 255) == 0)
+	{
+	  QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+	    if (m_cancelRequested.load())
+	      {
+		  qmap.clear();
+		  m_livewire.clear();
+		  m_errorMessage = QStringLiteral("LiveWire path calculation canceled.");
+		  return false;
+	      }
+	}
       float key = qmap.firstKey();
       QList<QPointF> qpr = qmap.values(key);
       float dcost = key;
@@ -662,25 +860,62 @@ LiveWire::calculateCost(int wposO, int hposO, int boxSizeO)
       
     }
 
-  delete [] visited;
+  m_errorMessage.clear();
+  return true;
 }
 
 
-void
+bool
 LiveWire::calculateLivewire(int wpos, int hpos)
 {
   if (m_seedMoveMode && m_activeSeed < 0)
-    return;
+    return false;
 
   if (wpos < 0 || wpos >= m_Owidth ||
       hpos < 0 || hpos >= m_Oheight)
-    return;
+    {
+      m_errorMessage = QStringLiteral("LiveWire path target is outside the image.");
+      return false;
+    }
+  if (!m_valid || m_width <= 0 || m_height <= 0)
+    {
+      if (m_errorMessage.isEmpty())
+        m_errorMessage = QStringLiteral("LiveWire graph is not ready.");
+      return false;
+    }
 
   int x = hpos/m_lod;
   int y = wpos/m_lod;
+  if (x < 0 || x >= m_height || y < 0 || y >= m_width)
+    {
+      m_errorMessage = QStringLiteral("LiveWire target is outside the reduced image.");
+      return false;
+    }
+  const int targetIndex = x*m_width+y;
+  const float targetCost = m_cost.value(targetIndex, 10000000.0f);
+  const bool isStart = targetCost == 0.0f;
+  if (!isStart && (targetCost >= 10000000.0f ||
+                   m_prev.value(targetIndex, QPointF(-1, -1)).x() < 0))
+    {
+      m_livewire.clear();
+      m_errorMessage = QStringLiteral("LiveWire target is not reachable from the current seed.");
+      return false;
+    }
   QVector<QPointF> pts;
   while(x > -1)
     {
+      if (m_cancelRequested.load())
+	{
+	  m_livewire.clear();
+		  m_errorMessage = QStringLiteral("LiveWire path calculation canceled.");
+	  return false;
+	}
+      if (x >= m_height || y >= m_width || x < 0 || y < 0)
+	{
+	  m_livewire.clear();
+	  m_errorMessage = QStringLiteral("LiveWire path has no reachable predecessor.");
+	  return false;
+	}
       pts << QPointF(m_lod*y, m_lod*x);
       int idx = x*m_width+y;
       x = m_prev[idx].x();
@@ -691,6 +926,13 @@ LiveWire::calculateLivewire(int wpos, int hpos)
   int pc = pts.count();
   for(int i=0; i<pc; i++)
     m_livewire << pts[pc-1-i];
+  if (m_livewire.isEmpty())
+    {
+      m_errorMessage = QStringLiteral("LiveWire path is empty.");
+      return false;
+    }
+  m_errorMessage.clear();
+  return true;
 }
 
 // taken from http://blog.ivank.net/fastest-gaussian-blur.html
@@ -856,6 +1098,13 @@ LiveWire::livewireFromSeeds(QVector<QPointF> oseeds)
       int h = seeds[i].x()/m_lod;
       int w = seeds[i].y()/m_lod;
 
+      if (!m_valid || h < 0 || h >= m_height || w < 0 || w >= m_width)
+	{
+	  m_errorMessage = QStringLiteral("LiveWire seed is outside the image.");
+	  resetPoly();
+	  return;
+	}
+
       int h0=h;
       int w0=w;
       int xpos = h;
@@ -897,28 +1146,64 @@ LiveWire::livewireFromSeeds(QVector<QPointF> oseeds)
       //sz*=1.5; // make a bigger sized cost matrix 
       sz += 25; // make a bigger sized cost matrix 
 
-      calculateCost(seeds[i].x(),
-		    seeds[i].y(), sz);
+      if (!calculateCost(seeds[i].x(),
+			 seeds[i].y(), sz))
+	{
+	  resetPoly();
+	  return;
+	}
 
       if (i < seeds.count()-1)
-	calculateLivewire(seeds[i+1].x(),
-			  seeds[i+1].y());
+	if (!calculateLivewire(seeds[i+1].x(),
+			       seeds[i+1].y()))
+	  {
+	    resetPoly();
+	    return;
+	  }
     }
 }
 
-void
+bool
 LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
 {
   if (m_activeSeed < 0)
-    return;
+    return true;
 
-  if (m_type > 0)
+  if (m_activeSeed >= m_seedpos.count() ||
+      m_activeSeed >= m_seeds.count() || m_seedpos.isEmpty() ||
+      m_poly.isEmpty())
     {
-      updateShapeFromSeeds(xpos, ypos);
-      return;
+      m_errorMessage = QStringLiteral("LiveWire seed state is invalid.");
+      return false;
     }
 
+  if (m_type > 0)
+    return updateShapeFromSeeds(xpos, ypos);
+
   int totseeds = m_seedpos.count();
+  if (totseeds < 2 || m_seedpos[m_activeSeed] < 0 ||
+      m_seedpos[m_activeSeed] >= m_poly.count())
+    {
+      m_errorMessage = QStringLiteral("LiveWire polygon seed state is invalid.");
+      return false;
+    }
+  for (const int position : m_seedpos)
+    if (position < 0 || position >= m_poly.count())
+      {
+        m_errorMessage = QStringLiteral("LiveWire polygon seed state is invalid.");
+        return false;
+      }
+  const QVector<QPointF> originalPoly = m_poly;
+  const QVector<int> originalSeedpos = m_seedpos;
+  const QVector<QPointF> originalSeeds = m_seeds;
+  const auto failUpdate = [&]() -> bool
+    {
+      m_poly = originalPoly;
+      m_seedpos = originalSeedpos;
+      m_seeds = originalSeeds;
+      m_livewire.clear();
+      return false;
+    };
   int ps = (m_activeSeed-1);
   int ns = (m_activeSeed+1)%totseeds;;
   if (ps < 0) ps = totseeds-1;
@@ -939,8 +1224,9 @@ LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
   if (m_activeSeed == 0)
     {
       m_livewire.clear();
-      calculateCost(xpos, ypos, sz1);
-      calculateLivewire(sns.x(), sns.y());
+      if (!calculateCost(xpos, ypos, sz1) ||
+          !calculateLivewire(sns.x(), sns.y()))
+        return failUpdate();
       int lwlen = m_livewire.count();
       m_poly += m_livewire;
       int offset = m_poly.count()-1-m_seedpos[ns];
@@ -951,8 +1237,9 @@ LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
       if (m_closed)
 	{
 	  m_livewire.clear();
-	  calculateCost(sps.x(), sps.y(), sz0);
-	  calculateLivewire(xpos, ypos);
+	  if (!calculateCost(sps.x(), sps.y(), sz0) ||
+	      !calculateLivewire(xpos, ypos))
+	    return failUpdate();
 	  m_poly += m_livewire;
 	}
     }
@@ -961,8 +1248,9 @@ LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
       m_poly += m_polyA;
 
       m_livewire.clear();
-      calculateCost(sps.x(), sps.y(), sz0);
-      calculateLivewire(xpos, ypos);
+      if (!calculateCost(sps.x(), sps.y(), sz0) ||
+	  !calculateLivewire(xpos, ypos))
+	return failUpdate();
       m_poly += m_livewire;
       int offset = m_poly.count()-1-m_seedpos[m_activeSeed];
       for(int i=m_activeSeed; i<m_seedpos.count(); i++)
@@ -972,8 +1260,9 @@ LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
       else
 	{
 	  m_livewire.clear();
-	  calculateCost(xpos, ypos, sz1);
-	  calculateLivewire(sns.x(), sns.y());      
+	  if (!calculateCost(xpos, ypos, sz1) ||
+	      !calculateLivewire(sns.x(), sns.y()))
+	    return failUpdate();
 	  m_poly += m_livewire;
 	}
       if (ns > 0)
@@ -991,6 +1280,7 @@ LiveWire::updateLivewireFromSeeds(int xpos, int ypos)
     m_seedpos[m_seedpos.count()-1] = m_poly.count()-1;
 
   m_livewire.clear();
+  return true;
 }
 
 int
@@ -1001,6 +1291,11 @@ LiveWire::getActiveSeed(int xpos, int ypos)
 
   for(int i=0; i<m_seedpos.count(); i++)
     {
+      if (m_seedpos[i] < 0 || m_seedpos[i] >= m_poly.count())
+	{
+	  m_errorMessage = QStringLiteral("LiveWire polygon seed state is invalid.");
+	  return -1;
+	}
       if ((m_poly[m_seedpos[i]]-QPointF(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
 	{
 	  splitPolygon(i);
@@ -1113,6 +1408,11 @@ LiveWire::removeSeed(int xpos, int ypos)
   int ic = -1;
   for(int i=0; i<m_seedpos.count(); i++)
     {
+      if (m_seedpos[i] < 0 || m_seedpos[i] >= m_poly.count())
+	{
+	  m_errorMessage = QStringLiteral("LiveWire shape seed state is invalid.");
+	  return -1;
+	}
       if ((m_poly[m_seedpos[i]]-QPointF(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
 	{
 	  ic = i;
@@ -1189,6 +1489,11 @@ LiveWire::getActiveSeedFromShape(int xpos, int ypos)
 
   for(int i=0; i<m_seedpos.count(); i++)
     {
+      if (m_seedpos[i] < 0 || m_seedpos[i] >= m_poly.count())
+	{
+	  m_errorMessage = QStringLiteral("LiveWire shape seed state is invalid.");
+	  return -1;
+	}
       if ((m_poly[m_seedpos[i]]-QPointF(xpos, ypos)).manhattanLength() < Global::selectionPrecision())
 	return i;
     }
@@ -1209,20 +1514,39 @@ LiveWire::moveShape(int dx, int dy)
     m_poly[i] += QPointF(dx, dy);
 }
 
-void
+bool
 LiveWire::updateShapeFromSeeds(int xpos, int ypos)
 {
+  if (m_activeSeed < 0 || m_activeSeed >= m_seeds.count() ||
+      (m_type == 1 && m_activeSeed > 2))
+    {
+      m_errorMessage = QStringLiteral("LiveWire shape seed state is invalid.");
+      return false;
+    }
+  const QVector<QPointF> originalSeeds = m_seeds;
+  const QVector<QPointF> originalPoly = m_poly;
+  const QVector<int> originalSeedpos = m_seedpos;
   m_seeds[m_activeSeed] = QPointF(xpos, ypos);
 
-  if (m_type == 1)
-    updateEllipseFromSeeds();
-  else
-    updatePolygonFromSeeds();
+  const bool updated = m_type == 1 ? updateEllipseFromSeeds() :
+                                     updatePolygonFromSeeds();
+  if (!updated)
+    {
+      m_seeds = originalSeeds;
+      m_poly = originalPoly;
+      m_seedpos = originalSeedpos;
+    }
+  return updated;
 }
 
-void
+bool
 LiveWire::updateEllipseFromSeeds()
 {
+  if (m_seeds.count() < 3 || m_poly.count() <= 180)
+    {
+      m_errorMessage = QStringLiteral("LiveWire ellipse seed state is invalid.");
+      return false;
+    }
   if (m_activeSeed == 0)
     {      
       QPointF cen = (m_poly[0] + m_poly[180])/2;
@@ -1230,6 +1554,11 @@ LiveWire::updateEllipseFromSeeds()
       float blen = qSqrt(QPointF::dotProduct(b,b));
       QPointF a = m_seeds[0] - cen;
       float alen = qSqrt(QPointF::dotProduct(a,a));
+      if (alen <= std::numeric_limits<float>::epsilon())
+	{
+	  m_errorMessage = QStringLiteral("LiveWire ellipse has zero major axis.");
+	  return false;
+	}
       a /= alen;
       m_seeds[0] = cen + alen*a;
       m_seeds[2] = cen - alen*a;
@@ -1242,6 +1571,11 @@ LiveWire::updateEllipseFromSeeds()
       float alen = qSqrt(QPointF::dotProduct(a,a));
       QPointF b = m_seeds[1] - cen;
       float blen = qSqrt(QPointF::dotProduct(b,b));
+      if (blen <= std::numeric_limits<float>::epsilon())
+	{
+	  m_errorMessage = QStringLiteral("LiveWire ellipse has zero minor axis.");
+	  return false;
+	}
       b /= blen;
       m_seeds[0] = cen + alen*QPointF(b.y(), -b.x());
       m_seeds[2] = cen - alen*QPointF(b.y(), -b.x());
@@ -1273,11 +1607,17 @@ LiveWire::updateEllipseFromSeeds()
   m_seeds << m_poly[0];
   m_seeds << m_poly[90];
   m_seeds << m_poly[180];
+  return true;
 }
 
-void
+bool
 LiveWire::updatePolygonFromSeeds()
 {
+  if (m_seeds.isEmpty())
+    {
+      m_errorMessage = QStringLiteral("LiveWire polygon has no seeds.");
+      return false;
+    }
   m_livewire.clear();
   m_poly.clear();
   m_seedpos.clear();
@@ -1310,9 +1650,9 @@ LiveWire::updatePolygonFromSeeds()
 	    }
 	}
 
-      if (m_type == 5) // polyline
+	if (m_type == 5) // polyline
 	m_seedpos << m_poly.count()-1;
-      return;
+      return true;
     }
 
 
@@ -1360,4 +1700,5 @@ LiveWire::updatePolygonFromSeeds()
 
   if (m_type == 4) // polyline
     m_seedpos << m_poly.count()-1;
+  return true;
 }

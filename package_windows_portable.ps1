@@ -1,12 +1,14 @@
 [CmdletBinding()]
 param(
   [string]$RepositoryRoot = $PSScriptRoot,
-  [string]$BuildBin = 'D:\drishti-deps\build\drishti-release\bin',
-  [string]$OutputDirectory = 'D:\drishti-deps\package',
-  [string]$PackageName = 'drishti-cpu-igpu-release-2026-08-12-audited',
-  [string]$VcpkgInstalled = 'D:\drishti-deps\vcpkg\installed\x64-windows',
-  [string]$DependencyRoot = 'D:\drishti-deps',
-  [string]$VcRuntimeRoot = 'C:\Windows\System32',
+  [string]$BuildBin = (Join-Path $PSScriptRoot '.lab-agent\dependencies\build\main-current\bin'),
+  [string]$OutputDirectory = (Join-Path $PSScriptRoot '.lab-agent\package'),
+  [string]$PackageName = 'drishti-cpu-igpu-release-2026-08-15-audited',
+  [string]$VcpkgInstalled = (Join-Path $PSScriptRoot '.lab-agent\dependencies\install\vcpkg\installed\x64-windows'),
+  [string]$DependencyRoot = (Join-Path $PSScriptRoot '.lab-agent\dependencies'),
+  [string]$VcRuntimeRoot = (Join-Path $PSScriptRoot '.lab-agent\dependencies\install\msvc-runtime'),
+  [string]$QtRoot = (Join-Path $PSScriptRoot '.lab-agent\dependencies\toolchain\Qt-open\5.15.2\msvc2019_64'),
+  [string]$PythonRuntimeRoot = (Join-Path $PSScriptRoot '.lab-agent\dependencies\toolchain\Python313'),
   [string]$DumpbinPath = '',
   [switch]$KeepStage
 )
@@ -166,7 +168,7 @@ function Assert-ExactManifest([string]$Label,
                               [string[]]$Expected,
                               [string[]]$Actual)
 {
-  $difference = Compare-Object ($Expected | Sort-Object) ($Actual | Sort-Object)
+  $difference = Compare-Object @($Expected | Sort-Object) @($Actual | Sort-Object)
   if ($difference)
     {
       throw "$Label manifest does not match:`n$($difference | Out-String)"
@@ -228,14 +230,38 @@ $OutputDirectory = Get-NormalizedPath $OutputDirectory
 $VcpkgInstalled = Get-NormalizedPath $VcpkgInstalled
 $DependencyRoot = Get-NormalizedPath $DependencyRoot
 $VcRuntimeRoot = Get-NormalizedPath $VcRuntimeRoot
+$QtRoot = Get-NormalizedPath $QtRoot
+$PythonRuntimeRoot = Get-NormalizedPath $PythonRuntimeRoot
 $DumpbinPath = Resolve-Dumpbin $DumpbinPath
+
+$runtimeSearchRoots = @(
+  $BuildBin,
+  (Join-Path $QtRoot 'bin'),
+  (Join-Path $VcpkgInstalled 'bin'),
+  (Join-Path $DependencyRoot 'install\openvdb-11.0.0\bin'),
+  (Join-Path $DependencyRoot 'install\qglviewer-2.6.4\bin'),
+  $VcRuntimeRoot,
+  $PythonRuntimeRoot
+)
+function Resolve-RequiredRuntime([string]$Name)
+{
+  foreach ($root in $runtimeSearchRoots)
+    {
+      $candidate = Join-Path $root $Name
+      if (Test-Path -LiteralPath $candidate -PathType Leaf)
+        {
+          return $candidate
+        }
+    }
+  throw "Required runtime DLL is missing from the canonical dependency roots: $Name"
+}
 
 foreach ($requiredDirectory in @(
     $RepositoryRoot,
     $BuildBin,
     (Join-Path $RepositoryRoot 'bin\assets'),
     (Join-Path $RepositoryRoot 'bin\docs'),
-    (Join-Path $BuildBin 'python'),
+    $PythonRuntimeRoot,
     (Join-Path $VcpkgInstalled 'share'),
     $VcRuntimeRoot))
   {
@@ -261,6 +287,12 @@ foreach ($program in $mainPrograms)
   {
     Copy-RequiredFile (Join-Path $BuildBin $program) (Join-Path $stageRoot $program)
   }
+
+# TIFF imports use an isolated helper process for metadata and scanline
+# decoding. Keep it beside the applications so the plugin can resolve it
+# without an environment variable in a clean portable directory.
+Copy-RequiredFile (Join-Path $BuildBin 'tiffdecodehelper.exe') `
+                  (Join-Path $stageRoot 'tiffdecodehelper.exe')
 
 $expectedRootRuntimeDlls = @(
   'aec.dll',
@@ -353,16 +385,18 @@ $expectedRootRuntimeDlls = @(
 )
 foreach ($runtimeDll in $expectedRootRuntimeDlls)
   {
-    Copy-RequiredFile (Join-Path $BuildBin $runtimeDll) `
+    Copy-RequiredFile (Resolve-RequiredRuntime $runtimeDll) `
                       (Join-Path $stageRoot $runtimeDll)
   }
 
 # The build directory contains an obsolete Python 3.12 stable-ABI DLL. Use the
 # matching 3.13 copy from the embedded distribution instead.
-Copy-RequiredFile (Join-Path $BuildBin 'python\python3.dll') `
+Copy-RequiredFile (Join-Path $PythonRuntimeRoot 'python3.dll') `
                   (Join-Path $stageRoot 'python3.dll')
-Copy-RequiredFile (Join-Path $BuildBin 'python313._pth') `
-                  (Join-Path $stageRoot 'python313._pth')
+$rootPythonPath = Join-Path $stageRoot 'python313._pth'
+[System.IO.File]::WriteAllLines(
+  $rootPythonPath, @('.', 'Lib', 'Lib\site-packages', 'import site'),
+  [System.Text.UTF8Encoding]::new($false))
 
 $qtPluginDirectories = @(
   'audio',
@@ -376,15 +410,46 @@ $qtPluginDirectories = @(
 )
 foreach ($directory in $qtPluginDirectories)
   {
-    Copy-Directory (Join-Path $BuildBin $directory) `
-                   (Join-Path $stageRoot $directory)
+    $sourcePluginDirectory = Join-Path $QtRoot "plugins\$directory"
+    $stagePluginDirectory = Join-Path $stageRoot $directory
+    if (!(Test-Path -LiteralPath $sourcePluginDirectory -PathType Container))
+      {
+        throw "Required Qt plugin directory is missing: $sourcePluginDirectory"
+      }
+    New-Item -ItemType Directory -Path $stagePluginDirectory -Force | Out-Null
+    Get-ChildItem -LiteralPath $sourcePluginDirectory -File | Where-Object {
+      $_.Name -notmatch 'd\.dll$'
+    } | ForEach-Object {
+      Copy-Item -LiteralPath $_.FullName -Destination $stagePluginDirectory -Force
+    }
   }
 
-foreach ($directory in @('importplugins', 'mopplugins', 'renderplugins', 'python'))
+foreach ($directory in @('importplugins', 'renderplugins'))
   {
     Copy-Directory (Join-Path $BuildBin $directory) `
                    (Join-Path $stageRoot $directory)
   }
+
+Copy-Directory $PythonRuntimeRoot (Join-Path $stageRoot 'python')
+# Packaging tools carry helper executables for multiple architectures and are
+# not part of Drishti's embedded runtime.  Exclude them from the release
+# closure so every shipped PE remains x64 and the runtime stays deterministic.
+foreach ($pythonToolPath in @(
+    'python\Scripts',
+    'python\Lib\ensurepip',
+    'python\Lib\site-packages\pip',
+    'python\Lib\site-packages\pip-24.3.1.dist-info'))
+  {
+    $absoluteToolPath = Join-Path $stageRoot $pythonToolPath
+    if (Test-Path -LiteralPath $absoluteToolPath)
+      {
+        Remove-Item -LiteralPath $absoluteToolPath -Recurse -Force
+      }
+  }
+$embeddedPythonPath = Join-Path $stageRoot 'python\python313._pth'
+[System.IO.File]::WriteAllLines(
+  $embeddedPythonPath, @('.', 'Lib', 'Lib\site-packages', 'import site'),
+  [System.Text.UTF8Encoding]::new($false))
 
 Disable-PythonSiteImport (Join-Path $stageRoot 'python313._pth')
 Disable-PythonSiteImport (Join-Path $stageRoot 'python\python313._pth')
@@ -401,7 +466,7 @@ $vcRuntimeDlls = @(
   'vcruntime140_1.dll'
 )
 $pythonVcVersion =
-  (Get-Item -LiteralPath (Join-Path $BuildBin 'python\vcruntime140.dll')).
+  (Get-Item -LiteralPath (Resolve-RequiredRuntime 'vcruntime140.dll')).
     VersionInfo.FileVersionRaw
 foreach ($runtimeDll in $vcRuntimeDlls)
   {
@@ -431,6 +496,15 @@ Copy-Directory (Join-Path $RepositoryRoot 'bin\assets') `
 Copy-Directory (Join-Path $RepositoryRoot 'bin\docs') `
                (Join-Path $stageRoot 'docs')
 
+# Qt probes this directory even when it ultimately uses Windows system fonts.
+# Keep the path present without bundling an unlicensed system font.
+$fontDirectory = Join-Path $stageRoot 'lib\fonts'
+New-Item -ItemType Directory -Path $fontDirectory -Force | Out-Null
+[System.IO.File]::WriteAllText(
+  (Join-Path $fontDirectory '.keep'),
+  'Fonts are provided by the host operating system.' + [Environment]::NewLine,
+  [System.Text.UTF8Encoding]::new($false))
+
 Copy-RequiredFile (Join-Path $RepositoryRoot 'PORTABLE_README.md') `
                   (Join-Path $stageRoot 'README.md')
 Copy-RequiredFile (Join-Path $RepositoryRoot 'THIRD_PARTY_NOTICES.md') `
@@ -455,10 +529,10 @@ Get-ChildItem -LiteralPath (Join-Path $VcpkgInstalled 'share') `
 }
 
 $directLicenses = @(
-  @('src\ITK-5.0.1\LICENSE', 'ITK-5.0.1\LICENSE'),
-  @('src\libQGLViewer-2.6.4\LICENCE', 'libQGLViewer-2.6.4\LICENCE'),
-  @('src\libQGLViewer-2.6.4\GPL_EXCEPTION', 'libQGLViewer-2.6.4\GPL_EXCEPTION'),
-  @('src\openvdb-11.0.0\LICENSE', 'OpenVDB-11.0.0\LICENSE'),
+  @('source\ITK-5.0.1\LICENSE', 'ITK-5.0.1\LICENSE'),
+  @('source\libQGLViewer-2.6.4\LICENCE', 'libQGLViewer-2.6.4\LICENCE'),
+  @('source\libQGLViewer-2.6.4\GPL_EXCEPTION', 'libQGLViewer-2.6.4\GPL_EXCEPTION'),
+  @('source\openvdb-11.0.0\LICENSE', 'OpenVDB-11.0.0\LICENSE'),
   @('licenses\qt-5.15.2\LICENSE.GPL3', 'Qt-5.15.2\LICENSE.GPL3'),
   @('licenses\qt-5.15.2\LICENSE.GPL3-EXCEPT', 'Qt-5.15.2\LICENSE.GPL3-EXCEPT'),
   @('licenses\qt-5.15.2\LICENSE.LGPL3', 'Qt-5.15.2\LICENSE.LGPL3'),
@@ -470,8 +544,21 @@ foreach ($license in $directLicenses)
                       (Join-Path $licenseRoot $license[1])
   }
 
-$vcpkgStatus = Join-Path (Split-Path -Parent $VcpkgInstalled) 'vcpkg\status'
-Copy-RequiredFile $vcpkgStatus (Join-Path $stageRoot 'VCPKG_INSTALLED.txt')
+$vcpkgStatus = Join-Path (Split-Path -Parent (Split-Path -Parent $VcpkgInstalled)) 'status'
+if (Test-Path -LiteralPath $vcpkgStatus -PathType Leaf)
+  {
+    Copy-RequiredFile $vcpkgStatus (Join-Path $stageRoot 'VCPKG_INSTALLED.txt')
+  }
+else
+  {
+    $installedPackages = Get-ChildItem -LiteralPath (Join-Path $VcpkgInstalled 'share') `
+      -Directory | Sort-Object Name | ForEach-Object { $_.Name }
+    [System.IO.File]::WriteAllLines(
+      (Join-Path $stageRoot 'VCPKG_INSTALLED.txt'),
+      @('Canonical vcpkg status is unavailable; installed package shares:') +
+      $installedPackages,
+      [System.Text.UTF8Encoding]::new($false))
+  }
 
 # Remove compiler outputs and bytecode caches from every copied subtree.
 Get-ChildItem -LiteralPath $stageRoot -Recurse -File | Where-Object {
@@ -517,9 +604,9 @@ $requiredPaths = @(
   'python313.dll',
   'python3.dll',
   'python313._pth',
+  'tiffdecodehelper.exe',
   'python\python.exe',
   'python\python313.dll',
-  'python\python313.zip',
   'python\Lib\site-packages\numpy\__init__.py',
   'VCPKG_INSTALLED.txt'
 )
@@ -545,14 +632,16 @@ if ($forbidden.Count -ne 0)
   }
 
 $expectedRenderPlugins = @(
-  'meshplugin.dll',
+  'meshpaintplugin.dll',
+  'meshsimplifyplugin.dll',
   'ITK\binarythinningplugin.dll',
   'ITK\connectedcomponentplugin.dll',
   'ITK\distancemapplugin.dll',
   'ITK\Smoothing\edgepreservingsmoothingplugin.dll',
-  'ITK\Smoothing\smoothingplugin.dll'
+  'ITK\Smoothing\smoothingplugin.dll',
+  'ITK\Smoothing\vedplugin.dll'
 )
-$expectedMopPlugins = @('itkplugin.dll')
+$expectedMopPlugins = @()
 $expectedHelpDocuments = @(
   'DrishtiPaint.pdf',
   'FileFormats.pdf',
@@ -561,7 +650,11 @@ $expectedHelpDocuments = @(
   'WidgetsHelp.pdf'
 )
 $renderPlugins = Get-RelativeFiles (Join-Path $stageRoot 'renderplugins') '*.dll'
-$mopPlugins = Get-RelativeFiles (Join-Path $stageRoot 'mopplugins') '*.dll'
+$mopPluginRoot = Join-Path $stageRoot 'mopplugins'
+$mopPlugins = @(if (Test-Path -LiteralPath $mopPluginRoot -PathType Container) {
+  Get-RelativeFiles $mopPluginRoot '*.dll'
+} else { @() }
+)
 $helpDocuments = Get-RelativeFiles (Join-Path $stageRoot 'docs') '*.pdf'
 Assert-ExactManifest 'Render plugin' $expectedRenderPlugins $renderPlugins
 Assert-ExactManifest 'MOP plugin' $expectedMopPlugins $mopPlugins
@@ -646,6 +739,8 @@ $windowsInboxDependencies = @(
   'advapi32.dll',
   'avicap32.dll',
   'bcrypt.dll',
+  'comctl32.dll',
+  'comdlg32.dll',
   'crypt32.dll',
   'd3d11.dll',
   'd3d9.dll',
@@ -710,7 +805,7 @@ if ($missingDependencies.Count -ne 0)
   }
 
 $gitCommit = (& git -C $RepositoryRoot rev-parse HEAD).Trim()
-$dirtyEntryCount = @(& git -C $RepositoryRoot status --porcelain).Count
+$dirtyEntryCount = @(& git -C $RepositoryRoot status --porcelain --untracked-files=no).Count
 $buildInfo = @(
   "Package: $PackageName",
   "Created: $([DateTimeOffset]::Now.ToString('o'))",

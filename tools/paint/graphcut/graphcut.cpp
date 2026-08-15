@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <array>
+#include <QCoreApplication>
+#include <QEventLoop>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -131,6 +133,16 @@ QString memoryAdmissionMessage(
     .arg(memoryBudget(admission.commitMemoryChecked,
                       admission.availableCommitBudgetBytes))
     .arg(reason);
+}
+
+bool graphCutCancelled(void *context)
+{
+  std::atomic_bool *cancelRequested =
+    static_cast<std::atomic_bool*>(context);
+  if (!cancelRequested)
+    return false;
+  QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
+  return cancelRequested->load();
 }
 }
 
@@ -327,7 +339,8 @@ MaxFlowMinCut::run(int w, int h,
 		   const ushort *mask,
 		   int tag, ushort *tags,
 		   int &tagged,
-		   QString &errorMessage)
+		   QString &errorMessage,
+		   std::atomic_bool *cancelRequested)
 {
   tagged = 0;
   errorMessage.clear();
@@ -356,8 +369,14 @@ MaxFlowMinCut::run(int w, int h,
   quint64 estimatedBytes = 0;
   if (!estimateMemoryBytes(w, h, estimatedBytes, errorMessage))
     return false;
-  if (!admitMemoryBytes(estimatedBytes, errorMessage))
-    return false;
+  PaintAlgorithmMemoryAdmission memoryAdmission;
+  if (!admitMemoryBytes(estimatedBytes, errorMessage, &memoryAdmission) ||
+      !reservePaintAlgorithmMemory(memoryAdmission))
+    {
+      if (errorMessage.isEmpty())
+        errorMessage = QStringLiteral("Graph Cut memory reservation failed because another operation consumed the available budget.");
+      return false;
+    }
 
   try
     {
@@ -370,6 +389,9 @@ MaxFlowMinCut::run(int w, int h,
       for (int i=0; i<w; ++i)
 	for (int j=0; j<h; ++j)
 	  {
+	    if (((i*h+j) & 1023) == 0 &&
+	        graphCutCancelled(cancelRequested))
+	      throw std::runtime_error("Graph Cut cancelled");
 	    graph.add_tweights(j*w+i, 0, 0);
 
 	    draw_edges_image_data(graph, image, w, h,
@@ -388,6 +410,9 @@ MaxFlowMinCut::run(int w, int h,
       for (int i=0; i<w; ++i)
 	for (int j=0; j<h; ++j)
 	  {
+	    if (((i*h+j) & 1023) == 0 &&
+	        graphCutCancelled(cancelRequested))
+	      throw std::runtime_error("Graph Cut cancelled");
 	    if (mask[j*w+i] == 65535)
 	      graph.add_tweights(j*w+i, c_infiniteCapacity, 0);
 	    else if (mask[j*w+i] == tag)
@@ -397,7 +422,12 @@ MaxFlowMinCut::run(int w, int h,
       for (int i=0; i<w; ++i)
 	for (int j=0; j<h; ++j)
 	  if (image[j*w+i] == 0)
-	    graph.add_tweights(j*w+i, c_infiniteCapacity, 0);
+	    {
+	      if (((i*h+j) & 1023) == 0 &&
+	          graphCutCancelled(cancelRequested))
+	        throw std::runtime_error("Graph Cut cancelled");
+	      graph.add_tweights(j*w+i, c_infiniteCapacity, 0);
+	    }
 
       if (tagSimilar)
 	{
@@ -445,7 +475,7 @@ MaxFlowMinCut::run(int w, int h,
 		}
 	}
 
-      graph.maxflow();
+      graph.maxflow(false, 0, graphCutCancelled, cancelRequested);
 
       std::fill(tags, tags+nodeCount, static_cast<ushort>(0));
       for (int i=0; i<w; ++i)

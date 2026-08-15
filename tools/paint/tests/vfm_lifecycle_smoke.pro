@@ -17,11 +17,13 @@ win32-msvc {
 SOURCES += vfm_lifecycle_smoke.cpp \
            ../volumefilemanager.cpp \
            ../filehandler.cpp \
-           ../slabsavetransaction.cpp
+           ../slabsavetransaction.cpp \
+           ../../../common/src/recoveryjournal.cpp
 
 HEADERS += ../volumefilemanager.h \
            ../filehandler.h \
-           ../slabsavetransaction.h
+           ../slabsavetransaction.h \
+           ../../../common/src/recoveryjournal.h
 
 !isEmpty(BLOSC_LIBRARY_PATH): LIBS += -L$$BLOSC_LIBRARY_PATH
 LIBS += -lblosc

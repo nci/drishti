@@ -11,7 +11,7 @@ class VolumeMask : public QObject
   VolumeMask();
   ~VolumeMask();
 
-  void saveTagNames(QStringList);
+  bool saveTagNames(QStringList);
   QStringList loadTagNames();  
   
   bool createUndo() { return m_maskFileManager.createUndo(); }
@@ -19,8 +19,11 @@ class VolumeMask : public QObject
 
   bool exiting();
   bool reset();
+  bool prepareForStateSwap();
+  bool swapState(VolumeMask&);
   bool setFile(QString, bool);
   bool setGridSize(int, int, int, int);
+  QString pvlFileName() const { return m_maskfile + ".pvl.nc"; }
   void setVoxelType(int vt) { m_maskFileManager.setVoxelType(vt); }
   
   bool exportMask();

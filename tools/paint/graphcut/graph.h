@@ -58,6 +58,7 @@
 template <typename captype, typename tcaptype, typename flowtype> class Graph
 {
 public:
+	typedef bool (*cancel_callback)(void *context);
 	typedef enum
 	{
 		SOURCE	= 0,
@@ -115,7 +116,10 @@ public:
 	// Computes the maxflow. Can be called several times.
 	// FOR DESCRIPTION OF reuse_trees, SEE mark_node().
 	// FOR DESCRIPTION OF changed_list, SEE remove_from_changed_list().
-	flowtype maxflow(bool reuse_trees = false, Block<node_id>* changed_list = NULL);
+	flowtype maxflow(bool reuse_trees = false,
+			Block<node_id>* changed_list = NULL,
+			cancel_callback cancel = NULL,
+			void *cancel_context = NULL);
 
 	// After the maxflow is computed, this function returns to which
 	// segment the node 'i' belongs (Graph<captype,tcaptype,flowtype>::SOURCE or Graph<captype,tcaptype,flowtype>::SINK).

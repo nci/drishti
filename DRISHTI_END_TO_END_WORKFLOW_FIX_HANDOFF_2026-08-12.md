@@ -340,11 +340,11 @@ ceb1e998c616a73c743a53b64a1a6fd7e01be4103762dff872d844e54a7c3cb4
 | TIFF 插件 | `TIFFOpenW`、全栈元数据/布局预检、受检 64 位容量、逐 scanline 解码、初始统计使用单个后台 worker、`rawValue()` 行级读取、错误传播 | 全栈 IFD 枚举、正式 Save/preview/orthogonal/`rawValue()` codec 调用仍在 GUI 调用线程；Save As 只能切片间取消；单次 codec 无硬超时；orientation 见 P1-I4 |
 | Image Stack | `QImageReader::size()` 预检、实时内存/Commit 准入、受检 RGB/RGBA 像素契约、RAII、取消与错误传播 | 正式 GUI 与恶意/极慢 codec；目录/显式排序和方向契约；入口误用提示 |
 | Import 内存 | `ImportMemoryAdmission`、受检峰值、物理内存和 Windows Commit 双门控、系统与 iGPU 余量、危险阶段分配前拒绝 | 准入是时点估算而非配额；并发任务、OpenVDB/Qt/驱动内部占用仍只能保守估算；目标 8/16/32 GiB 验证 |
-| Import 保存 | 单个 VFM 管理的同一 base 全组 slabs 具有进程内 staging、backup/rollback、exact I/O 和取消传播；header 使用 `QSaveFile`；多个调用点检查错误 | VFM 事务无 journal/崩溃恢复，零填充候选会在真实写入前进入最终路径；header + PVL VFM + 可选 RAW VFM 不是一个总事务；空间预检、旧尾 slabs 和正式 Save As 见 P0-I2/P0-I3/P1-I12 |
+| Import 保存 | 单个 VFM 管理的同一 base 全组 slabs 具有进程内 staging、backup/rollback、exact I/O 和取消传播；batch/merge/MHD 已有持久 `BatchPathJournal`；header 使用 `QSaveFile`；多个调用点检查错误 | XML/PVL/RAW/Time Series 仍未统一为一个全局跨对象 journal；VFM/磁盘预检、旧尾 slabs 和正式 Save As 仍需故障注入与 GUI 验收 |
 | Drishti 底层 I/O | VFM 受检容量/I/O、`VolumeBase` 阶段错误传播、候选对象内部回滚、加载失败可退到 `DummyVolume` | 应用层 `preLoadVolume()` 仍先清旧场景，不能保留用户原工作集；时间序列和共享 manifest 见 P0-P4/P0-P7/P0-P15 |
 | Paint mask/VFM | 受检 VFM、压缩 mask 单 worker、350 ms debounce、generation 合并、不可变 snapshot、dirty 保留、多 slab journal、Undo、Checkpoint | GUI 线程仍同步写整卷原始 snapshot；临时 snapshot 清扫、tag names/curves/Save Work 总事务和正式重开未闭合 |
 | Paint 算法内存 | 实时物理/Commit 模型、GraphCut、六个 ITK profile 和八个原生三维入口的部分准入/回滚 | 固定 `LargeVolume` 门槛仍误拒绝；GraphCut/多项算法仍同步阻塞；LiveWire、其余旧算法、正式 ITK 构建/运行和目标机峰值未闭合 |
-| OpenGL/iGPU | Desktop OpenGL Compatibility profile、renderer 状态、shader/FBO 错误传播、延迟资源、纹理/FBO 预算、固定 slab、两套 `ScopedTrisetGlState`、CPU mesh paint | 只能以当前源码复核两套状态守卫，历史“尚未实现”已过时；仍需目标 Intel/AMD 驱动上的全部延迟 shader/FBO、低预算、失败注入和画面验证 |
+| OpenGL/iGPU | Desktop OpenGL Compatibility profile、renderer 状态、shader/FBO 错误传播、延迟资源、固定 slab、两套 `ScopedTrisetGlState`、CPU mesh paint；Highres shadow、LightHandler、Drishti Viewer、Mesh Viewer 和 RcViewer 已有 candidate/旧资源并存预算及 GL 状态恢复 | 预算/失败路径尚未真实注入；目标 Intel/AMD 驱动上的全部延迟 shader/FBO 和画面验证仍未闭合 |
 | CPU mesh paint | 活动路径已用 `CpuMeshPaint`，不依赖 compute shader；VBO 布局和部分失败路径已加固 | 每次画笔仍可能扫描全部顶点；ridged 图案与旧 GPU simplex noise 不等价；大网格性能与 VBO 失败后状态一致性需验证 |
 | 打包/构建 | qmake/依赖路径和历史 stage 已有大量修改，当前 bin 静态 PE 闭包通过 | 当前快照没有新 ZIP；`qt.conf`、help、assets、动态插件、净 PATH 和最终 notices 仍需同一快照验收 |
 
@@ -811,3 +811,784 @@ PR 描述必须分别列出：确认修复的缺陷、针对未确认现场首�
 本文没有声称正式 GUI 运行时全链路排查已完成，也没有声称所有缺陷已经穷尽。本机尚未执行正式 Save As、Paint 保存重开和 Drishti 最终渲染；目标 i7-13700H 首因、AMD/Intel 核显完整链路和最终净包也仍未验证。修复阶段必须同时关闭这些运行缺口，并允许它们产生新的问题编号。
 
 修复过程中如发现新问题，应追加到相应章节，并保留“发现证据 -> 修改位置 -> 回归用例 -> 关闭快照”四项记录；不得只在提交说明中口头关闭。
+
+## 14. 分阶段实施追踪（2026-08-13）
+
+本节用于纠正此前“按混合工作树直接推进”的执行偏差。后续实施必须严格按第 11.2 节的依赖顺序推进；已有文件或历史修改不能作为阶段完成证明。
+
+### 14.1 阶段 0：provenance、基线和提交边界
+
+状态：**完成**。
+
+已记录在 `DRISHTI_PHASE0_PROVENANCE_2026-08-13.md`：
+
+- 当前分支 `codex/cpu-igpu-worktree-checkpoint-20260813`、基线 `e731972d2c8663b001ce06384b9b4074854d0c00` 和审计时间；
+- 既有 CPU/iGPU、Import/Paint/Drishti 混合修改的来源批次和问题编号；
+- 必须保留的用户文档修改；
+- 阶段 1 候选与阶段 5/6/7 后续遗留的提交边界；
+- `.lab-agent`、构建输出、日志、缓存、旧包和 `__pycache__` 的排除规则；
+- 阶段 1 的行为契约、测试门槛和不得整体暂存的规则。
+
+阶段 0 没有产生产品代码提交，也没有执行 `git add -A`。
+
+### 14.2 阶段 1：共享 PVL schema/manifest
+
+状态：**实现完成；阶段验收部分关闭**。
+
+本轮新增/修改的候选文件：
+
+- `common/src/pvlmanifest.h/.cpp`：增加直接子节点字段读取；支持 `<pvlvoxeltype>` 与旧式 `<voxeltype>` 兼容；记录 RAW voxel type/rawfile；校验 PVL/RAW 名称数量、重复路径、缺失文件、几何、13 字节二进制头和 payload 文件大小；保留结构化名称中的空格和 Unicode；
+- `tools/import/tests/pvl_manifest_smoke.cpp/.pro`：覆盖结构化路径、Unicode、fallback、短/重复清单、嵌套字段、混合名称、RAW manifest、缺失/截断 slab、错误二进制头、映射长度和 RGB/RGBA 契约；
+- Import、Paint、Drishti、Mesh 的 PVL reader 接入点已静态复核，正式加载入口使用统一 parser；元数据查询保留 `validateFiles=false`，不作为文件可读证明；
+- RGB/RGBA ImageStack writer 只输出 `<channelnames>`，禁止 scalar `<pvlnames>`；Paint 提取 writer 不再复制源体积的 `rawfile` 引用；Mesh 的遗留空 `savePvlHeader()` 已补为结构化、原子写入实现；mask sidecar 保持独立格式边界，不纳入通用 PVL 校验。
+
+验证快照：隔离目录 `D:\drishti-deps\build\phase1-pvl-manifest-20260813`，Qt 5.15.2、MSVC 14.29.30133；最新源码重新 qmake/build 后运行 `pvl_manifest_smoke.exe`，输出 `PVL manifest smoke passed`。该证据覆盖 parser/fixture，不等于正式 GUI Save As 或 Paint/Drishti 全链路通过。
+
+阶段 1实现侧已关闭：
+
+1. 共享 parser/schema、结构化名称、RGB/RGBA 专用契约、RAW/PVL 文件校验和所有已接入 reader/writer 的静态实现已完成；不能再把这些写成“尚未实现”。
+2. `rawfile` 自动推导多 slab 仍只支持带 `.001` 编号的命名；非编号 RAW 必须显式提供 `<rawnames>`，这是既定格式限制，后续 writer/Save As 仍需继续核验。
+3. 三个 ITK writer 已静态确认输出 13 字节头、实际尺寸、`slabsize=m_nX+1` 的单 slab sidecar；本机未能对插件 GUI writer 做运行时回归。
+
+阶段 1验收仍未关闭：
+
+4. Import/Paint/Drishti/Mesh 全工程当前仍未完成链接：本次真实 MSVC 单目标编译分别被缺少 `pybind11/embed.h`、`tiffio.h`、`common/lib/vdb.lib`、`QGLViewer/qglviewer.h`/`vec.h` 和 `GL/glew.h` 阻断。这些是构建环境阻断，不能归为源码通过。
+5. 尚未执行正式 GUI Save As、Paint 保存重开和 Drishti 最终渲染；parser smoke 不等于 Import -> Paint -> Drishti 运行时闭环。
+6. Save As 的 PVL/RAW/manifest 总事务、旧尾 slab 清理、Time Series 批次原子提交仍属于阶段 6，不能在阶段 1关闭。
+
+因此阶段 1当前只能报告为：**共享 parser/schema 和阶段 1代码接入已完成，隔离 smoke 已通过；全工程构建和正式 GUI/运行时验收仍未关闭**。不得称 Import -> Paint -> Drishti 已闭环，也不得把当前工作树直接作为产品提交。
+
+### 14.3 阶段 2：运行时候选加载、时间序列和项目解析
+
+状态：**源码实现进行中；验收未关闭，不能称完整事务加载或 GUI 全链路通过。**
+
+本轮已落地的代码边界：
+
+- `tools/paint/drishtipaint.cpp::setFile` 先构造并验证独立 `Volume` candidate，再保存旧 mask/curves 并提交活动指针；坏候选不会先 reset 旧 Paint volume。候选失败会恢复 Paint bytes-per-voxel，并报告错误。
+- `drishti/volume.cpp` 的单卷、2/3/4 卷、RGB/RGBA 和 DummyVolume 入口统一使用 candidate；失败恢复 `Global::volumeType`、PVL voxel type、LOD、relative scaling 和四个 `VolumeInformation` 槽位；candidate 析构导致的 DummyVolume 临时状态在成功交换后也会恢复。
+- `MainWindow::preLoadVolume()` 不再清旧场景；RawVolume、灯光、几何和 keyframe 清理移到成功的 `postLoadVolume()`/DummyVolume 提交段。失败恢复不再调用 `m_Volume->clearVolumes()`，也不再把旧工作集退成 DummyVolume。
+- `MainWindow::loadVolumeFromProject` 改为 `bool + volume type + 四组局部文件列表` 输出；XML 无法打开/解析或未知类型直接失败，解析期间不修改 `m_volFiles*`、current project、previous directory、Global、Viewer 或 Preferences。
+- `VolumeSingle::loadVolume` 打开时间序列时预检所有时间点的 manifest、slab、几何、slab size 和 voxel type；`setSubvolume` 在变更活动索引前再次校验目标时间点。`VolumeRGB::setSubvolume` 先用局部 channel managers 验证 RGB/RGBA 所有通道，再提交索引、范围和 manager 配置。
+
+当前明确未关闭的部分：
+
+1. 项目 XML 中 geometry/camera/LightHandler 的候选提交现在由已验证的 detached keyframe candidate 在显式边界应用；preferences、lowres、文件列表/current project/QAction 已有失败快照恢复，TF 已有容器级候选交换。仍需运行时故障注入确认 setter/GL 失败时的整体外部行为。
+2. `postLoadVolume()`/`DrawLowresVolume::loadVolume()`/`DrawHiresVolume::loadVolume()` 仍是旧的 void/就地资源接口；必须把低清晰度、shader、纹理和必要渲染资源纳入可回滚提交，才能关闭 P0-P7。
+3. 时间序列切换的 manager/texture 运行时故障注入和当前帧哈希不变量尚未在 GUI 上验证；当前源码预检覆盖文件/schema/几何，不等于显卡纹理切换事务。
+4. Paint、Drishti、Mesh 全工程 MSVC 构建仍受本机依赖阻断；本轮已执行 qmake 工程生成和受影响目标的真实编译尝试，但未执行正式 GUI、OpenGL 或目标核显验收。
+
+本轮继续实现并复核了以下边界：
+
+- Paint 内存准入不再在物理/Commit 双预算之前使用固定 2 GiB resident-volume 门槛；保留受检峰值、地址空间、系统和 iGPU 余量判断；
+- Paint curves 保存继续使用 `QSaveFile`，读取对 EOF、未知关键字、负数/超大点数、短读和分配失败进行拒绝，并将失败传播到拖放加载和项目重开路径；
+- Drishti `-drishti`/`-stereo` 参数在入口消费，文件参数不再被当作选项或时间点；keyframe 失败会短路项目成功提示；
+- Import 正式 PVL Save As 修正 16-bit padding 元素填充、非整除 ROI 块的边界采样归一化、磁盘空间预检、RAW+padding 明确拒绝和成功提交后的旧尾 slab 清理；
+- Import 的 Quick RAW 与普通 Save As 改用显式操作状态，原点 `1 x 1 x 1` ROI 不再被坐标哨兵误判；
+- qmake 已对 Import/Paint/Drishti 重新生成；真实 MSVC 编译已启动，但当前构建配置分别受 `pybind11`/`tiffio.h`、`common/lib/vdb.lib` 和 `GL/glew.h` 外部依赖阻断，不能记为全工程构建通过。
+
+因此阶段 2当前仍应报告为：**候选边界、时间序列文件预检、项目 lowres/preferences/file-list/UI 回滚、keyframe 解析 candidate、保存/曲线错误传播和部分 Import 正确性已编码；geometry/camera/LightHandler 的完整项目 detached candidate、完整 XML/PVL/RAW/sidecar 崩溃恢复事务、Time Series/Save Images 的跨对象崩溃恢复、GUI 故障注入和正式运行时验收仍未关闭。**
+
+### 14.4 阶段 4-6：保存事务、算法准入和批次输出
+
+状态：**部分实现；验收未关闭。**
+
+已落地的源码边界：
+
+- `VolumeFileManager::createFile()` 在 staged generation 前按数据体积、rollback backup 和安全余量执行 `QStorageInfo` 可用空间预检；
+- 正式 `Raw2Pvl::savePvl()` 的 PVL header 现在写结构化 `<pvlnames>`，padding 使用元素宽度正确的填充值；RAW 伴随 padding 暂时显式拒绝，避免 RAW/PVL 几何声明与写入缓冲不一致；
+- 旧尾 slab 仅在当前 PVL/RAW 新一代成功提交后按同一 base 清理；中途失败保留已有事务回滚路径；
+- Paint tag names 使用 `QSaveFile` 并返回错误，Save Work/退出/换卷路径已检查 curves、tag names 和 mask 的结果。
+
+尚未关闭：
+
+1. XML、全部 PVL slabs、可选 RAW slabs 和 Time Series 整批仍不是一个跨对象崩溃恢复事务；
+2. Save Images 已增加同目录 staging、整批提交和旧尾切片清理；MHD 仍需独立验证边界块契约。`batchProcess`/`mergeVolumes` 已接入持久 `BatchPathJournal`，能在下一次同目录操作开始前恢复未完成批次；这仍不是 XML/PVL/RAW/sidecar 的全局崩溃恢复协议；
+3. curves 旧格式虽已有读取上限和短读检查，但尚未升级为版本化格式，正式 GUI 损坏文件回归未执行；
+4. 非整除采样的 batch/MHD 入口已在 14.9 迁移到共享 nearest/边界块契约；仍需短写、磁盘满、rename/delete 和异常退出故障注入，不能把源码完成写成运行时通过；
+5. 磁盘空间预检是时点估算，仍需在真实磁盘满、rename/delete 失败和覆盖旧尾 slab 场景验证。
+
+阶段 4-6 不得称为完成；当前只可称为相关 P0/P1 入口已有部分防护和实现。
+
+### 14.5 本轮继续实施（阶段 3/6/7/9 的源码边界）
+
+状态：**源码边界继续收紧；构建、正式 GUI 和跨硬件验收仍未关闭。**
+
+本轮新增实现：
+
+- TIFF `samePageLayout()` 现在比较 orientation；同一堆栈混合 orientation 1/4 会在候选提交前拒绝，并通过 smoke 断言拒绝后保留原活动栈；单一 top-left/bottom-left 仍保持既有支持。
+- TIFF 显式多文件入口与目录入口统一使用大小写不敏感、数字感知的自然文件名排序，避免文件对话框返回顺序改变 Z 轴。
+- Import ROI 显示在单体素轴上使用安全归一化分母；ROI 提交使用 clamp 后的 `floor(min)/ceil(max)` 闭区间，覆盖非零起点、反向拖拽和单体素轴，避免浮点边界直接截断。
+- 正式 PVL Save As 的 `No Interpolation` 路径固定为每个采样块首体素 nearest 锚点，后续块内像素不会覆盖该锚点；MHD/batch 仍保留旧整块契约，不能把 PVL Save As 的向上取整外推到它们。
+- Save Images 改为批次 staging 目录：所有图像/RAW 切片先以 `QSaveFile` 写入临时目录，完整成功后再统一备份、重命名提交；取消、编码/写入失败或提交失败清理临时批次并恢复已有目标。
+- Time Series/Batch Process 在开始前预生成输出 basename 清单，规范化路径后拒绝重名，避免不同目录同名输入互相覆盖；batch/merge 的持久 journal 可在后续同目录操作前恢复未完成输出，但跨时间点 XML/PVL/RAW 总事务仍未实现。
+- Drishti 项目解析增加根节点、唯一 `volumetype`、非空 volume file 子节点和按体积类型的文件组数量校验；keyframe sidecar 除魔数外增加最小长度、512 MiB 上限、`keyframes`/`done` 终止标记预检，坏项目在候选体积提交前失败。项目失败回滚另保存 lowres、偏好、当前项目、文件列表和关键 QAction 状态，但 geometry/camera/LightHandler 仍未 detached。
+- Drishti/Import/Paint 的 Windows 帮助目录探测在缺少 QHC 时优先回退到包内 PDF 目录（必要时从 `docs/<app>` 回退到 `docs`），避免便携包启动后必然弹目录选择；实际帮助点击、PDF 名称匹配和净包验证仍未执行。
+- `MainWindow::postLoadVolume()` 现返回 `bool`，低清晰度/高清晰度纹理或 shader 资源创建失败会向 Dummy、RGB、单卷和多卷入口传播，阻止后续“Volume loaded”成功提示；项目加载也直接准备 detached candidate 的渲染资源，不再调用会提前提交元数据的菜单包装；Drishti qmake 工程已重新生成。
+- `Volume` 现在保留 pending old state；普通体积入口只有在低清晰度/高清晰度资源成功后才提交，项目加载可延迟提交并在 sidecar 失败时恢复 CPU 体积、渲染资源和关键 Global/TF 状态。普通单卷/多卷菜单入口也只在成功后清理旧几何和关键帧。
+- Time Series/Batch Process 增加 `BatchPathJournal`：开始前保护预期 PVL/RAW header、slab 和旧尾文件，整批成功才删除备份，取消/解码/写入失败时恢复旧输出；这关闭了正常运行中的整批半提交，但仍不是崩溃恢复 journal。
+- `TransferFunctionManager::load()` 先解析到独立 `TransferFunctionContainer`，成功后才交换到活动容器；坏 TF XML 不再先清空当前 TF。
+- Paint `CurveGroup` 支持候选交换；曲线读取先解析到临时组，成功后才替换当前三方向曲线。`DrishtiPaint::saveCurvesTransaction()` 使用与目标同目录的临时批次、旧文件备份和失败恢复，已接入 Save Work、退出和换卷路径，避免三方向曲线半批提交。
+
+本轮仍明确未关闭：
+
+1. geometry 和 keyframe 的 detached project candidate 已建立并在显式提交边界应用；preferences 的背景色、步长、Gamma、眼间距、刻度、轴标签和 tag colors 已加入项目失败回滚快照。仍不能把未执行的运行时故障注入写成项目整体原子提交证据。TF 已完成容器级候选交换，lowres/highres 资源和 CPU 体积支持延迟提交/失败回滚。
+2. XML、全部 PVL slabs、可选 RAW slabs、Time Series 和 Save Images 尚未形成统一跨对象崩溃恢复 journal；batch/merge 的 `BatchPathJournal` 已覆盖同目录下一次新操作开始前的残留恢复，Paint Save Images 的 staging/backup 事务覆盖正常运行中的取消、解码、写入和提交失败回滚，但不等于全局崩溃恢复。
+3. batch/MHD 非整除采样和 nearest/边界契约已在 14.9 完成源码迁移；正式 PVL Save As 的修复与其统一，但运行时故障注入仍未完成。
+4. 真实 GUI Save As、Paint Save Work 重开、Drishti 最终渲染、时间序列纹理/manager 故障注入、目标 Intel i7-13700H/AMD 核显和当前源码快照便携 ZIP 仍未验收。
+
+本轮验证：`git diff --check`、受影响源码接口静态审计和 Import/Drishti/Paint qmake 生成通过；显式调用 VS BuildTools 后 Drishti 目标在缺少 `GL/glew.h` 处阻断，Paint 目标在缺少 `common/lib/vdb.lib` 处阻断，既有全工程构建仍受 `pybind11`、`tiffio.h`、`vdb.lib`、`QGLViewer`、`glew` 等外部依赖阻断。已有 PVL manifest 与 VFM smoke 在补齐 Qt runtime 环境变量后均返回 0。不得据此声明全工程链接或全链路运行通过。
+
+### 14.7 本轮代码收口（2026-08-14）
+
+本轮继续完成了以下源码工作，仍不包含正式构建、GUI、核显或净包验收：
+
+- `MainWindow::loadKeyFrames()` 不再在 `commit=true` 时隐式提交旧的 pending candidate；新增显式 `commitPendingKeyFrames()`，项目加载只有在已预检并确认当前 candidate 存在时才提交，避免 stale candidate 被误套用。
+- `KeyFrame::load()` 现在检查零号保存帧、每个普通帧的分配和流状态；单帧截断/坏记录会拒绝整个 candidate，不再只依赖外层魔数和终止标记。
+- Paint curves 写入增加 `Drishti Curves 2` 版本头；reader 同时兼容版本 2 和历史无版本头格式，原有 EOF、未知关键字、点数上限、短读和候选交换检查继续生效。
+- Import `BatchPathJournal` 升级为同目录持久 journal：记录 header、PVL/RAW slabs 和旧代保护副本；启动新的 batch/merge 前恢复残留未提交 journal，已提交 journal 只清理备份。journal 使用版本 2，提交标记先于备份清理写入。
+- `Raw2Pvl::mergeVolumes()` 接入同一 journal，旧 header、旧尾 slabs 与新 generation 统一保护；先写总 journal 提交标记，再释放 VFM 备份，避免 header/slab 半提交。
+- `Raw2Pvl::batchProcess()` 对 `.pvl.nc`/`.pvl` stem 做显式去扩展名，时间序列输出不再因扩展名重复造成别名；完成提示前必须成功终结 journal。
+- Drishti project rollback snapshot 现在还覆盖 lowres showing/current-volume、TF dock、Empty-space-skip QAction、current project、previous directory 和四组项目文件列表；坏项目不会只恢复 CPU volume 而留下新项目 UI 元数据。
+
+### 14.8 本轮继续收口（2026-08-14）
+
+- `DrawHiresVolume::loadTextureMemory()` 和 `postUpdateSubvolume()` 现在返回明确的成功/失败结果；Time Series/多卷切帧在 CPU 解码、纹理句柄、数组纹理或拖拽纹理上传失败时，尝试恢复切帧前的时间点和旧边界，并重建旧高分辨率资源。该逻辑关闭了“切帧失败只留下新 CPU 状态”的源码缺口，但仍需正式 GUI/显存故障注入验证。
+- `Volume::currentVolumeNumber()` 暴露当前已提交时间点，回滚使用实际当前帧而不是全局请求帧，避免旧帧编号在 cycle/wave 模式下被错误映射。
+- Paint 曲线三文件保存改为复用 `SlabSaveTransaction` 的同目录持久 journal；生成的 `d/w/h` 文件统一 staging，正常提交前不会替换目标，进程在切换阶段退出时下一次同目标操作可按 journal 恢复。无曲线方向用 `stagePresent=false` 显式记录。原有 `Drishti Curves 2` 格式与旧格式读取兼容保持不变。
+- `SlabSaveTransaction` 增加 `stagePresent` 字段和空阶段提交语义，保留旧 journal（缺字段时按存在处理）兼容；Paint curves 的 journal 与 mask slab journal 共用同一恢复实现。
+- 本轮将 geometry/camera/LightHandler 的 keyframe 应用收口为显式 detached candidate 提交；仍需运行时故障注入验证对象 setter/GL 错误传播，不能把静态路径当作运行时通过。
+
+本轮静态验证：三工程 qmake 生成和受影响文件 `git diff --check` 通过。当前仍没有可用的 `cl.exe`/`nmake.exe` 和完整外部依赖，因此未声称 MSVC 链接通过。
+
+本轮仍明确未关闭：
+
+1. 项目 geometry/camera/LightHandler/clipplanes 等对象现在通过已验证 keyframe detached candidate 的显式提交边界写入活动对象；仍需可注入 setter/GL 故障确认跨对象原子行为。
+2. Time Series 当前帧切换源码已有失败后恢复旧帧路径，但仍缺少 manager/texture 失败后的 GUI 级故障注入证据；文件/schema 预检和静态回滚逻辑不等于显卡运行时通过。
+3. journal 已具备 batch/merge 以及 Paint curves/mask 各自正常异常退出后的下一次同目标恢复路径，但 XML/PVL/RAW 跨对象恢复、Save Images 与项目 sidecar 尚未统一成一个全局 journal 协议。
+4. 磁盘满/rename/delete 失败注入、正式 GUI Save As/Paint 重开/Drishti 渲染、Intel/AMD 核显和净包验收仍后置；batch/MHD 的源码采样契约已在 14.9 收口，但尚未做运行时故障注入。
+
+### 14.9 本轮代码完成收口（2026-08-14）
+
+本轮在不进行正式构建和验收的前提下，又完成了以下源码项：
+
+- `Raw2Pvl` 的 batch 和 MHD 路径现在使用 `SamplingContract` 的向上取整输出尺寸与实际边界块样本数；无滤波路径统一使用块首体素 nearest 锚点，不再由块内最后一个像素覆盖结果。
+- MHD 的 `.mhd` 与 `.raw` 目标现在在写入前注册到持久 `BatchPathJournal`，旧文件由 journal 保护；任一 `QSaveFile` 提交失败时由析构回滚，两个文件都提交后才写入 committed 状态并清理备份。
+- `DrawHiresVolume::initShadowBuffers()` 现在按 candidate 与旧 shadow 附件的并存峰值预算准入，OpenGL 创建/附件校验失败时恢复旧尺寸和全部旧句柄，并恢复调用前 framebuffer、active texture 和 rectangle texture 绑定。
+- `LightHandler::genBuffers()` 现在完整创建并验证 opacity/prune/final/work/emissive candidate 后才交换活动资源；candidate 失败只清理 candidate，不销毁仍可用的旧光照资源，并恢复调用前 framebuffer、active texture 和 rectangle texture 绑定。
+- Import batch/MHD 中已清理不再使用的采样和 header 局部变量，避免把旧整除契约误留在代码中。
+
+本轮静态验证：`git diff --check`、`qmake drishti/drishti.pro`、`qmake tools/import/import.pro`、`qmake tools/paint/paint.pro` 和 `qmake tools/import/tests/sampling_contract_smoke.pro` 均通过。qmake 只证明工程文件和生成阶段通过，不等于 C++ 编译、链接或运行时通过。
+
+本轮仍未关闭的验收边界：
+
+1. geometry/camera/LightHandler 的 detached renderer candidate 已建立并在显式提交边界应用；仍需运行时 setter/GL 故障注入确认跨对象原子行为。
+2. XML、PVL、RAW、Time Series、Save Images、Paint sidecar 尚未统一为一个跨对象全局崩溃恢复 journal；现有 batch/MHD、Paint mask/curves journal 仍是各自目标域恢复。
+3. `LightHandler`、`DrawHiresVolume`、Drishti Viewer、Mesh Viewer 和 RcViewer 已形成 candidate/旧资源并存峰值预算和状态恢复；预算数字与失败回滚尚未经过真实 OpenGL allocation/FBO incomplete 故障注入。
+4. batch/MHD 的实现尚未经过短写、磁盘满、rename/delete 失败、覆盖旧尾 slab 和异常退出故障注入；正式 GUI Save As、Paint 保存重开、Drishti 最终渲染仍未执行。
+5. MSVC 完整编译链接、目标 i7-13700H、AMD 核显、净环境便携 ZIP 和最终发布包仍未验收。
+
+### 14.10 本轮继续代码收口（2026-08-14，已由 14.11 增量更新）
+
+本轮又关闭了以下源码缺口：
+
+- `KeyFrame::commitRendererCandidate()` 现在只接受已完成校验的深拷贝 candidate，并通过显式 `applyRendererCandidate()` 提交；旧的 `playSavedKeyFrame()` 仅作为常规播放入口转发，不再被项目加载器当作候选解析阶段。项目加载仍需在正式运行时注入 setter/GL 失败，确认跨对象提交后没有外部副作用。
+- Drishti Viewer 和 Mesh Viewer 的图像 FBO、低清 FBO 及 movie readback buffer 现在先候选创建、完整性校验、大小/预算准入，再替换旧资源；resize 或 readback 分配失败时保持旧 FBO、旧尺寸和旧 buffer。FBO 校验恢复调用前 framebuffer。
+- Drishti `RcViewer::createFBO()` 不再先删除旧 raycast FBO；新的深度附件和 4 个 RGBA32F 入口/出口纹理全部创建并检查完整后才交换，并恢复 framebuffer、renderbuffer 和 rectangle texture 状态。候选失败只清理候选资源。
+- 项目保存 journal 继续覆盖两个物理目标 XML + `.keyframes`；`.lowres`、`.preferences`、`.tf` 是嵌入 XML 的节点，随 XML staging 一起原子提交。加载项目会先恢复残留两目标 journal，保存时 XML 与二进制 sidecar 全部 staging 后才统一提交。
+
+本轮源码静态核验：`git diff --check`、Drishti/Mesh qmake 生成通过。以上不等于 C++ 编译、链接或运行时通过。
+
+截至该轮，仍只剩以下必须通过构建/运行时证据关闭的事项；14.11 对其中的源码边界继续做了增量收口：
+
+1. 完整 MSVC 编译和链接，以及缺失的 `GL/glew.h`、`QGLViewer`、`vdb.lib`、`tiffio.h`、`pybind11` 等外部依赖环境补齐；
+2. Import Save As、Time Series/Batch/MHD、Paint Save Work/关闭重开、Drishti 项目加载/最终渲染的 GUI 验收；
+3. 磁盘满、短写、取消、rename/delete 失败、OpenGL allocation/FBO incomplete 和时间序列纹理/manager 失败注入；
+4. Intel i7-13700H 核显、至少一台 AMD 核显、共享内存/Commit 压力和非远程桌面 OpenGL profile/renderer 记录；
+5. 净环境便携 ZIP、Qt/Python/plugin 动态依赖、帮助入口和四个程序的启动及插件实例化。
+
+### 14.6 本轮增量（2026-08-13）
+
+- 修正 `MainWindow::loadProject()` 的事务顺序：先捕获旧体积/渲染/偏好状态，再进入延迟提交；此前相反顺序会让 `captureVolumeLoadRollback()` 因延迟标志直接跳过快照。
+- `PreferencesWidget::State` 现在保存并恢复背景色、still/drag stepsize、Gamma、眼间距、tick size/step、X/Y/Z 标签和 256 个 tag colors；项目 sidecar 失败或 lowres/highres 资源创建失败时恢复这些字段。
+- 普通加载成功提交后清除偏好快照；失败恢复统一走完整 `rollbackProjectVolumeLoad()`，不再只回滚 CPU volume。
+- `Raw2Pvl::batchProcess()` 在显示 `Done` 前提交 `BatchPathJournal`，确保用户看到成功提示时旧代备份已完成正常提交清理。该 journal 仍不提供进程崩溃后的恢复能力。
+- Paint `ImageWidget::saveImageSequence()` 现在先将全部切片写入同目录 staging，再统一备份/提交，并清理缩短批次留下的旧尾切片；取消、编码/写入失败或提交失败会删除新代并恢复旧文件。该路径仍未做正式 GUI 磁盘满/权限故障注入。
+- Paint 单张 `ImageWidget::saveImage()` 现使用 `QSaveFile` 并检查编码、打开和提交结果；失败不再显示 `Done`。
+- Import `Raw2Pvl::getSettings()` 的两个内存设置输入现在显式检查取消；取消不再把默认值当成用户确认值继续批处理。上层仍需在正式 GUI 中验证取消后的整体提示语义。
+- 三个工程的 qmake 重新生成均通过：`drishti/drishti.pro`、`tools/import/import.pro`、`tools/paint/paint.pro`；本机仍没有可直接调用的 `cl.exe`/`nmake.exe`，所以未升级为 MSVC 链接通过。
+- 本轮只通过 `git diff --check`、三工程 qmake 重新生成和静态引用核验；没有新增正式 GUI、OpenGL、核显或净包验收证据。项目加载 RGB/RGBA 候选路径已改为直接调用 `Volume` candidate，不能把它等同于 RGB 项目完整 GUI 验收。
+
+### 14.11 本轮代码完成度更新（2026-08-14）
+
+本轮继续按“先完成源码、后统一构建和验收”的要求收口，新增以下实现：
+
+- 正式 `Raw2Pvl::savePvl()` 在写入前创建覆盖 XML header、PVL/RAW slabs 和旧尾 slabs 的同目录 `BatchPathJournal`；任一写入、提交、旧尾清理或取消失败时由 journal 恢复旧代，全部输出完成后才写 committed 标记。Time Series 输出路径同时做规范化去重，检测到 basename 冲突直接拒绝。
+- Save As 增加跨 PVL/RAW/header/staging/backup 的峰值磁盘空间预检，并对尺寸乘加溢出做拒绝；`VolumeFileManager` 原有单卷空间预检仍保留，二者不能互相替代。
+- 为保证 journal 的同目录原子语义，Save As 现在拒绝 PVL 与 RAW 位于不同目录的组合；跨卷/跨文件系统输出不再伪装成可回滚的全局事务。
+- Paint 只读既有 mask 或只读 tag sidecar 不再仅因目录可写而误用源目录；此类源卷统一路由到基于源路径哈希的用户可写 workspace。普通 Save As 的 `1 x 1 x 1` 原点 ROI 不再触发 Quick RAW；DICOM/Mimics 的 Quick RAW 改为独立显式入口。
+- Help 路径继续保留 QHC 优先、包内 PDF 回退；Paint 内嵌帮助、Import/Drishti PDF fallback 与当前 `bin/docs` 布局的实际点击验证仍待验收。
+- Windows 帮助目录探测现在兼容 `docs/<app>` 和便携包 `bin/docs` 平铺布局；批处理参数解析失败后立即返回，不再在失败解析后继续执行空项目流程。
+
+本轮静态验证：`qmake drishti/drishti.pro`、`qmake tools/import/import.pro`、`qmake tools/paint/paint.pro` 和 `git diff --check` 均通过。没有执行完整 C++ 编译/链接、正式 GUI Save As、Paint 保存重开、Drishti 最终渲染、OpenGL 故障注入、Intel/AMD 核显或净环境便携包验收。
+
+当前代码状态应准确表述为：正式普通 Save As 及其 Time Series 输出的 XML/PVL/RAW/旧尾 slab 已进入同一持久 journal 事务；Save Images、Paint mask/curves sidecar、项目保存 sidecar 仍是各自输出域的恢复协议，尚未合并成覆盖所有产品域的单一崩溃恢复协议。剩余工作主要是构建依赖补齐、运行时故障注入和目标环境验收；不能把本轮 qmake 或静态检查写成“全链路通过”。
+
+本节覆盖并修正 14.4、14.5、14.8、14.9 中早于本轮的“Save As XML/PVL/RAW 总事务尚未实现”描述：这些历史记录保留发现过程，但截至 14.11，正式 `savePvl()` 的源码实现以本节为准；仍未关闭的是实际 GUI/崩溃恢复故障注入证据。
+
+### 14.12 本轮代码边界继续收口（2026-08-14）
+
+在不启动正式构建和运行时验收的前提下，本轮又完成以下源码修补：
+
+- Drishti 与 Mesh 的 `ScopedTrisetGlState` 现在额外保存/恢复固定功能状态 `GL_LIGHTING`、`GL_LINE_SMOOTH` 和 `GL_LINE_WIDTH`；此前 FBO、纹理单元、VAO/VBO、混合、深度、裁剪、颜色/深度写掩码和 polygon mode 的恢复保持不变。该修改只扩大状态守卫覆盖面，仍需 OpenGL 哨兵状态和失败路径注入验证。
+- Paint `VolumeFileManager` 在创建新的 `.drishti-mask-snapshot-*.tmp` 前清理同目录超过 24 小时的同名孤儿快照；当前活动或其他进程近期产生的快照不会被删除。清理失败不影响当前快照创建，但残留清扫和异常退出行为仍需在真实只读/权限场景验证。
+- Drishti 批处理参数解析改为显式消费 `-drishti/-stereo`、支持的 `project/renderframes/plugin/image/movie/framerate/imagemode/imagesize/stepsize` 和无值开关；未知选项、空值、重复/非法数值、非法图像模式、坏 `file=` 配置和非 PVL/XML 位置参数立即返回失败，不再继续空项目流程或把坏参数当作时间点。正式批处理组合仍需 GUI/进程级回归。
+
+本轮静态验证：`qmake drishti/drishti.pro`、`qmake tools/paint/paint.pro` 与 `git diff --check` 通过。没有执行 C++ 编译/链接、正式 GUI Save As、Paint 保存重开、Drishti 最终渲染、真实磁盘/短写/rename/delete 故障注入、OpenGL allocation/FBO incomplete 注入、Intel/AMD 核显或净环境便携包验收。
+
+截至 14.12，源码层面仍有以下明确边界，不能写成“代码已 100% 通过验收”：
+
+1. Import/Save As、Time Series/Batch/MHD、Paint Save Work/关闭重开和 Drishti 项目/渲染闭环仍需正式运行证据；各自 journal 已覆盖对应输出域，但尚未合并为全产品单一崩溃恢复协议。
+2. Paint 内存准入仍是时点快照，不是跨任务全局 reservation；长算法取消、TIFF 正式 Save/preview/orthogonal 的 GUI 线程解码和单次 codec 硬超时仍需按产品范围决定实现或登记依赖项。
+3. OpenGL candidate/旧资源并存预算、状态恢复和失败回滚仍需真实驱动故障注入；`GL_LIGHTING`/线状态的本轮补全不能替代 Intel/AMD 实机画面证据。
+4. 当前工作树包含大量历史改动、生成物和审计文件，不能直接作为单一 PR；后续构建/验收必须从明确源码快照建立 provenance、排除生成物并记录哈希。
+
+### 14.13 本轮继续源码收口（2026-08-14）
+
+本轮仍未启动正式构建、GUI、OpenGL、Intel/AMD 核显或便携包验收，新增关闭以下确定性源码缺口：
+
+- Import 内嵌 NetCDF C++ 包装层 `NcError::set_err()` 不再执行进程级 `exit()`；默认错误策略改为 `verbose_nonfatal`，错误状态继续通过返回值传播。
+- Import 内嵌 NetCDF v2 兼容层 `nc_advise()` 不再在 `NC_FATAL` 分支退出进程，默认 `ncopts` 改为非 fatal；损坏/不兼容输入只能使调用失败，不能终止 DrishtiImport 宿主 GUI。
+- Paint 中此前未接收 `ok` 的数值对话框已补齐取消短路：曲线批量删除、Volume/标签抽取、跨卷抽取、Shrinkwrap/Shell/Tubes、原始体修改、纹理 subsampling、Hatch、Smooth、连通域、分水岭和旋转图像序列等入口。取消不再把默认值当成用户确认值继续执行。
+- Paint 形态/连通域/分水岭入口的阈值和起始标签输入增加显式范围与取消检查；已有 `QFutureWatcher` 的算法取消连接保持不变，未宣称其所有内层循环都具备硬中断粒度。
+
+本轮静态检查：`git diff --check` 通过；仍需执行三工程 C++ 编译/链接以发现平台相关接口问题。由于当前机器缺少完整 MSVC/Qt/OpenGL/第三方依赖，本轮不把 qmake 或静态检查写成构建通过。
+
+截至 14.13，以下仍明确后置：TIFF 正式 Save/preview/orthogonal 的 GUI 线程解码和单次 codec 硬超时、跨任务全局内存 reservation、长算法的完整硬取消语义、全产品统一崩溃恢复 journal、真实磁盘/短写/rename/delete、OpenGL allocation/FBO 故障注入、Intel/AMD 核显和净便携包验收。源码收口完成不等于端到端验收完成。
+
+### 14.14 本轮继续源码收口（2026-08-14）
+
+本轮继续不启动正式构建、GUI、OpenGL、Intel/AMD 核显或便携包验收，新增关闭以下源码缺口：
+
+- 新增 `common/src/memoryreservation.h/.cpp` 进程级线程安全 reservation。Import、Paint 和 TIFF 共享同一 reservation 计数；在快照准入通过后、危险缓冲创建前进行原子占用，超出已占用预算时拒绝本次操作，RAII 生命周期结束后自动释放。
+- Import `Raw2Pvl` 的 conversion、VDB、merge、Quick RAW 和 mesh-color 导出缓冲接入 reservation；相关 `.pro` 和独立 memory-admission smoke 工程显式编入共享实现。reservation 覆盖对应局部操作，不改变现有 QSaveFile/BatchPathJournal 提交语义。
+- TIFF 单 slice 解码在 `loadTiffImage()` 和行级 `loadTiffRow()` 前接入 reservation；preview/width/height/rawValue 仍沿用既有受检错误传播。该修改关闭的是同进程并发准入竞争，不等同于正式 GUI 解码后台化或单次 codec 硬超时。
+- Paint 体积加载和三维算法准入接入同一 reservation；体积加载只在实际加载阶段持有峰值 reservation，算法入口在整个算法调用期间持有 reservation，避免 Import/Paint 并发任务各自通过独立快照。
+- 所有引用 `importmemoryadmission.cpp` 或 `getmemorysize.cpp` 的插件/smoke 工程补齐共享实现源文件，避免链接阶段缺失 reservation 符号。
+
+本轮静态检查：三主工程、TIFF 插件、Import/Paint memory-admission 相关 smoke 工程的 `qmake` 均通过；`git diff --check` 通过。没有执行完整 C++ 编译/链接、正式 GUI Save As、Paint 保存重开、Drishti 最终渲染、真实磁盘/短写/rename/delete、OpenGL allocation/FBO 注入、Intel/AMD 核显或净环境便携包验收。
+
+截至 14.14，仍明确后置：Paint 长算法的内层硬取消和所有入口逐项事务覆盖、TIFF 正式 Save/preview/orthogonal 的 GUI 线程后台化及单次 codec 硬超时、XML/PVL/RAW/Time Series/Save Images/Paint sidecar 的全产品统一崩溃恢复协议、OpenGL 真实失败矩阵、目标硬件画面和最终净包。源码 reservation 已完成，但只能作为运行时验收的前置保障，不能写成全链路已通过。
+
+### 14.15 本轮 Paint 取消传播收口（2026-08-14）
+
+本轮继续只做源码修改和静态/qmake 检查，没有启动正式构建、GUI、OpenGL、Intel/AMD 核显或便携包验收：
+
+- `VolumeOperations` 增加线程局部 `PaintCancellationScope`。带事务的长算法在事件泵观察到取消后立即返回，已有 `MaskRegionTransaction` 析构会恢复本次区域的原始 mask 字节；取消不会显示完成提示或提交事务。
+- 连通域、移除最大/最小连通域、分水岭、优先队列分水岭、距离变换、局部厚度及 ROI/形态相关入口接入取消作用域；分水岭的体素/路径内层增加周期性检查，避免只在 Z 层边界响应。
+- 并行 `getVisibleRegion()` 增加共享原子取消标志；worker 在行级检查取消，取消后不更新 visibility cache，调用方得到清空的临时 bitmask。外层事务取消会传播给嵌套的可见区域计算。
+- 进度对话框统一显示 `Cancel`，避免已有 `QFutureWatcher::cancel()` 只停止调度而 worker 继续写共享结果；取消作用域只影响当前调用栈，不改变正常完成路径。
+
+本轮静态验证：`qmake tools/paint/paint.pro` 和 `qmake tools/import/import.pro` 均通过，`git diff --check -- tools/paint/volumeoperations.cpp` 通过。未执行完整 C++ 编译/链接；当前仍受本机 Qt/OpenGL/VDB/插件依赖阻断。
+
+本轮后仍明确后置：未纳入 `MaskRegionTransaction` 的旧形态学、GraphCut/LiveWire、部分整卷循环和并行 worker 的逐入口事务核验；TIFF 正式 Save/preview/orthogonal 后台化及单次 codec 超时；全产品统一崩溃恢复 journal；真实磁盘/短写/rename/delete、OpenGL 故障注入、目标 Intel/AMD 核显和净便携包验收。PLY 旧 C API 中的 `exit(-1)` 仍需按实际构建调用边界单独改造，未做全局机械替换。
+
+### 14.16 本轮 TIFF/长算法继续收口（2026-08-14）
+
+- TIFF `getDepthSlice()`、`getWidthSlice()`、`getHeightSlice()` 现在通过 `QtConcurrent` worker 执行实际 IFD/scanline 解码，GUI 线程只负责取消、等待和结果提交；共享原子取消标志在 slice/row 边界传播，失败时输出缓冲清零并通过 `lastError()/wasCanceled()` 返回错误。
+- `loadTiffRow()` 增加取消参数，`rawValue()` 保持同步单点读取但沿用受检错误和 reservation；单次 `TIFFReadScanline()` 仍无法在损坏 codec 内部被强杀，硬超时仍需进程隔离方案，不能把 worker 化写成硬超时已解决。
+- Paint 的最大/最小连通域和连通域标注阶段增加事务进度和周期性取消检查；取消发生在 mask 写入前后都由 `MaskRegionTransaction` 回滚。qmake 生成和 `git diff --check` 通过。
+
+本轮仍未执行完整 C++ 编译/链接、正式 GUI Save/preview/orthogonal、OpenGL/核显或净包验收；PLY 旧 C API 的 `exit(-1)` 仍按构建边界单独处理。
+
+### 14.17 本轮旧 Paint 入口与 PLY 错误传播收口（2026-08-14）
+
+本轮继续只修改源码并做 qmake/静态检查，新增以下实现：
+
+- Paint `roiOperation()`、`hatchConnectedRegion()`、`connectedRegion()` 现在在 mask 写入前建立 ROI 范围快照；写入循环按层检查取消，成功才提交快照，取消或异常由 `MaskRegionTransaction` 恢复原始 mask。嵌套 `getVisibleRegion()` 的取消仍通过线程局部作用域传播。
+- Paint 连通域/最大组件/旧形态入口的进度对话框统一允许取消，移除组件和标注的统计、重映射、写回阶段增加周期性事件泵检查；取消不会显示完成提示。GraphCut 和 LiveWire 仍保持现有 2D 候选结果提交/交互模型，本轮未把它们错误描述为三维 mask 事务。
+- 实际构建 `meshpaint.pro` 和 `meshsimplify.pro` 的两个旧 PLY C API 副本不再执行 `exit(-1)`；增加 `ply_clear_error()`、`ply_last_error()` 和错误消息查询，非法元素/类型、截断读取、规则错误和 close/flush 失败均进入错误状态。meshpaint/meshsimplify 的 PLY 读写入口检查文件、对象、元素、错误状态和写入关闭结果，失败只返回插件操作失败，不终止宿主进程。未修改不在当前插件构建路径中的 `drishti/ply.c`、`tools/mesh/ply.c` 副本。
+
+本轮静态验证：`qmake tools/paint/paint.pro`、`qmake drishti/plugins/meshpaint/meshpaint.pro`、`qmake drishti/plugins/meshsimplify/meshsimplify.pro` 和 `git diff --check` 通过。当前环境仍没有可直接调用的完整 C++ 编译/链接工具链，因此没有把 qmake 通过升级为构建通过。
+
+截至 14.17，源码层面仍明确后置：TIFF IFD 全栈枚举移出 GUI、单次 codec 硬超时进程隔离、所有 Paint 旧整卷/并行入口逐项事务审计、全产品统一崩溃恢复 journal、真实磁盘/短写/rename/delete 和 OpenGL 故障注入、Intel/AMD 核显画面、正式 Import -> Paint -> Drishti GUI 闭环、净环境便携包和最终发布快照。上述代码收口不能替代后续统一构建与验收。
+
+### 14.18 本轮 Paint 并行旧入口与 PLY 生命周期继续收口（2026-08-14）
+
+本轮继续只做源码修改和静态/qmake 检查，没有启动正式构建、GUI、OpenGL、Intel/AMD 核显或便携包验收：
+
+- `VolumeOperations::resetT()` 现在在并行 worker 写入 mask 前建立范围快照，使用共享原子取消标志传播进度对话框取消；worker 完成后只有在全部任务成功且未取消时才提交，取消/worker 取消由 `MaskRegionTransaction` 恢复原始 mask。入口增加边界合法性检查。
+- `getConnectedRegionFromBitmask()`、`getRegionConnectedToROI()` 的洪泛循环增加周期性取消检查；`getTransparentRegion()` 的并行 worker 增加共享原子取消传播，取消后清空临时 bitmask，避免上层把部分结果继续用于写回。`openCloseBitmask()` 和 `_dilatebitmask()` 在距离变换和逐 voxel 扫描之间增加取消检查；这些辅助函数仍属于临时 bitmask 计算，不等同于所有调用入口都已具备字节级事务。
+- PLY 实际构建路径的 `meshpaint/meshsimplify` C API 对空输入、坏 header、坏 format、输出文件打开/分配失败补充错误状态；`open_for_reading_ply()` 在解析失败时关闭已打开的文件，避免失败路径泄漏。此前的 `exit(-1)` 移除、错误查询接口和插件入口 close/flush 检查保持不变。
+
+本轮静态验证：`qmake tools/paint/paint.pro`、`qmake drishti/plugins/meshpaint/meshpaint.pro`、`qmake drishti/plugins/meshsimplify/meshsimplify.pro` 和 `git diff --check` 通过。当前环境没有可直接调用的完整 C++ 编译/链接工具链，因此 qmake 通过不记为 C++ 构建通过；本轮还未执行 GUI、驱动或真实故障注入。
+
+截至 14.18，源码层面仍明确后置：Paint 其余旧整卷入口和所有并行写入点的逐入口事务核验、GraphCut/LiveWire 的完整取消/失败语义、TIFF IFD 全栈枚举移出 GUI和单次 codec 硬超时进程隔离、全产品统一崩溃恢复 journal、真实磁盘/短写/rename/delete、OpenGL allocation/FBO 故障注入、Intel/AMD 核显画面、正式 Import -> Paint -> Drishti GUI 闭环、净环境便携包和最终发布快照。上述源码收口仍不能替代后续统一构建与验收。
+
+### 14.19 本轮代码收口（2026-08-14，构建与验收后置）
+
+本轮继续只完成可由源码确认的修改，没有把 qmake 生成升级为 C++ 构建，也没有启动正式 GUI、OpenGL、Intel/AMD 核显、故障注入或便携包验收：
+
+- `VolumeOperations::stepTags()`、`mergeTags()` 现在具有明确的取消作用域和 `MaskRegionTransaction`；取消或异常由析构回滚，成功才提交。此前 `mergeTags()` 末尾残留的未声明 `maskTransaction.commit()` 已修正。
+- 旧整卷形态学入口 `dilateAll()`、`openAll()`、`closeAll()`、`erodeAll()` 和并行 `writeToMask()` 已补齐区域快照、嵌套取消传播及成功提交；并行 worker 通过共享原子取消标志停止继续写入，取消后事务回滚。
+- `dilateAllTags()`、`tagTubes()` 的写回阶段增加事务提交和取消检查；`modifyOriginalVolume()` 使用独立的 `VolumeRegionTransaction` 对原始 8/16-bit 体数据做字节级快照，避免将 mask 事务错误用于原始体数据。
+- PLY 实际构建路径的 `meshpaint/meshsimplify` `open_for_writing_ply()`、`ply_open_for_reading()` 成功/失败路径释放临时扩展名缓冲；此前的错误状态传播、close/flush 检查和 `exit(-1)` 移除保持不变。
+
+本轮静态验证：`qmake tools/paint/paint.pro`、`qmake drishti/plugins/meshpaint/meshpaint.pro`、`qmake drishti/plugins/meshsimplify/meshsimplify.pro`、`git diff --check` 通过；对上述函数做了事务声明/提交一致性扫描，实际构建路径的两个 PLY 副本 `exit()` 扫描无结果。当前环境仍缺少可直接调用的完整 C++ 编译/链接依赖，因此不能声称全工程构建完成。
+
+截至 14.19，仍明确后置：GraphCut/LiveWire 的完整失败语义和全部非活动旧入口逐项审计、TIFF 单次 codec 硬超时进程隔离、全产品统一崩溃恢复 journal、真实磁盘/短写/rename/delete、OpenGL allocation/FBO 故障注入、Intel/AMD 核显画面、正式 Import -> Paint -> Drishti GUI 闭环、净环境便携包和最终发布快照。源码完成到本节不等于构建通过或运行时全链路验收通过。
+
+### 14.20 本轮 GraphCut/LiveWire/PLY 失败路径收口（2026-08-14，构建与验收后置）
+
+本轮继续只完成可由源码确认的修改：
+
+- GraphCut 的 `Graph::maxflow()` 增加可选取消回调；主增长循环、source/sink 邻接扫描、orphan adoption 和建图阶段均周期性检查共享原子取消标志。`ImageWidget::applyGraphCut()` 显示可取消进度对话框，取消或异常只保留原标签，不提交部分结果；GraphCut 算法准入同时持有进程级 `ProcessMemoryReservation`。
+- LiveWire 增加图像/梯度/代价缓冲的尺寸、分配失败状态和错误文本；Dijkstra 路径计算、回溯和 Escape 取消增加事件泵与取消标志，非法/空图像不会继续访问空缓冲。其余曲线交互仍需正式 GUI 回归。
+- 实际构建路径 `meshpaint/meshsimplify` 的 PLY C API 失败生命周期继续收口：解析器严格要求 `format`、`element`、`property`、`end_header`，失败时释放已分配的 header/element/property/comment/rule/other-element 结构；other 数据和 list/string 指针先零初始化，截断 ASCII/Binary element 不会沿未初始化指针释放。mesh loader 对顶点/面数组、单元素分配、读取错误和 `vcolor` 分配失败均回收候选对象并返回失败。
+
+本轮验证：
+
+- `qmake tools/paint/paint.pro`、`qmake drishti/plugins/meshpaint/meshpaint.pro`、`qmake drishti/plugins/meshsimplify/meshsimplify.pro` 通过；`git diff --check` 通过。
+- MSVC 实际编译通过：`tools/paint/graphcut/graphcut.cpp`、`drishti/plugins/meshpaint/ply.c`、`drishti/plugins/meshsimplify/ply.c`。完整 Paint/LiveWire 编译在当前环境缺少 `QGLViewer/qglviewer.h` 处阻断，不能升级为工程构建通过。
+- 未执行正式 GUI、OpenGL、真实故障注入、Intel/AMD 核显、便携包和最终闭环验收。
+
+截至 14.20，仍明确后置：LiveWire 正式交互/曲线保存重开证据、TIFF 单次 codec 硬超时进程隔离、全产品统一崩溃恢复 journal、真实磁盘/短写/rename/delete、OpenGL allocation/FBO 故障注入、Intel/AMD 核显画面、正式 Import -> Paint -> Drishti GUI 闭环、净环境便携包和最终发布快照。源码收口完成不等于构建或运行时全链路通过。
+
+### 14.21 本轮代码完成收口（2026-08-14，构建与验收继续后置）
+
+本轮只完成源码修改和静态/qmake 检查，未启动正式构建、GUI、OpenGL、核显、故障注入或便携包验收：
+
+- Paint 旧入口 `shrinkwrap()`、`poreCharacterization()`、`sortLabels()` 增加区域级 `MaskRegionTransaction`，所有临时区域识别、形态处理和逐 voxel 写回阶段响应取消；取消或异常由事务析构恢复原始 mask，完整成功才提交。
+- LiveWire 调用方 `CurvesWidget` 现在检查图像/LOD/梯度重建及鼠标路径计算返回值；失败会停止当前 LiveWire 模式并向状态栏传播 `errorMessage()`，不会继续显示或保存不完整曲线。
+- TIFF 实际像素解码移至新增 `tools/import/plugins/tiffdecodehelper/` 独立 helper。插件通过 `QProcess` 传递文件、IFD、行范围和行字节数，读取时执行取消检查、30 秒硬超时、退出码检查和短/长输出校验；超时会杀掉 helper、清零调用方缓冲并返回错误。helper 作为 `tools/import/plugins/plugins.pro` 子工程构建，TIFF 插件依赖 helper。
+- helper 路径支持 `DRISHTI_TIFF_HELPER` 覆盖，默认查找应用目录及上级目录，便于便携包和故障注入环境显式指定。
+
+本轮静态验证：`qmake -o NMakefile.code-source-final tools/paint/paint.pro`、`qmake -o NMakefile.tiff-helper-final tools/import/plugins/plugins.pro`、`qmake -o NMakefile.tiff-plugin-final tools/import/plugins/tiff/tiff.pro` 成功；相关文件 `git diff --check` 成功。当前环境未执行完整 C++ 构建/链接，不能把 qmake 通过写成工程构建通过。
+
+代码层面本轮已完成到可交给构建/验收阶段的状态。仍必须由后续统一阶段验证：完整 MSVC/Qt 构建和部署 helper、正式 Import -> Paint -> Drishti GUI 闭环、LiveWire/曲线保存重开、真实磁盘满/短写/rename/delete、OpenGL allocation/FBO、Intel/AMD 核显、净环境便携包以及最终发布快照。这些是运行时证据，不在本轮源码完成度内。
+
+### 14.22 本轮源码最终收口（2026-08-14，构建与验收后置）
+
+本轮继续只完成可编码修改和静态核对，没有启动完整构建或正式运行时验收：
+
+- 公共 `common/src/recoveryjournal.*` 新增 direct-output 事务模式，仍使用同一 JSON `STAGING/PREPARED/COMMITTED` 协议；它保护已有目标的 backup，允许 Import 继续写入原最终路径，提交标记写入后才清理旧代。恢复、路径/重复目标/同目录校验、journal 损坏阻断和失败回滚均由公共实现负责。
+- Import `Raw2Pvl` 的 Save As、Time Series/Batch、MHD/RAW 和 Merge 的 `BatchPathJournal` 已完全改为调用公共 `RecoveryJournal`；旧的 Import 专用二进制 journal/恢复实现已移除，公共组件保留了一次性旧格式迁移恢复，避免升级后静默忽略历史残留。启动新操作时如果残留 journal 无法恢复，入口现在直接阻断，不会继续覆盖可能无法恢复的输出。
+- LiveWire 的 seed propagation、seed 移动、shape/ellipse/polygon 更新现在检查所有路径计算返回值；失败会恢复本次交互前的 polygon/seed 状态，非法 seed、空 shape、零轴椭圆和不可达路径会进入错误状态，不再把部分曲线继续提交。
+- 实际构建的 `meshpaint/meshsimplify` PLY C API 继续保持非致命失败语义；本轮同时完成 `LiveWire` 新返回值调用点和公共恢复 API 的接口静态一致性核对。未修改仅存在于仓库但不在当前插件构建路径中的旧 `drishti/ply.c` 副本。
+
+本轮静态检查：相关文件 `git diff --check`、公共 journal/Import/LiveWire API 引用扫描、构建工程源文件接入扫描通过；没有执行 C++ 编译/链接。当前代码可交给下一阶段统一构建和验收，不能把源码收口写成全链路运行通过。
+
+截至 14.22，剩余均属于后置构建/运行时证据：MSVC/Qt/第三方依赖完整构建与 helper 部署、Import -> Paint -> Drishti 正式 GUI 闭环、LiveWire/曲线重开、TIFF helper 运行验证、短写/磁盘满/rename/delete/异常退出注入、OpenGL allocation/FBO 故障注入、Intel i7-13700H 与 AMD 核显、净环境便携 ZIP 和最终发布快照。
+
+### 14.23 本轮代码收口补充（2026-08-14，核验规划前）
+
+本轮在进入构建/运行核验前又完成了一次针对新增实现的静态复核，发现并修正了两个会影响真实链路的源码边界：
+
+- Import provenance 现在由 `VolumeData::sourceFiles()` 提供。TIFF 和 Image Stack 通过独立的可选 `SourceFilesProvider` 接口返回实际解析后的有序切片列表；目录导入不再只记录目录名，显式多文件导入也不再被 TIFF 插件二次按文件名排序，因此 `FilesListDialog` 的用户确认顺序会一路保留到 PVL `<sourceorder><file>...</file></sourceorder>`。该能力没有改变既有 `VolInterface` 虚表，未实现 provider 的旧插件仍回退到原始输入列表。
+- Paint `VolumeFileManager` 的 dirty-chunk immutable snapshot 增加 baseline 失效边界：切换 memory-mapped 状态、创建新内存卷、加载压缩/普通卷后都会删除旧 baseline；同步创建/迁移入口不会复用其他卷的 snapshot。保存期间若 generation 发生变化，dirty 集仍保留到下一代刷新；取消、短写、worker 失败仍保留内存中的 dirty 数据。
+- PVL manifest smoke 新增结构化 `sourceorder`（含空格路径）断言；TIFF orientation smoke 追加显式重排顺序和 provider provenance 断言；Import、TIFF、Image Stack、Paint 相关工程的 qmake 生成和受影响文件 `git diff --check` 均通过。
+
+本节的“代码收口”只表示上述缺口已有源码实现和静态证据，不表示 C++ 编译、链接、helper 执行、GUI、OpenGL、目标核显或便携包通过。第 14.22 列出的正式构建、故障注入、硬件矩阵、净包和 Import -> Paint -> Drishti 闭环仍必须按下一阶段核验规划逐项取得证据；共享 `RecoveryJournal` 已统一底层协议，但各产品输出域仍需用正式崩溃/磁盘故障测试证明恢复语义。
+
+### 14.24 本轮代码收口与已取得的局部构建证据（2026-08-14，正式核验仍后置）
+
+本轮补齐了 TIFF helper 在 Windows 上的二进制输出边界：`tools/import/plugins/tiffdecodehelper/main.cpp` 将 stdout 切换为 `_O_BINARY`，避免像素字节 `0x0A` 被 CRT 文本模式转换成 `0x0D 0x0A`，从而造成 helper 输出长度漂移。helper 的短写/长写、退出码、取消和 30 秒硬超时检查仍由 TIFF 插件负责；当前 helper 实际构建产物位于 `C:\bin\tiffdecodehelper.exe`，正式便携包必须重新部署并记录其 hash。
+
+在 VS2019 BuildTools 14.29 + Anaconda Qt 5.15.2 环境中，以下独立 MSVC 构建和运行证据已取得：
+
+- `PVL manifest smoke passed`（包含结构化 `sourceorder`）；
+- `TIFF top-left/bottom-left orientation smoke passed`（包含显式文件顺序和 `SourceFilesProvider` provenance）；
+- `ImageStack transactional plugin smoke passed`；
+- `Slab save transaction smoke passed`；
+- `Graph Cut memory admission smoke passed`；
+- `Algorithm memory admission smoke passed`；
+- `Framebuffer budget smoke passed`；
+- `Paint slice ordering smoke passed: 8/16-bit reversal, guards and overflow`；
+- `Import memory admission smoke passed`；
+- Sampling contract smoke 返回 0；Binary PLY writer smoke 构建并运行返回 0。
+
+这些是独立组件的 MSVC 编译/运行证据，不等于三套主工程或全链路通过。完整 Import 工程实际编译在 `pybind11/embed.h`、`pybind11/pybind11.h` 和默认 qmake 路径缺少 `tiffio.h` 处阻断；TIFF 独立插件只有在显式传入 Anaconda `TIFF_INCLUDE_PATH`/`TIFF_LIBRARY_PATH` 后成功构建。Paint 的 VFM lifecycle smoke 在 `QGLViewer/qglviewer.h` 处阻断。上述依赖阻断记录为环境/构建前置，不再继续通过无关源码猜测规避。
+
+截至本节，仍没有正式 Import -> Paint -> Drishti GUI 闭环、Paint 保存/关闭重开、Drishti 项目加载和最终渲染、真实磁盘满/短写/rename/delete/异常退出注入、OpenGL allocation/FBO 故障注入、Intel i7-13700H 与 AMD 核显实机证据、净环境便携 ZIP 依赖闭包和发布快照 hash。下一步进入核验阶段时，必须按“依赖闭包 -> 确定性 smoke -> Import GUI -> Paint 持久化 -> Drishti/OpenGL -> 故障注入 -> Intel/AMD 硬件 -> 净包”顺序记录证据，不能把 qmake、局部 smoke 或 helper 单独运行写成全链路通过。
+
+### 14.25 本轮 VFM 运行边界修补（2026-08-14，正式核验仍后置）
+
+上一轮定向编译发现 VFM lifecycle smoke 使用 `QCoreApplication`，但实际 VFM 保存快照路径会创建 `QProgressDialog`；Windows 上该测试宿主在 Qt5Core 内以 `0xC0000409` 退出，不能算作通过。本轮将 smoke 改为 offscreen `QApplication`，并将 `VolumeFileManager::createSaveSnapshot()` 的 immutable snapshot 物化从未诊断的 `QFile::copy()` 改为受检分块读写、flush、尾字节和最终尺寸检查；失败信息现在包含源/目标路径、尺寸和 QFile 错误。
+
+修补后，VFM lifecycle smoke 在 VS2019 BuildTools 14.29 + Anaconda Qt 5.15.2、Anaconda blosc 头/库路径下实际编译并运行通过：`VFM lifecycle smoke passed`，返回码 0。该结果关闭了 snapshot baseline 的一个真实 Windows 运行阻断，但仍只是 Paint 生命周期组件证据。
+
+当前源码交接边界保持不变：完整 Import 仍需补齐 OpenVDB、TIFF、pybind11 和其链接库后才能编译；主工程 GUI、OpenGL/FBO、真实磁盘/短写/rename/delete/异常退出、Intel/AMD 核显和净便携包尚未验收。代码阶段至此交给统一核验阶段，不把局部 smoke 结果扩大为全链路通过。
+
+### 14.26 阶段 2 确定性 smoke 复核（2026-08-14）
+
+在当前源码工作树和 VS2019/Anaconda Qt 环境下重新执行了确定性 smoke。以下程序均返回 0：
+
+- `pvl_manifest_smoke.exe`：`PVL manifest smoke passed`；
+- `tiff_plugin_orientation_smoke.exe release/importplugins/tiffplugin.dll`：`TIFF top-left/bottom-left orientation smoke passed`；
+- `imagestack_plugin_smoke.exe release/importplugins/imagestackplugin.dll`：`ImageStack transactional plugin smoke passed`；损坏 PNG fixture 的 libpng 错误为预期负例输出，回滚断言通过；
+- `slabsavetransaction_smoke.exe`、`vfm_lifecycle_smoke.exe`；
+- `graphcut_memory_admission_smoke.exe`、`algorithm_memory_admission_smoke.exe`、`import_memory_admission_smoke.exe`、`framebuffer_budget_smoke.exe`；
+- `slice_order_smoke.exe`：`Paint slice ordering smoke passed: 8/16-bit reversal, guards and overflow`；
+- `sampling_contract_smoke.exe`、`binary_ply_writer_smoke.exe`。
+
+TIFF smoke 显式设置 `DRISHTI_TIFF_HELPER=C:\bin\tiffdecodehelper.exe`；Image Stack/TIFF smoke 均使用当前 `release/importplugins` DLL。该阶段只证明可重复的组件契约和负例回滚，尚未证明 Import GUI、Paint GUI、Drishti 渲染、目标核显或便携包。
+
+### 14.27 阶段 3 Import 正式构建阻断（2026-08-14）
+
+使用 VS2019 `VsDevCmd.bat -arch=amd64`、Anaconda Qt 5.15.2，并显式提供 `DRISHTI_EXTRA_INCLUDEPATH=.lab-agent/deps/pybind11/include`、Anaconda Python root 和 `TIFF_INCLUDE_PATH`/`TIFF_LIBRARY_PATH` 重新生成 Import Release Makefile。qmake 生成通过；实际 MSVC 编译在业务源码进入链接前被以下外部头文件阻断：
+
+- `common/src/vdb/vdbvolume.h` 找不到 `openvdb/openvdb.h`；
+- 此前 `tools/import/tiffpagevalidation.h` 的 `tiffio.h` 接入缺口已在本轮补入 `tools/import/import.pro`：现在显式提供 `TIFF_INCLUDE_PATH`/`TIFF_LIBRARY_PATH` 后可进入 `tiffpagevalidation.cpp` 编译，独立 TIFF 插件也可构建；
+- pybind11 路径显式接入后，未再成为首个阻断。
+
+因此正式 `drishtiimport` GUI 尚未启动，TIFF/Image Stack -> PVL/RAW/MHD/Time Series 的正式菜单链路、取消/预览/保存/重开尚未取得证据。下一步需要先补齐并固定 OpenVDB/VDB/Gmsh/Imath 以及其余 Python/pybind11/TIFF 的同一 MSVC/Qt ABI 依赖闭包，再重做本阶段；不能把本节的 qmake 或插件 smoke 写成 Import 正式链路通过。
+
+### 14.28 阶段 4 Paint 主工程构建阻断（2026-08-14）
+
+使用 VS2019 x64、Anaconda Qt 5.15.2、`.lab-agent/deps/libQGLViewer-2.6.4` 头文件和 Anaconda blosc include/lib 重新生成 `tools/paint/paint.pro`，qmake 生成通过；Release 构建在进入业务 C++ 编译/链接前被工程声明的 `common/lib/vdb.lib` 缺失阻断。VFM lifecycle、Slab、内存准入和 GraphCut 独立 smoke 已通过，但 `drishtipaint` 正式 GUI、Paint 保存/关闭重开、LiveWire/曲线和完整算法矩阵尚未执行。
+
+该阻断与 Import 的 OpenVDB 头/库闭包属于同一外部依赖层问题，不能通过继续改 Paint 业务代码规避。补齐同一 MSVC/Qt ABI 的 OpenVDB/VDB/Gmsh/Imath/Blosc/QGLViewer 后，必须从本节重新生成 Makefile 并取得主工程构建证据。
+
+### 14.29 阶段 5 Drishti 主工程构建阻断（2026-08-14）
+
+使用 VS2019 x64、Anaconda Qt 5.15.2、`.lab-agent/deps/glew-release/glew-2.2.0/include` 和 QGLViewer 头文件重新生成 `drishti/drishti.pro`，qmake 生成通过；Release 编译已越过 `GL/glew.h` 和多个基础渲染源文件，当前首个阻断为 `common/src/videoencoder/ffmpeg.h` 找不到 `libavcodec/avcodec.h`。因此 `drishti.exe` 尚未链接或启动，项目候选加载、shader/FBO、低/高分辨率和最终渲染均未执行。
+
+补齐与 Qt/MSVC 匹配的 FFmpeg 开发头/库后，需要从同一源码快照重新构建，并按阶段 5 的项目资源负例和 OpenGL/FBO 矩阵取得运行证据；不能把已编译若干 `.obj` 或 qmake 结果写成 Drishti 通过。
+
+### 14.30 统一依赖工作区与当前构建快照（2026-08-14）
+
+本节更新并 supersede 14.27--14.29 中“缺少 OpenVDB/FFmpeg/QGLViewer 导致主工程无法构建”的历史阻断记录。当前构建统一使用：
+
+- 依赖根目录：`.lab-agent/dependencies/`；
+- Qt 5.15.2：`toolchain/Qt-open/5.15.2/msvc2019_64`；
+- Python 3.13：`toolchain/Python313`；
+- vcpkg x64：`install/vcpkg/installed/x64-windows`；
+- OpenVDB 11.0.0：`install/openvdb-11.0.0`；
+- QGLViewer 2.6.4：`install/qglviewer-2.6.4`；
+- MSVC runtime DLLs：`install/msvc-runtime`；
+- MSVC 14.29 / Windows x64 / Release CRT。
+
+`drishti.pri` 的默认 Windows 路径和两个导入 smoke 工程已改为上述 canonical 前缀；不传旧 `D:/drishti-deps` 参数也能生成指向 `.lab-agent/dependencies` 的 Makefile。`tools/import/plugins/tiffdecodehelper/tiffdecodehelper.pro` 也已接入公共依赖配置，避免独立 helper 丢失 TIFF 头文件。
+
+当前源码快照已实际编译生成：
+
+- `.lab-agent/dependencies/build/main-current/bin/drishti.exe`；
+- `.lab-agent/dependencies/build/main-current/bin/drishtiimport.exe`；
+- `.lab-agent/dependencies/build/main-current/bin/drishtipaint.exe`；
+- `.lab-agent/dependencies/build/main-current/bin/drishtimesh.exe`；
+- `bin/importplugins/` 下 16 个 Release 导入插件 DLL；
+- `bin/tiffdecodehelper.exe`。
+
+统一前缀消费者验证：两个 canonical smoke 工程均成功编译链接；legacy plugin data-path smoke 返回 0；TIFF input routing smoke 返回 0；插件总工程和导入工具增量重编译均成功。TIFF 栈校验同时接受 top-left/bottom-left 两种已支持方向，混合方向回归已修复并重编 `tiffplugin.dll`、helper 和 `drishtiimport.exe`。
+
+对 `drishti.exe`、`drishtiimport.exe`、`drishtipaint.exe`、`drishtimesh.exe`、`tiffdecodehelper.exe` 和 16 个导入插件执行 `dumpbin /dependents`：20 个二进制的非系统直接 DLL 均可在 canonical Qt/vcpkg/OpenVDB/QGLViewer/Python/MSVC runtime 前缀中定位。Windows API-set、系统 OpenGL 和系统基础 DLL 不计入第三方闭包。
+
+上述内容只关闭依赖闭包和核心二进制构建阻断，不等于运行时全链路验收完成。仍待：便携包从当前快照生成、Qt/第三方 DLL 闭包与 dumpbin 审计、正式 Import GUI 的 TIFF -> ROI -> PVL、Paint 保存/重开、Drishti/OpenGL/FBO、真实磁盘故障注入，以及 Intel i7-13700H 和 AMD 核显设备验收。历史构建日志不得与本节快照混用。
+
+### 14.31 统一依赖安装与 ITK/渲染插件增量构建（2026-08-14）
+
+本轮继续只处理统一依赖工作区和构建前置，不宣称运行时全链路通过。依赖核对结果如下：
+
+- `.lab-agent/dependencies/source`、`build`、`install`、`toolchain`、`downloads`、`stubs`、`licenses` 已作为唯一工作区；Qt、Python、vcpkg、OpenVDB、QGLViewer、GLEW、FFmpeg、NetCDF、TIFF 和 MSVC runtime 均由该前缀提供；旧 `D:\drishti-deps` 内容与 canonical 目录逐项核对一致，当前 qmake 不再消费旧路径。
+- 旧路径中散落的 ITK/QGLViewer/OpenVDB/vcpkg/Python 归档已复制到 `.lab-agent/dependencies/downloads/`，依赖许可证归档到 `.lab-agent/dependencies/licenses/`；旧盘副本保留作回滚/来源，不属于当前构建输入。
+- ITK 5.0.1 的 x64/MSVC 14.29 Release 头文件、静态库和 CMake package 已安装到 `.lab-agent/dependencies/install/ITK-5.0.1`。由于 ITK 自带源码/构建目录长度限制，canonical 配置保留在 `.lab-agent/dependencies/build/ITK-5.0.1-canonical`，实际已构建的同 ABI 对象由旧短路径构建树安装到 canonical 前缀；不改变源和安装内容归属。
+- `drishti/plugins/common/common.pro` 已纳入 `pvlmanifest.*`、`memoryreservation.*`、`recoveryjournal.*`，公共 `common.lib` 已重新编译。
+- 当前统一快照成功链接的渲染插件包括：`meshpaintplugin.dll`、`meshsimplifyplugin.dll`、`binarythinningplugin.dll`、`connectedcomponentplugin.dll`、`distancemapplugin.dll`、`smoothingplugin.dll`、`edgepreservingsmoothingplugin.dll` 和 `vedplugin.dll`，均位于 `.lab-agent/dependencies/build/main-current/bin/renderplugins/`（ITK 插件按 `ITK/` 子目录布局）。
+- VED 已完成 ITK 5.0.1 源码适配：启用 `ITK_TEMPLATE_TXX=1` 以实例化模板实现，将 `ImageRegionIterator::Begin()` 改为 `GoToBegin()`，并将线程回调改为读取 `MultiThreaderBase::WorkUnitInfo` 与 `ITK_THREAD_RETURN_DEFAULT_VALUE`。本次只证明编译/链接，不代表 VED 已完成动态加载或 GUI 运行验收。
+
+随后对上述八个渲染 DLL 执行 `dumpbin /dependents`，所有非系统直接 DLL 均能在 canonical Qt/vcpkg/QGLViewer/GLEW/MSVC runtime 前缀定位，缺失数为 0。该静态闭包结果仍不替代插件动态加载、OpenGL 上下文和真实 GUI 验收。
+
+上述是依赖/编译证据，不等于 Import -> Paint -> Drishti GUI、OpenGL/FBO、真实磁盘故障、Intel/AMD 核显或净便携包验收。下一步按既定顺序进入正式运行时核验，并在打包阶段再次对最终 ZIP 中的全部 PE 做闭包审计。
+
+### 14.32 本轮运行时验收（2026-08-14）
+
+本轮开始执行正式运行时核验，使用统一快照
+`.lab-agent/dependencies/build/main-current/bin`、canonical PATH 和 Qt
+`qwindows` 平台插件。测试脚本、最小输入和日志保存在
+`.lab-agent/acceptance-20260814/`；它们是验收证据，不是产品发布包。
+本节的持久化进程/WER 证据更新并 supersede 前文“未落盘、不得升级为运行失败”的
+历史 Harness 记录；两者输入、宿主进程和证据等级不同，不能混用。
+
+#### 已取得证据
+
+1. 四个主程序 `drishtiimport.exe`、`drishtipaint.exe`、`drishti.exe`、
+   `drishtimesh.exe` 均能创建进程并在观察窗口内保持响应；`drishtimesh` 的
+   主窗口标题可见。该结果只证明宿主进入 Qt/GL 事件循环，不证明数据加载或
+   渲染功能通过。
+2. Import 正式窗口的 UI Automation 已看到 `Files -> Load -> Files` 下的
+   `Analyze 7.6`、`GRD Files`、`Standard Image Files`、`NIFTI Files`、
+   `NRRD Files`、`RAW/RAW Slab/RAW Slice Files`、`Grayscale TIFF Image Files`、
+   `TXM`、`VGI` 等入口。说明当前 bin 的插件注册和菜单生成至少完成到 UI
+   层；原生文件对话框由 Qt 模态调用阻塞自动化，尚未把某个 TIFF 夹具送入
+   正式 Save As，因此不能记为 Import GUI 通过。
+3. 组件级 smoke 在当前环境重新执行，以下 13 项均返回 `0`：算法/ITK/Import/
+   VolumeOperations 内存准入、GraphCut、Framebuffer、mask import、MeshTools
+   I/O、slab save transaction、slice order、Undo、VFM lifecycle、video encoder
+   和 Binary PLY writer。`meshtools_io_smoke` 的坏路径错误及 Qt 缺少 `lib/fonts`
+   仅为预期负例/环境警告；字体目录仍须在最终便携包中补齐并复验。
+
+#### 新发现的运行时阻断
+
+1. **P1：VED 构建成功但 Qt 动态插件加载失败。**
+   用原始统一 bin 启动 `drishti.exe` 时，插件注册弹出：
+   `Cannot load .../renderplugins/ITK/Smoothing/vedplugin.dll`。
+   `vedplugin.dll` 的 PE 直接依赖静态闭包没有缺失，根因已定位到
+   `drishti/plugins/itk/ved/ved.h` 缺少其他 Render 插件都有的
+   `Q_PLUGIN_METADATA(IID "drishti.render.Plugin.PluginInterface/1.0")`。
+   这说明“VED 已构建”和“VED 可被 QPluginLoader 实例化”是两个独立门槛；
+   在补 metadata 并重新构建前，不能声称全部渲染插件可用。
+2. **P0/P1：正式 Drishti 体数据入口触发访问冲突。**
+   为排除 VED 弹窗干扰，将当前 bin 复制到
+   `.lab-agent/acceptance-20260814/runtime-no-ved-2`（只删除副本中的 VED DLL），
+   用按当前 manifest 契约生成的最小 PVL 夹具 `fixture.pvl.nc`、`fixture8.pvl.nc` 以及对应
+   `fixture.xml` 分别通过 `-drishti <path>` 打开。两次均在 12 秒观察期内退出，
+   退出码 `0xC0000005`；Windows Application Error 1000/Windows Error
+   Reporting 1001 同时记录 faulting module 为该 `drishti.exe`，偏移
+   `0x00000000001fd8d7`。这不是正常退出，也不能归因于 VED；需在修复后用同一
+   快照重跑 PVL 直接打开和 XML 项目打开，并取得不崩溃、项目提交和 shader/FBO
+   证据。
+
+#### 当前仍不能声称
+
+- Import TIFF -> ROI/Z -> PVL/RAW/MHD/Time Series 的正式 GUI 保存、取消和回读；
+- Paint mask/标签/curves/snapshot 的 GUI 保存、关闭重开和跨进程恢复；
+- Drishti 项目候选提交、体数据加载、低/高分辨率纹理、shader/FBO 和渲染插件
+  实例化；
+- VED 动态加载和实际算法运行；
+- 真实磁盘满/短写/rename/delete/异常退出注入、净便携包闭包、Intel i7-13700H
+  首因笔记本和 AMD 核显硬件矩阵。
+
+#### 下一轮最小修复/复验顺序
+
+1. 给 VED 补 `Q_PLUGIN_METADATA`，重建并单独用 `QPluginLoader` 及 Drishti
+   插件注册复验；
+2. 调试并修复 `drishti.exe` 在最小 manifest 契约 PVL 直接打开时的 `0xC0000005`，先取得
+   “不崩溃且体数据提交成功”的进程级证据，再扩展到真实 Import 输出；
+3. 重新执行 Import 正式 TIFF 保存、Paint 保存/重开、Drishti 项目加载/渲染和
+   VED 算法入口；
+4. 最后才进行磁盘故障、OpenGL/FBO、Intel/AMD 核显和同快照净 ZIP 验收。
+
+本节把构建、静态依赖、组件 smoke、GUI 菜单可见性和正式功能闭环明确分层；
+本轮验收结论是：**局部运行证据通过，但当前快照不能发布，正式全链路未通过。**
+
+### 14.33 运行时阻断修复复验（2026-08-14）
+
+上一节列出的两个运行时阻断已完成源码修复并在同一当前源码快照重建：
+
+- `drishti/plugins/itk/ved/ved.h` 增加
+  `Q_PLUGIN_METADATA(IID "drishti.render.Plugin.PluginInterface/1.0")`。
+  验收探针 `.lab-agent/acceptance-20260814/release/plugin_probe.exe` 实际调用
+  `QPluginLoader::instance()` 和 `qobject_cast<RenderPluginInterface*>`，返回：
+  `instance=true interface-cast=true registration=Vesselness Enhancement Diffusion`。
+- `Viewer` 的 LUT 缓冲增加容量跟踪和按 `Global::lutSize()` 的重建保护，避免单体积
+  加载把默认 4 层 LUT 切换到 8/16 层后继续访问旧容量。旧隔离副本打开
+  `fixture.pvl.nc` / `fixture8.pvl.nc` 均以 `-1073741819`（`0xC0000005`）退出；
+  当前 `main-current` 二进制打开两个 PVL 夹具均保持响应，未再出现该退出码。
+
+当前主机的 XML 项目打开已验证为不崩溃，但弹出
+`Project load failed / The rendering resources could not be created.`。该结果属于本机
+OpenGL/纹理资源链尚未通过，不等于访问冲突仍在，也不等于 Drishti 项目渲染已经通过。
+必须在真实 Intel iGPU（以及一台 AMD iGPU）上继续取得 OpenGL Vendor/Renderer、低/高分辨率
+纹理、shader/FBO、项目提交和正常退出证据；在此之前不能把本轮标记为全链路发布通过。
+
+### 14.34 全链路复核重跑（2026-08-14）
+
+本轮对同一 `.lab-agent/dependencies/build/main-current/bin` 快照重新执行已有验收脚本，
+结果如下。该节只记录复核证据，不把组件级结果升级为产品工作流通过。
+
+#### 已复核通过
+
+1. `run_component_smoke.ps1` 的 13 项组件 smoke 全部返回 `0`：算法/ITK/Import/
+   VolumeOperations 内存准入、GraphCut、Framebuffer、mask import、MeshTools I/O、
+   slab save transaction、slice order、Undo、VFM lifecycle、video encoder 和 Binary
+   PLY writer。MeshTools 的坏路径输出属于预期负例；Qt 缺少 `lib/fonts` 仍是便携包告警。
+2. 八个渲染插件逐个经 `QPluginLoader::instance()` 和
+   `qobject_cast<RenderPluginInterface*>` 通过，注册名包含：Mesh Repaint、Mesh
+   Simplify、Skeletonization、Connected Component Labeling、Signed Distance Map、
+   Edge Preserving Smoothing Filters、Smoothing Filters、Vesselness Enhancement
+   Diffusion。VED 的动态加载修复在当前构建中保持有效。
+3. 新二进制直接打开 `fixture.pvl.nc` 和 `fixture8.pvl.nc` 均在观察期保持响应，未再出现
+   旧副本的 `0xC0000005`；这只证明访问冲突回归未重现，不证明完整渲染成功。
+4. 四个主程序均能进入 Qt 事件循环并在观察期保持响应；`drishtimesh` 可见主窗口。
+   XML 项目打开不再崩溃，但会弹出 `Project load failed / The rendering resources could
+   not be created.`。
+5. Import 菜单的 `Files -> Load -> Files` 已显示 TIFF、RAW、NIFTI、NRRD、标准图像等
+   入口。菜单注册证据通过，但 Qt 文件选择器的模态调用仍阻塞当前 UI Automation
+   harness，尚未完成 TIFF 选择、ROI/Z 和 Save As PVL。
+6. `pvl_manifest_smoke`、`sampling_contract_smoke`、`import_memory_admission_smoke`
+   和 TIFF input routing smoke 返回 `0`。独立 ImageStack smoke 使用当前打包方式仍
+   暴露一项待分级问题：测试在生成 PNG fixture 后收到 `libpng error: IDAT: incorrect
+   data check` 并异常退出；需要在规范化 Qt/plugin 运行时和净包中复现，不能忽略或写成通过。
+   TIFF orientation smoke 需要产品目录旁的 `platforms/qoffscreen.dll`，当前构建 bin
+   尚未形成最终便携包，因此该测试尚未取得有效通过证据。
+
+#### 本轮仍未完成
+
+- Import 正式 TIFF 选择、ROI/Z 裁剪、Save As PVL/RAW/MHD/Time Series、取消/覆盖/失败
+  回滚和输出回读；
+- Paint 的真实 mask/tag/curve 保存、关闭重开和跨进程恢复；
+- Drishti 项目候选提交、低/高分辨率纹理、shader/FBO、渲染资源成功创建和正常退出；
+- VED 算法入口实际运行；
+- 磁盘满、短写、只读、rename/delete、异常退出以及 OpenGL allocation/FBO incomplete
+  故障注入；
+- 最终净便携 ZIP 的 Qt platform/fonts、插件和第三方 DLL 闭包审计；
+- 目标 Intel i7-13700H 核显和至少一台 AMD 核显硬件矩阵。当前审计机为 Intel UHD 770
+  加两张 RTX 3090，不能替代目标设备。
+
+因此截至本节，结论仍是：**局部组件、插件加载、主进程响应和 PVL 访问冲突修复已复核；
+正式 Import -> Paint -> Drishti -> 便携包全链路尚未完成，不能交付“全链路验收通过”。**
+
+### 14.35 剩余自动化测试重跑与 canonical ABI 复核（2026-08-14）
+
+本节记录本轮把现有可自动化测试尽量跑完后的结果。所有新编译的 smoke 均使用
+`.lab-agent/dependencies/toolchain/Qt-open/5.15.2/msvc2019_64/bin/qmake.exe`、
+VS2019 x64 和统一 `.lab-agent/dependencies` 前缀；旧 NMakefile 不作为当前快照的
+构建证据。
+
+#### 通过
+
+1. 13 项组件 smoke 在 canonical PATH 下全部返回 `0`；另行重跑的
+   `imagestack_contract_smoke`、`plugin_error_bridge_smoke`、
+   `volume_plugin_validation_smoke`、`pvl_manifest_smoke`、`sampling_contract_smoke`、
+   legacy plugin data-path 和 TIFF input routing 也全部返回 `0`。
+2. 以 canonical Qt 重建并运行的 Import/格式 smoke 全部通过：ImageStack transactional、
+   Volume file transaction、RAW file safety、plugin lifecycle、plugin empty-input、
+   native RAW、native RAW collections、NRRD、NIfTI、TXM、DICOM、DICOM histogram、
+   MetaImage path、volume value mapping、TIFF-to-volume-file 和 Python Import script。
+   TIFF-to-volume-file 夹具为 3 个 4x4 TIFF，保存 2 层，输出事务和 SHA-256 回读通过。
+3. Windows 桌面会话的 `desktop_opengl_context_smoke` 通过，报告：
+   `vendor=Intel`、`renderer=Intel(R) UHD Graphics 770`、OpenGL 4.5 compatibility
+   profile、`max_3d_texture=2048`。这证明本机 Intel 驱动可以创建 Drishti 所需的桌面
+   OpenGL 上下文；offscreen 模式下同一测试失败是没有桌面上下文的环境结果。
+4. 四个主程序、PVL/PVL8 直接打开和渲染插件加载结果保持 14.34 的结论：主进程能响应，
+   访问冲突未回归，8 个渲染插件可由 `QPluginLoader` 实例化；这仍不等于项目渲染闭环。
+
+#### 发现的问题或阻断
+
+1. **TIFF orientation smoke 当前有真实逻辑失败。** canonical Qt 重建后不再出现
+   `Qt5Core.dll + 0x204e8 / 0xC0000409`，但 bottom-left 与 top-left 混合方向的栈被
+   接受，测试返回 `1`（`A mixed top-left/bottom-left TIFF stack was accepted`）。
+   这说明此前的 Qt5Core 崩溃是 smoke 与运行时 Qt ABI 混用造成的无效证据，而混合方向
+   接受是当前 TIFF 实现仍需处理的真实缺陷。
+2. 旧 `release/tiff_plugin_orientation_smoke.exe` 和
+   `release/imagestack_plugin_smoke.exe` 仍会在 canonical Qt 运行时触发
+   `Qt5Core.dll` 的 `0xC0000409`；其旧 Makefile 链接 `Qt5*_conda.lib`，因此不能再用作
+   产品失败证据。canonical 重建的 ImageStack smoke 已返回 `0`。
+3. 当前源码重建的 `volume_chain_harness` 返回 `1`，不是访问冲突。它报告 4 个失败计数：
+   `missing_pvlnames_rejected` 和 `duplicate_pvl_paths_accepted` 的旧缺陷未重现（断言
+   已过时）；`missing_slab_rejected` 仅因错误文案从 `cannot open` 变为统一的
+   `missing, malformed, or unexpected size` 而计数；仍确认的行为缺口是带空格的显式
+   PVL slab 名被拒绝，以及损坏 tag header 时 `saveTagNames()` 没有失败状态。该 harness
+   还把大体积准入的旧阈值预期写死，当前预算模型变化导致其第四个计数；需更新断言后再
+   作为正式 Paint 链路门槛使用。
+4. `desktop_opengl_context_smoke` 只覆盖本机 Intel UHD 770；本机 CPU 是 i9-14900K，
+   不是目标 i7-13700H，也没有 AMD 核显，因此不能替代目标硬件矩阵。
+5. `package_windows_portable.ps1` 使用 canonical 主程序直接执行仍在第 244 行停止，
+   因 `main-current/bin/python` 缺失。canonical PATH 下 29 个 EXE/DLL 的直接依赖静态
+   审计为 `missing_count=0`，但这不等于净 ZIP 已生成；最终包仍缺 Python 嵌入目录、
+   Qt platform/fonts、插件闭包和脚本/许可证闭包的打包证据。
+
+#### 本轮仍未闭环
+
+- Import 正式 GUI 的 TIFF 选择、ROI/Z、PVL/RAW/MHD/Time Series Save As、取消/覆盖/失败
+  回滚和输出回读；文件选择器模态调用仍使 UI Automation 超时；
+- Paint 正式 GUI 的 mask/tag/curve 保存、关闭重开和跨进程恢复；
+- Drishti XML/PVL 项目成功提交、低/高分辨率纹理、shader/FBO、真实渲染资源创建；当前
+  XML 夹具不崩溃但仍提示 `The rendering resources could not be created.`；
+- VED 算法入口、真实磁盘满/短写/只读/rename/delete/异常退出和 OpenGL allocation/FBO
+  故障注入；
+- canonical 快照净便携 ZIP、目标 Intel i7-13700H 和 AMD 核显硬件验收。
+
+因此本轮结论更新为：**可自动化的组件、格式和 Intel 桌面 OpenGL smoke 已尽量补跑；
+TIFF 混合方向、Paint harness 断言/保存状态、正式 GUI、Drishti 渲染、故障注入、净包和
+目标硬件仍未通过，不能交付全链路验收通过。**
+
+### 14.36 便携包闭环修复与当前快照复核（2026-08-15）
+
+本轮继续处理 14.35 中仍能由代码和当前构建环境关闭的真实缺口，并重新使用同一
+`.lab-agent/dependencies/build/main-current/bin` 快照打包。以下结果 supersede 14.35
+中关于便携包缺少 Python/Qt/插件闭包以及 TIFF 混合方向失败的旧记录。
+
+#### 已修复
+
+1. `package_windows_portable.ps1` 现在只从 `.lab-agent/dependencies` canonical 前缀
+   解析 Qt、vcpkg、OpenVDB、QGLViewer、Python 和 MSVC runtime；复制 `tiffdecodehelper.exe`
+   到包根目录，并把它纳入最终 PE 闭包审计。这样实际应用目录下的 TIFF 插件无需设置
+   `DRISHTI_TIFF_HELPER` 即可找到隔离解码 helper。
+2. 包脚本将 Windows `comctl32.dll`/`comdlg32.dll` 作为系统 inbox DLL 处理，修复
+   `tk86t.dll` 静态闭包审计的误报；同时将空 MOP 插件集合保持为稳定数组，避免严格
+   PowerShell 模式下 `.Count` 失败。
+3. 两个 Python `_pth` 文件显式加入 `Lib\site-packages`，修复净包中 `python.exe` 能
+   启动但 `import numpy` 失败的问题；Python 自动 `site` 导入仍保持关闭。
+4. 包内保留 `lib/fonts/.keep` 路径，Qt 使用主机字体时不再产生缺失字体目录警告；没有
+   把无法确认再分发许可的 Windows 系统字体复制进包。
+5. `PORTABLE_README.md` 已同步当前清单：16 个 Import 插件、8 个 Render 插件（含
+   VED）、无 MOP 插件，以及包根目录的 TIFF helper。
+
+#### 当前快照证据
+
+1. `.\package_windows_portable.ps1 -KeepStage` 成功生成：
+   `.\lab-agent\package\drishti-cpu-igpu-release-2026-08-15-audited.zip`；
+   SHA-256 为
+   `756bb33058f86ce430d77c7507ee5d5c4625876140e8350ee8422db2a6aeb222`，包内 6184 个
+   文件，216 个 x64 PE，16 个 Import 插件、8 个 Render 插件、0 个 MOP 插件、5 个
+   帮助文档和 10 个脚本描述符。全部 PE 的 `dumpbin /dependents` 非系统依赖闭包审计
+   通过，ZIP 中实际包含 `tiffdecodehelper.exe`、`lib/fonts/.keep` 和 VED DLL。
+2. 13 项组件 smoke 在 canonical PATH 下全部返回 `0`。将 `meshtools_io_smoke` 放在
+   当前 stage 中运行也返回 `0`，且不再有 Qt 缺失 `lib/fonts` 警告。
+3. 当前 stage 中的 ImageStack transactional smoke 和 TIFF top-left/bottom-left
+   orientation smoke 均返回 `0`。ImageStack smoke 输出的 `libpng error: IDAT...`
+   来自其故意损坏 PNG 的回滚负例，最终结果为 `ImageStack transactional plugin smoke
+   passed`，不能记录为产品失败。TIFF smoke 未设置 helper 环境变量时也返回 `0`，证明
+   包根目录默认 helper 路径有效。
+4. 净包 `python\python.exe --version` 返回 Python 3.13.2，`import numpy` 返回 NumPy
+   2.4.1；使用该解释器执行 `python_import_scripts_smoke.py` 返回 `Python Import script
+   smoke passed`。
+5. 8 个 Render DLL 在当前 package stage 逐个通过 `QPluginLoader::instance()` 和
+   `qobject_cast<RenderPluginInterface*>`，包括 `Vesselness Enhancement Diffusion`。
+6. 当前 package stage 的 `drishtiimport.exe`、`drishtipaint.exe`、`drishti.exe`、
+   `drishtimesh.exe` 均能进入 Qt 事件循环；`fixture.pvl.nc`、`fixture8.pvl.nc` 和
+   `fixture.xml` 观察期内均未出现 `0xC0000005`。`drishti-runtime.log` 记录了低/高
+   分辨率加载、pass-through/copy/reduce/extract/default/blur/backplane shader 步骤、
+   纹理句柄 `1/1` 和 scene reset 完成，说明本机桌面 OpenGL 资源链已越过此前的失败点。
+
+#### 14.35 旧结果的分级修正
+
+- TIFF 混合 top-left/bottom-left 的真实逻辑缺陷已由当前实现和 canonical smoke 关闭；
+  旧 `Qt5Core.dll` 崩溃属于 ABI 混用的旧测试产物，不再作为当前产品失败证据。
+- `volume_chain_harness` 中“带空格显式 PVL slab 名必须拒绝”是过时断言：当前实现正确
+  接受合法的空格路径。缺失 slab 的失败文案已统一为“missing, malformed, or unexpected
+  size”。`Volume::saveTagNames()`/`VolumeMask::saveTagNames()` 在损坏 tag header 时
+  返回 `false`、保留原文件且通过 `lastError()` 传播；旧 harness 只忽略返回值并把它标成
+  “silent failure”，不代表当前 API 没有失败状态。
+
+#### 当前仍需外部验收
+
+以下不是本机可凭静态或组件 smoke 代替的编码缺口：正式 Import GUI 的 TIFF 选择、ROI/Z
+裁剪和 Save As PVL/RAW/MHD/Time Series 回读；Paint GUI 的 mask/tag/curve 保存、关闭重开
+和跨进程恢复；真实磁盘满/短写/只读/rename/delete/异常退出注入；目标 Intel i7-13700H
+笔记本和至少一台 AMD 核显硬件矩阵。当前代码和同快照便携包已经达到可交付外部验收的
+状态，但在这些设备/正式 GUI 操作完成前，不能把文档结论写成“所有硬件和人工工作流均已
+验收通过”。
+
+### 14.37 最终 canonical 组件证据修正（2026-08-15）
+
+严格复核发现，14.35/14.36 中“13 项组件 smoke 均在 canonical PATH 下运行”的表述过宽：
+其中 8 个旧 smoke 二进制的 Makefile 曾链接 `Qt5*_conda.lib`。这不影响正式产品二进制，
+正式产品的 29 个 PE 没有 Conda 依赖；但旧 smoke 不能作为 canonical Qt 运行证据。
+
+本轮已使用 Qt 5.15.2 MSVC2019 x64、VS2019 x64 和统一
+`.lab-agent/dependencies` 前缀重新生成并编译以下 8 个 smoke：
+`binary_ply_writer_smoke`、`graphcut_memory_admission_smoke`、
+`itk_memory_admission_smoke`、`mask_import_smoke`、
+`slabsavetransaction_smoke`、`slice_order_smoke`、`undo_smoke` 和
+`vfm_lifecycle_smoke`。`dumpbin /dependents` 确认它们只引用正式的
+`Qt5Core.dll`/`Qt5Widgets.dll`，没有任何 `Qt5*_conda.dll`。
+
+随后把 `PATH` 限制为当前便携包根目录及 Windows 系统目录，设置包内 Qt 插件路径，
+逐个运行上述 8 个新二进制，全部返回 `0`。VFM 测试最初因 QGLViewer 安装布局不是
+`include/QGLViewer` 而是安装根目录下直接包含 `QGLViewer/` 编译失败；修正 include
+父目录后成功构建并通过 lifecycle smoke。至此，旧 Conda smoke 证据缺口已经关闭。
+
+打包溯源也同步修正为只统计已跟踪文件的脏状态；`.lab-agent`、自动生成 Makefile、
+对象文件和缓存等明确排除的本地构建产物不再污染 `BUILD_INFO.txt`。最终 ZIP 必须在本节
+源码提交完成且已跟踪工作区为干净状态后重新生成，并以同目录 SHA-256 校验值为转移依据。

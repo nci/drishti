@@ -2,13 +2,20 @@
 #include "staticfunctions.h"
 #include "global.h"
 #include "getmemorysize.h"
+#include "../../common/src/pvlmanifest.h"
 
 #include <QDebug>
+#include <QApplication>
 #include <QSaveFile>
+#include <QCryptographicHash>
+#include <QFileDialog>
+#include <QSettings>
+#include <QStandardPaths>
 
 #include <limits>
 #include <memory>
 #include <new>
+#include <utility>
 
 namespace
 {
@@ -32,6 +39,61 @@ QString memorySizeText(std::uint64_t bytes)
   const long double gibibytes =
     static_cast<long double>(bytes)/(1024.0L*1024.0L*1024.0L);
   return QString("%1 GiB").arg(static_cast<double>(gibibytes), 0, 'f', 2);
+}
+
+QString maskWorkspacePath(const QString& sourceMask)
+{
+  const QFileInfo sourceInfo(sourceMask);
+  const QDir sourceDir = sourceInfo.absoluteDir();
+  const QFileInfo sourceDirInfo(sourceDir.absolutePath());
+  // A writable directory is not sufficient when an existing mask (or one of
+  // its sidecars) is read-only, which is common for copied datasets and
+  // optical/network media.  Route that generation to the per-source user
+  // workspace as well.
+  const bool sourceWritable = !sourceInfo.exists() || sourceInfo.isWritable();
+  const bool sidecarsWritable =
+    (!QFileInfo::exists(sourceInfo.absoluteFilePath()+".pvl.nc") ||
+     QFileInfo(sourceInfo.absoluteFilePath()+".pvl.nc").isWritable()) &&
+    (!QFileInfo::exists(sourceInfo.absoluteFilePath()+".tags") ||
+     QFileInfo(sourceInfo.absoluteFilePath()+".tags").isWritable());
+  if (sourceDir.exists() && sourceDirInfo.isWritable() && sourceWritable &&
+      sidecarsWritable)
+    return sourceInfo.absoluteFilePath();
+
+  const QString appData = QStandardPaths::writableLocation(
+    QStandardPaths::AppDataLocation);
+  if (appData.isEmpty())
+    return sourceInfo.absoluteFilePath();
+
+  const QByteArray key = QCryptographicHash::hash(
+    sourceInfo.absoluteFilePath().toUtf8(), QCryptographicHash::Sha256)
+    .toHex();
+  QSettings settings;
+  const QString settingsKey = QStringLiteral("maskWorkspaces/%1")
+    .arg(QString::fromLatin1(key));
+  QString configuredRoot = settings.value(settingsKey).toString();
+  if (configuredRoot.isEmpty() && QCoreApplication::instance() &&
+      qobject_cast<QApplication*>(QCoreApplication::instance()))
+    {
+      configuredRoot = QFileDialog::getExistingDirectory(
+        0, QStringLiteral("Choose writable mask workspace"), appData,
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+      if (!configuredRoot.isEmpty())
+        settings.setValue(settingsKey, configuredRoot);
+    }
+  if (configuredRoot.isEmpty())
+    configuredRoot = appData;
+
+  QDir workspaceRoot(configuredRoot);
+  if (!workspaceRoot.exists() && !workspaceRoot.mkpath("."))
+    return sourceInfo.absoluteFilePath();
+  if (!workspaceRoot.mkpath("workspaces"))
+    return sourceInfo.absoluteFilePath();
+  const QString workspace = workspaceRoot.filePath(
+    QString("workspaces/%1").arg(QString::fromLatin1(key)));
+  if (!QDir().mkpath(workspace))
+    return sourceInfo.absoluteFilePath();
+  return QDir(workspace).filePath(sourceInfo.fileName());
 }
 
 QString memoryAdmissionReason(PaintMemoryAdmissionReason reason)
@@ -201,10 +263,16 @@ Volume::loadRawMask(QString flnm)
   return loaded;
 }
 
-void
+bool
 Volume::saveTagNames(QStringList tagNames)
 {
-  m_mask.saveTagNames(tagNames);
+  m_lastError.clear();
+  if (!m_mask.saveTagNames(tagNames))
+    {
+      m_lastError = m_mask.lastError();
+      return false;
+    }
+  return true;
 }
 QStringList
 Volume::loadTagNames()
@@ -271,6 +339,15 @@ Volume::loadMemFile()
                             "The volume remains offloaded; a complete "
                             "out-of-core editing backend is not available.")
                       .arg(memoryAdmissionReason(admission.reason));
+      return false;
+    }
+
+  std::shared_ptr<ProcessMemoryReservation> reservation;
+  if (!reservePaintVolumeMemory(admission, reservation))
+    {
+      m_lastError = QString("In-memory loading was refused because another "
+                           "Import/Paint task acquired the remaining memory "
+                           "budget before allocation.");
       return false;
     }
 
@@ -401,30 +478,51 @@ Volume::gridSize(int& d, int& w, int& h)
 bool
 Volume::setFile(QString volfile)
 {
-  if (!reset())
-    return false;
+  if (!m_valid)
+    return loadFileInternal(volfile);
 
+  // Load into an isolated candidate first. A malformed or resource-limited
+  // replacement must leave the active volume, mask and annotations intact.
+  Volume candidate;
+  if (!candidate.loadFileInternal(volfile))
+    {
+      m_lastError = candidate.lastError();
+      return false;
+    }
+  if (!candidate.prepareForStateSwap() || !prepareForStateSwap())
+    {
+      m_lastError = !candidate.lastError().isEmpty() ?
+        candidate.lastError() : lastError();
+      return false;
+    }
+  if (!swapState(candidate))
+    {
+      m_lastError = lastError();
+      return false;
+    }
+  m_lastError.clear();
+  return true;
+}
+
+bool
+Volume::loadFileInternal(QString volfile)
+{
   const auto failLoad = [this](QString detail)
     {
       (void)reset();
       m_lastError = detail.isEmpty() ?
         QString("Cannot load the volume") : detail;
-      QMessageBox::critical(0, "Volume Load Error", m_lastError);
       return false;
     };
 
-  if (!StaticFunctions::xmlHeaderFile(volfile))
-    {
-      QMessageBox::information(0, "Error",
-	QString("%1 is not a valid preprocessed volume file").
-			       arg(volfile));
-      return false;
-    }
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(volfile, manifest, true))
+    return failLoad(manifest.error);
 
-  StaticFunctions::getDimensionsFromHeader(volfile,
-					   m_depth, m_width, m_height);
-
-  int slabSize = StaticFunctions::getSlabsizeFromHeader(volfile);
+  m_depth = manifest.depth;
+  m_width = manifest.width;
+  m_height = manifest.height;
+  int slabSize = manifest.slabSize;
 
   if (m_depth <= 0 || m_width <= 0 || m_height <= 0 || slabSize <= 0)
     return failLoad(QString("Invalid volume geometry %1 x %2 x %3 or slab size %4")
@@ -432,9 +530,9 @@ Volume::setFile(QString volfile)
 
   m_fileName = volfile;
 
-  int voxelType = StaticFunctions::getPvlVoxelTypeFromHeader(volfile);
-  int headerSize = StaticFunctions::getPvlHeadersizeFromHeader(volfile);
-  QStringList pvlnames = StaticFunctions::getPvlNamesFromHeader(volfile);
+  int voxelType = manifest.voxelType;
+  int headerSize = manifest.headerSize;
+  QStringList pvlnames = manifest.pvlNames;
   if (voxelType != VolumeFileManager::_UChar &&
       voxelType != VolumeFileManager::_UShort)
     return failLoad(QString("Drishti Paint supports only unsigned 8-bit and 16-bit volumes (voxel type %1)")
@@ -488,6 +586,12 @@ Volume::setFile(QString volfile)
           .arg(commitBudget));
     }
 
+  std::shared_ptr<ProcessMemoryReservation> reservation;
+  if (!reservePaintVolumeMemory(admission, reservation))
+    return failLoad(
+      QString("Drishti Paint could not reserve the memory budget for this "
+              "volume because another Import/Paint task is active."));
+
   const bool inMem = true;
   if (!m_pvlFileManager.setMemMapped(inMem))
     return failLoad(m_pvlFileManager.lastError());
@@ -499,6 +603,10 @@ Volume::setFile(QString volfile)
   QString mfile = m_fileName;
   mfile.chop(6);
   mfile += QString("mask");
+  // A source volume may live on read-only media or a shared location. Keep
+  // the mask in a deterministic per-source writable workspace in that case,
+  // so opening a volume never mutates the input directory.
+  mfile = maskWorkspacePath(mfile);
   if (!m_mask.setFile(mfile, inMem))
     return failLoad(m_mask.lastError());
   m_mask.setVoxelType(maskBytesPerVoxel == 1 ?
@@ -515,6 +623,51 @@ Volume::setFile(QString volfile)
 
   m_valid = true;
 
+  return true;
+}
+
+bool
+Volume::prepareForStateSwap()
+{
+  if (!m_mask.prepareForStateSwap() ||
+      !m_pvlFileManager.prepareForStateSwap())
+    {
+      m_lastError = !m_mask.lastError().isEmpty() ?
+        m_mask.lastError() : m_pvlFileManager.lastError();
+      return false;
+    }
+  return true;
+}
+
+bool
+Volume::swapState(Volume& other)
+{
+  if (this == &other)
+    return true;
+  if (!m_mask.swapState(other.m_mask))
+    {
+      m_lastError = m_mask.lastError();
+      return false;
+    }
+  if (!m_pvlFileManager.swapState(other.m_pvlFileManager))
+    {
+      m_lastError = m_pvlFileManager.lastError();
+      return false;
+    }
+  using std::swap;
+  swap(m_valid, other.m_valid);
+  swap(m_fileName, other.m_fileName);
+  swap(m_lastError, other.m_lastError);
+  swap(m_depth, other.m_depth);
+  swap(m_width, other.m_width);
+  swap(m_height, other.m_height);
+  swap(m_slice, other.m_slice);
+  swap(m_1dHistogram, other.m_1dHistogram);
+  swap(m_2dHistogram, other.m_2dHistogram);
+  swap(m_histImageData1D, other.m_histImageData1D);
+  swap(m_histImageData2D, other.m_histImageData2D);
+  swap(m_histogramImage1D, other.m_histogramImage1D);
+  swap(m_histogramImage2D, other.m_histogramImage2D);
   return true;
 }
 

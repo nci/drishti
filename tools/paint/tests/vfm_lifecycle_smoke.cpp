@@ -3,7 +3,7 @@
 #include "staticfunctions.h"
 #include "volumefilemanager.h"
 
-#include <QCoreApplication>
+#include <QApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QTemporaryDir>
@@ -53,7 +53,8 @@ int fail(const QString& message)
 
 int main(int argc, char **argv)
 {
-  QCoreApplication application(argc, argv);
+  qputenv("QT_QPA_PLATFORM", "offscreen");
+  QApplication application(argc, argv);
   QTemporaryDir directory;
   if (!directory.isValid())
     return fail("cannot create a temporary directory");

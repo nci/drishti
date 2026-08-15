@@ -9,6 +9,7 @@
 #include <QtGlobal>
 
 #include <cstddef>
+#include <atomic>
 
 typedef Graph<double,double,double> GraphType;
 
@@ -18,10 +19,11 @@ class MaxFlowMinCut
   MaxFlowMinCut();
   ~MaxFlowMinCut();
 
-  bool run(int, int,
+	bool run(int, int,
 	   int, float, bool,
-	   const uchar*, const ushort*, int, ushort*,
-	   int&, QString&);
+		   const uchar*, const ushort*, int, ushort*,
+		   int&, QString&,
+		   std::atomic_bool *cancelRequested = nullptr);
 
   static bool estimateMemoryBytes(int, int, quint64&, QString&);
   static bool estimateInvocationMemoryBytes(int, int, int, int,

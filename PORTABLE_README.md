@@ -35,15 +35,16 @@ supported 3D renderers.
 
 ## Included scope
 
-The package includes the Qt/VC runtime libraries, four main programs, 16 native
-Import plugins, six native Render plugins, one MOP plugin, production assets,
-and five PDF help documents. It includes common import formats, mesh
-generation, five ITK processing plugins, and ITK segmentation operations.
+The package includes the Qt/VC runtime libraries, four main programs, the
+`tiffdecodehelper.exe` TIFF isolation helper, 16 native Import plugins, eight
+native Render plugins, production assets, and five PDF help documents. It
+includes common import formats, mesh generation, and six ITK processing
+plugins, including vessel-enhancing diffusion (VED).
 
 This is the complete current top-level build, not every historical or optional
-project in the repository. HDF4, legacy NetCDF-3, Mesh Repaint, Mesh Simplify,
-VED (vessel-enhancing diffusion), and OpenVR are not built or validated in this
-package. Modern NetCDF support is included through the NC4 plugin.
+project in the repository. HDF4, legacy NetCDF-3, and OpenVR are not built or
+validated in this package. Modern NetCDF support is included through the NC4
+plugin. No MOP plugin is included in this snapshot.
 
 Python 3.13.2 and NumPy 2.4.1 are embedded only for the memory-mapped RAW and
 NumPy `.npy` Import scripts. Compressed `.npz` archives are not supported.
@@ -62,6 +63,10 @@ guarantee.
 The TIFF importer accepts scalar top-left and bottom-left TIFF stacks. It keeps
 the stored scanline order as the volume axis and does not silently flip bottom-
 left microscopy/CT acquisition data.
+
+The TIFF plugin starts `tiffdecodehelper.exe` from the package root for
+metadata and scanline decoding. Keep that helper beside the four applications
+when copying the portable directory; no environment variable is required.
 
 For 8-bit or 16-bit microscopy/CT TIFF data, select `Grayscale TIFF Image
 Files` or `Grayscale TIFF Image Directory`. Do not select `Standard Image

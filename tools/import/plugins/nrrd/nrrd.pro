@@ -19,4 +19,5 @@ include(../plugins.itk)
 HEADERS = nrrdplugin.h \
           ../../importmemoryadmission.h
 SOURCES = nrrdplugin.cpp \
-          ../../importmemoryadmission.cpp
+          ../../importmemoryadmission.cpp \
+          ../../../../common/src/memoryreservation.cpp

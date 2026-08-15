@@ -108,7 +108,7 @@ class StaticFunctions
 
   static void convertFromGLImage(QImage&, int, int);
 
-  static void savePvlHeader(QString,
+  static bool savePvlHeader(QString,
 			    bool, QString,
 			    int, int, int,
 			    int, int, int,

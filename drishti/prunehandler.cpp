@@ -1196,7 +1196,6 @@ PruneHandler::generatePruneTexture(QGLFramebufferObject *pruneBuffer1,
   glActiveTexture(GL_TEXTURE1);
   //glEnable(GL_TEXTURE_RECTANGLE_ARB);
   //glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_dataTex);
-  glEnable(GL_TEXTURE_2D_ARRAY);
   glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
 
 
@@ -1234,7 +1233,6 @@ PruneHandler::generatePruneTexture(QGLFramebufferObject *pruneBuffer1,
 
   glFinish();
   pruneBuffer1->release();
-  glDisable(GL_TEXTURE_2D_ARRAY);
   glUseProgramObjectARB(0);
 }
 

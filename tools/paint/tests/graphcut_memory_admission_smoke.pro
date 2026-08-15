@@ -11,6 +11,7 @@ INCLUDEPATH += .. \
 
 SOURCES += graphcut_memory_admission_smoke.cpp \
            ../getmemorysize.cpp \
+           ../../../common/src/memoryreservation.cpp \
            ../graphcut/graphcut.cpp \
            ../graphcut/graph.cpp
 

@@ -11,6 +11,7 @@ struct SlabSaveTransactionEntry
   QString stagePath;
   QString backupPath;
   bool targetExisted;
+  bool stagePresent;
 };
 
 struct SlabSaveTransactionState
@@ -29,6 +30,8 @@ class SlabSaveTransaction
                     QString *error);
   static bool commit(const SlabSaveTransactionState& transaction,
                      QString *error);
+  static bool setStagePresent(SlabSaveTransactionState& transaction,
+                              int index, bool present, QString *error);
   static bool discardStages(const SlabSaveTransactionState& transaction,
                             QString *error);
 };

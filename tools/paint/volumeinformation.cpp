@@ -1,4 +1,5 @@
 #include "volumeinformation.h"
+#include "../../common/src/pvlmanifest.h"
 
 #include <QMessageBox>
 
@@ -139,208 +140,57 @@ VolumeInformation::operator=(const VolumeInformation& V)
 bool
 VolumeInformation::xmlHeaderFile(QString volfile)
 {
-  bool xmlheader = false;
-
-  QFile qfl(volfile);
-  if (!qfl.open(QIODevice::ReadOnly | QIODevice::Text))
-    {
-      QMessageBox::information(0, "Cannot open", volfile);
-      return false;
-    }
-  QString line = qfl.readLine();
-  // interested in second line
-  line = qfl.readLine();
-  line = line.trimmed();
-  //QMessageBox::information(0, volfile, "["+line+"]");
-  if (line == "<PvlDotNcFileHeader>")
-    xmlheader = true;
-  qfl.close();
-
-  return xmlheader;
+  PvlManifest manifest;
+  return PvlManifestParser::parse(volfile, manifest, false);
 }
 
 bool
 VolumeInformation::checkRGB(QString volfile)
 {
-  if (!xmlHeaderFile(volfile))
-    {
-//      QMessageBox::information(0, "Error",
-//      QString("%1 is not a valid preprocessed volume file").arg(volfile));
-      return false;
-    }
-
-  QDomDocument document;
-  QFile f(volfile.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "voxeltype")
-	{
-	  QString pvalue = dlist.at(i).toElement().text();
-	  if (pvalue == "RGB" ||
-	      pvalue == "RGBA")
-	    return true;
-	}
-    }
-  return false;
+  PvlManifest manifest;
+  return PvlManifestParser::parse(volfile, manifest, false) && manifest.isColor;
 }
 
 bool
 VolumeInformation::checkRGBA(QString volfile)
 {
-  if (!xmlHeaderFile(volfile))
-    {
-      QMessageBox::information(0, "Error",
-      QString("%1 is not a valid preprocessed volume file").arg(volfile));
-      return false;
-    }
-
-  QDomDocument document;
-  QFile f(volfile.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "voxeltype")
-	{
-	  QString pvalue = dlist.at(i).toElement().text();
-	  if (pvalue == "RGBA")
-	    return true;
-	}
-    }
-  return false;
+  PvlManifest manifest;
+  return PvlManifestParser::parse(volfile, manifest, false) &&
+         manifest.voxelType == PvlManifestParser::RGBA;
 }
 
 bool
 VolumeInformation::volInfo(QString volfile,
 			   VolumeInformation& pvlInfo)
 {  
-  if (!xmlHeaderFile(volfile))
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(volfile, manifest, false))
     {
       QMessageBox::information(0, "Error",
 	QString("%1 is not a valid preprocessed volume file").arg(volfile));
       return false;
     }
-      
-  bool rgba = checkRGB(volfile) || checkRGBA(volfile);
-
   pvlInfo.pvlFile = volfile;
-
-
-  std::vector<float> pvlmap;
-  std::vector<float> rawmap;
-
-  QDomDocument document;
-  QFile f(volfile.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-  
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "rawfile")
-	{
-	  pvlInfo.rawFile = dlist.at(i).toElement().text();
-	}
-      else if (dlist.at(i).nodeName() == "description")
-	{
-	  pvlInfo.description = dlist.at(i).toElement().text();
-	}
-      else if (dlist.at(i).nodeName() == "voxeltype")
-	{
-	  QString pvalue = dlist.at(i).toElement().text();
-	  if (pvalue == "unsigned char")
-	    pvlInfo.voxelType = VolumeInformation::_UChar;
-	  else if (pvalue == "char")
-	    pvlInfo.voxelType = VolumeInformation::_Char;
-	  else if (pvalue == "unsigned short")
-	    pvlInfo.voxelType = VolumeInformation::_UShort;
-	  else if (pvalue == "short")
-	    pvlInfo.voxelType = VolumeInformation::_Short;
-	  else if (pvalue == "int")
-	    pvlInfo.voxelType = VolumeInformation::_Int;
-	  else if (pvalue == "float")
-	    pvlInfo.voxelType = VolumeInformation::_Float;
-	}
-      else if (dlist.at(i).nodeName() == "voxelunit")
-	{
-	  QString pvalue = dlist.at(i).toElement().text();
-	  pvlInfo.voxelUnit = VolumeInformation::Nounit;
-	  if (pvalue == "angstrom")
-	    pvlInfo.voxelUnit = VolumeInformation::Angstrom;
-	  else if (pvalue == "nanometer")
-	    pvlInfo.voxelUnit = VolumeInformation::Nanometer;
-	  else if (pvalue == "micron")
-	    pvlInfo.voxelUnit = VolumeInformation::Micron;
-	  else if (pvalue == "millimeter")
-	    pvlInfo.voxelUnit = VolumeInformation::Millimeter;
-	  else if (pvalue == "centimeter")
-	    pvlInfo.voxelUnit = VolumeInformation::Centimeter;
-	  else if (pvalue == "meter")
-	    pvlInfo.voxelUnit = VolumeInformation::Meter;
-	  else if (pvalue == "kilometer")
-	    pvlInfo.voxelUnit = VolumeInformation::Kilometer;
-	  else if (pvalue == "parsec")
-	    pvlInfo.voxelUnit = VolumeInformation::Parsec;
-	  else if (pvalue == "kiloparsec")
-	    pvlInfo.voxelUnit = VolumeInformation::Kiloparsec;
-	}
-      else if (dlist.at(i).nodeName() == "voxelsize")
-	{
-	  QStringList str = (dlist.at(i).toElement().text()).split(" ", QString::SkipEmptyParts);
-	  float vx = str[0].toFloat();
-	  float vy = str[1].toFloat();
-	  float vz = str[2].toFloat();
-	  pvlInfo.voxelSize = Vec(vx, vy, vz);
-	}
-      else if (dlist.at(i).nodeName() == "gridsize")
-	{
-	  QStringList str = (dlist.at(i).toElement().text()).split(" ", QString::SkipEmptyParts);
-	  int d = str[0].toInt();
-	  int w = str[1].toInt();
-	  int h = str[2].toInt();
-	  pvlInfo.dimensions = Vec(d,w,h);
-	}
-      else if (dlist.at(i).nodeName() == "slabsize")
-	{
-	  pvlInfo.slabSize = (dlist.at(i).toElement().text()).toInt();
-	}
-      else if (dlist.at(i).nodeName() == "rawmap")
-	{
-	  QStringList str = (dlist.at(i).toElement().text()).split(" ", QString::SkipEmptyParts);
-	  for(int im=0; im<str.count(); im++)
-	    rawmap.push_back(str[im].toFloat());
-	}
-      else if (dlist.at(i).nodeName() == "pvlmap")
-	{
-	  QStringList str = (dlist.at(i).toElement().text()).split(" ", QString::SkipEmptyParts);
-	  for(int im=0; im<str.count(); im++)
-	    pvlmap.push_back(str[im].toInt());
-	}
-    }
-
-  for(int i=0; i<(int)qMin(rawmap.size(), pvlmap.size()); i++)
-    pvlInfo.mapping << QPointF(rawmap[i], pvlmap[i]);
-  
-  rawmap.clear();
-  pvlmap.clear();
+  pvlInfo.rawFile = manifest.rawFile;
+  pvlInfo.description = manifest.description;
+  pvlInfo.dimensions = Vec(manifest.depth, manifest.width, manifest.height);
+  pvlInfo.slabSize = manifest.slabSize;
+  if (manifest.voxelType <= PvlManifestParser::Float)
+    pvlInfo.voxelType = manifest.voxelType;
+  const QString unit = manifest.voxelUnit.toLower();
+  const QStringList units = QStringList() << "no units" << "angstrom"
+    << "nanometer" << "micron" << "millimeter" << "centimeter" << "meter"
+    << "kilometer" << "parsec" << "kiloparsec";
+  pvlInfo.voxelUnit = units.indexOf(unit);
+  if (pvlInfo.voxelUnit < 0) pvlInfo.voxelUnit = Nounit;
+  pvlInfo.voxelSize = Vec(manifest.voxelSizeX, manifest.voxelSizeY,
+                          manifest.voxelSizeZ);
+  const float minval = qMin(manifest.voxelSizeX,
+                            qMin(manifest.voxelSizeY, manifest.voxelSizeZ));
+  pvlInfo.relativeVoxelScaling = minval > 0.00000001 ?
+    pvlInfo.voxelSize/minval : Vec(1, 1, 1);
+  for (int i = 0; i < qMin(manifest.rawMap.count(), manifest.pvlMap.count()); ++i)
+    pvlInfo.mapping << QPointF(manifest.rawMap.at(i), manifest.pvlMap.at(i));
 
   return true;
 }

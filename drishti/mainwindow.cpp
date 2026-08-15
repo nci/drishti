@@ -19,10 +19,35 @@
 #include "prunehandler.h"
 #include "xmlheaderfunctions.h"
 #include "cropshaderfactory.h"
+#include "projectsavejournal.h"
 
 #include <QDockWidget>
 #include <QFileDialog>
+#include <QFile>
+#include <QDir>
+#include <QCoreApplication>
 #include <QInputDialog>
+#include <QSaveFile>
+#include <QDateTime>
+#include <QTextStream>
+#include <new>
+
+namespace
+{
+void appendRuntimeDiagnostic(const QString &message)
+{
+  const QString path = QDir(QCoreApplication::applicationDirPath())
+    .filePath(QStringLiteral("drishti-runtime.log"));
+  QFile log(path);
+  if (log.open(QIODevice::Append | QIODevice::Text))
+    {
+      QTextStream stream(&log);
+      stream << QDateTime::currentDateTime().toString(Qt::ISODate)
+             << " " << message << "\n";
+    }
+  qWarning().noquote() << message;
+}
+}
 
 //-------------------------------------------------------------------------------
 // -- turn off OpenGL rendering when menus are triggered --
@@ -83,6 +108,13 @@ void MainWindow::on_menuHelp_aboutToHide()
 void
 MainWindow::createHiresLowresWindows()
 {
+  // The renderer objects are long-lived and point at the stable Volume
+  // facade.  Recreating them before a candidate load would discard the old
+  // scene even when the candidate later fails, so only create them when the
+  // window has not been initialized yet.
+  if (m_Lowres && m_Hires)
+    return;
+
   //---
   if (m_Lowres) delete m_Lowres;
   m_Lowres = new DrawLowresVolume(m_Viewer, m_Volume);
@@ -185,6 +217,24 @@ MainWindow::MainWindow(QWidget *parent) :
 
   m_Hires = 0;
   m_Lowres = 0;
+  m_deferVolumeCommit = false;
+  m_projectRollbackPreferencesValid = false;
+  m_projectRollbackLowresValid = false;
+  m_projectRollbackDockTFVisible = false;
+  m_projectRollbackEmptySpaceSkipEnabled = true;
+  m_projectRollbackEmptySpaceSkipChecked = true;
+  m_projectRollbackValid = false;
+  m_projectRollbackHires = false;
+  m_projectRollbackTFEnabled = false;
+  m_projectRollbackUse1D = false;
+  m_projectRollbackEmptySpaceSkip = false;
+  m_projectRollbackGamma = 1.0f;
+  m_projectRollbackLutSize = 8;
+  memset(m_projectRollbackVolumeNumbers, 0,
+         sizeof(m_projectRollbackVolumeNumbers));
+  m_pendingKeyFrameCandidate = 0;
+  m_pendingKeyFrameValid = false;
+  m_pendingLowresStateValid = false;
 
   m_tfContainer = new TransferFunctionContainer(this);
   m_tfManager = new TransferFunctionManager(this);
@@ -761,23 +811,29 @@ MainWindow::GlewInit()
   QStringList arguments = qApp->arguments();
   if (arguments.count() > 1)
     {
-      int i = 1;
-      if (arguments[i] == "-stereo") i++;
-      if (i < arguments.count())
+      QStringList positional;
+      for (int ai = 1; ai < arguments.count(); ++ai)
 	{
-	  if (StaticFunctions::checkExtension(arguments[i], ".pvl.nc"))
+	  const QString argument = arguments.at(ai);
+	  if (argument.compare("-drishti", Qt::CaseInsensitive) == 0 ||
+	      argument.compare("-stereo", Qt::CaseInsensitive) == 0)
+	    continue;
+	  positional << argument;
+	}
+      if (!positional.isEmpty())
+	{
+	  if (StaticFunctions::checkExtension(positional[0], ".pvl.nc"))
 	    {
 	      QStringList flnms;
-	      for(int a=i; a<arguments.count(); a++)
-		flnms << arguments[a];
+	      flnms = positional;
 	      loadSingleVolume(flnms);
 	    }
-	  else if (StaticFunctions::checkExtension(arguments[i], ".xml"))
+	  else if (StaticFunctions::checkExtension(positional[0], ".xml"))
 	    {
-	      Global::addRecentFile(arguments[i]);
+	      Global::addRecentFile(positional[0]);
 	      updateRecentFileAction();
 	      createHiresLowresWindows();
-	      loadProject(arguments[i].toUtf8().data());
+	      loadProject(positional[0].toUtf8().data());
 	    }
 	}
     }
@@ -806,23 +862,28 @@ MainWindow::fromFile(QString flnm, BatchJob &bj)
   QStringList arguments;
   QTextStream stream(&infile);      
   QString line;
-  do {
+  while (true) {
     line = stream.readLine().trimmed();
-    QStringList tokens = line.split("=");    
-    if (tokens.count() == 2)
+    if (line.isNull())
+      break;
+    if (line.isEmpty() || line.startsWith('#'))
+      continue;
+    const int equals = line.indexOf('=');
+    if (equals > 0)
       {
-	QString t0 = tokens[0].trimmed();
-	QString t1 = tokens[1].trimmed();
+	QString t0 = line.left(equals).trimmed();
+	QString t1 = line.mid(equals+1).trimmed();
+	if (t1.isEmpty())
+	  return false;
 	if (t0[0] != '#')
 	  arguments.append(t0+"="+t1);
       }
-    else if (tokens.count() == 1)
+    else
       {
-	QString t0 = tokens[0].trimmed();
-	if (t0[0] != '#')
-	  arguments.append(t0);
+	QString t0 = line.trimmed();
+	arguments.append(t0);
       }
-  } while(!line.isNull());
+  }
 
   if (arguments.count() > 0)
     {
@@ -839,12 +900,30 @@ MainWindow::fromStringList(QStringList arguments,
 {
   for(int i=0; i<arguments.count(); i++)
     {
-      QString arg = arguments[i];
-      if (arg.contains("project="))
+      QString arg = arguments[i].trimmed();
+      if (arg.isEmpty() || arg == qApp->applicationFilePath())
+	continue;
+      if (arg.compare("-drishti", Qt::CaseInsensitive) == 0 ||
+          arg.compare("-stereo", Qt::CaseInsensitive) == 0)
+	continue;
+
+      const int equals = arg.indexOf('=');
+      const QString key = equals >= 0 ? arg.left(equals).toLower() :
+                          arg.toLower();
+      const QString optionKey = key.startsWith('-') ? key.mid(1) : key;
+      const QString value = equals >= 0 ? arg.mid(equals+1) : QString();
+      if (arg.startsWith('-') && equals < 0 &&
+          optionKey != "nobackgroundrender" && optionKey != "shading" &&
+          optionKey != "depthcue" && optionKey != "skipemptyspace" &&
+          optionKey != "dragonlyforshadows" && optionKey != "dragonly")
+	return false;
+      if (equals >= 0 && value.isEmpty())
+	return false;
+
+      if (optionKey == "project")
 	{
-	  QStringList tokens = arg.split("=");
-	  QString projfile = tokens[1];
-	  QFileInfo fi(projfile);
+	QString projfile = value;
+	QFileInfo fi(projfile);
 	  if (fi.exists())
 	    {
 	      bj.startProject = true;
@@ -856,95 +935,110 @@ MainWindow::fromStringList(QStringList arguments,
 	      return false;
 	    }
 	}
-      else if (arg.contains("renderframes="))
+	else if (optionKey == "renderframes")
 	{
-	  bj.renderFrames = true;
-	  QStringList tokens = arg.split("=");
-	  QString frames = tokens[1];
-	  tokens = frames.split(",");
-	  if (tokens.count() > 0) bj.startFrame = tokens[0].toInt();
-	  if (tokens.count() > 1) bj.endFrame = tokens[1].toInt();
-	  if (tokens.count() > 2) bj.stepFrame = tokens[2].toInt();
+	if (equals < 0) return false;
+	bj.renderFrames = true;
+	QStringList tokens = value.split(",");
+	if (tokens.count() != 3) return false;
+	bool ok0=false, ok1=false, ok2=false;
+	bj.startFrame = tokens[0].toInt(&ok0);
+	bj.endFrame = tokens[1].toInt(&ok1);
+	bj.stepFrame = tokens[2].toInt(&ok2);
+	if (!ok0 || !ok1 || !ok2) return false;
 	}
-      else if (arg.contains("plugin="))
+	else if (optionKey == "plugin")
 	{
-	  bj.plugin = true;
-	  QStringList tokens = arg.split("=");
-	  bj.pluginName = tokens[1].trimmed();
+	if (equals < 0) return false;
+	bj.plugin = true;
+	bj.pluginName = value.trimmed();
+	if (bj.pluginName.isEmpty()) return false;
 	}
-      else if (arg.contains("image="))
+	else if (optionKey == "image")
 	{
-	  bj.image = true;
-	  QStringList tokens = arg.split("=");
-	  bj.imageFilename = tokens[1];
+	if (equals < 0) return false;
+	bj.image = true;
+	bj.imageFilename = value;
 	}
-      else if (arg.contains("movie="))
+	else if (optionKey == "movie")
 	{
-	  bj.movie = true;
-	  QStringList tokens = arg.split("=");
-	  bj.movieFilename = tokens[1];
+	if (equals < 0) return false;
+	bj.movie = true;
+	bj.movieFilename = value;
 	}
-      else if (arg.contains("framerate="))
+	else if (optionKey == "framerate")
 	{
-	  QStringList tokens = arg.split("=");
-	  bj.frameRate = tokens[1].toInt();
+	if (equals < 0) return false;
+	bool ok = false;
+	bj.frameRate = value.toInt(&ok);
+	if (!ok || bj.frameRate <= 0) return false;
 	}
-      else if (arg.contains("imagemode="))
+	else if (optionKey == "imagemode")
 	{
-	  QStringList tokens = arg.split("=");
-	  if (tokens[1]=="stereo")
-	    bj.imageMode = Enums::StereoImageMode;
-	  else if (tokens[1]=="cubic")
-	    bj.imageMode = Enums::CubicImageMode;
-	  else if (tokens[1]=="pano")
-	    bj.imageMode = Enums::PanoImageMode;
-	  else if (tokens[1]=="redcyan")
-	    bj.imageMode = Enums::RedCyanImageMode;
-	  else if (tokens[1]=="redblue")
-	    bj.imageMode = Enums::RedBlueImageMode;	  
-	  else if (tokens[1]=="crosseye")
-	    bj.imageMode = Enums::CrosseyeImageMode;	  
-	  else if (tokens[1]=="3dtv")
-	    bj.imageMode = Enums::ImageMode3DTV;	  
+	if (equals < 0) return false;
+	if (value=="stereo")
+	  bj.imageMode = Enums::StereoImageMode;
+	else if (value=="cubic")
+	  bj.imageMode = Enums::CubicImageMode;
+	else if (value=="pano")
+	  bj.imageMode = Enums::PanoImageMode;
+	else if (value=="redcyan")
+	  bj.imageMode = Enums::RedCyanImageMode;
+	else if (value=="redblue")
+	  bj.imageMode = Enums::RedBlueImageMode;
+	else if (value=="crosseye")
+	  bj.imageMode = Enums::CrosseyeImageMode;
+	else if (value=="3dtv")
+	  bj.imageMode = Enums::ImageMode3DTV;
+	else return false;
 	}
-      else if (arg.contains("nobackgroundrender"))
+	else if (optionKey == "nobackgroundrender")
 	{
-	  bj.backgroundrender = false;
+	bj.backgroundrender = false;
 	}
-      else if (arg.contains("shading"))
+	else if (optionKey == "shading")
 	{
 	  bj.shading = true;
 	}
-      else if (arg.contains("depthcue"))
+	else if (optionKey == "depthcue")
 	{
 	  bj.depthcue = true;
 	}
-      else if (arg.contains("skipemptyspace"))
+	else if (optionKey == "skipemptyspace")
 	{
 	  bj.skipEmptySpace = true;
 	}
-      else if (arg.contains("dragonlyforshadows"))
+	else if (optionKey == "dragonlyforshadows")
 	{
 	  bj.dragonlyforshadows = true;
 	}
-      else if (arg.contains("dragonly"))
+	else if (optionKey == "dragonly")
 	{
 	  bj.dragonly = true;
 	}
-      else if (arg.contains("imagesize="))
+	else if (optionKey == "imagesize")
 	{
-	  bj.imagesize = true;
-	  QStringList tokens = arg.split("=");
-	  QString imgsz = tokens[1];
-	  tokens = imgsz.split(",");
-	  if (tokens.count() > 0) bj.imgWidth = tokens[0].toInt();
-	  if (tokens.count() > 1) bj.imgHeight = tokens[1].toInt();
+	if (equals < 0) return false;
+	bj.imagesize = true;
+	QStringList tokens = value.split(",");
+	if (tokens.count() != 2) return false;
+	bool ok0=false, ok1=false;
+	bj.imgWidth = tokens[0].toInt(&ok0);
+	bj.imgHeight = tokens[1].toInt(&ok1);
+	if (!ok0 || !ok1 || bj.imgWidth <= 0 || bj.imgHeight <= 0) return false;
 	}
-      else if (arg.contains("stepsize="))
+	else if (optionKey == "stepsize")
 	{
-	  QStringList tokens = arg.split("=");
-	  if (tokens.count() > 0) bj.stepSize = tokens[1].toFloat();
-	}      
+	if (equals < 0) return false;
+	bool ok = false;
+	bj.stepSize = value.toFloat(&ok);
+	if (!ok || bj.stepSize <= 0) return false;
+	}
+	else if (arg.startsWith('-'))
+	return false;
+	else if (!StaticFunctions::checkExtension(arg, ".pvl.nc") &&
+	         !StaticFunctions::checkExtension(arg, ".xml"))
+	return false;
     }
   return true;
 }
@@ -960,16 +1054,22 @@ MainWindow::loadProjectRunKeyframesAndExit()
   if (isFile.count() > 0)
     {
       QString arg = isFile[0];
-      QStringList tokens = arg.split("=");
-      ok = fromFile(tokens[1], bj);
+      const int equals = arg.indexOf('=');
+      if (equals > 0 && equals+1 < arg.size())
+	ok = fromFile(arg.mid(equals+1), bj);
     }
   else
     {
+      if (!arguments.isEmpty())
+        arguments.removeFirst();
       ok = fromStringList(arguments, bj);
     }
 
   if (!ok)
-    qApp->quit();
+    {
+      qApp->quit();
+      return;
+    }
 
 
   if (bj.startProject)
@@ -1770,16 +1870,18 @@ MainWindow::on_actionLandmarks_triggered()
 void
 MainWindow::loadSingleVolume(QStringList flnm)
 {
+  bool loaded = false;
+  if (VolumeInformation::checkRGB(flnm[0]))
+    loaded = loadVolumeRGB(flnm[0].toUtf8().data());
+  else
+    loaded = loadVolumeList(flnm, false);
+
+  if (!loaded)
+    return;
+
   Global::resetCurrentProjectFile();
   Global::addRecentFile(flnm[0]);
   updateRecentFileAction();
-
-  createHiresLowresWindows();
-
-  if (VolumeInformation::checkRGB(flnm[0]))
-    loadVolumeRGB(flnm[0].toUtf8().data());
-  else
-    loadVolumeList(flnm, false);
 
   // reset
   m_bricks->reset();
@@ -1841,7 +1943,8 @@ MainWindow::on_actionLoad_2_Volumes_triggered()
 
   createHiresLowresWindows();
 
-  loadVolume2List(vol1, vol2, false);
+  if (!loadVolume2List(vol1, vol2, false))
+    return;
 
   // reset
   m_bricks->reset();
@@ -1895,7 +1998,8 @@ MainWindow::on_actionLoad_3_Volumes_triggered()
 
   createHiresLowresWindows();
 
-  loadVolume3List(vol1, vol2, vol3, false);
+  if (!loadVolume3List(vol1, vol2, vol3, false))
+    return;
 
   // reset
   m_bricks->reset();
@@ -1956,7 +2060,8 @@ MainWindow::on_actionLoad_4_Volumes_triggered()
 
   createHiresLowresWindows();
 
-  loadVolume4List(vol1, vol2, vol3, vol4, false);
+  if (!loadVolume4List(vol1, vol2, vol3, vol4, false))
+    return;
 
   // reset
   m_bricks->reset();
@@ -2256,38 +2361,49 @@ MainWindow::haveGrid()
       if (gs.count() > 2) nz = gs[2].toInt();
       if (nx > 0 && ny > 0 && nz > 0)
 	{
-	  loadDummyVolume(nx, ny, nz);
-	  return true;
+      return loadDummyVolume(nx, ny, nz);
 	}
     }
 
   return false;
 }
 
-void
+bool
 MainWindow::loadDummyVolume(int nx, int ny, int nz)
 {
   Global::setSaveImageType(Global::NoImage);
 
-  m_keyFrame->clear();
-  m_keyFrameEditor->clear();
-
-  m_keyFrameEditor->setHiresMode(false);
-
+  captureVolumeLoadRollback();
   if (!m_Volume->loadDummyVolume(nx, ny, nz))
     {
       recoverFromFailedVolumeLoad("Dummy volume allocation failed");
       QMessageBox::warning(0, "Error",
                            "Cannot allocate the requested dummy volume.");
-      return;
+      return false;
     }
 
-  postLoadVolume();
+  if (!postLoadVolume())
+    return false;
 
   Global::setVolumeNumber(0);
 
   m_tfEditor->setTransferFunction(NULL);
   m_tfManager->setEnabled(false);
+  RawVolume::reset();
+  LightHandler::reset();
+  GeometryObjects::imageCaptions()->clear();
+  GeometryObjects::captions()->clear();
+  GeometryObjects::hitpoints()->clear();
+  GeometryObjects::landmarks()->clear();
+  GeometryObjects::paths()->clear();
+  GeometryObjects::grids()->clear();
+  GeometryObjects::crops()->clear();
+  GeometryObjects::pathgroups()->clear();
+  GeometryObjects::trisets()->clear();
+  GeometryObjects::networks()->clear();
+  m_keyFrame->clear();
+  m_keyFrameEditor->clear();
+  m_keyFrameEditor->setHiresMode(false);
 
   Global::setVolumeNumber(0);
 
@@ -2295,6 +2411,7 @@ MainWindow::loadDummyVolume(int nx, int ny, int nz)
   vsizes << 1;
   emit setVolumes(vsizes);
   emit refreshVolInfo(0, m_Volume->volInfo(0));
+  return true;
 }
 
 void
@@ -2321,7 +2438,7 @@ MainWindow::loadVolumeFromUrls(QList<QUrl> urls)
     }
 }
 
-void
+bool
 MainWindow::loadVolumeList(QList<QString> files, bool flag)
 {
   if (flag)
@@ -2335,8 +2452,7 @@ MainWindow::loadVolumeList(QList<QString> files, bool flag)
 	      if (VolumeInformation::checkForDoubleVolume(files1,
 							  files))
 		{
-		  loadVolume2List(files1, files, true);
-		  return;
+		  return loadVolume2List(files1, files, true);
 		}
 	    }
 	  if (Global::volumeType() == Global::DoubleVolume)
@@ -2348,9 +2464,8 @@ MainWindow::loadVolumeList(QList<QString> files, bool flag)
 							  files2,
 							  files))
 		{
-		  loadVolume3List(files1, files2,
+		  return loadVolume3List(files1, files2,
 				  files, true);
-		  return;
 		}
 	    }
 	  if (Global::volumeType() == Global::TripleVolume)
@@ -2364,9 +2479,8 @@ MainWindow::loadVolumeList(QList<QString> files, bool flag)
 							files3,
 							files))
 		{
-		  loadVolume4List(files1, files2,
+		  return loadVolume4List(files1, files2,
 				  files3, files, true);
-		  return;
 		}
 	    }
 	}
@@ -2381,13 +2495,12 @@ MainWindow::loadVolumeList(QList<QString> files, bool flag)
 	  FilesListDialog fld(files);
 	  fld.exec();
 	  if (fld.result() == QDialog::Rejected)
-	    return;
+	    return false;
 	}
     }
 
-  loadVolume(files);
-  if (!m_Volume->valid())
-    return;
+  if (!loadVolume(files) || !m_Volume->valid())
+    return false;
 
   Global::setVolumeNumber(0);
 
@@ -2399,34 +2512,19 @@ MainWindow::loadVolumeList(QList<QString> files, bool flag)
   vsizes << volfiles.size();
   emit setVolumes(vsizes);
   emit refreshVolInfo(0, m_Volume->volInfo(0));
+  return true;
 }
 
 void
 MainWindow::preLoadVolume()
 {
+  // Volume::loadVolume now builds and validates an isolated candidate before
+  // this hook is reached. Keep this phase non-destructive: the scene is
+  // cleared only after postLoadVolume has completed the replacement setup.
   Global::setGamma(1.0);
-  
-  RawVolume::reset();
-  LightHandler::reset();
-
-  GeometryObjects::imageCaptions()->clear();
-  GeometryObjects::captions()->clear();
-  GeometryObjects::hitpoints()->clear();
-  GeometryObjects::landmarks()->clear();
-  GeometryObjects::paths()->clear();
-  GeometryObjects::grids()->clear();
-  GeometryObjects::crops()->clear();
-  GeometryObjects::pathgroups()->clear();
-  GeometryObjects::trisets()->clear();
-  GeometryObjects::networks()->clear();
-
-  m_keyFrame->clear();
-  m_keyFrameEditor->clear();
-
-  m_keyFrameEditor->setHiresMode(false);
 }
 
-void
+bool
 MainWindow::postLoadVolume()
 {  
   if (Global::volumeType() != Global::DummyVolume)
@@ -2464,8 +2562,23 @@ MainWindow::postLoadVolume()
   m_Lowres->setCurrentVolume(0);
   m_Hires->setCurrentVolume(0);
 
-  m_Lowres->loadVolume();
-  m_Hires->loadVolume();
+  const bool deferSceneCommit = m_deferVolumeCommit;
+  if (!m_Lowres->loadVolume(!deferSceneCommit))
+    {
+      appendRuntimeDiagnostic(QStringLiteral("postLoadVolume lowres failed: %1")
+                              .arg(m_Lowres->lastError()));
+      recoverFromFailedVolumeLoad("Low-resolution rendering resources could not be created");
+      return false;
+    }
+  appendRuntimeDiagnostic(QStringLiteral("postLoadVolume lowres ready"));
+  if (!m_Hires->loadVolume(!deferSceneCommit))
+    {
+      appendRuntimeDiagnostic(QStringLiteral("postLoadVolume highres failed: %1")
+                              .arg(m_Hires->lastError()));
+      recoverFromFailedVolumeLoad("High-resolution rendering resources could not be created");
+      return false;
+    }
+  appendRuntimeDiagnostic(QStringLiteral("postLoadVolume highres ready"));
 
   if (Global::volumeType() != Global::DummyVolume)
     {
@@ -2482,8 +2595,10 @@ MainWindow::postLoadVolume()
 	}
       else
 	{
+	  appendRuntimeDiagnostic(QStringLiteral("postLoadVolume histogram 16bit begin"));
 	  m_tfEditor->show16BitEditor(true);
 	  m_tfEditor->setHistogram2D(m_Lowres->histogram2D());
+	  appendRuntimeDiagnostic(QStringLiteral("postLoadVolume histogram 16bit done"));
 	}
     }
 
@@ -2493,35 +2608,180 @@ MainWindow::postLoadVolume()
   m_tfManager->setEnabled(true);
 
   m_Viewer->resetLookupTable();
+  appendRuntimeDiagnostic(QStringLiteral("postLoadVolume lookup table ready"));
 
  if (Global::volumeType() != Global::DummyVolume)
    m_tfManager->loadDefaultTF();
+  appendRuntimeDiagnostic(QStringLiteral("postLoadVolume default TF ready"));
 
   Global::enableViewerUpdate();
   MainWindowUI::changeDrishtiIcon(true);
+  appendRuntimeDiagnostic(QStringLiteral("postLoadVolume viewer update enabled"));
 
   QList<bool> rt = m_volInfoWidget->repeatType();
+  appendRuntimeDiagnostic(QStringLiteral("postLoadVolume repeat type read"));
   m_Volume->setRepeatType(rt);
+  appendRuntimeDiagnostic(QStringLiteral("postLoadVolume repeat type applied"));
 
   // use 1D transfer functions for 16 bit data sets
-  if (m_Volume->pvlVoxelType(0) > 0)
+  appendRuntimeDiagnostic(QStringLiteral("postLoadVolume voxel type check begin"));
+  const int voxelType = m_Volume->pvlVoxelType(0);
+  appendRuntimeDiagnostic(QStringLiteral("postLoadVolume voxel type=%1 defer=%2")
+                          .arg(voxelType).arg(deferSceneCommit));
+  if (voxelType > 0)
     {
       Global::setUse1D(true);
       ui.actionSwitch_To1D->setChecked(Global::use1D());
       m_tfContainer->switch1D();
+      appendRuntimeDiagnostic(QStringLiteral("postLoadVolume 1D transfer function ready"));
     }
+
+  if (!deferSceneCommit)
+    {
+      appendRuntimeDiagnostic(QStringLiteral("postLoadVolume scene reset begin"));
+      RawVolume::reset();
+      LightHandler::reset();
+      GeometryObjects::imageCaptions()->clear();
+      GeometryObjects::captions()->clear();
+      GeometryObjects::hitpoints()->clear();
+      GeometryObjects::landmarks()->clear();
+      GeometryObjects::paths()->clear();
+      GeometryObjects::grids()->clear();
+      GeometryObjects::crops()->clear();
+      GeometryObjects::pathgroups()->clear();
+      GeometryObjects::trisets()->clear();
+      GeometryObjects::networks()->clear();
+      m_keyFrame->clear();
+      m_keyFrameEditor->clear();
+      m_keyFrameEditor->setHiresMode(false);
+      appendRuntimeDiagnostic(QStringLiteral("postLoadVolume scene reset done"));
+    }
+  if (!m_deferVolumeCommit)
+    {
+      m_Volume->commitPendingLoad();
+      m_projectRollbackValid = false;
+      m_projectRollbackPreferencesValid = false;
+    }
+  return true;
 }
 
 void
 MainWindow::recoverFromFailedVolumeLoad(const QString &message)
 {
-  m_Volume->clearVolumes();
+  // Restore the complete previous workset, including preferences changed
+  // while preparing a candidate project or rendering resource.
+  rollbackProjectVolumeLoad();
   Global::hideProgressBar();
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->
     setWindowTitle(QString("Drishti"));
   MainWindowUI::mainWindowUI()->statusBar->showMessage(message);
-  m_tfManager->clearManager();
-  m_tfManager->setEnabled(false);
+  Global::enableViewerUpdate();
+  MainWindowUI::changeDrishtiIcon(true);
+}
+
+void
+MainWindow::captureVolumeLoadRollback()
+{
+  if (m_deferVolumeCommit)
+    return;
+  m_projectRollbackLowresState = m_Lowres->captureState();
+  m_projectRollbackLowresValid = true;
+  m_projectRollbackDockTFVisible = m_dockTF->isVisible();
+  QAction *emptySpaceSkipAction = MainWindowUI::mainWindowUI()->actionEmptySpaceSkip;
+  m_projectRollbackEmptySpaceSkipEnabled = emptySpaceSkipAction->isEnabled();
+  m_projectRollbackEmptySpaceSkipChecked = emptySpaceSkipAction->isChecked();
+  m_projectRollbackCurrentProject = Global::currentProjectFile();
+  m_projectRollbackPreviousDirectory = Global::previousDirectory();
+  m_projectRollbackVolFiles1 = m_volFiles1;
+  m_projectRollbackVolFiles2 = m_volFiles2;
+  m_projectRollbackVolFiles3 = m_volFiles3;
+  m_projectRollbackVolFiles4 = m_volFiles4;
+  m_projectRollbackPreferences = m_preferencesWidget->captureState();
+  m_projectRollbackPreferencesValid = true;
+  m_projectRollbackValid = m_Volume->valid();
+  if (!m_projectRollbackValid)
+    return;
+
+  m_Lowres->subvolumeBounds(m_projectRollbackBoundsMin,
+                            m_projectRollbackBoundsMax);
+  m_projectRollbackHires = m_Hires->raised();
+  m_projectRollbackTFEnabled = m_tfManager->isEnabled();
+  m_projectRollbackUse1D = Global::use1D();
+  m_projectRollbackEmptySpaceSkip = Global::emptySpaceSkip();
+  m_projectRollbackGamma = Global::gamma();
+  m_projectRollbackLutSize = Global::lutSize();
+  for (int i = 0; i < 4; ++i)
+    m_projectRollbackVolumeNumbers[i] = Global::volumeNumber(i);
+  m_projectRollbackTF.clear();
+  for (int i = 0; i < m_tfContainer->count(); ++i)
+    m_projectRollbackTF.append(
+      m_tfContainer->transferFunctionPtr(i)->getSpline());
+}
+
+void
+MainWindow::rollbackProjectVolumeLoad()
+{
+  m_deferVolumeCommit = false;
+  if (m_pendingKeyFrameCandidate)
+    {
+      delete m_pendingKeyFrameCandidate;
+      m_pendingKeyFrameCandidate = 0;
+    }
+  m_pendingKeyFrameValid = false;
+  m_pendingLowresStateValid = false;
+  if (m_projectRollbackPreferencesValid)
+    {
+      m_preferencesWidget->restoreState(m_projectRollbackPreferences);
+      m_projectRollbackPreferencesValid = false;
+    }
+  m_dockTF->setVisible(m_projectRollbackDockTFVisible);
+  QAction *emptySpaceSkipAction = MainWindowUI::mainWindowUI()->actionEmptySpaceSkip;
+  emptySpaceSkipAction->setEnabled(m_projectRollbackEmptySpaceSkipEnabled);
+  emptySpaceSkipAction->setChecked(m_projectRollbackEmptySpaceSkipChecked);
+  Global::setCurrentProjectFile(m_projectRollbackCurrentProject);
+  Global::setPreviousDirectory(m_projectRollbackPreviousDirectory);
+  m_volFiles1 = m_projectRollbackVolFiles1;
+  m_volFiles2 = m_projectRollbackVolFiles2;
+  m_volFiles3 = m_projectRollbackVolFiles3;
+  m_volFiles4 = m_projectRollbackVolFiles4;
+  m_Volume->rollbackPendingLoad();
+  if (m_projectRollbackLowresValid)
+    {
+      m_Lowres->applyState(m_projectRollbackLowresState);
+      m_Lowres->setSubvolumeBounds(m_projectRollbackLowresState.subvolumeMin,
+                                   m_projectRollbackLowresState.subvolumeMax);
+      m_projectRollbackLowresValid = false;
+    }
+  if (m_projectRollbackValid)
+    {
+      Global::setVolumeNumber(m_projectRollbackVolumeNumbers[0], 0);
+      Global::setVolumeNumber(m_projectRollbackVolumeNumbers[1], 1);
+      Global::setVolumeNumber(m_projectRollbackVolumeNumbers[2], 2);
+      Global::setVolumeNumber(m_projectRollbackVolumeNumbers[3], 3);
+      Global::setLutSize(m_projectRollbackLutSize);
+      Global::setUse1D(m_projectRollbackUse1D);
+      Global::setEmptySpaceSkip(m_projectRollbackEmptySpaceSkip);
+      Global::setGamma(m_projectRollbackGamma);
+      m_tfManager->load(m_projectRollbackTF);
+      m_tfManager->setEnabled(m_projectRollbackTFEnabled);
+      if (m_Volume->valid())
+        {
+          m_Lowres->loadVolume(false);
+          m_Hires->loadVolume(false);
+          m_Hires->loadTextureMemory();
+          m_Lowres->setSubvolumeBounds(m_projectRollbackBoundsMin,
+                                       m_projectRollbackBoundsMax);
+          if (m_projectRollbackHires)
+            m_Viewer->switchToHires();
+          else
+            {
+              m_Lowres->raise();
+              m_Hires->lower();
+            }
+        }
+      m_projectRollbackValid = false;
+    }
+  m_Hires->enableSubvolumeUpdates();
   Global::enableViewerUpdate();
   MainWindowUI::changeDrishtiIcon(true);
 }
@@ -2541,25 +2801,26 @@ MainWindow::loadVolumeRGBFromUrls(QList<QUrl> urls)
     }
 }
 
-void
+bool
 MainWindow::loadVolumeRGB(char *flnm)
 {  
   Global::setSaveImageType(Global::NoImage);
 
   if (QString(flnm).isEmpty())
-    return;
+    return false;
  
-  preLoadVolume();
-
+  captureVolumeLoadRollback();
   if (!m_Volume->loadVolumeRGB(flnm, false))
     {
       recoverFromFailedVolumeLoad("RGB/RGBA volume loading failed");
       QMessageBox::warning(0, "Error",
 			   "Cannot load RGB/RGBA volume within the available CPU memory.");
-      return;
+      return false;
     }
 
-  postLoadVolume();
+  preLoadVolume();
+  if (!postLoadVolume())
+    return false;
 
   QFileInfo f(flnm);
   Global::setPreviousDirectory(f.absolutePath());
@@ -2578,28 +2839,30 @@ MainWindow::loadVolumeRGB(char *flnm)
       else
 	emit showMessage("RGBA Volume loaded", false);
     }
+  return true;
 }
 
 
-void
+bool
 MainWindow::loadVolume(QList<QString> flnm)
 {  
   Global::setSaveImageType(Global::NoImage);
 
   if (flnm.count() == 0)
-    return;
+    return false;
  
-  preLoadVolume();
-
+  captureVolumeLoadRollback();
   if (!m_Volume->loadVolume(flnm, false))
     {
       recoverFromFailedVolumeLoad("Volume loading failed");
       QMessageBox::warning(0, "Error",
 			   "Cannot load volume within the available CPU memory.");
-      return;
+      return false;
     }
 
-  postLoadVolume();
+  preLoadVolume();
+  if (!postLoadVolume())
+    return false;
 
   QFileInfo f(flnm[0]);
   Global::setPreviousDirectory(f.absolutePath());
@@ -2619,9 +2882,10 @@ MainWindow::loadVolume(QList<QString> flnm)
 	emit showMessage("Volume loaded", false);
 
     }
+  return true;
 }
 
-void
+bool
 MainWindow::loadVolume2List(QList<QString> files1,
 			    QList<QString> files2,
 			    bool flag)
@@ -2633,18 +2897,18 @@ MainWindow::loadVolume2List(QList<QString> files1,
       FilesListDialog fld1(files1);
       fld1.exec();
       if (fld1.result() == QDialog::Rejected)
-	return;
+	return false;
       
       FilesListDialog fld2(files2);
       fld2.exec();
       if (fld2.result() == QDialog::Rejected)
-	return;
+	return false;
     }
 
   if (!loadVolume2(files1, files2))
     {
       QMessageBox::information(0, "Error", "Cannot load volumes");
-      return;
+      return false;
     }
 
   Global::setVolumeNumber(0);
@@ -2665,6 +2929,7 @@ MainWindow::loadVolume2List(QList<QString> files1,
   emit setVolumes(vsizes);
   emit refreshVolInfo(0, 0, m_Volume->volInfo(0));
   emit refreshVolInfo(1, 0, m_Volume->volInfo(0,1));
+  return true;
 }
 
 bool
@@ -2677,15 +2942,16 @@ MainWindow::loadVolume2(QList<QString> flnm1,
       flnm2.count() == 0)
     return false;
 
-  preLoadVolume();
-
+  captureVolumeLoadRollback();
   if (!m_Volume->loadVolume(flnm1, flnm2, false))
     {
       recoverFromFailedVolumeLoad("Two-volume loading failed");
       return false;
     }
 
-  postLoadVolume();
+  preLoadVolume();
+  if (!postLoadVolume())
+    return false;
 
   QFileInfo f(flnm2[0]);
   Global::setPreviousDirectory(f.absolutePath());
@@ -2711,7 +2977,7 @@ MainWindow::loadVolume2(QList<QString> flnm1,
   return true;
 }
 
-void
+bool
 MainWindow::loadVolume3List(QList<QString> files1,
 			    QList<QString> files2,
 			    QList<QString> files3,
@@ -2724,21 +2990,21 @@ MainWindow::loadVolume3List(QList<QString> files1,
       FilesListDialog fld1(files1);
       fld1.exec();
       if (fld1.result() == QDialog::Rejected)
-	return;
+	return false;
       
       FilesListDialog fld2(files2);
       fld2.exec();
       if (fld2.result() == QDialog::Rejected)
-	return;
+	return false;
 
       FilesListDialog fld3(files3);
       fld3.exec();
       if (fld3.result() == QDialog::Rejected)
-	return;
+	return false;
     }
 
   if (!loadVolume3(files1, files2, files3))
-    return;
+    return false;
 
   Global::setVolumeNumber(0);
   Global::setVolumeNumber(0, 1);
@@ -2765,6 +3031,7 @@ MainWindow::loadVolume3List(QList<QString> files1,
   emit refreshVolInfo(0, 0, m_Volume->volInfo(0));
   emit refreshVolInfo(1, 0, m_Volume->volInfo(0,1));
   emit refreshVolInfo(2, 0, m_Volume->volInfo(0,2));
+  return true;
 
 //  // for 3 or 4 volumes always use 1D transfer functions
 //  Global::setUse1D(true);
@@ -2788,15 +3055,16 @@ MainWindow::loadVolume3(QList<QString> flnm1,
 //  ui.actionSwitch_To1D->setChecked(Global::use1D());
 
 
-  preLoadVolume();
-  
+  captureVolumeLoadRollback();
   if (!m_Volume->loadVolume(flnm1, flnm2, flnm3, false))
     {
       recoverFromFailedVolumeLoad("Three-volume loading failed");
       return false;
     }
 
-  postLoadVolume();
+  preLoadVolume();
+  if (!postLoadVolume())
+    return false;
 
   QFileInfo f(flnm3[0]);
   Global::setPreviousDirectory(f.absolutePath());
@@ -2826,7 +3094,7 @@ MainWindow::loadVolume3(QList<QString> flnm1,
 }
 
 
-void
+bool
 MainWindow::loadVolume4List(QList<QString> files1,
 			    QList<QString> files2,
 			    QList<QString> files3,
@@ -2840,26 +3108,26 @@ MainWindow::loadVolume4List(QList<QString> files1,
       FilesListDialog fld1(files1);
       fld1.exec();
       if (fld1.result() == QDialog::Rejected)
-	return;
+	return false;
       
       FilesListDialog fld2(files2);
       fld2.exec();
       if (fld2.result() == QDialog::Rejected)
-	return;
+	return false;
 
       FilesListDialog fld3(files3);
       fld3.exec();
       if (fld3.result() == QDialog::Rejected)
-	return;
+	return false;
 
       FilesListDialog fld4(files4);
       fld4.exec();
       if (fld4.result() == QDialog::Rejected)
-	return;
+	return false;
     }
 
   if (!loadVolume4(files1, files2, files3, files4))
-    return;
+    return false;
 
   Global::setVolumeNumber(0);
   Global::setVolumeNumber(0, 1);
@@ -2894,6 +3162,7 @@ MainWindow::loadVolume4List(QList<QString> files1,
   emit refreshVolInfo(1, 0, m_Volume->volInfo(0,1));
   emit refreshVolInfo(2, 0, m_Volume->volInfo(0,2));
   emit refreshVolInfo(3, 0, m_Volume->volInfo(0,3));
+  return true;
 
 //  // for 3 or 4 volumes always use 1D transfer functions
 //  Global::setUse1D(true);
@@ -2918,15 +3187,16 @@ MainWindow::loadVolume4(QList<QString> flnm1,
 //  Global::setUse1D(true);
 //  ui.actionSwitch_To1D->setChecked(Global::use1D());
 
-  preLoadVolume();
-
+  captureVolumeLoadRollback();
   if (!m_Volume->loadVolume(flnm1, flnm2, flnm3, flnm4, false))
     {
       recoverFromFailedVolumeLoad("Four-volume loading failed");
       return false;
     }
 
-  postLoadVolume();
+  preLoadVolume();
+  if (!postLoadVolume())
+    return false;
 
   QFileInfo f(flnm4[0]);
   Global::setPreviousDirectory(f.absolutePath());
@@ -3202,77 +3472,367 @@ MainWindow::loadProject(const char* flnm)
       QMessageBox::information(0, "Drishti", "Not yet ready to start work!");
       return;
     }
-  if (!Global::batchMode())
-    {
-      Global::setEmptySpaceSkip(true);
-      MainWindowUI::mainWindowUI()->actionEmptySpaceSkip->setChecked(Global::emptySpaceSkip());
-    }
-
   Global::disableViewerUpdate();
   MainWindowUI::changeDrishtiIcon(false);
   m_Hires->disableSubvolumeUpdates();
+  captureVolumeLoadRollback();
+  m_deferVolumeCommit = true;
 
   bool keyframesVisible = m_dockKeyframe->isVisible();
 
-  Global::setCurrentProjectFile(QString(flnm));
-
-  m_volFiles1.clear();
-  m_volFiles2.clear();
-  m_volFiles3.clear();
-  m_volFiles4.clear();
-
   QFileInfo f(flnm);
-  Global::setPreviousDirectory(f.absolutePath());
+  int projectType = -1;
+  QList<QString> candidateFiles1;
+  QList<QString> candidateFiles2;
+  QList<QString> candidateFiles3;
+  QList<QString> candidateFiles4;
+  QString keyframesFile(flnm);
+  if (keyframesFile.contains(".dpxml", Qt::CaseInsensitive))
+    keyframesFile.replace(".dpxml", ".keyframes", Qt::CaseInsensitive);
+  else
+    keyframesFile.replace(".xml", ".keyframes", Qt::CaseInsensitive);
+  bool projectParsed = loadVolumeFromProject(flnm, projectType,
+                                             candidateFiles1,
+                                             candidateFiles2,
+                                             candidateFiles3,
+                                             candidateFiles4);
 
-  int projectType = loadVolumeFromProject(flnm);
+  if (projectParsed)
+    {
+      QFile keyframes(keyframesFile);
+      if (keyframes.exists())
+        {
+          QByteArray header;
+          bool keyframesValid = keyframes.open(QIODevice::ReadOnly) &&
+            (header = keyframes.read(18)).size() >= 17 &&
+            header.startsWith("Drishti Keyframes");
+          if (keyframesValid)
+            {
+              const qint64 fileSize = keyframes.size();
+              // The binary reader uses a 32-bit frame count. Bound it before
+              // any allocation and require the stream terminator so a
+              // truncated sidecar cannot partially replace the project.
+              keyframesValid = fileSize >= 22;
+              if (keyframesValid)
+                {
+                  bool foundKeyframes = false;
+                  bool foundDone = false;
+                  QByteArray tail;
+                  while (!keyframes.atEnd() && keyframesValid)
+                    {
+                      const QByteArray chunk = keyframes.read(64*1024);
+                      if (chunk.isEmpty() && keyframes.error() != QFile::NoError)
+                        {
+                          keyframesValid = false;
+                          break;
+                        }
+                      const QByteArray window = tail + chunk;
+                      foundKeyframes = foundKeyframes || window.contains("keyframes");
+                      foundDone = foundDone || window.contains("done");
+                      tail = window.right(16);
+                    }
+                  keyframesValid = keyframesValid && foundKeyframes && foundDone &&
+                    fileSize <= 512LL*1024*1024;
+                }
+            }
+          if (!keyframesValid)
+            {
+              if (keyframes.isOpen())
+                keyframes.close();
+              projectParsed = false;
+            }
+          else
+            keyframes.close();
+        }
+    }
 
+  if (!projectParsed || projectType < Global::SingleVolume ||
+      projectType > Global::DummyVolume)
+    {
+      rollbackProjectVolumeLoad();
+      m_deferVolumeCommit = false;
+      QMessageBox::warning(0, "Project load failed",
+                           "The project does not contain a supported volume definition.");
+      return;
+    }
+  {
+    QFileInfo projectInfo(flnm);
+    const QString xmlPath = projectInfo.absoluteFilePath();
+    QString keyframesPath = xmlPath;
+    keyframesPath.replace(".dpxml", ".keyframes", Qt::CaseInsensitive);
+    if (keyframesPath == xmlPath)
+      keyframesPath.replace(".xml", ".keyframes", Qt::CaseInsensitive);
+    QString recoveryError;
+    if (!ProjectSaveJournal::recover(QStringList() << xmlPath << keyframesPath,
+                                     &recoveryError))
+      {
+        QMessageBox::warning(0, "Project load failed",
+                             recoveryError.isEmpty() ?
+                             QString("An incomplete project save could not be recovered.") :
+                             recoveryError);
+        return;
+      }
+  }
+
+  // Validate project sidecars before loading or committing the replacement
+  // volume. Existing sidecars are parsed by legacy loaders later; malformed
+  // XML must be rejected while the current workset is still untouched.
+  QStringList sidecars;
+  sidecars << QString(flnm);
+  QString lowresFile(flnm);
+  QString preferencesFile(flnm);
+  QString tfFile(flnm);
+  lowresFile.replace(".xml", ".lowres", Qt::CaseInsensitive);
+  preferencesFile.replace(".xml", ".preferences", Qt::CaseInsensitive);
+  tfFile.replace(".xml", ".tf", Qt::CaseInsensitive);
+  sidecars << lowresFile << preferencesFile << tfFile;
+  for (int i = 0; i < sidecars.count(); ++i)
+    {
+      QFile sidecar(sidecars.at(i));
+      if (!sidecar.exists())
+        continue;
+      QDomDocument sidecarDocument;
+      QString sidecarError;
+      int sidecarLine = 0;
+      int sidecarColumn = 0;
+      if (!sidecar.open(QIODevice::ReadOnly) ||
+          !sidecarDocument.setContent(&sidecar, &sidecarError,
+                                      &sidecarLine, &sidecarColumn))
+        {
+          if (sidecar.isOpen())
+            sidecar.close();
+          rollbackProjectVolumeLoad();
+          QMessageBox::warning(0, "Project load failed",
+                               QString("Invalid project sidecar: %1")
+                               .arg(sidecars.at(i)));
+          return;
+        }
+      sidecar.close();
+    }
+
+  if (!m_Lowres->validate(flnm))
+    {
+      rollbackProjectVolumeLoad();
+      QMessageBox::warning(0, "Project load failed",
+                           "The low-resolution project resource is invalid.");
+      return;
+    }
+  if (!m_preferencesWidget->validate(flnm))
+    {
+      rollbackProjectVolumeLoad();
+      QMessageBox::warning(0, "Project load failed",
+                           "The project preferences are invalid.");
+      return;
+    }
+  if (!m_tfManager->validate(flnm))
+    {
+      rollbackProjectVolumeLoad();
+      QMessageBox::warning(0, "Project load failed",
+                           "The project transfer functions are invalid.");
+      return;
+    }
+
+  // Parse the complete binary sidecar before replacing the active volume.
+  // The later call commits the already validated format into the new project.
+  if (QFileInfo(keyframesFile).exists() && !loadKeyFrames(flnm, false))
+    {
+      rollbackProjectVolumeLoad();
+      QMessageBox::warning(0, "Project load failed",
+                           "The project keyframes could not be parsed.");
+      return;
+    }
+
+  bool volumeLoaded = true;
   if (projectType == Global::SingleVolume)
-    loadVolumeList(m_volFiles1, false);
+    volumeLoaded = m_Volume->loadVolume(candidateFiles1, false);
   else if (projectType == Global::DoubleVolume)
-    loadVolume2List(m_volFiles1, m_volFiles2, false);
+    volumeLoaded = m_Volume->loadVolume(candidateFiles1, candidateFiles2, false);
   else if (projectType == Global::TripleVolume)
-    loadVolume3List(m_volFiles1, m_volFiles2, m_volFiles3, false);
+    volumeLoaded = m_Volume->loadVolume(candidateFiles1, candidateFiles2,
+                                         candidateFiles3, false);
   else if (projectType == Global::QuadVolume)
-    loadVolume4List(m_volFiles1, m_volFiles2, m_volFiles3, m_volFiles4, false);
+    volumeLoaded = m_Volume->loadVolume(candidateFiles1, candidateFiles2,
+                                         candidateFiles3, candidateFiles4, false);
   else if (projectType == Global::RGBVolume ||
 	   projectType == Global::RGBAVolume)
-    loadVolumeRGB(m_volFiles1[0].toUtf8().data());
+    volumeLoaded = !candidateFiles1.isEmpty() &&
+      m_Volume->loadVolumeRGB(candidateFiles1[0].toUtf8().data(), false);
 
-  m_bricks->reset();
-  GeometryObjects::clipplanes()->reset();
+  bool projectVolumeMatches = (projectType == Global::DummyVolume);
+  if (projectType == Global::SingleVolume ||
+      projectType == Global::RGBVolume ||
+      projectType == Global::RGBAVolume)
+    projectVolumeMatches = m_Volume->valid() &&
+      (projectType == Global::RGBVolume || projectType == Global::RGBAVolume ?
+       m_Volume->volumeFiles(0).value(0) == candidateFiles1.value(0) :
+       m_Volume->volumeFiles(0) == candidateFiles1);
+  else if (projectType == Global::DoubleVolume)
+    projectVolumeMatches = m_Volume->valid() &&
+      m_Volume->volumeFiles(0) == candidateFiles1 &&
+      m_Volume->volumeFiles(1) == candidateFiles2;
+  else if (projectType == Global::TripleVolume)
+    projectVolumeMatches = m_Volume->valid() &&
+      m_Volume->volumeFiles(0) == candidateFiles1 &&
+      m_Volume->volumeFiles(1) == candidateFiles2 &&
+      m_Volume->volumeFiles(2) == candidateFiles3;
+  else if (projectType == Global::QuadVolume)
+    projectVolumeMatches = m_Volume->valid() &&
+      m_Volume->volumeFiles(0) == candidateFiles1 &&
+      m_Volume->volumeFiles(1) == candidateFiles2 &&
+      m_Volume->volumeFiles(2) == candidateFiles3 &&
+      m_Volume->volumeFiles(3) == candidateFiles4;
 
-  m_keyFrame->clear();
-  m_keyFrameEditor->clear();
+  if (!volumeLoaded || !projectVolumeMatches)
+    {
+      rollbackProjectVolumeLoad();
+      QMessageBox::warning(0, "Project load failed",
+                           "The project volume could not be loaded.");
+      return;
+    }
+
+  // Prepare generic rendering resources against the detached candidate.  The
+  // public menu wrappers are intentionally bypassed so a project load cannot
+  // emit a premature "Volume loaded" result or mutate project metadata.
+  if (projectType != Global::DummyVolume)
+    {
+      preLoadVolume();
+      if (!postLoadVolume())
+        {
+          rollbackProjectVolumeLoad();
+          QMessageBox::warning(0, "Project load failed",
+                               "The rendering resources could not be created.");
+          return;
+        }
+      appendRuntimeDiagnostic(QStringLiteral("project load postLoadVolume returned"));
+    }
 
   if (!Global::batchMode())
     emit showMessage("Volume loaded. Loading Project ....", false);
 
-  m_Lowres->load(flnm);
+  DrawLowresVolume::State candidateLowresState;
+  appendRuntimeDiagnostic(QStringLiteral("project load read lowres state begin"));
+  if (!m_Lowres->readState(flnm, candidateLowresState))
+    {
+      rollbackProjectVolumeLoad();
+      QMessageBox::warning(0, "Project load failed",
+                           "The low-resolution project resource is invalid.");
+      return;
+    }
+  appendRuntimeDiagnostic(QStringLiteral("project load read lowres state done"));
+  m_pendingLowresState = candidateLowresState;
+  m_pendingLowresStateValid = true;
   if (projectType == Global::DummyVolume)
     {
-      Vec bmin, bmax;
-      m_Lowres->subvolumeBounds(bmin, bmax);
-
-      Vec vmax = m_Lowres->volumeMax();
+      Vec bmin = candidateLowresState.subvolumeMin;
+      Vec bmax = candidateLowresState.subvolumeMax;
+      Vec vmax = candidateLowresState.dataMax;
       int nx = vmax.x;
       int ny = vmax.y;
       int nz = vmax.z;
-      loadDummyVolume(nx, ny, nz);
+      if (!m_Volume->loadDummyVolume(nx, ny, nz))
+        {
+          rollbackProjectVolumeLoad();
+          QMessageBox::warning(0, "Project load failed",
+                               "The dummy project volume could not be created.");
+          return;
+        }
 
       Vec sbmin, sbmax;
       sbmin = Vec(bmin.z, bmin.y, bmin.x);
       sbmax = Vec(bmax.z, bmax.y, bmax.x);
-      m_Lowres->setSubvolumeBounds(sbmin, sbmax);
+      candidateLowresState.subvolumeMin = sbmin;
+      candidateLowresState.subvolumeMax = sbmax;
     }
 
+  // The low-resolution sidecar is parsed completely before it is applied to
+  // the active renderer.  Applying this state is non-fallible; all fallible
+  // project operations have already completed above.
+  appendRuntimeDiagnostic(QStringLiteral("project load apply lowres state begin"));
+  m_Lowres->applyState(candidateLowresState);
+  appendRuntimeDiagnostic(QStringLiteral("project load apply lowres state done"));
+  m_pendingLowresStateValid = false;
+  if (projectType == Global::DummyVolume)
+    {
+      preLoadVolume();
+      if (!postLoadVolume())
+        {
+          rollbackProjectVolumeLoad();
+          QMessageBox::warning(0, "Project load failed",
+                               "The rendering resources could not be created.");
+          return;
+        }
+    }
 
-  m_preferencesWidget->load(flnm);
+  // The sidecars are loaded against the detached volume while the previous
+  // geometry/keyframes remain intact.  Commit the scene reset only after all
+  // sidecars below have succeeded.
 
-  m_tfManager->load(flnm);
+
+  appendRuntimeDiagnostic(QStringLiteral("project load preferences begin"));
+  if (!m_preferencesWidget->load(flnm))
+    {
+      rollbackProjectVolumeLoad();
+      QMessageBox::warning(0, "Project load failed",
+                           "The project preferences are invalid.");
+      return;
+    }
+  appendRuntimeDiagnostic(QStringLiteral("project load preferences done"));
+
+  appendRuntimeDiagnostic(QStringLiteral("project load transfer function begin"));
+  if (!m_tfManager->load(flnm))
+    {
+      rollbackProjectVolumeLoad();
+      QMessageBox::warning(0, "Project load failed",
+                           "The project transfer functions are invalid.");
+      return;
+    }
+  appendRuntimeDiagnostic(QStringLiteral("project load transfer function done"));
+
+  // Commit the validated keyframe candidate before the scene reset.  No
+  // fallible project operation remains after this point, so geometry is
+  // rebuilt from a known-good keyframe rather than being cleared first.
+  appendRuntimeDiagnostic(QStringLiteral("project load keyframe commit begin"));
+  if (QFileInfo(keyframesFile).exists() && !commitPendingKeyFrames())
+    {
+      rollbackProjectVolumeLoad();
+      QMessageBox::warning(0, "Project load failed",
+                           "The project keyframes could not be loaded.");
+      return;
+    }
+  appendRuntimeDiagnostic(QStringLiteral("project load keyframe commit done"));
+  if (!QFileInfo(keyframesFile).exists())
+    {
+      // A project without an optional keyframe sidecar must not inherit the
+      // previous scene.  The candidate state is explicitly empty/default.
+      m_keyFrame->clear();
+      appendRuntimeDiagnostic(QStringLiteral("project load empty keyframe reset done"));
+    }
 
   m_dockKeyframe->setVisible(false);
 
-  loadKeyFrames(flnm);
+  RawVolume::reset();
+  LightHandler::reset();
+  GeometryObjects::imageCaptions()->clear();
+  GeometryObjects::captions()->clear();
+  GeometryObjects::hitpoints()->clear();
+  GeometryObjects::landmarks()->clear();
+  GeometryObjects::paths()->clear();
+  GeometryObjects::grids()->clear();
+  GeometryObjects::crops()->clear();
+  GeometryObjects::pathgroups()->clear();
+  GeometryObjects::trisets()->clear();
+  GeometryObjects::networks()->clear();
+
+  // Commit project metadata and scene ownership only after every detached
+  // resource has parsed successfully.
+  m_volFiles1 = candidateFiles1;
+  m_volFiles2 = candidateFiles2;
+  m_volFiles3 = candidateFiles3;
+  m_volFiles4 = candidateFiles4;
+  Global::setCurrentProjectFile(QString(flnm));
+  Global::setPreviousDirectory(f.absolutePath());
+  m_bricks->reset();
+  GeometryObjects::clipplanes()->reset();
 
   m_bricksWidget->refresh();
 
@@ -3308,7 +3868,14 @@ MainWindow::loadProject(const char* flnm)
 
   LightHandler::removeFromMouseGrabberPool();
 
-  m_keyFrame->playSavedKeyFrame();
+  if (QFileInfo(keyframesFile).exists() &&
+      !m_keyFrame->commitRendererCandidate())
+    {
+      rollbackProjectVolumeLoad();
+      QMessageBox::warning(0, "Project load failed",
+                           "The project renderer candidate is invalid.");
+      return;
+    }
   
   m_Viewer->updateLookupTable();
 
@@ -3325,22 +3892,41 @@ MainWindow::loadProject(const char* flnm)
 
   // check overlapping keyframes
   m_keyFrame->checkKeyFrameNumbers();
+  m_deferVolumeCommit = false;
+  m_Volume->commitPendingLoad();
+  m_pendingLowresStateValid = false;
+  m_projectRollbackValid = false;
+  m_projectRollbackPreferencesValid = false;
+  m_projectRollbackLowresValid = false;
 }
 
-void
+bool
 MainWindow::saveProject(QString xmlflnm)
 {
 
   QFileInfo f(xmlflnm);
-  Global::setPreviousDirectory(f.absolutePath());
-  Global::setCurrentProjectFile(QString(xmlflnm));
+  const QString xmlPath = f.absoluteFilePath();
+  QString keyframesPath = xmlPath;
+  keyframesPath.replace(".dpxml", ".keyframes", Qt::CaseInsensitive);
+  if (keyframesPath == xmlPath)
+    keyframesPath.replace(".xml", ".keyframes", Qt::CaseInsensitive);
+  // Preferences, lowres and transfer functions are embedded as XML nodes;
+  // the XML plus binary keyframe sidecar are the two physical commit targets.
+  const QStringList projectTargets = QStringList() << xmlPath << keyframesPath;
+  ProjectSaveJournalState transaction;
+  QString transactionError;
+  if (!ProjectSaveJournal::begin(projectTargets,
+                                 transaction, &transactionError))
+    {
+      QMessageBox::warning(0, "Project not saved", transactionError);
+      return false;
+    }
 
-  
-
-  int flnmlen = xmlflnm.length()+1;
+  const QString stagedXmlPath = transaction.stages.at(0);
+  int flnmlen = stagedXmlPath.length()+1;
   char *flnm = new char[flnmlen];
   memset(flnm, 0, flnmlen);
-  memcpy(flnm, xmlflnm.toUtf8().data(), flnmlen);
+  memcpy(flnm, stagedXmlPath.toUtf8().data(), flnmlen);
 
 
   Vec bmin, bmax;
@@ -3381,14 +3967,43 @@ MainWindow::saveProject(QString xmlflnm)
 			  dofblur, dofnf);
 
 
-  saveVolumeIntoProject(flnm, QString());
-  m_Lowres->save(flnm);
-  m_preferencesWidget->save(flnm);
-  m_tfManager->save(flnm);
-  saveKeyFrames(flnm);
+  bool saved = saveVolumeIntoProject(flnm, QString());
+  saved = saved && m_Lowres->save(flnm);
+  saved = saved && m_preferencesWidget->save(flnm);
+  saved = saved && m_tfManager->save(flnm);
+  saved = saved && saveKeyFrames(flnm);
+  delete [] flnm;
+  if (saved)
+    {
+      QString stagedKeyframes = stagedXmlPath;
+      if (stagedXmlPath.contains(".dpxml", Qt::CaseInsensitive))
+        stagedKeyframes.replace(".dpxml", ".keyframes", Qt::CaseInsensitive);
+      else
+        stagedKeyframes.replace(".xml", ".keyframes", Qt::CaseInsensitive);
+      if (stagedKeyframes != transaction.stages.at(1) &&
+          QFileInfo::exists(stagedKeyframes))
+        saved = QFile::rename(stagedKeyframes, transaction.stages.at(1));
+      else
+        saved = QFileInfo::exists(transaction.stages.at(1));
+    }
+  if (!saved || !ProjectSaveJournal::commit(transaction, &transactionError))
+    {
+      if (saved)
+        transactionError = "project transaction commit failed";
+      ProjectSaveJournal::recover(projectTargets, 0);
+      QMessageBox::warning(0, "Project not saved",
+                           transactionError.isEmpty() ?
+                           QString("Unable to write project files") :
+                           transactionError);
+      return false;
+    }
+
+  Global::setPreviousDirectory(f.absolutePath());
+  Global::setCurrentProjectFile(xmlPath);
 
 
   emit showMessage("Project saved", false);
+  return true;
 }
 
 void
@@ -3930,8 +4545,8 @@ MainWindow::updateParameters(bool drawBox, bool drawAxis,
   GeometryObjects::imageCaptions()->addInMouseGrabberPool();
 }
 
-void
-MainWindow::loadKeyFrames(const char* flnm)
+bool
+MainWindow::loadKeyFrames(const char* flnm, bool commit)
 {
   QString sflnm(flnm);
   sflnm.replace(QString(".xml"), QString(".keyframes"));
@@ -3941,7 +4556,7 @@ MainWindow::loadKeyFrames(const char* flnm)
   if (! fileInfo.exists())
     {
       QMessageBox::information(0, "Error loading keyframes file", QString("%1 not found").arg(sflnm));
-      return;
+      return false;
     }
 
   fstream fin(sflnm.toUtf8().data(), ios::binary|ios::in);
@@ -3952,19 +4567,61 @@ MainWindow::loadKeyFrames(const char* flnm)
     {
       QMessageBox::information(0, "Load Keyframes",
 			       QString("Invalid .keyframes file : ")+sflnm);
-      return;
+      return false;
     }
 
+  KeyFrame candidate;
+  bool foundKeyframes = false;
   while (!fin.eof())
     {
       fin.getline(keyword, 100, 0);
       if (strcmp(keyword, "keyframes") == 0)
-	m_keyFrame->load(fin);
+	{
+	  foundKeyframes = true;
+	  if (!candidate.load(fin))
+	    {
+	      fin.close();
+	      return false;
+	    }
+	}
     }
   fin.close();
+  if (!foundKeyframes)
+    return false;
+  if (!candidate.validateRendererCandidate())
+    return false;
+  if (commit)
+    {
+      m_keyFrame->swapState(candidate);
+      m_keyFrameEditor->clear();
+    }
+  else
+    {
+      if (m_pendingKeyFrameCandidate)
+        delete m_pendingKeyFrameCandidate;
+      m_pendingKeyFrameCandidate = new (std::nothrow) KeyFrame;
+      if (!m_pendingKeyFrameCandidate)
+        return false;
+      m_pendingKeyFrameCandidate->swapState(candidate);
+      m_pendingKeyFrameValid = true;
+    }
+  return true;
 }
 
-void
+bool
+MainWindow::commitPendingKeyFrames()
+{
+  if (!m_pendingKeyFrameValid || !m_pendingKeyFrameCandidate)
+    return false;
+  m_keyFrame->swapState(*m_pendingKeyFrameCandidate);
+  delete m_pendingKeyFrameCandidate;
+  m_pendingKeyFrameCandidate = 0;
+  m_pendingKeyFrameValid = false;
+  m_keyFrameEditor->clear();
+  return true;
+}
+
+bool
 MainWindow::saveKeyFrames(const char* flnm)
 {
   QString sflnm(flnm);
@@ -3974,6 +4631,8 @@ MainWindow::saveKeyFrames(const char* flnm)
     sflnm.replace(QString(".xml"), QString(".keyframes"));
 
   fstream fout(sflnm.toUtf8().data(), ios::binary|ios::out);
+  if (!fout.good())
+    return false;
 
   QString keyword;
   keyword = "Drishti Keyframes";
@@ -3982,9 +4641,10 @@ MainWindow::saveKeyFrames(const char* flnm)
   m_keyFrame->save(fout);
 
   fout.close();
+  return fout.good();
 }
 
-void
+bool
 MainWindow::saveVolumeIntoProject(const char *flnm, QString dtvfile)
 {
   QString str;
@@ -4174,100 +4834,62 @@ MainWindow::saveVolumeIntoProject(const char *flnm, QString dtvfile)
       }
   }
 
-  QFile f(flnm);
-  if (f.open(QIODevice::WriteOnly))
+  QSaveFile f(flnm);
+  f.setDirectWriteFallback(false);
+  if (!f.open(QIODevice::WriteOnly))
+    return false;
+  QTextStream out(&f);
+  doc.save(out, 2);
+  if (out.status() != QTextStream::Ok || !f.commit())
     {
-      QTextStream out(&f);
-      doc.save(out, 2);
-      f.close();
+      f.cancelWriting();
+      return false;
     }
+  return true;
 }
 
-int
-MainWindow::loadVolumeFromProject(const char *flnm)
+bool
+MainWindow::loadVolumeFromProject(const char *flnm,
+                                  int& volType,
+                                  QList<QString>& files1,
+                                  QList<QString>& files2,
+                                  QList<QString>& files3,
+                                  QList<QString>& files4)
 {
-  int volType = Global::DummyVolume;
-
-  m_volFiles1.clear();
-  m_volFiles2.clear();
-  m_volFiles3.clear();
-  m_volFiles4.clear();
+  volType = -1;
+  files1.clear();
+  files2.clear();
+  files3.clear();
+  files4.clear();
 
   QDomDocument document;
   QFile f(flnm);
-  if (f.open(QIODevice::ReadOnly))
+  QString parseError;
+  int parseLine = 0;
+  int parseColumn = 0;
+  if (!f.open(QIODevice::ReadOnly) ||
+      !document.setContent(&f, &parseError, &parseLine, &parseColumn))
     {
-      document.setContent(&f);
-      f.close();
+      if (f.isOpen())
+        f.close();
+      return false;
     }
+  f.close();
 
   QDomElement main = document.documentElement();
+  if (main.isNull() || main.tagName() != "Drishti")
+    return false;
   QDomNodeList dlist = main.childNodes();
+  int volumeTypeElements = 0;
   for(int i=0; i<dlist.count(); i++)
     {
-      if (dlist.at(i).nodeName() == "maxdragvolsize")
+      if (!dlist.at(i).isElement())
+        continue;
+      if (dlist.at(i).nodeName() == "volumetype")
 	{
-	  QString str = dlist.at(i).toElement().text();
-	  float rlod = str.toInt();
-	  Global::setMaxDragVolSize(rlod);
-	  m_preferencesWidget->setMaxDragVolSize(Global::maxDragVolSize());
-	}
-      else if (dlist.at(i).nodeName() == "texsizereducefraction")
-	{
-	  QString str = dlist.at(i).toElement().text();
-	  float rlod = str.toFloat();
-	  Global::setTexSizeReduceFraction(rlod);
-	}
-      else if (dlist.at(i).nodeName() == "floatprecision")
-	{
-	  QString str = dlist.at(i).toElement().text();
-	  Global::setFloatPrecision(str.toInt());
-	}
-      else if (dlist.at(i).nodeName() == "fieldofview")
-	{
-	  QString str = dlist.at(i).toElement().text();
-	  m_Viewer->setFieldOfView(str.toFloat());
-	}
-      else if (dlist.at(i).nodeName() == "drawbox")
-	{
-	  QString str = dlist.at(i).toElement().text();
-	  if (str == "true")
-	    Global::setDrawBox(true);
-	  else
-	    Global::setDrawBox(false);
-	}
-      else if (dlist.at(i).nodeName() == "drawaxis")
-	{
-	  QString str = dlist.at(i).toElement().text();
-	  if (str == "true")
-	    Global::setDrawAxis(true);
-	  else
-	    Global::setDrawAxis(false);
-	}
-      else if (dlist.at(i).nodeName() == "using1d")
-	{
-	  QString str = dlist.at(i).toElement().text();
-	  if (str == "true")
-	    Global::setUse1D(true);
-	  else
-	    Global::setUse1D(false);
-	}
-      else if (dlist.at(i).nodeName() == "volrepeattype")
-	{
-	  QString str = dlist.at(i).toElement().text();
-	  QStringList words = str.split(" ", QString::SkipEmptyParts);
-	  QList<bool> rt;
-	  for(int i=0; i<words.count(); i++)
-	    {
-	      if (words[i] == "true")
-		rt << true;
-	      else
-		rt << false;
-	    }
-	  m_volInfoWidget->setRepeatType(rt);
-	}
-      else if (dlist.at(i).nodeName() == "volumetype")
-	{
+	  ++volumeTypeElements;
+	  if (volumeTypeElements > 1)
+	    return false;
 	  QString str = dlist.at(i).toElement().text();
 	  if (str == "single")
 	    volType = Global::SingleVolume;
@@ -4281,10 +4903,11 @@ MainWindow::loadVolumeFromProject(const char *flnm)
 	    volType = Global::RGBVolume;
 	  else if (str == "rgba")
 	    volType = Global::RGBAVolume;
+	  else if (str == "dummy")
+	    volType = Global::DummyVolume;
 	  else
 	    {
-	      showMessage(QString("VolumeType : %1 ??").arg(str), true);
-	      return volType;
+	      return false;
 	    }
 	}
       else if (dlist.at(i).nodeName() == "volumefiles")
@@ -4296,9 +4919,13 @@ MainWindow::loadVolumeFromProject(const char *flnm)
 	  QDomNodeList vlist = dlist.at(i).childNodes();
 	  for(int vi=0; vi<vlist.count(); vi++)
 	    {
+	      if (!vlist.at(vi).isElement())
+	        continue;
 	      QString str = vlist.at(vi).toElement().text();
+	      if (str.trimmed().isEmpty())
+	        return false;
 	      QString vfile = direc.absoluteFilePath(str);
-	      m_volFiles1.append(vfile);
+	      files1.append(vfile);
 	    }
 	}
       else if (dlist.at(i).nodeName() == "volumefiles2")
@@ -4310,9 +4937,13 @@ MainWindow::loadVolumeFromProject(const char *flnm)
 	  QDomNodeList vlist = dlist.at(i).childNodes();
 	  for(int vi=0; vi<vlist.count(); vi++)
 	    {
+	      if (!vlist.at(vi).isElement())
+	        continue;
 	      QString str = vlist.at(vi).toElement().text();
+	      if (str.trimmed().isEmpty())
+	        return false;
 	      QString vfile = direc.absoluteFilePath(str);
-	      m_volFiles2.append(vfile);
+	      files2.append(vfile);
 	    }
 	}
       else if (dlist.at(i).nodeName() == "volumefiles3")
@@ -4324,9 +4955,13 @@ MainWindow::loadVolumeFromProject(const char *flnm)
 	  QDomNodeList vlist = dlist.at(i).childNodes();
 	  for(int vi=0; vi<vlist.count(); vi++)
 	    {
+	      if (!vlist.at(vi).isElement())
+	        continue;
 	      QString str = vlist.at(vi).toElement().text();
+	      if (str.trimmed().isEmpty())
+	        return false;
 	      QString vfile = direc.absoluteFilePath(str);
-	      m_volFiles3.append(vfile);
+	      files3.append(vfile);
 	    }
 	}
       else if (dlist.at(i).nodeName() == "volumefiles4")
@@ -4338,9 +4973,13 @@ MainWindow::loadVolumeFromProject(const char *flnm)
 	  QDomNodeList vlist = dlist.at(i).childNodes();
 	  for(int vi=0; vi<vlist.count(); vi++)
 	    {
+	      if (!vlist.at(vi).isElement())
+	        continue;
 	      QString str = vlist.at(vi).toElement().text();
+	      if (str.trimmed().isEmpty())
+	        return false;
 	      QString vfile = direc.absoluteFilePath(str);
-	      m_volFiles4.append(vfile);
+	      files4.append(vfile);
 	    }
 	}
     }
@@ -4352,7 +4991,26 @@ MainWindow::loadVolumeFromProject(const char *flnm)
 //
 //  ui.actionSwitch_To1D->setChecked(Global::use1D());
 
-  return volType;
+  if (volumeTypeElements != 1)
+    return false;
+
+  const int expectedGroups =
+    volType == Global::SingleVolume || volType == Global::RGBVolume ||
+    volType == Global::RGBAVolume ? 1 :
+    volType == Global::DoubleVolume ? 2 :
+    volType == Global::TripleVolume ? 3 :
+    volType == Global::QuadVolume ? 4 : 0;
+  if (volType == Global::DummyVolume)
+    return files1.isEmpty() && files2.isEmpty() &&
+      files3.isEmpty() && files4.isEmpty();
+
+  if (expectedGroups == 0 || files1.isEmpty() ||
+      (expectedGroups > 1 && files2.isEmpty()) ||
+      (expectedGroups > 2 && files3.isEmpty()) ||
+      (expectedGroups > 3 && files4.isEmpty()))
+    return false;
+
+  return true;
 }
 
 void

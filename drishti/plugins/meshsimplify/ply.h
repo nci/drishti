@@ -46,6 +46,12 @@ extern "C" {
 #define PLY_OKAY    0           /* ply routine worked okay */
 #define PLY_ERROR  -1           /* error in ply routine */
 
+/* The legacy API has many void-returning routines.  Keep those signatures
+ * source-compatible while exposing a non-fatal error channel to callers. */
+void        ply_clear_error(void);
+int         ply_last_error(void);
+const char *ply_last_error_message(void);
+
 /* scalar data types supported by PLY format */
 
 #define StartType  0

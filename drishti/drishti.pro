@@ -39,6 +39,8 @@ DEPENDPATH += .
 
 include( ../drishti.pri )
 
+INCLUDEPATH += ../common/src
+
 win32 {
   DESTDIR = $$DRISHTI_BIN_DIR
   RC_ICONS += images/drishti-256.ico
@@ -187,9 +189,13 @@ HEADERS += launcher.h \
 	   	pathgroupgrabber.h \
 	   	pathshaderfactory.h \
 	   ../common/src/mesh/binaryplywriter.h \
+	   ../common/src/pvlmanifest.h \
+	   ../common/src/memoryreservation.h \
+	   ../common/src/recoveryjournal.h \
 	   	plugininterface.h \
 	   	pluginthread.h \
-	   	preferenceswidget.h \
+     preferenceswidget.h \
+     projectsavejournal.h \
 	   	profileviewer.h \
         prunehandler.h \
         pruneshaderfactory.h \
@@ -329,8 +335,12 @@ HEADERS += launcher.h \
 	   pathgroupgrabber.cpp \
 	   pathshaderfactory.cpp \
 	   ../common/src/mesh/binaryplywriter.cpp \
+	   ../common/src/pvlmanifest.cpp \
+	   ../common/src/memoryreservation.cpp \
+	   ../common/src/recoveryjournal.cpp \
 	   pluginthread.cpp \
-	   preferenceswidget.cpp \
+     preferenceswidget.cpp \
+     projectsavejournal.cpp \
 	   profileviewer.cpp \
            prunehandler.cpp \
            pruneshaderfactory.cpp \

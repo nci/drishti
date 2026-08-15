@@ -7,6 +7,10 @@ QT += opengl xml network
 
 CONFIG += release plugin
 
+# ITK 5 keeps this filter's template implementation in the .txx file.
+# Force instantiation in this plugin so the public filter methods are linked.
+DEFINES += ITK_TEMPLATE_TXX=1
+
 TARGET = vedplugin
 
 FORMS += ../../../propertyeditor.ui

@@ -14,6 +14,9 @@ SUBDIRS = analyze \
 	      tom \
 	      txm \
           vgi
+
+SUBDIRS += tiffdecodehelper
+tiff.depends = tiffdecodehelper
           
 win32 {
 SUBDIRS += nifti \

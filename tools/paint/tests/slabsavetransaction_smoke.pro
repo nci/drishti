@@ -7,6 +7,8 @@ TEMPLATE = app
 TARGET = slabsavetransaction_smoke
 
 SOURCES += slabsavetransaction_smoke.cpp \
-           ../slabsavetransaction.cpp
+           ../slabsavetransaction.cpp \
+           ../../../common/src/recoveryjournal.cpp
 
-HEADERS += ../slabsavetransaction.h
+HEADERS += ../slabsavetransaction.h \
+           ../../../common/src/recoveryjournal.h

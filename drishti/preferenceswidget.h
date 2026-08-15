@@ -3,16 +3,37 @@
 
 #include "ui_preferenceswidget.h"
 #include "tagcoloreditor.h"
+#include "commonqtclasses.h"
+#include <QGLViewer/vec.h>
+using namespace qglviewer;
+#include <QByteArray>
 
 class PreferencesWidget : public QWidget
 {
  Q_OBJECT
 
  public :
+  struct State
+  {
+    Vec backgroundColor;
+    float stepsizeStill;
+    float stepsizeDrag;
+    float gamma;
+    float eyeSeparation;
+    int tickSize;
+    int tickStep;
+    QString labelX;
+    QString labelY;
+    QString labelZ;
+    QByteArray tagColors;
+  };
   PreferencesWidget(QWidget *parent=NULL);
 
-  void save(const char*);
-  void load(const char*);
+  bool save(const char*);
+  bool load(const char*);
+  bool validate(const char*) const;
+  State captureState() const;
+  void restoreState(const State&);
   void getTick(int&, int&, QString&, QString&, QString&);
 
  signals :

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <new>
 
 #if defined(_WIN32)
 #ifndef NOMINMAX
@@ -181,7 +182,8 @@ PaintAlgorithmMemoryAdmission::PaintAlgorithmMemoryAdmission()
     commitReserveBytes(0),
     availablePhysicalBudgetBytes(0),
     availableCommitBudgetBytes(0),
-    reason(PaintAlgorithmMemoryAdmissionReason::MemoryStatusUnavailable)
+    reason(PaintAlgorithmMemoryAdmissionReason::MemoryStatusUnavailable),
+    reservation()
 {
 }
 
@@ -369,12 +371,10 @@ evaluatePaintMemoryAdmission(std::uint64_t depth,
     admission.availableCommitBudgetBytes = subtractReserve(
       status.availableCommitBytes, admission.commitReserveBytes);
 
-  if (admission.largeVolumeThresholdBytes == 0 ||
-      admission.residentVolumeBytes >= admission.largeVolumeThresholdBytes)
-    {
-      admission.reason = PaintMemoryAdmissionReason::LargeVolume;
-      return true;
-    }
+  // The old fixed resident-volume cutoff rejected otherwise admissible
+  // worksets before the physical/Commit budget checks below.  Keep the
+  // calculated threshold for diagnostics and compatibility, but let the
+  // measured peak and the two resource budgets make the decision.
   if (admission.estimatedPeakBytes >
       admission.availablePhysicalBudgetBytes)
     {
@@ -390,6 +390,28 @@ evaluatePaintMemoryAdmission(std::uint64_t depth,
 
   admission.useInMemory = true;
   admission.reason = PaintMemoryAdmissionReason::InMemoryApproved;
+  return true;
+}
+
+bool
+reservePaintVolumeMemory(
+  const PaintMemoryAdmission& admission,
+  std::shared_ptr<ProcessMemoryReservation>& reservation)
+{
+  reservation.reset();
+  if (!admission.useInMemory || admission.estimatedPeakBytes == 0)
+    return false;
+
+  std::shared_ptr<ProcessMemoryReservation> candidate(
+    new (std::nothrow) ProcessMemoryReservation());
+  if (!candidate || !candidate->acquire(
+        admission.estimatedPeakBytes,
+        admission.availablePhysicalBudgetBytes,
+        admission.availableCommitBudgetBytes > 0,
+        admission.availableCommitBudgetBytes))
+    return false;
+
+  reservation = candidate;
   return true;
 }
 
@@ -546,6 +568,26 @@ evaluatePaintAlgorithmMemoryAdmission(std::uint64_t depth,
   admission.approved = true;
   admission.reason = PaintAlgorithmMemoryAdmissionReason::Approved;
   return admission;
+}
+
+bool
+reservePaintAlgorithmMemory(PaintAlgorithmMemoryAdmission& admission)
+{
+  admission.reservation.reset();
+  if (!admission.approved || admission.requiredBytes == 0)
+    return false;
+
+  std::shared_ptr<ProcessMemoryReservation> candidate(
+    new (std::nothrow) ProcessMemoryReservation());
+  if (!candidate || !candidate->acquire(
+        admission.requiredBytes,
+        admission.availablePhysicalBudgetBytes,
+        admission.commitMemoryChecked,
+        admission.availableCommitBudgetBytes))
+    return false;
+
+  admission.reservation = candidate;
+  return true;
 }
 
 std::size_t

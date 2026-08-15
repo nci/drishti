@@ -3,12 +3,13 @@
 
 #include <QObject>
 #include "volinterface.h"
+#include "../../sourcefilesprovider.h"
 
-class ImageStackPlugin : public QObject, VolInterface
+class ImageStackPlugin : public QObject, VolInterface, SourceFilesProvider
 {
   Q_OBJECT
   Q_PLUGIN_METADATA(IID "drishti.import.Plugin.VolInterface/1.0")
-  Q_INTERFACES(VolInterface)
+  Q_INTERFACES(VolInterface SourceFilesProvider)
 
  public :
   QStringList registerPlugin();
@@ -19,6 +20,7 @@ class ImageStackPlugin : public QObject, VolInterface
   void setValue(QString, float) {};
 
   bool setFile(QStringList);
+  QStringList sourceFiles() const;
   void replaceFile(QString);
 
   void gridSize(int&, int&, int&);

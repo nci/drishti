@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QTimer>
 #include <QThread>
+#include <QSet>
 
 #include <cstddef>
 
@@ -35,6 +36,11 @@ class VolumeFileManager : public QObject
   };
 
   bool reset();
+
+  // Stop asynchronous I/O without releasing the loaded buffers so a fully
+  // validated candidate volume can be committed atomically by its owner.
+  bool prepareForStateSwap();
+  bool swapState(VolumeFileManager&);
 
   QString fileName();
   bool exists();
@@ -168,6 +174,8 @@ class VolumeFileManager : public QObject
   quint64 m_changeGeneration;
   quint64 m_saveGeneration;
   QString m_snapshotPath;
+  QString m_snapshotBasePath;
+  QSet<qint64> m_dirtySnapshotChunks;
 
   QList<int> m_saveDSlices;
   QList<int> m_saveWSlices;
@@ -209,6 +217,8 @@ class VolumeFileManager : public QObject
   bool createSaveSnapshot(QString&, quint64&);
   bool waitForBackgroundSave();
   void markChanged();
+  void markChangedRange(qint64, qint64);
+  void discardSnapshotBaseline();
 
   QThread* m_thread;
   FileHandler *m_handler;

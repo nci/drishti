@@ -6,7 +6,10 @@
 #include "morphslice.h"
 
 #include <QFile>
+#include <QSaveFile>
 #include <QLabel>
+#include <new>
+#include <memory>
 
 CurveGroup* CurvesWidget::m_dCurves = 0;
 CurveGroup* CurvesWidget::m_wCurves = 0;
@@ -89,6 +92,7 @@ CurvesWidget::CurvesWidget(QWidget *parent, QStatusBar *sb) :
   m_gradType = 0;
   
   m_volPtr = 0;
+  m_curveIoError = false;
   
   m_image = QImage(100, 100, QImage::Format_RGB32);
   m_imageScaled = QImage(100, 100, QImage::Format_RGB32);
@@ -863,14 +867,29 @@ CurvesWidget::recolorImage()
   
   //-----
   // transfer data for livewire calculation
-  uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];
+  const size_t sliceBytes = static_cast<size_t>(m_imgHeight) *
+                            static_cast<size_t>(m_imgWidth);
+  std::unique_ptr<uchar[]> sliceData(new (std::nothrow) uchar[sliceBytes]);
+  if (!sliceData)
+    {
+      m_livewireMode = false;
+      if (m_statusBar)
+        m_statusBar->showMessage(QStringLiteral("LiveWire: unable to allocate image buffer."), 10000);
+      return;
+    }
   for(int i=0; i<m_imgHeight*m_imgWidth; i++)
     sliceData[i] = m_sliceImage[4*i];
 
   if (m_livewireMode)
     {
-      m_livewire.setImageData(m_imgWidth, m_imgHeight, sliceData);
-      delete [] sliceData;
+      const bool valid = m_livewire.setImageData(m_imgWidth, m_imgHeight,
+                                                  sliceData.get());
+      if (!valid)
+        {
+          reportLivewireError();
+          m_livewireMode = false;
+          return;
+        }
       m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
 							    m_simgHeight,
 							    Qt::IgnoreAspectRatio,
@@ -1600,8 +1619,14 @@ CurvesWidget::freezeLivewire(bool select)
       return;
     }
 
-  if (Global::closed())
-    m_livewire.freeze();
+  if (Global::closed() && !m_livewire.freeze())
+    {
+      reportLivewireError();
+      m_livewireMode = false;
+      m_addingCurvePoints = false;
+      m_livewire.resetPoly();
+      return;
+    }
 
 
   QVector<QPointF> pts = m_livewire.poly();
@@ -1826,6 +1851,12 @@ void
 CurvesWidget::setSliceLOD(int lod)
 {
   m_livewire.setLod(lod);
+  if (!m_livewire.valid())
+    {
+      reportLivewireError();
+      m_livewireMode = false;
+      return;
+    }
   m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
 							m_simgHeight);
   update();
@@ -2159,12 +2190,20 @@ CurvesWidget::curveMousePressEvent(QMouseEvent *event)
      !ctrlModifier &&
      !altModifier)
     {      
+      bool valid = false;
       if (m_sliceType == DSlice)
-	m_livewire.mousePressEvent(m_pickHeight, m_pickWidth, event);
+	valid = m_livewire.mousePressEvent(m_pickHeight, m_pickWidth, event);
       else if (m_sliceType == WSlice)
-	m_livewire.mousePressEvent(m_pickHeight, m_pickDepth, event);
+	valid = m_livewire.mousePressEvent(m_pickHeight, m_pickDepth, event);
       else
-	m_livewire.mousePressEvent(m_pickWidth, m_pickDepth, event);
+	valid = m_livewire.mousePressEvent(m_pickWidth, m_pickDepth, event);
+      if (!valid)
+	{
+	  reportLivewireError();
+	  m_livewireMode = false;
+	  m_addingCurvePoints = false;
+	  m_livewire.resetPoly();
+	}
 
       update();
       return;
@@ -2263,12 +2302,20 @@ CurvesWidget::curveMouseMoveEvent(QMouseEvent *event)
       m_lastPickWidth = m_pickWidth;
       m_lastPickHeight= m_pickHeight;
       
+      bool valid = false;
       if (m_sliceType == DSlice)
-	m_livewire.mouseMoveEvent(m_pickHeight, m_pickWidth, event);
+	valid = m_livewire.mouseMoveEvent(m_pickHeight, m_pickWidth, event);
       else if (m_sliceType == WSlice)
-	m_livewire.mouseMoveEvent(m_pickHeight, m_pickDepth, event);
+	valid = m_livewire.mouseMoveEvent(m_pickHeight, m_pickDepth, event);
       else
-	m_livewire.mouseMoveEvent(m_pickWidth, m_pickDepth, event);
+	valid = m_livewire.mouseMoveEvent(m_pickWidth, m_pickDepth, event);
+      if (!valid)
+	{
+	  reportLivewireError();
+	  m_livewireMode = false;
+	  m_addingCurvePoints = false;
+	  m_livewire.resetPoly();
+	}
       
       update();
       return;
@@ -2813,12 +2860,26 @@ CurvesWidget::setSmoothType(int i)
   m_livewire.setSmoothType(i);
  
   // transfer data for livewire calculation
-  uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];
+  const size_t sliceBytes = static_cast<size_t>(m_imgHeight) *
+                            static_cast<size_t>(m_imgWidth);
+  std::unique_ptr<uchar[]> sliceData(new (std::nothrow) uchar[sliceBytes]);
+  if (!sliceData)
+    {
+      reportLivewireError();
+      m_livewireMode = false;
+      return;
+    }
   for(int i=0; i<m_imgHeight*m_imgWidth; i++)
     sliceData[i] = m_sliceImage[4*i];
 
-  m_livewire.setImageData(m_imgWidth, m_imgHeight, sliceData);
-  delete [] sliceData;
+  const bool valid = m_livewire.setImageData(m_imgWidth, m_imgHeight,
+                                              sliceData.get());
+  if (!valid)
+    {
+      reportLivewireError();
+      m_livewireMode = false;
+      return;
+    }
   m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
 							m_simgHeight,
 							Qt::IgnoreAspectRatio,
@@ -2831,26 +2892,63 @@ CurvesWidget::setGradType(int i)
   m_livewire.setGradType(i);
  
   // transfer data for livewire calculation
-  uchar *sliceData = new uchar[m_imgHeight*m_imgWidth];
+  const size_t sliceBytes = static_cast<size_t>(m_imgHeight) *
+                            static_cast<size_t>(m_imgWidth);
+  std::unique_ptr<uchar[]> sliceData(new (std::nothrow) uchar[sliceBytes]);
+  if (!sliceData)
+    {
+      reportLivewireError();
+      m_livewireMode = false;
+      return;
+    }
   for(int i=0; i<m_imgHeight*m_imgWidth; i++)
     sliceData[i] = m_sliceImage[4*i];
-  m_livewire.setImageData(m_imgWidth, m_imgHeight, sliceData);
-  delete [] sliceData;
+  const bool valid = m_livewire.setImageData(m_imgWidth, m_imgHeight,
+                                              sliceData.get());
+  if (!valid)
+    {
+      reportLivewireError();
+      m_livewireMode = false;
+      return;
+    }
   m_gradImageScaled = m_livewire.gradientImage().scaled(m_simgWidth,
 							m_simgHeight,
 							Qt::IgnoreAspectRatio,
 							Qt::FastTransformation);
 }
 
+namespace
+{
+bool writeCurveBytes(QFileDevice *file, const void *data, qint64 size)
+{
+  return file && size >= 0 && file->write(reinterpret_cast<const char *>(data), size) == size;
+}
+
+bool writeCurveText(QFileDevice *file, const char *text)
+{
+  return writeCurveBytes(file, text, static_cast<qint64>(strlen(text)));
+}
+}
+
 void
-CurvesWidget::saveCurveData(QFile *cfile, int key, Curve *c)
+CurvesWidget::reportLivewireError()
+{
+  const QString detail = m_livewire.errorMessage();
+  if (detail.isEmpty())
+    return;
+  if (m_statusBar)
+    m_statusBar->showMessage(QString("LiveWire: %1").arg(detail), 10000);
+}
+
+bool
+CurvesWidget::saveCurveData(QFileDevice *cfile, int key, Curve *c)
 {
   char keyword[100];
 
   memset(keyword, 0, 100);
   sprintf(keyword, "curvestart\n");
     
-  cfile->write((char*)keyword, strlen(keyword));
+  if (!writeCurveText(cfile, keyword)) return false;
 
   uchar type = c->type;
   int tag = c->tag;
@@ -2858,53 +2956,48 @@ CurvesWidget::saveCurveData(QFile *cfile, int key, Curve *c)
   bool closed = c->closed;
   memset(keyword, 0, 100);
   sprintf(keyword, "key\n");
-  cfile->write((char*)keyword, strlen(keyword));
-  cfile->write((char*)&key, sizeof(int));
+  if (!writeCurveText(cfile, keyword) || !writeCurveBytes(cfile, &key, sizeof(int))) return false;
   
   memset(keyword, 0, 100);
   sprintf(keyword, "tag\n");
-  cfile->write((char*)keyword, strlen(keyword));
-  cfile->write((char*)&tag, sizeof(int));
+  if (!writeCurveText(cfile, keyword) || !writeCurveBytes(cfile, &tag, sizeof(int))) return false;
   
   memset(keyword, 0, 100);
   sprintf(keyword, "type\n");
-  cfile->write((char*)keyword, strlen(keyword));
-  cfile->write((char*)&type, sizeof(uchar));
+  if (!writeCurveText(cfile, keyword) || !writeCurveBytes(cfile, &type, sizeof(uchar))) return false;
   
   memset(keyword, 0, 100);
   sprintf(keyword, "thickness\n");
-  cfile->write((char*)keyword, strlen(keyword));
-  cfile->write((char*)&thickness, sizeof(int));
+  if (!writeCurveText(cfile, keyword) || !writeCurveBytes(cfile, &thickness, sizeof(int))) return false;
   
   memset(keyword, 0, 100);
   sprintf(keyword, "closed\n");
-  cfile->write((char*)keyword, strlen(keyword));
-  cfile->write((char*)&closed, sizeof(bool));
+  if (!writeCurveText(cfile, keyword) || !writeCurveBytes(cfile, &closed, sizeof(bool))) return false;
   
   {
     QVector<QPointF> pts = c->pts;
     memset(keyword, 0, 100);
     sprintf(keyword, "points\n");
-    cfile->write((char*)keyword, strlen(keyword));
+    if (!writeCurveText(cfile, keyword)) return false;
     int npts = pts.count();
-    cfile->write((char*)&npts, sizeof(int));
-    float *pt = new float [2*npts];
+    if (!writeCurveBytes(cfile, &npts, sizeof(int))) return false;
+    std::unique_ptr<float[]> pt(new (std::nothrow) float [2*npts]);
+    if (!pt && npts > 0) return false;
     for(int j=0; j<npts; j++)
       {
 	pt[2*j+0] = pts[j].x();
 	pt[2*j+1] = pts[j].y();
       }
-    cfile->write((char*)pt, 2*npts*sizeof(float));
-    delete [] pt;
+    if (!writeCurveBytes(cfile, pt.get(), 2*npts*sizeof(float))) return false;
   }
   {
     QVector<int> seedpos = c->seedpos;
     memset(keyword, 0, 100);
     sprintf(keyword, "seedpos\n");
-    cfile->write((char*)keyword, strlen(keyword));
+    if (!writeCurveText(cfile, keyword)) return false;
     int npts = seedpos.count();
-    cfile->write((char*)&npts, sizeof(int));
-    cfile->write((char*)(seedpos.data()), npts*sizeof(int));
+    if (!writeCurveBytes(cfile, &npts, sizeof(int)) ||
+        !writeCurveBytes(cfile, seedpos.constData(), npts*sizeof(int))) return false;
   }
   {
     QVector<QPointF> seeds = c->seeds;
@@ -2912,70 +3005,90 @@ CurvesWidget::saveCurveData(QFile *cfile, int key, Curve *c)
       {
 	memset(keyword, 0, 100);
 	sprintf(keyword, "seeds\n");
-	cfile->write((char*)keyword, strlen(keyword));
+	if (!writeCurveText(cfile, keyword)) return false;
 	int npts = seeds.count();
-	cfile->write((char*)&npts, sizeof(int));
-	float *pt = new float [2*npts];
+	if (!writeCurveBytes(cfile, &npts, sizeof(int))) return false;
+	std::unique_ptr<float[]> pt(new (std::nothrow) float [2*npts]);
+	if (!pt && npts > 0) return false;
 	for(int j=0; j<npts; j++)
 	  {
 	    pt[2*j+0] = seeds[j].x();
 	    pt[2*j+1] = seeds[j].y();
 	  }
-	cfile->write((char*)pt, 2*npts*sizeof(float));
-	delete [] pt;
+	if (!writeCurveBytes(cfile, pt.get(), 2*npts*sizeof(float))) return false;
       }
   }
   
   memset(keyword, 0, 100);
   sprintf(keyword, "curveend\n");
-  cfile->write((char*)keyword, strlen(keyword));
+  if (!writeCurveText(cfile, keyword)) return false;
+  return true;
 }
 
 QPair<int, Curve>
-CurvesWidget::loadCurveData(QFile *cfile)
+CurvesWidget::loadCurveData(QFile *cfile, int *objectCount)
 {
   char keyword[100];
 
   Curve c;
   int key=0;
+  const int maxPoints = 10000000;
+  const int maxObjects = 1000000;
+  if (objectCount && *objectCount >= maxObjects)
+    {
+      m_curveIoError = true;
+      return qMakePair(0, Curve());
+    }
   bool done = false;
   while(!done)
     {
-      cfile->readLine((char*)&keyword, 100);
+      const qint64 lineLength = cfile->readLine((char*)&keyword, 100);
+      if (lineLength <= 0 || lineLength >= 100)
+        { m_curveIoError = true; return qMakePair(0, Curve()); }
 
       int t;
       bool b;
       if (strcmp(keyword, "curveend\n") == 0)
 	done = true;
       else if (strcmp(keyword, "key\n") == 0)
-	cfile->read((char*)&key, sizeof(int));
+	if (cfile->read((char*)&key, sizeof(int)) != sizeof(int))
+	  { m_curveIoError = true; return qMakePair(0, Curve()); }
       else if (strcmp(keyword, "tag\n") == 0)
 	{
-	  cfile->read((char*)&t, sizeof(int));
+	  if (cfile->read((char*)&t, sizeof(int)) != sizeof(int))
+	    { m_curveIoError = true; return qMakePair(0, Curve()); }
 	  c.tag = t;
 	}
       else if (strcmp(keyword, "type\n") == 0)
 	{
-	  cfile->read((char*)&t, sizeof(uchar));
+	  if (cfile->read((char*)&t, sizeof(uchar)) != sizeof(uchar))
+	    { m_curveIoError = true; return qMakePair(0, Curve()); }
 	  c.type = t;
 	}
       else if (strcmp(keyword, "thickness\n") == 0)
 	{
-	  cfile->read((char*)&t, sizeof(int));
+	  if (cfile->read((char*)&t, sizeof(int)) != sizeof(int))
+	    { m_curveIoError = true; return qMakePair(0, Curve()); }
 	  c.thickness = t;
 	}
       else if (strcmp(keyword, "closed\n") == 0)
 	{
-	  cfile->read((char*)&b, sizeof(bool));
+	  if (cfile->read((char*)&b, sizeof(bool)) != sizeof(bool))
+	    { m_curveIoError = true; return qMakePair(0, Curve()); }
 	  c.closed = b;
 	}
       else if (strcmp(keyword, "points\n") == 0)
 	{
 	  int npts;
 	  float *pt;
-	  cfile->read((char*)&npts, sizeof(int));
-	  pt = new float[2*npts];
-	  cfile->read((char*)pt, 2*npts*sizeof(float));
+	  if (cfile->read((char*)&npts, sizeof(int)) != sizeof(int) ||
+	      npts < 0 || npts > maxPoints)
+	    { m_curveIoError = true; return qMakePair(0, Curve()); }
+	  pt = new (std::nothrow) float[2*npts];
+	  if (!pt && npts > 0)
+	    { m_curveIoError = true; return qMakePair(0, Curve()); }
+	  if (cfile->read((char*)pt, 2*npts*sizeof(float)) != (qint64)(2*npts*sizeof(float)))
+	    { delete [] pt; m_curveIoError = true; return qMakePair(0, Curve()); }
 	  for(int ni=0; ni<npts; ni++)
 	    c.pts << QPointF(pt[2*ni+0], pt[2*ni+1]);
 	  delete [] pt;
@@ -2984,9 +3097,14 @@ CurvesWidget::loadCurveData(QFile *cfile)
 	{
 	  int npts;
 	  float *pt;
-	  cfile->read((char*)&npts, sizeof(int));
-	  pt = new float[2*npts];
-	  cfile->read((char*)pt, 2*npts*sizeof(float));
+	  if (cfile->read((char*)&npts, sizeof(int)) != sizeof(int) ||
+	      npts < 0 || npts > maxPoints)
+	    { m_curveIoError = true; return qMakePair(0, Curve()); }
+	  pt = new (std::nothrow) float[2*npts];
+	  if (!pt && npts > 0)
+	    { m_curveIoError = true; return qMakePair(0, Curve()); }
+	  if (cfile->read((char*)pt, 2*npts*sizeof(float)) != (qint64)(2*npts*sizeof(float)))
+	    { delete [] pt; m_curveIoError = true; return qMakePair(0, Curve()); }
 	  for(int ni=0; ni<npts; ni++)
 	    c.seeds << QPointF(pt[2*ni+0], pt[2*ni+1]);
 	  delete [] pt;
@@ -2995,20 +3113,29 @@ CurvesWidget::loadCurveData(QFile *cfile)
 	{
 	  int npts;
 	  int *pt;
-	  cfile->read((char*)&npts, sizeof(int));
-	  pt = new int[npts];
-	  cfile->read((char*)pt, npts*sizeof(int));
+	  if (cfile->read((char*)&npts, sizeof(int)) != sizeof(int) ||
+	      npts < 0 || npts > maxPoints)
+	    { m_curveIoError = true; return qMakePair(0, Curve()); }
+	  pt = new (std::nothrow) int[npts];
+	  if (!pt && npts > 0)
+	    { m_curveIoError = true; return qMakePair(0, Curve()); }
+	  if (cfile->read((char*)pt, npts*sizeof(int)) != (qint64)(npts*sizeof(int)))
+	    { delete [] pt; m_curveIoError = true; return qMakePair(0, Curve()); }
 	  for(int ni=0; ni<npts; ni++)
-	    c.seedpos << pt[ni];
+	  c.seedpos << pt[ni];
 	  delete [] pt;
 	}	      
+      else
+	{ m_curveIoError = true; return qMakePair(0, Curve()); }
     }
 
+  if (objectCount)
+    ++(*objectCount);
   return qMakePair(key, c);
 }
 
-void
-CurvesWidget::saveMorphedCurves(QFile *cfile, CurveGroup *cg)
+bool
+CurvesWidget::saveMorphedCurves(QFileDevice *cfile, CurveGroup *cg)
 {
   char keyword[100];
 
@@ -3024,7 +3151,7 @@ CurvesWidget::saveMorphedCurves(QFile *cfile, CurveGroup *cg)
       memset(keyword, 0, 100);
       sprintf(keyword, "morphcurvegroupend\n");
       cfile->write((char*)keyword, strlen(keyword));
-      return;
+      return cfile->error() == QFileDevice::NoError;
     }
 
   for(int m=0; m<mcgcount; m++)
@@ -3039,7 +3166,7 @@ CurvesWidget::saveMorphedCurves(QFile *cfile, CurveGroup *cg)
       for(int i=0; i<ncurves; i++)
 	{
 	  Curve c = (*mcg)[m].value(keys[i]);
-	  saveCurveData(cfile, keys[i], &c);
+	  if (!saveCurveData(cfile, keys[i], &c)) return false;
 	} 
 
       memset(keyword, 0, 100);
@@ -3050,10 +3177,11 @@ CurvesWidget::saveMorphedCurves(QFile *cfile, CurveGroup *cg)
   memset(keyword, 0, 100);
   sprintf(keyword, "morphcurvegroupend\n");
   cfile->write((char*)keyword, strlen(keyword));
+  return cfile->error() == QFileDevice::NoError;
 }
 
-void
-CurvesWidget::saveShrinkwrapCurves(QFile *cfile, CurveGroup *cg)
+bool
+CurvesWidget::saveShrinkwrapCurves(QFileDevice *cfile, CurveGroup *cg)
 {
   char keyword[100];
 
@@ -3068,7 +3196,7 @@ CurvesWidget::saveShrinkwrapCurves(QFile *cfile, CurveGroup *cg)
       memset(keyword, 0, 100);
       sprintf(keyword, "shrinkwrapgroupend\n");
       cfile->write((char*)keyword, strlen(keyword));
-      return;
+      return cfile->error() == QFileDevice::NoError;
     }
 
   for(int m=0; m<mcgcount; m++)
@@ -3084,7 +3212,7 @@ CurvesWidget::saveShrinkwrapCurves(QFile *cfile, CurveGroup *cg)
 	{
 	  QList<Curve*> curves = (*mcg)[m].values(keys[i]);
 	  for(int j=0; j<curves.count(); j++)
-	    saveCurveData(cfile, keys[i], curves[j]);
+	    if (!saveCurveData(cfile, keys[i], curves[j])) return false;
 	} 
 
       memset(keyword, 0, 100);
@@ -3095,10 +3223,11 @@ CurvesWidget::saveShrinkwrapCurves(QFile *cfile, CurveGroup *cg)
   memset(keyword, 0, 100);
   sprintf(keyword, "shrinkwrapgroupend\n");
   cfile->write((char*)keyword, strlen(keyword));
+  return cfile->error() == QFileDevice::NoError;
 }
 
-void
-CurvesWidget::saveCurves(QFile *cfile, CurveGroup *cg)
+bool
+CurvesWidget::saveCurves(QFileDevice *cfile, CurveGroup *cg)
 {
   QList<int> keys = cg->polygonLevels();
 
@@ -3130,19 +3259,19 @@ CurvesWidget::saveCurves(QFile *cfile, CurveGroup *cg)
 	{
 	  QList<Curve*> c = cg->getCurvesAt(keys[i]);
 	  for (int j=0; j<c.count(); j++)
-	    saveCurveData(cfile, keys[i], c[j]);
+	    if (!saveCurveData(cfile, keys[i], c[j])) return false;
 	} 
       memset(keyword, 0, 100);
       sprintf(keyword, "curvegroupend\n");
       cfile->write((char*)keyword, strlen(keyword));  
 
-      saveMorphedCurves(cfile, cg);
+      if (!saveMorphedCurves(cfile, cg)) return false;
     }
 
-  saveShrinkwrapCurves(cfile, cg);
+  return saveShrinkwrapCurves(cfile, cg);
 }
 
-void
+bool
 CurvesWidget::saveCurves()
 {
   QString curvesfile = QFileDialog::getSaveFileName(0,
@@ -3153,14 +3282,15 @@ CurvesWidget::saveCurves()
 					      QFileDialog::DontUseNativeDialog);
 
   if (curvesfile.isEmpty())
-    return;
+    return false;
 
-  saveCurves(curvesfile);
+  return saveCurves(curvesfile);
 }
 
-void
+bool
 CurvesWidget::saveCurves(QString curvesfile)
 {
+  m_curveIoError = false;
   if (!StaticFunctions::checkExtension(curvesfile, ".curve") &&
       !StaticFunctions::checkExtension(curvesfile, ".curves"))
       curvesfile += ".curves";
@@ -3176,28 +3306,74 @@ CurvesWidget::saveCurves(QString curvesfile)
   if (!curvesPresent())
     { // remove existing file
       if (QFile(curvesfile).exists())
-	QFile(curvesfile).remove();
-      return;
+	{
+	  if (!QFile::remove(curvesfile))
+	    return false;
+	}
+      return true;
     }
-  
-  QFile cfile;
 
-  cfile.setFileName(curvesfile);
-  cfile.open(QFile::WriteOnly);
+  QSaveFile cfile(curvesfile);
+  if (!cfile.open(QFile::WriteOnly))
+    return false;
 
-  saveCurves(&cfile, &m_Curves);
+  // Version 2 keeps the historical binary records but adds an explicit
+  // format marker so future readers can migrate safely.  The reader below
+  // still accepts files written before this marker existed.
+  const QByteArray formatHeader("Drishti Curves 2\n");
+  if (cfile.write(formatHeader) != formatHeader.size())
+    {
+      cfile.cancelWriting();
+      return false;
+    }
+  if (!saveCurves(&cfile, &m_Curves) ||
+      m_curveIoError || cfile.error() != QFileDevice::NoError)
+    {
+      cfile.cancelWriting();
+      return false;
+    }
+  if (!cfile.commit())
+    return false;
+  return true;
+}
 
+bool
+CurvesWidget::validateCurves(QString curvesfile)
+{
+  m_curveIoError = false;
+  if (m_sliceType == DSlice) curvesfile += "d";
+  else if (m_sliceType == WSlice) curvesfile += "w";
+  else curvesfile += "h";
+  QFile cfile(curvesfile);
+  if (!cfile.exists()) return true;
+  if (!cfile.open(QFile::ReadOnly)) return false;
+  CurveGroup candidate;
+  int objectCount = 0;
+  loadCurves(&cfile, &candidate, &objectCount);
+  const bool valid = !m_curveIoError && cfile.error() == QFileDevice::NoError;
   cfile.close();
+  return valid;
 }
 
 void
-CurvesWidget::loadCurves(QFile *cfile, CurveGroup *cg)
+CurvesWidget::loadCurves(QFile *cfile, CurveGroup *cg, int *objectCount)
 {
+  m_curveIoError = false;
   char keyword[100];
-  cfile->readLine((char*)&keyword, 100);
+  if (cfile->readLine((char*)&keyword, 100) <= 0)
+    { m_curveIoError = true; return; }
+
+  // Versioned files start with a text marker.  Legacy files start directly
+  // with curvegroupstart; preserve that format for backwards compatibility.
+  if (strcmp(keyword, "Drishti Curves 2\n") == 0)
+    {
+      if (cfile->readLine((char*)&keyword, 100) <= 0)
+        { m_curveIoError = true; return; }
+    }
 
   if (strcmp(keyword, "curvegroupstart\n") != 0)
     {
+      m_curveIoError = true;
       QMessageBox::information(0, "", QString("curvegroupstart not found!\n%1").arg(keyword));
       return;
     }
@@ -3205,32 +3381,40 @@ CurvesWidget::loadCurves(QFile *cfile, CurveGroup *cg)
   bool cgend = false;
   while(!cgend)
     {
-      cfile->readLine((char*)&keyword, 100);
+      if (cfile->readLine((char*)&keyword, 100) <= 0)
+	{ m_curveIoError = true; return; }
 
       if (strcmp(keyword, "curvegroupend\n") == 0)
 	cgend = true;      
       else if (strcmp(keyword, "curvestart\n") == 0)
 	{
-	  QPair<int, Curve> cpair = loadCurveData(cfile);
+      QPair<int, Curve> cpair = loadCurveData(cfile, objectCount);
 	  // do not pass on zero length curves
 	  if (cpair.second.pts.count() > 0)
 	    cg->setCurveAt(cpair.first, cpair.second);
 	}
+      else
+	{ m_curveIoError = true; return; }
     }
 
-  loadMorphedCurves(cfile, cg);
+  loadMorphedCurves(cfile, cg, objectCount);
 
-  loadShrinkwrapCurves(cfile, cg);
+  loadShrinkwrapCurves(cfile, cg, objectCount);
+  if (!m_curveIoError && !cfile->atEnd())
+    m_curveIoError = true;
 }
 
 void
-CurvesWidget::loadMorphedCurves(QFile *cfile, CurveGroup *cg)
+CurvesWidget::loadMorphedCurves(QFile *cfile, CurveGroup *cg,
+                                int *objectCount)
 {
   char keyword[100];
-  cfile->readLine((char*)&keyword, 100);
+  if (cfile->readLine((char*)&keyword, 100) <= 0)
+	{ m_curveIoError = true; return; }
 
   if (strcmp(keyword, "morphcurvegroupstart\n") != 0)
     {
+      m_curveIoError = true;
       QMessageBox::information(0, "", QString("morphcurvegroupstart not found!").arg(keyword));
       return;
     }
@@ -3239,7 +3423,8 @@ CurvesWidget::loadMorphedCurves(QFile *cfile, CurveGroup *cg)
   bool cgend = false;
   while(!cgend)
     {
-      cfile->readLine((char*)&keyword, 100);
+      if (cfile->readLine((char*)&keyword, 100) <= 0)
+	{ m_curveIoError = true; return; }
 
       if (strcmp(keyword, "morphcurvegroupend\n") == 0)
 	cgend = true;      
@@ -3249,22 +3434,27 @@ CurvesWidget::loadMorphedCurves(QFile *cfile, CurveGroup *cg)
 	cg->addMorphBlock(mcg);
       else if (strcmp(keyword, "curvestart\n") == 0)
 	{
-	  QPair<int, Curve> cpair = loadCurveData(cfile);
+      QPair<int, Curve> cpair = loadCurveData(cfile, objectCount);
 	  // do not pass on zero length curves
 	  if (cpair.second.pts.count() > 0)
 	    mcg.insert(cpair.first, cpair.second);
 	}
+      else
+	{ m_curveIoError = true; return; }
     }
 }
 
 void
-CurvesWidget::loadShrinkwrapCurves(QFile *cfile, CurveGroup *cg)
+CurvesWidget::loadShrinkwrapCurves(QFile *cfile, CurveGroup *cg,
+                                   int *objectCount)
 {
   char keyword[100];
-  cfile->readLine((char*)&keyword, 100);
+  if (cfile->readLine((char*)&keyword, 100) <= 0)
+	{ m_curveIoError = true; return; }
 
   if (strcmp(keyword, "shrinkwrapgroupstart\n") != 0)
     {
+      m_curveIoError = true;
       QMessageBox::information(0, "", QString("shrinkwrapgroupstart not found!").arg(keyword));
       return;
     }
@@ -3273,7 +3463,8 @@ CurvesWidget::loadShrinkwrapCurves(QFile *cfile, CurveGroup *cg)
   bool cgend = false;
   while(!cgend)
     {
-      cfile->readLine((char*)&keyword, 100);
+      if (cfile->readLine((char*)&keyword, 100) <= 0)
+	{ m_curveIoError = true; return; }
 
       if (strcmp(keyword, "shrinkwrapgroupend\n") == 0)
 	cgend = true;      
@@ -3283,7 +3474,7 @@ CurvesWidget::loadShrinkwrapCurves(QFile *cfile, CurveGroup *cg)
 	cg->addShrinkwrapBlock(mcg);
       else if (strcmp(keyword, "curvestart\n") == 0)
 	{
-	  QPair<int, Curve> cpair = loadCurveData(cfile);
+	  QPair<int, Curve> cpair = loadCurveData(cfile, objectCount);
 	  // do not pass on zero length curves
 	  if (cpair.second.pts.count() > 0)
 	    {
@@ -3291,11 +3482,14 @@ CurvesWidget::loadShrinkwrapCurves(QFile *cfile, CurveGroup *cg)
 	      *c = cpair.second;
 	      mcg.insert(cpair.first, c);
 	    }
+	  else
+	    { m_curveIoError = true; return; }
 	}
-    }
 }
 
-void
+}
+
+bool
 CurvesWidget::loadCurves(QString curvesfile)
 {
   QFile cfile;
@@ -3309,20 +3503,24 @@ CurvesWidget::loadCurves(QString curvesfile)
 
   cfile.setFileName(curvesfile);
   if (cfile.exists() == false)
-    return;
+    return true;
   
-  cfile.open(QFile::ReadOnly);
+  if (!cfile.open(QFile::ReadOnly))
+    return false;
 
-  loadCurves(&cfile, &m_Curves);
+  CurveGroup candidate;
+  int objectCount = 0;
+  loadCurves(&cfile, &candidate, &objectCount);
 
   cfile.close();
-
+  if (m_curveIoError)
+    return false;
+  m_Curves.swapState(candidate);
   emit polygonLevels(m_Curves.polygonLevels());
-
-  //QMessageBox::information(0, "", QString("Curves loaded from %1").arg(curvesfile));
+  return true;
 }
 
-void
+bool
 CurvesWidget::loadCurves()
 {
   QString curvesfile = QFileDialog::getOpenFileName(0,
@@ -3333,9 +3531,9 @@ CurvesWidget::loadCurves()
 						    QFileDialog::DontUseNativeDialog);
   
   if (curvesfile.isEmpty())
-    return;
+    return false;
 
-  loadCurves(curvesfile);
+  return loadCurves(curvesfile);
 }
 
 void

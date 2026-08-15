@@ -22,7 +22,9 @@ win32 {
   isEmpty(DRISHTI_PLUGIN_COMMON_LIB_DIR): DRISHTI_PLUGIN_COMMON_LIB_DIR = $$clean_path($$PWD/../common)
   isEmpty(DRISHTI_GLMEDIA_LIBRARY_PATH): DRISHTI_GLMEDIA_LIBRARY_PATH = $$clean_path($$PWD/../../../glmedia-64)
 
-  INCLUDEPATH += ../../
+  INCLUDEPATH += ../../ \
+                 ../../../common/src \
+                 ../../../common/src/widgets
   QMAKE_LIBDIR += $$DRISHTI_PLUGIN_COMMON_LIB_DIR \
                   $$DRISHTI_GLMEDIA_LIBRARY_PATH
   PRE_TARGETDEPS += $$clean_path($$DRISHTI_PLUGIN_COMMON_LIB_DIR/$$DRISHTI_COMMON_LIB)
@@ -30,10 +32,13 @@ win32 {
   LIBS += $$DRISHTI_COMMON_LIB \
 	  $$DRISHTI_QGLVIEWER_LIB \
 	  $$DRISHTI_GLEW_LIB \
-	  $$DRISHTI_GLMEDIA_LIB \
           $$DRISHTI_OPENGL_LIBS \
           $$DRISHTI_LEGACY_NETCDF_LIB \
 	  $$DRISHTI_FREEGLUT_LIB
+
+  exists($$clean_path($$DRISHTI_GLMEDIA_LIBRARY_PATH/$$DRISHTI_GLMEDIA_LIB)) {
+    LIBS += $$DRISHTI_GLMEDIA_LIB
+  }
  }
 }
 

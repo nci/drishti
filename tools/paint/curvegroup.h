@@ -39,6 +39,7 @@ class CurveGroup
 				m_mcg.count()>0); };
 
   void reset();
+  void swapState(CurveGroup&);
   void removePolygonAt(int, int, int, bool all=false);
   void morphCurves(int, int);
   void morphSlices(int, int);

@@ -6,19 +6,78 @@
 #include "savepvldialog.h"
 #include "fileslistdialog.h"
 #include "importmemoryadmission.h"
+#include "../../common/src/recoveryjournal.h"
 #include <QFile>
 #include <QSaveFile>
+#include <QTemporaryDir>
 
 #include <cstring>
 #include <limits>
 #include <memory>
 #include <new>
 
+namespace
+{
+class SaveImagesRecovery
+{
+public:
+  SaveImagesRecovery() : m_active(false), m_commitAttempted(false),
+                         m_committed(false) {}
+
+  bool begin(const QString& directory, QString *error)
+  {
+    m_active = RecoveryJournal::beginDirect(
+      directory, QStringLiteral("save-images"), m_state, error);
+    return m_active;
+  }
+
+  bool addTarget(const QString& target, QString *error)
+  {
+    if (!m_active)
+      return false;
+    return RecoveryJournal::addDirectTarget(m_state, target, error);
+  }
+
+  bool commit(QString *error)
+  {
+    if (!m_active)
+      return false;
+    // If commit fails after PREPARED/COMMITTED was recorded, leave the
+    // journal for the next operation to recover instead of guessing which
+    // part of cleanup completed.
+    m_commitAttempted = true;
+    const bool ok = RecoveryJournal::commitDirect(m_state, error);
+    if (ok)
+      {
+        m_committed = true;
+        m_active = false;
+      }
+    return ok;
+  }
+
+  ~SaveImagesRecovery()
+  {
+    if (m_active && !m_commitAttempted)
+      {
+        QString ignored;
+        (void)RecoveryJournal::rollbackDirect(m_state, &ignored);
+      }
+  }
+
+private:
+  RecoveryJournalState m_state;
+  bool m_active;
+  bool m_commitAttempted;
+  bool m_committed;
+};
+}
+
 void RemapWidget::setPvlMapMax(int pmm) { m_histogramWidget->setPvlMapMax(pmm); }
 
 RemapWidget::RemapWidget(QWidget *parent) :
   QWidget(parent),
-  m_volData(new VolumeData)
+  m_volData(new VolumeData),
+  m_quickRawRequested(false)
 {
   ui.setupUi(this);
 
@@ -393,6 +452,7 @@ RemapWidget::saveAs()
   m_imageWidget->depthUserRange(dmin, dmax);
   m_imageWidget->widthUserRange(wmin, wmax);
   m_imageWidget->heightUserRange(hmin, hmax);
+  m_quickRawRequested = false;
   return saveTrimmedResult(dmin, dmax, wmin, wmax, hmin, hmax);
 }
 
@@ -436,7 +496,39 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
   if (imgflnm.isEmpty())
     return;
 
-  QFileInfo f(imgflnm);	
+  QFileInfo f(imgflnm);
+  // Keep staging on the target volume so the final renames remain atomic and
+  // do not fail as cross-volume moves when the output is on another drive.
+  QTemporaryDir staging(QDir(f.absolutePath()).filePath(
+    QStringLiteral(".drishti-save-images-XXXXXX")));
+  staging.setAutoRemove(true);
+  if (!staging.isValid())
+    {
+      QMessageBox::critical(0, "Save Images",
+                            "Cannot create a temporary batch directory.");
+      return;
+    }
+  SaveImagesRecovery recovery;
+  QString recoveryError;
+  if (!recovery.begin(f.absolutePath(), &recoveryError))
+    {
+      QMessageBox::critical(0, "Save Images",
+                            QString("Cannot recover the previous image batch: %1")
+                            .arg(recoveryError));
+      return;
+    }
+  QStringList stagedFiles;
+  QStringList finalFiles;
+  auto stagePathFor = [&](const QString& finalPath)
+    {
+      if (!recovery.addTarget(finalPath, &recoveryError))
+        return QString();
+      const QString stagePath = QDir(staging.path()).filePath(
+        QString::number(finalFiles.size()) + "-" + QFileInfo(finalPath).fileName());
+      stagedFiles.append(stagePath);
+      finalFiles.append(finalPath);
+      return stagePath;
+    };
   QChar fillChar = '0';
 
   QProgressDialog progress("Saving images",
@@ -543,7 +635,13 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
 	  flname += QString("%1").arg((int)d, 5, 10, fillChar);
 	  flname += ".";
 	  flname += f.completeSuffix();
-	  QSaveFile fout(flname);
+	  const QString stageName = stagePathFor(flname);
+	  if (stageName.isEmpty())
+	    {
+	      QMessageBox::critical(0, "Save Images", recoveryError);
+	      return;
+	    }
+	  QSaveFile fout(stageName);
 	  if (!fout.open(QFile::WriteOnly) ||
 	      fout.write((char*)&vt, 1) != 1 ||
 	      fout.write((char*)&wsz, 4) != 4 ||
@@ -581,7 +679,13 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
 	  flname += ".";
 	  flname += f.completeSuffix();
 	  
-	  QSaveFile output(flname);
+	  const QString stageName = stagePathFor(flname);
+	  if (stageName.isEmpty())
+	    {
+	      QMessageBox::critical(0, "Save Images", recoveryError);
+	      return;
+	    }
+	  QSaveFile output(stageName);
 	  const QByteArray format = f.completeSuffix().toLatin1();
 	  if (!output.open(QIODevice::WriteOnly) ||
 	      !timage.save(&output, format.constData()) ||
@@ -594,6 +698,21 @@ RemapWidget::saveTrimmedImages(int dmin, int dmax,
 	    }
 	  progress.setValue((int)(100*(float)(d-dmin)/(float)dsz));
 	}
+    }
+  for (int i=0; i<stagedFiles.size(); ++i)
+    if (!QFile::rename(stagedFiles.at(i), finalFiles.at(i)))
+      {
+        QMessageBox::critical(0, "Save Images",
+                              QString("Cannot commit image '%1': %2")
+                              .arg(finalFiles.at(i), recoveryError));
+        return;
+      }
+  if (!recovery.commit(&recoveryError))
+    {
+      QMessageBox::critical(0, "Save Images",
+                            QString("The image batch could not be committed: %1")
+                            .arg(recoveryError));
+      return;
     }
   progress.setValue(100);
 }
@@ -612,7 +731,21 @@ RemapWidget::saveTrimmed(int dmin, int dmax,
 			 int wmin, int wmax,
 			 int hmin, int hmax)
 {
-  return saveTrimmedResult(dmin, dmax, wmin, wmax, hmin, hmax);
+  // Quick RAW is an explicit UI action.  A legitimate 1x1x1 ROI at the
+  // origin must continue through the normal Save As path.
+  m_quickRawRequested = false;
+  const bool result = saveTrimmedResult(dmin, dmax, wmin, wmax, hmin, hmax);
+  m_quickRawRequested = false;
+  return result;
+}
+
+bool
+RemapWidget::saveQuickRaw()
+{
+  m_quickRawRequested = true;
+  const bool result = saveTrimmedResult(0, 0, 0, 0, 0, 0);
+  m_quickRawRequested = false;
+  return result;
 }
 
 bool
@@ -620,7 +753,7 @@ RemapWidget::saveTrimmedResult(int dmin, int dmax,
 			       int wmin, int wmax,
 			       int hmin, int hmax)
 {
-  if (dmax == 0 && wmax == 0 && hmax == 0)
+  if (m_quickRawRequested)
     {
       return Raw2Pvl::quickRaw(m_volData.get(),
 			       m_volumeFile);
@@ -715,6 +848,7 @@ RemapWidget::handleTimeSeries(QString voltype,
       fld.exec();
       if (fld.result() == QDialog::Rejected)
 	return;
+      flnms = fld.files();
     }
   QString mesg;
   mesg = "All operations on the first volume will be used\n";
@@ -762,6 +896,7 @@ RemapWidget::handleMergeVolumes(QString voltype,
       fld.exec();
       if (fld.result() == QDialog::Rejected)
 	return;
+      flnms = fld.files();
     }
 //  QString mesg;
 //  mesg = "All operations on the first volume will be used\n";

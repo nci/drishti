@@ -10,6 +10,7 @@
 #include "../portableqtruntime.h"
 
 
+
 int main(int argc, char** argv)
 {
   
@@ -23,17 +24,25 @@ int main(int argc, char** argv)
 #endif
 
   bool activateLauncher = true;
+  bool stereoRequested = false;
 
   //------------------------------
   // check whether we go through launcher
   if (argc > 0)
     {
-      for (int i=0; i<argc; i++)
-	if (std::string(argv[i]) == "-drishti")
-	  {
+      for (int i=1; i<argc; i++)
+	{
+	  const QString argument = QString::fromLocal8Bit(argv[i]);
+	  if (argument.compare("-drishti", Qt::CaseInsensitive) == 0)
 	    activateLauncher = false;
-	    break;
-	  }
+	  else if (argument.compare("-stereo", Qt::CaseInsensitive) == 0)
+	    stereoRequested = true;
+	  else if (argument.startsWith('-'))
+	    {
+	      QMessageBox::critical(0, "Drishti", QString("Unknown option: %1").arg(argument));
+	      return 2;
+	    }
+	}
     }
   //------------------------------
   
@@ -69,11 +78,8 @@ int main(int argc, char** argv)
 //  glFormat.setBlueBufferSize(16);
 //  //-----------------------------
 
-  if (argc > 1)
-    {
-      if (QString::compare(argv[1], "-stereo", Qt::CaseInsensitive) == 0)
-	glFormat.setStereo(true);
-    }
+  if (stereoRequested)
+    glFormat.setStereo(true);
 
   QGLFormat::setDefaultFormat(glFormat);
 

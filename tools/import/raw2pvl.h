@@ -84,7 +84,8 @@ class Raw2Pvl
 			    float, float, float,
 			    QList<float>, QList<int>,
 			    QString,
-			    int);
+			    int,
+			    QStringList sourceOrder = QStringList());
 
   static void applyMeanFilter(uchar**, uchar*,
 			      int,

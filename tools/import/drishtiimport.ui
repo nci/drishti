@@ -90,7 +90,10 @@
   </action>
   <action name="actionSave_As">
    <property name="text">
-    <string>Save As (S)</string>
+     <string>Save As (S)</string>
+   </property>
+   <property name="toolTip">
+    <string>Export one continuous 3D PVL volume for DrishtiPaint.</string>
    </property>
   </action>
   <action name="actionBatch_Process">
@@ -98,7 +101,10 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Batch Process </string>
+     <string>Batch Process </string>
+   </property>
+   <property name="toolTip">
+    <string>Process time-series volumes as separate output volumes.</string>
    </property>
    <property name="visible">
     <bool>false</bool>
@@ -111,7 +117,10 @@
   </action>
   <action name="actionSave_Images">
    <property name="text">
-    <string>Save Images</string>
+     <string>Save Images</string>
+   </property>
+   <property name="toolTip">
+    <string>Export individual 2D image slices; this output is not a Paint volume.</string>
    </property>
   </action>
   <action name="actionExit">
@@ -176,7 +185,10 @@
   </action>
   <action name="actionTimeSeries">
    <property name="text">
-    <string>Import Time Series</string>
+     <string>Import Time Series</string>
+   </property>
+   <property name="toolTip">
+    <string>Import separate time points; this is not one continuous 3D volume.</string>
    </property>
   </action>
   <action name="actionConvert">

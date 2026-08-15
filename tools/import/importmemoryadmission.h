@@ -3,6 +3,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+
+#include "../../common/src/memoryreservation.h"
+
 
 struct ImportMemoryStatus
 {
@@ -39,6 +43,8 @@ struct ImportMemoryAdmission
   std::uint64_t availablePhysicalBudgetBytes;
   std::uint64_t availableCommitBudgetBytes;
   ImportMemoryAdmissionReason reason;
+  std::shared_ptr<ProcessMemoryReservation> reservation;
+
 
   ImportMemoryAdmission();
 };
@@ -65,5 +71,8 @@ ImportMemoryAdmission evaluateImportMemoryAdmission(
   std::uint64_t requiredBytes,
   ImportMemoryStatusProvider provider = nullptr,
   void *providerContext = nullptr);
+
+bool reserveImportMemory(const ImportMemoryAdmission& admission,
+                         std::shared_ptr<ProcessMemoryReservation>& reservation);
 
 #endif

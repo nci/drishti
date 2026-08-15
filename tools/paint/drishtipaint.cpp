@@ -5,6 +5,7 @@
 #include "drishtipaint.h"
 #include "global.h"
 #include "staticfunctions.h"
+#include "../../common/src/pvlmanifest.h"
 #include "showhelp.h"
 #include "dcolordialog.h"
 #include "morphslice.h"
@@ -12,13 +13,16 @@
 #include "meshtools.h"
 #include "maskimportutils.h"
 #include "sliceorderutils.h"
+#include "slabsavetransaction.h"
 
 #include <QDockWidget>
 #include <QEventLoop>
 #include <QFileDialog>
 #include <QDirIterator>
 #include <QInputDialog>
+#include <QSet>
 #include <QSaveFile>
+#include <QTemporaryDir>
 #include <QScrollArea>
  
 #include <exception>
@@ -161,6 +165,98 @@ void showPaintIoError(const QString& action, const QString& detail,
                                detail.isEmpty() ?
                                  QString("Unknown volume I/O error") : detail));
 }
+
+class SaveWorkArtifactBackup
+{
+public:
+  SaveWorkArtifactBackup() : m_active(false) {}
+  ~SaveWorkArtifactBackup()
+  {
+    if (m_active)
+      {
+        QString ignored;
+        (void)restore(&ignored);
+      }
+  }
+
+  bool begin(const QStringList& rawTargets, QString *error)
+  {
+    if (error)
+      error->clear();
+    m_targets.clear();
+    m_backups.clear();
+    m_existed.clear();
+    if (!m_directory.isValid())
+      {
+        if (error)
+          *error = QStringLiteral("Cannot create Save Work rollback storage");
+        return false;
+      }
+    QSet<QString> seen;
+    for (const QString& rawTarget : rawTargets)
+      {
+        if (rawTarget.trimmed().isEmpty())
+          continue;
+        const QString target = QFileInfo(rawTarget).absoluteFilePath();
+        if (target.isEmpty() || seen.contains(target))
+          continue;
+        seen.insert(target);
+        const bool existed = QFileInfo::exists(target);
+        const QString backup = QDir(m_directory.path()).filePath(
+          QString::number(m_targets.size()) + QStringLiteral(".backup"));
+        if (existed && !QFile::copy(target, backup))
+          {
+            if (error)
+              *error = QString("Cannot preserve existing Save Work artifact '%1'")
+                .arg(target);
+            return false;
+          }
+        m_targets << target;
+        m_backups << backup;
+        m_existed << existed;
+      }
+    m_active = true;
+    return true;
+  }
+
+  bool restore(QString *error)
+  {
+    if (error)
+      error->clear();
+    QStringList failures;
+    for (int index=m_targets.size()-1; index>=0; --index)
+      {
+        const QString& target = m_targets.at(index);
+        if (m_existed.at(index))
+          {
+            if (QFileInfo::exists(target) && !QFile::remove(target))
+              failures << QString("cannot remove '%1'").arg(target);
+            if (!QFileInfo::exists(target) &&
+                !QFile::copy(m_backups.at(index), target))
+              failures << QString("cannot restore '%1'").arg(target);
+          }
+        else if (QFileInfo::exists(target) && !QFile::remove(target))
+          failures << QString("cannot remove new '%1'").arg(target);
+      }
+    if (!failures.isEmpty())
+      {
+        if (error)
+          *error = failures.join("; ");
+        return false;
+      }
+    m_active = false;
+    return true;
+  }
+
+  void dismiss() { m_active = false; }
+
+private:
+  QTemporaryDir m_directory;
+  QStringList m_targets;
+  QStringList m_backups;
+  QVector<bool> m_existed;
+  bool m_active;
+};
 }
 
 
@@ -1322,8 +1418,127 @@ DrishtiPaint::saveTagNames()
   if (m_volume->isValid())
     {
       QStringList tagNames = m_tagColorEditor->tagNames();
-      m_volume->saveTagNames(tagNames);
+      if (!m_volume->saveTagNames(tagNames))
+        showPaintIoError("Save tag names", m_volume->lastError());
     }
+}
+
+bool
+DrishtiPaint::saveCurvesTransaction(const QString& curvesfile, QString* error)
+{
+  if (error)
+    error->clear();
+  const QStringList suffixes = QStringList() << "d" << "w" << "h";
+  QStringList targets;
+  for (int i = 0; i < suffixes.count(); ++i)
+    targets << curvesfile + suffixes.at(i);
+
+  SlabSaveTransactionState transaction;
+  if (!SlabSaveTransaction::begin(targets, transaction, error))
+    return false;
+
+  const QFileInfo sourceInfo(curvesfile);
+  QTemporaryDir staging(QDir(sourceInfo.absolutePath()).filePath(
+    ".drishti-curves-XXXXXX"));
+  if (!staging.isValid())
+    {
+      (void)SlabSaveTransaction::discardStages(transaction, 0);
+      if (error) *error = "Cannot create a temporary curves directory";
+      return false;
+    }
+  const QString stagedBase = QDir(staging.path()).filePath(sourceInfo.fileName());
+  if (!m_axialCurves->saveCurves(stagedBase) ||
+      !m_sagitalCurves->saveCurves(stagedBase) ||
+      !m_coronalCurves->saveCurves(stagedBase))
+    {
+      QString cleanupError;
+      (void)SlabSaveTransaction::discardStages(transaction, &cleanupError);
+      if (error)
+	*error = cleanupError.isEmpty() ?
+	  "Cannot write one or more staged curves files" : cleanupError;
+      return false;
+    }
+
+  const QStringList generated = QStringList()
+    << stagedBase + "d" << stagedBase + "w" << stagedBase + "h";
+  for (int i = 0; i < generated.count(); ++i)
+    {
+      const bool present = QFileInfo::exists(generated.at(i));
+      if (present &&
+          !QFile::rename(generated.at(i), transaction.entries.at(i).stagePath))
+      {
+	QString cleanupError;
+	(void)SlabSaveTransaction::discardStages(transaction, &cleanupError);
+	if (error)
+	  *error = QString("Cannot move staged curves file '%1'")
+	    .arg(generated.at(i));
+	return false;
+      }
+      if (!present &&
+          !SlabSaveTransaction::setStagePresent(transaction, i, false,
+							     error))
+	return false;
+    }
+
+  return SlabSaveTransaction::commit(transaction, error);
+}
+
+bool
+DrishtiPaint::saveWorkTransaction(bool forceMask, QString* error)
+{
+  if (error)
+    error->clear();
+  if (!m_volume || !m_volume->isValid())
+    {
+      if (error)
+        *error = QStringLiteral("No valid volume is loaded");
+      return false;
+    }
+
+  QString curvesfile = m_pvlFile;
+  curvesfile.replace(".pvl.nc", ".curves");
+  const QStringList curveSuffixes = QStringList() << "d" << "w" << "h";
+  QStringList artifacts;
+  for (const QString& suffix : curveSuffixes)
+    artifacts << curvesfile + suffix;
+  artifacts << m_volume->maskPvlFileName();
+
+  SaveWorkArtifactBackup rollback;
+  if (!rollback.begin(artifacts, error))
+    return false;
+
+  QString operationError;
+  if (!saveCurvesTransaction(curvesfile, &operationError))
+    {
+      if (error)
+        *error = QStringLiteral("Save curves: ") + operationError;
+      return false;
+    }
+  if (!m_volume->saveTagNames(m_tagColorEditor->tagNames()))
+    {
+      const QString tagError = m_volume->lastError();
+      QString restoreError;
+      rollback.restore(&restoreError);
+      if (error)
+        *error = QStringLiteral("Save tag names: ") + tagError +
+                 (restoreError.isEmpty() ? QString() :
+                  QStringLiteral("; rollback: ") + restoreError);
+      return false;
+    }
+  if (!m_volume->saveIntermediateResults(forceMask))
+    {
+      const QString maskError = m_volume->lastError();
+      QString restoreError;
+      rollback.restore(&restoreError);
+      if (error)
+        *error = QStringLiteral("Save mask: ") + maskError +
+                 (restoreError.isEmpty() ? QString() :
+                  QStringLiteral("; rollback: ") + restoreError);
+      return false;
+    }
+
+  rollback.dismiss();
+  return true;
 }
 
 
@@ -1348,16 +1563,10 @@ DrishtiPaint::on_saveWork_triggered()
 {
   if (m_volume->isValid())
     {
-      QString curvesfile = m_pvlFile;
-      curvesfile.replace(".pvl.nc", ".curves");
-      m_axialCurves->saveCurves(curvesfile);
-      m_sagitalCurves->saveCurves(curvesfile);
-      m_coronalCurves->saveCurves(curvesfile);
-      
-      //m_volume->saveIntermediateResults(true);
-      if (!m_volume->exiting())
+      QString saveError;
+      if (!saveWorkTransaction(true, &saveError))
 	{
-	  showPaintIoError("Save work", m_volume->lastError());
+	  showPaintIoError("Save work", saveError);
 	  return;
 	}
 
@@ -1369,15 +1578,10 @@ DrishtiPaint::saveWork()
 {
   if (m_volume->isValid())
     {
-      QString curvesfile = m_pvlFile;
-      curvesfile.replace(".pvl.nc", ".curves");
-      m_axialCurves->saveCurves(curvesfile);
-      m_sagitalCurves->saveCurves(curvesfile);
-      m_coronalCurves->saveCurves(curvesfile);
-      
-      if (!m_volume->saveIntermediateResults())
-	ui.statusbar->showMessage(QString("Cannot save mask: %1")
-	                            .arg(m_volume->lastError()));
+      QString saveError;
+      if (!saveWorkTransaction(false, &saveError))
+	ui.statusbar->showMessage(QString("Cannot save work: %1")
+	                            .arg(saveError));
     }
 }
 
@@ -1779,15 +1983,10 @@ DrishtiPaint::closeEvent(QCloseEvent *event)
 {
   if (m_volume->isValid())
     {
-      QString curvesfile = m_pvlFile;
-      curvesfile.replace(".pvl.nc", ".curves");
-      m_axialCurves->saveCurves(curvesfile);
-      m_sagitalCurves->saveCurves(curvesfile);
-      m_coronalCurves->saveCurves(curvesfile);
-
-      if (!m_volume->saveIntermediateResults(true))
+      QString saveError;
+      if (!saveWorkTransaction(true, &saveError))
 	{
-	  showPaintIoError("Save mask before exit", m_volume->lastError());
+	  showPaintIoError("Save work before exit", saveError);
 	  event->ignore();
 	  return;
 	}
@@ -1873,9 +2072,10 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 	      if (StaticFunctions::checkExtension(url.toLocalFile(), ".curves"))
 		{
 		  QString flnm = (data->urls())[0].toLocalFile();
-		  m_axialCurves->loadCurves(flnm);
-		  m_sagitalCurves->loadCurves(flnm);
-		  m_coronalCurves->loadCurves(flnm);
+		  if (!m_axialCurves->loadCurves(flnm) ||
+		      !m_sagitalCurves->loadCurves(flnm) ||
+		      !m_coronalCurves->loadCurves(flnm))
+		    showPaintIoError("Load curves", "The curves file is truncated or invalid");
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc") ||
 		  StaticFunctions::checkExtension(url.toLocalFile(), ".xml"))
@@ -1897,25 +2097,6 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 void
 DrishtiPaint::setFile(QString filename)
 {
-  if (m_volume->isValid() && !m_volume->saveIntermediateResults(true))
-    {
-      showPaintIoError("Save current mask before loading another volume",
-                       m_volume->lastError());
-      return;
-    }
-
-  if (m_volume->isValid())
-    {
-      QString curvesfile = m_pvlFile;
-      curvesfile.replace(".pvl.nc", ".curves");
-      m_axialCurves->saveCurves(curvesfile);
-      m_sagitalCurves->saveCurves(curvesfile);
-      m_coronalCurves->saveCurves(curvesfile);
-    }
-
-  m_blockList.clear();
-  m_paintUndoReady = false;
-
   QString flnm;
 
   if (StaticFunctions::checkExtension(filename, "mask.pvl.nc"))
@@ -1923,14 +2104,10 @@ DrishtiPaint::setFile(QString filename)
       QString fnm = filename;
       fnm.replace("mask.pvl.nc", "pvl.nc");
       flnm = fnm;
-      m_tfEditor->setTransferFunction(NULL);
-      m_tfManager->clearManager();
     }
   else if (StaticFunctions::checkExtension(filename, ".pvl.nc"))
     {
       flnm = filename;
-      m_tfEditor->setTransferFunction(NULL);
-      m_tfManager->clearManager();
     }
   else
     {
@@ -1944,11 +2121,64 @@ DrishtiPaint::setFile(QString filename)
 	}
     }
 
-  if (!m_volume->reset())
+  // Load into an isolated candidate first.  A malformed header, missing slab,
+  // or memory-admission failure must leave the current workset usable.
+  const int previousBytesPerVoxel = Global::bytesPerVoxel();
+  Volume *candidate = new (std::nothrow) Volume();
+  if (!candidate)
     {
-      showPaintIoError("Close current volume", m_volume->lastError());
+      showPaintIoError("Load volume", "Cannot allocate a candidate volume");
       return;
     }
+  if (!candidate->setFile(flnm))
+    {
+      const QString error = candidate->lastError();
+      delete candidate;
+      Global::setBytesPerVoxel(previousBytesPerVoxel);
+      showPaintIoError("Load volume", error);
+      return;
+    }
+
+  // Validate all three curve sidecars before replacing the active workset.
+  // Loading them after the swap would leave a new volume active when a
+  // truncated sidecar is encountered.
+  QString candidateCurves = flnm;
+  candidateCurves.replace(".pvl.nc", ".curves");
+  if (!m_axialCurves->validateCurves(candidateCurves) ||
+      !m_sagitalCurves->validateCurves(candidateCurves) ||
+      !m_coronalCurves->validateCurves(candidateCurves))
+    {
+      delete candidate;
+      Global::setBytesPerVoxel(previousBytesPerVoxel);
+      showPaintIoError("Load curves", "One or more curves files are truncated or invalid");
+      return;
+    }
+
+  // Do not mutate the current workset until the replacement has passed all
+  // file, geometry, and memory checks. Saving the old workset is deliberately
+  // part of the commit phase so a failed candidate cannot destroy it.
+  if (m_volume->isValid())
+    {
+      QString saveError;
+      if (!saveWorkTransaction(true, &saveError))
+	{
+	  showPaintIoError("Save current work before loading another volume",
+			       saveError);
+	  delete candidate;
+	  Global::setBytesPerVoxel(previousBytesPerVoxel);
+          return;
+        }
+    }
+
+  Volume *oldVolume = m_volume;
+  m_volume = candidate;
+  delete oldVolume;
+
+  m_blockList.clear();
+  m_paintUndoReady = false;
+
+  m_tfEditor->setTransferFunction(NULL);
+  m_tfManager->clearManager();
 
 //  m_axialImage->setGridSize(0,0,0);
 //  m_sagitalImage->setGridSize(0,0,0);
@@ -1963,11 +2193,11 @@ DrishtiPaint::setFile(QString filename)
 
 
   //----------------------------
-  // save volume information from .pvl.nc file
+  // Save volume information from .pvl.nc file only after the candidate is
+  // known to be loadable.
   VolumeInformation pvlinfo;
-  VolumeInformation::volInfo(flnm.toUtf8().data(),
-			     pvlinfo);
-  VolumeInformation::setVolumeInformation(pvlinfo);
+  if (VolumeInformation::volInfo(flnm.toUtf8().data(), pvlinfo))
+    VolumeInformation::setVolumeInformation(pvlinfo);
 
   if (StaticFunctions::checkExtension(filename, ".xml"))
     {
@@ -1984,14 +2214,6 @@ DrishtiPaint::setFile(QString filename)
   Global::setVoxelScaling(StaticFunctions::getVoxelSizeFromHeader(m_pvlFile));
   Global::setVoxelUnit(StaticFunctions::getVoxelUnitFromHeader(m_pvlFile));
   //----------------------------
-
-  ((QMainWindow *)Global::mainWindow())->statusBar()->showMessage(QString("loading %1").arg(flnm));
-
-  if (m_volume->setFile(flnm) == false)
-    {
-      QMessageBox::critical(0, "Error", "Cannot load "+flnm);
-      return;
-    }
 
   ((QMainWindow *)Global::mainWindow())->statusBar()->showMessage(QString("%1").arg(flnm));
 
@@ -2059,9 +2281,10 @@ DrishtiPaint::setFile(QString filename)
       
   QString curvesfile = m_pvlFile;
   curvesfile.replace(".pvl.nc", ".curves");
-  m_axialCurves->loadCurves(curvesfile);
-  m_sagitalCurves->loadCurves(curvesfile);
-  m_coronalCurves->loadCurves(curvesfile);
+  if (!m_axialCurves->loadCurves(curvesfile) ||
+      !m_sagitalCurves->loadCurves(curvesfile) ||
+      !m_coronalCurves->loadCurves(curvesfile))
+    showPaintIoError("Load curves", "One or more curves files are truncated or invalid");
 
   on_actionGraphCut_triggered();
 
@@ -2412,7 +2635,6 @@ DrishtiPaint::savePvlHeader(QString volfile,
       d == std::numeric_limits<int>::max())
     return false;
 
-  QString rawFile;
   QString description;
   QString voxelSize;
   QString voxelType;
@@ -2431,9 +2653,7 @@ DrishtiPaint::savePvlHeader(QString volfile,
   
   for(int i=0; i<dlist.count(); i++)
     {
-      if (dlist.at(i).nodeName() == "rawfile")
-	rawFile = dlist.at(i).toElement().text();
-      else if (dlist.at(i).nodeName() == "description")
+      if (dlist.at(i).nodeName() == "description")
 	description = dlist.at(i).toElement().text();
       else if (dlist.at(i).nodeName() == "voxelunit")
 	voxelUnit = dlist.at(i).toElement().text();
@@ -2455,9 +2675,12 @@ DrishtiPaint::savePvlHeader(QString volfile,
   doc.appendChild(topElement);
 
   {      
+    // This extraction writes only PVL slabs.  Do not retain the source
+    // volume's RAW reference, which would make readers validate unrelated
+    // source slabs as if they belonged to the extracted volume.
     QDomElement de0 = doc.createElement("rawfile");
     QDomText tn0;
-    tn0 = doc.createTextNode(rawFile);
+    tn0 = doc.createTextNode(QString());
     de0.appendChild(tn0);
     topElement.appendChild(de0);
   }
@@ -2508,6 +2731,30 @@ DrishtiPaint::savePvlHeader(QString volfile,
     QDomText tn0;
     tn0 = doc.createTextNode(QString("%1").arg(d+1));
     de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+  {
+    QDomElement names = doc.createElement("pvlnames");
+    QFileInfo headerInfo(pvlfile);
+    const int slabCount = 1 + (d-1)/(d+1);
+    for (int i = 0; i < slabCount; ++i)
+      {
+        QDomElement name = doc.createElement("name");
+        name.appendChild(doc.createTextNode(
+          headerInfo.absoluteDir().relativeFilePath(
+            QString("%1.%2").arg(headerInfo.fileName()).arg(i+1, 3, 10, QChar('0')))));
+        names.appendChild(name);
+      }
+    topElement.appendChild(names);
+  }
+  {
+    QDomElement de0 = doc.createElement("pvlheadersize");
+    de0.appendChild(doc.createTextNode("13"));
+    topElement.appendChild(de0);
+  }
+  {
+    QDomElement de0 = doc.createElement("rawheadersize");
+    de0.appendChild(doc.createTextNode("13"));
     topElement.appendChild(de0);
   }
   {      
@@ -3488,7 +3735,9 @@ DrishtiPaint::on_actionExtractTag_triggered()
   outsideVal = QInputDialog::getInt(0,
 				    "Outside value",
 				    QString("Set outside value (0-%1) to").arg(maxVal),
-				    0, 0, maxVal, 1);
+				    0, 0, maxVal, 1, &ok);
+  if (!ok)
+    return;
 
   //----------------
 
@@ -3761,7 +4010,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 }
 
 
-void
+bool
 DrishtiPaint::updateCurveMask(uchar *curveMask,
 			      int depth, int width, int height,
 			      int tdepth, int twidth, int theight,
@@ -3774,6 +4023,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  progress.setCancelButtonText("Cancel");
 
   if (m_axialCurves->inFocus() && m_axialCurves->curvesPresent())
     {
@@ -3783,6 +4033,11 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  int slc = d-minDSlice;
 	  progress.setValue((int)(100*(float)slc/(float)tdepth));
 	  qApp->processEvents();
+	  if (progress.wasCanceled())
+	    {
+	      delete [] mask;
+	      return false;
+	    }
 	  
 	  memset(mask, 0, width*height);
 	  m_axialCurves->paintUsingCurves(0, d, height, width, mask);
@@ -3805,6 +4060,11 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  int slc = w-minWSlice;
 	  progress.setValue((int)(100*(float)slc/(float)twidth));
 	  qApp->processEvents();
+	  if (progress.wasCanceled())
+	    {
+	      delete [] mask;
+	      return false;
+	    }
 	  
 	  memset(mask, 0, depth*height);
 	  m_sagitalCurves->paintUsingCurves(1, w, height, depth, mask);
@@ -3827,6 +4087,11 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
 	  int slc = h-minHSlice;
 	  progress.setValue((int)(100*(float)slc/(float)theight));
 	  qApp->processEvents();
+	  if (progress.wasCanceled())
+	    {
+	      delete [] mask;
+	      return false;
+	    }
 	  
 	  memset(mask, 0, depth*width);
 	  m_coronalCurves->paintUsingCurves(2, h, width, depth, mask);
@@ -3843,6 +4108,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
     }
 
   progress.setValue(100);
+  return true;
 }
 
 
@@ -6406,11 +6672,15 @@ DrishtiPaint::bakeCurves_clicked()
 
   //----------------------------------
   // bake for all the curves
-  updateCurveMask(curveMask.get(),
-		  depth, width, height,
-		  tdepth, twidth, theight,
-		  minDSlice, minWSlice, minHSlice,
-		  maxDSlice, maxWSlice, maxHSlice);
+  if (!updateCurveMask(curveMask.get(),
+		       depth, width, height,
+		       tdepth, twidth, theight,
+		       minDSlice, minWSlice, minHSlice,
+		       maxDSlice, maxWSlice, maxHSlice))
+    {
+      showPaintIoError("Bake curves", "Operation cancelled", &progress);
+      return;
+    }
   //----------------------------------
 
   float minGrad = m_viewer->minGrad();
@@ -6540,14 +6810,19 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
 
   VolumeFileManager aVolume;
   
-  int aDepth,aWidth,aHeight;
-  StaticFunctions::getDimensionsFromHeader(flnm,
-					   aDepth, aWidth, aHeight);
-
-  int slabSize = StaticFunctions::getSlabsizeFromHeader(flnm);	  
-  int voxelType = StaticFunctions::getPvlVoxelTypeFromHeader(flnm);
-  int headerSize = StaticFunctions::getPvlHeadersizeFromHeader(flnm);
-  QStringList pvlnames = StaticFunctions::getPvlNamesFromHeader(flnm);
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(flnm, manifest, true))
+    {
+      showPaintIoError("Open extraction source", manifest.error);
+      return;
+    }
+  const int aDepth = manifest.depth;
+  const int aWidth = manifest.width;
+  const int aHeight = manifest.height;
+  const int slabSize = manifest.slabSize;
+  const int voxelType = manifest.voxelType;
+  const int headerSize = manifest.headerSize;
+  const QStringList pvlnames = manifest.pvlNames;
   if (aDepth <= 0 || aWidth <= 0 || aHeight <= 0 || slabSize <= 0 ||
       headerSize < 0 || pvlnames.isEmpty() ||
       (voxelType != VolumeFileManager::_UChar &&
@@ -6576,27 +6851,32 @@ DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
 
   //----------------
   int outsideVal = 0;
+  bool ok = false;
   if (bpv == 1)
     {
       outsideVal = QInputDialog::getInt(0,
 					"Outside value",
 					"Set outside value (0-255) to",
-					0, 0, 255, 1);
+					0, 0, 255, 1, &ok);
     }
   else
     {
       outsideVal = QInputDialog::getInt(0,
 					"Outside value",
 					"Set outside value (0-65535) to",
-					0, 0, 65535, 1);
+					0, 0, 65535, 1, &ok);
     }
+  if (!ok)
+    return;
   //----------------
 
   //----------------
   int clearance = QInputDialog::getInt(0,
 				       "Clearance for tight fit",
 				       "Gap from edge to first contributing voxel",
-				       0, 0, 20);
+				       0, 0, 20, 1, &ok);
+  if (!ok)
+    return;
   //----------------
 
   

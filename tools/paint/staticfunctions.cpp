@@ -4,8 +4,10 @@
 #include <QMessageBox>
 #include <QDialog>
 #include <QFileDialog>
+#include <QSaveFile>
 #include <QTextEdit>
 #include <QVBoxLayout>
+#include "../../common/src/pvlmanifest.h"
 
 Vec
 StaticFunctions::getVec(QString str)
@@ -219,66 +221,16 @@ StaticFunctions::checkURLs(QList<QUrl> urls, const char *ext)
 bool
 StaticFunctions::checkRGB(QString volfile)
 {
-  if (!xmlHeaderFile(volfile))
-    {
-      QMessageBox::information(0, "Error",
-      QString("%1 is not a valid preprocessed volume file").arg(volfile));
-      return false;
-    }
-
-  QDomDocument document;
-  QFile f(volfile.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "voxeltype")
-	{
-	  QString pvalue = dlist.at(i).toElement().text();
-	  if (pvalue == "RGB" ||
-	      pvalue == "RGBA")
-	    return true;
-	}
-    }
-  return false;
+  PvlManifest manifest;
+  return PvlManifestParser::parse(volfile, manifest, false) && manifest.isColor;
 }
 
 bool
 StaticFunctions::checkRGBA(QString volfile)
 {
-  if (!xmlHeaderFile(volfile))
-    {
-      QMessageBox::information(0, "Error",
-      QString("%1 is not a valid preprocessed volume file").arg(volfile));
-      return false;
-    }
-
-  QDomDocument document;
-  QFile f(volfile.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "voxeltype")
-	{
-	  QString pvalue = dlist.at(i).toElement().text();
-	  if (pvalue == "RGBA")
-	    return true;
-	}
-    }
-  return false;
+  PvlManifest manifest;
+  return PvlManifestParser::parse(volfile, manifest, false) &&
+         manifest.voxelType == PvlManifestParser::RGBA;
 }
 
 void
@@ -342,77 +294,27 @@ StaticFunctions::generateHistograms(float *flhist1D,
 Vec
 StaticFunctions::getVoxelSizeFromHeader(QString pvlFilename)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "voxelsize")
-	{
-	  QStringList str = (dlist.at(i).toElement().text()).split(" ", QString::SkipEmptyParts);
-	  float vx = str[0].toFloat();
-	  float vy = str[1].toFloat();
-	  float vz = str[2].toFloat();
-	  if (vx <=0 || vy <= 0 || vz <= 0)
-	    {
-	      QMessageBox::critical(0, "Voxel Size Error",
-				    QString("Voxel size <= 0 not allowed\nDefaulting to 1 1 1"),
-				    QString("%1 %2 %3").arg(vx).arg(vy).arg(vz));
-	      vx = vy = vz = 1;
-	    }
-	  
-	  return Vec(vx, vy, vz);
-	}
-    }
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return Vec(manifest.voxelSizeX, manifest.voxelSizeY, manifest.voxelSizeZ);
   return Vec(1,1,1);
 }
 
 QString
 StaticFunctions::getVoxelUnitFromHeader(QString pvlFilename)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "voxelunit")
-	{
-	  QString pvalue = dlist.at(i).toElement().text();	  
-	  if (pvalue == "angstrom")
-	    return "A";
-	  else if (pvalue == "nanometer")
-	    return "nm";
-	  else if (pvalue == "micron")
-	    return "um";
-	  else if (pvalue == "millimeter")
-	    return "mm";
-	  else if (pvalue == "centimeter")
-	    return "cm";
-	  else if (pvalue == "meter")
-	    return "m";
-	  else if (pvalue == "kilometer")
-	    return "km";
-	  else if (pvalue == "parsec")
-	    return "p";
-	  else if (pvalue == "kiloparsec")
-	    return "kp";	  
-	}
-    }
-
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(pvlFilename, manifest, false)) return "";
+  const QString unit = manifest.voxelUnit.toLower();
+  if (unit == "angstrom") return "A";
+  if (unit == "nanometer") return "nm";
+  if (unit == "micron") return "um";
+  if (unit == "millimeter") return "mm";
+  if (unit == "centimeter") return "cm";
+  if (unit == "meter") return "m";
+  if (unit == "kilometer") return "km";
+  if (unit == "parsec") return "p";
+  if (unit == "kiloparsec") return "kp";
   return "";
 }
 
@@ -420,219 +322,82 @@ void
 StaticFunctions::getDimensionsFromHeader(QString pvlFilename,
 					 int &d, int &w, int &h)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
     {
-      document.setContent(&f);
-      f.close();
+      d = manifest.depth;
+      w = manifest.width;
+      h = manifest.height;
+      return;
     }
 
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "gridsize")
-	{
-	  QStringList str = (dlist.at(i).toElement().text()).split(" ", QString::SkipEmptyParts);
-	  d = str[0].toFloat();
-	  w = str[1].toFloat();
-	  h = str[2].toFloat();
-	  return;
-	}
-    }
+  d = w = h = 0;
 }
 
 int
 StaticFunctions::getSlabsizeFromHeader(QString pvlFilename)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.slabSize;
 
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "slabsize")
-	return (dlist.at(i).toElement().text()).toInt();
-    }
   return 0;
 }
 
 int
 StaticFunctions::getPvlVoxelTypeFromHeader(QString pvlFilename)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.voxelType;
 
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "pvlvoxeltype")
-	{
-	  if (dlist.at(i).toElement().text() == "unsigned char") return 0;
-	  if (dlist.at(i).toElement().text() == "char") return 1;
-	  if (dlist.at(i).toElement().text() == "unsigned short") return 2;
-	  if (dlist.at(i).toElement().text() == "short") return 3;
-	  if (dlist.at(i).toElement().text() == "int") return 4;
-	  if (dlist.at(i).toElement().text() == "float") return 5;
-	}
-    }
-  return 0;
+  return -1;
 }
 
 int
 StaticFunctions::getPvlHeadersizeFromHeader(QString pvlFilename)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.headerSize;
 
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "pvlheadersize")
-	return (dlist.at(i).toElement().text()).toInt();
-    }
-
-  // default is 13 byte header
-  return 13;
+  return -1;
 }
 
 int
 StaticFunctions::getRawHeadersizeFromHeader(QString pvlFilename)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "rawheadersize")
-	return (dlist.at(i).toElement().text()).toInt();
-    }
-
-  // default is 13 byte header
-  return 13;
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.rawHeaderSize;
+  return -1;
 }
 
 QStringList
 StaticFunctions::getPvlNamesFromHeader(QString pvlFilename)
 {
-  QStringList filenames;
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.pvlNames;
 
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "pvlnames")
-	{
-	  QString names = (dlist.at(i).toElement().text()).simplified();
-	  QStringList flnms = names.split(" ", QString::SkipEmptyParts);
-
-	  QFileInfo fileInfo(pvlFilename);
-	  QDir direc = fileInfo.absoluteDir();
-	  for(int fi=0; fi<flnms.count(); fi++)
-	    {
-	      fileInfo.setFile(direc, flnms[fi]);
-	      filenames << fileInfo.absoluteFilePath();
-	    }
-
-	  return filenames;
-	}
-    }
-
-  return filenames;
+  return QStringList();
 }
 
 QStringList
 StaticFunctions::getRawNamesFromHeader(QString pvlFilename)
 {
-  QStringList filenames;
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.rawNames;
 
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "rawnames")
-	{
-	  QString names = (dlist.at(i).toElement().text()).simplified();
-	  QStringList flnms = names.split(" ", QString::SkipEmptyParts);
-
-	  QFileInfo fileInfo(pvlFilename);
-	  QDir direc = fileInfo.absoluteDir();
-	  for(int fi=0; fi<flnms.count(); fi++)
-	    {
-	      fileInfo.setFile(direc, flnms[fi]);
-	      filenames << fileInfo.absoluteFilePath();
-	    }
-
-	  return filenames;
-	}
-    }
-
-  return filenames;
+  return QStringList();
 }
 
 bool
 StaticFunctions::xmlHeaderFile(QString volfile)
 {
-  bool xmlheader = false;
-
-  QFile qfl(volfile);
-  if (!qfl.open(QIODevice::ReadOnly | QIODevice::Text))
-    {
-      QMessageBox::information(0, "Cannot open", volfile);
-      return false;
-    }
-  QString line = qfl.readLine();
-  // interested in second line
-  line = qfl.readLine();
-  line = line.trimmed();
-  //QMessageBox::information(0, volfile, "["+line+"]");
-  if (line == "<PvlDotNcFileHeader>")
-    xmlheader = true;
-  qfl.close();
-
-  return xmlheader;
+  PvlManifest manifest;
+  return PvlManifestParser::parse(volfile, manifest, false);
 }
 
 bool
@@ -1245,7 +1010,7 @@ StaticFunctions::saveVolumeToFile(QString vflnm,
 }
 
 
-void
+bool
 StaticFunctions::savePvlHeader(QString pvlFilename,
 			       bool saveRawFile, QString rawfile,
 			       int voxelType, int pvlVoxelType, int voxelUnit,
@@ -1261,6 +1026,32 @@ StaticFunctions::savePvlHeader(QString pvlFilename,
 
   QDomElement topElement = doc.createElement("PvlDotNcFileHeader");
   doc.appendChild(topElement);
+
+  {
+    QDomElement names = doc.createElement("pvlnames");
+    const int slabCount = slabSize > 0 ? 1 + (d-1)/slabSize : 0;
+    QFileInfo headerInfo(pvlFilename);
+    for (int i = 0; i < slabCount; ++i)
+      {
+        QDomElement name = doc.createElement("name");
+        name.appendChild(doc.createTextNode(
+          headerInfo.absoluteDir().relativeFilePath(
+            QString("%1.%2").arg(headerInfo.fileName()).arg(i+1, 3, 10, QChar('0')))));
+        names.appendChild(name);
+      }
+    topElement.appendChild(names);
+  }
+
+  {
+    QDomElement de0 = doc.createElement("pvlheadersize");
+    de0.appendChild(doc.createTextNode("13"));
+    topElement.appendChild(de0);
+  }
+  {
+    QDomElement de0 = doc.createElement("rawheadersize");
+    de0.appendChild(doc.createTextNode("13"));
+    topElement.appendChild(de0);
+  }
 
   {      
     QString vstr;
@@ -1392,11 +1183,16 @@ StaticFunctions::savePvlHeader(QString pvlFilename,
     topElement.appendChild(de0);
   }
   
-  QFile f(xmlfile.toUtf8().data());
-  if (f.open(QIODevice::WriteOnly))
+  QSaveFile f(xmlfile);
+  if (!f.open(QIODevice::WriteOnly))
+    return false;
+  QTextStream out(&f);
+  doc.save(out, 2);
+  out.flush();
+  if (out.status() != QTextStream::Ok)
     {
-      QTextStream out(&f);
-      doc.save(out, 2);
-      f.close();
+      f.cancelWriting();
+      return false;
     }
+  return f.commit();
 }

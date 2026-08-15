@@ -194,6 +194,12 @@ bool samePageLayout(const PageMetadata& expected,
     *difference = "planar configuration";
   else if (expected.photometric != actual.photometric)
     *difference = "photometric interpretation";
+  // The importer preserves the TIFF scanline order as the voxel axis.  A
+  // stack therefore has to use one orientation consistently; accepting a
+  // top-left page beside a bottom-left page would silently produce a volume
+  // whose slices use different coordinate conventions.
+  else if (expected.orientation != actual.orientation)
+    *difference = "orientation";
   else if (expected.rowBytes != actual.rowBytes)
     *difference = "decoded row size";
   else

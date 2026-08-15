@@ -9,8 +9,8 @@
     <height>260</height>
    </rect>
   </property>
-  <property name="windowTitle" >
-   <string>Loading Files</string>
+   <property name="windowTitle" >
+    <string>Confirm Slice Order</string>
   </property>
   <layout class="QVBoxLayout" >
    <item>

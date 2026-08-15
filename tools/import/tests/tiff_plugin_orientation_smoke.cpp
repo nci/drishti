@@ -1,4 +1,5 @@
 #include "../common.h"
+#include "../sourcefilesprovider.h"
 #include "../volinterface.h"
 
 #include <QApplication>
@@ -201,7 +202,8 @@ int main(int argc, char **argv)
   plugin->init();
 
   if (!plugin->setFile(QStringList() << bottom0 << bottom1))
-    return fail("Bottom-left TIFF stack was rejected");
+    return fail(QString("Bottom-left TIFF stack was rejected: %1")
+                  .arg(lastError(pluginObject)));
 
   int depth = 0;
   int width = 0;
@@ -235,19 +237,21 @@ int main(int argc, char **argv)
       "first=%1, last=%2").arg(firstRawValue.toString(),
                                 lastRawValue.toString()));
 
-  plugin->clear();
-  if (!plugin->setFile(QStringList() << bottom0 << top) ||
-      !checkSlice(plugin, pluginObject, 0, 1, &sliceError) ||
-      !checkSlice(plugin, pluginObject, 1, 201, &sliceError))
-    return fail(QString("A mixed top-left/bottom-left stack failed: %1")
-                  .arg(sliceError.isEmpty() ? lastError(pluginObject) :
-                                              sliceError));
+  if (plugin->setFile(QStringList() << bottom0 << top) ||
+      lastError(pluginObject).isEmpty())
+    return fail("A mixed top-left/bottom-left TIFF stack was accepted");
+
+  // A rejected candidate must not damage the previously active stack.
+  if (!checkSlice(plugin, pluginObject, 0, 1, &sliceError) ||
+      !checkSlice(plugin, pluginObject, 1, 101, &sliceError))
+    return fail(QString("Rejected mixed orientation damaged the active stack: %1")
+                  .arg(sliceError));
 
   if (plugin->setFile(QStringList() << unsupported) ||
       lastError(pluginObject).isEmpty())
     return fail("An unsupported bottom-right TIFF orientation was accepted");
   if (!checkSlice(plugin, pluginObject, 0, 1, &sliceError) ||
-      !checkSlice(plugin, pluginObject, 1, 201, &sliceError))
+      !checkSlice(plugin, pluginObject, 1, 101, &sliceError))
     return fail(QString("Rejected TIFF orientation damaged the active stack: %1")
                   .arg(sliceError));
 
@@ -284,6 +288,22 @@ int main(int argc, char **argv)
       !checkSlice(plugin, pluginObject, 2, 510, &sliceError))
     return fail(QString("TIFF directory numeric ordering is incorrect: %1")
                   .arg(sliceError));
+
+  const QStringList explicitOrder =
+    QStringList() << QDir(naturalDirectory).filePath("slice-10.tiff")
+                  << QDir(naturalDirectory).filePath("slice-1.tiff")
+                  << QDir(naturalDirectory).filePath("slice-2.tiff");
+  plugin->clear();
+  if (!plugin->setFile(explicitOrder) ||
+      !checkSlice(plugin, pluginObject, 0, 510, &sliceError) ||
+      !checkSlice(plugin, pluginObject, 1, 501, &sliceError) ||
+      !checkSlice(plugin, pluginObject, 2, 502, &sliceError))
+    return fail(QString("TIFF explicit order was not preserved: %1")
+                  .arg(sliceError));
+  SourceFilesProvider *sourceProvider =
+    qobject_cast<SourceFilesProvider *>(pluginObject);
+  if (!sourceProvider || sourceProvider->sourceFiles() != explicitOrder)
+    return fail("TIFF source provenance did not preserve explicit order");
 
   plugin->clear();
   std::cout << "TIFF top-left/bottom-left orientation smoke passed" << std::endl;

@@ -5,11 +5,19 @@
 #include <math.h>
 #include "graphcut.h"
 #include "morphslice.h"
+#include "slabsavetransaction.h"
 
 #include <QFile>
 #include <QLabel>
+#include <QDir>
+#include <QSaveFile>
+#include <QTemporaryDir>
+#include <QUuid>
+#include <QRegularExpression>
+#include <QEventLoop>
 
 #include <algorithm>
+#include <atomic>
 #include <exception>
 #include <limits>
 #include <new>
@@ -209,7 +217,16 @@ ImageWidget::saveImage()
   p.drawImage(0, 0, m_image);
   p.drawImage(0, 0, m_maskimage);
 
-  sImage.save(imgFile);
+  const QByteArray imageFormat = QFileInfo(imgFile).suffix().toLatin1().toUpper();
+  QSaveFile output(imgFile);
+  if (!output.open(QIODevice::WriteOnly) ||
+      !sImage.save(&output, imageFormat.constData()) ||
+      !output.commit())
+    {
+      QMessageBox::warning(0, "Save Image",
+                           QString("Cannot write image '%1'.").arg(imgFile));
+      return;
+    }
   QMessageBox::information(0, "Save Image", "Done");
 }
 
@@ -234,11 +251,31 @@ ImageWidget::saveImageSequence()
 
   QString ext = imgFile.right(4);
   imgFile.chop(4);
+
+  const QFileInfo outputInfo(imgFile);
+  QTemporaryDir staging(QDir(outputInfo.absolutePath()).filePath(
+    ".drishti-image-sequence-XXXXXX"));
+  if (!staging.isValid())
+    {
+      QMessageBox::warning(0, "Save All Image Slices",
+                           "Cannot create a staging directory.");
+      return;
+    }
+
+  const QByteArray imageFormat = ext.mid(1).toLatin1().toUpper();
+  QStringList stagedFiles;
+  QStringList targetFiles;
     
   int iend = 0;
   if (m_sliceType == DSlice) iend = m_Depth;
   if (m_sliceType == WSlice) iend = m_Width;
   if (m_sliceType == HSlice) iend = m_Height;
+  if (iend <= 0)
+    {
+      QMessageBox::warning(0, "Save All Image Slices",
+                           "The current volume has no slices to save.");
+      return;
+    }
 
   int cs = m_currSlice;
   
@@ -253,6 +290,14 @@ ImageWidget::saveImageSequence()
     {        
       progress.setValue(100*(float)i/(float)iend);
       qApp->processEvents();
+
+      if (progress.wasCanceled())
+	{
+	  setSlice(cs);
+	  QMessageBox::information(0, "Save All Image Slices",
+	                           "Save cancelled; existing files were unchanged.");
+	  return;
+	}
 			
       setSlice(i);
       
@@ -265,18 +310,72 @@ ImageWidget::saveImageSequence()
       p.drawImage(0, 0, m_maskimage);
       
       QString imgno = QString("%1").arg(i, 5, 10, QChar('0'));
-      sImage.save(imgFile+imgno+ext);
-
-      if (progress.wasCanceled())
+      const QString target = imgFile + imgno + ext;
+      const QString staged = QDir(staging.path()).filePath(
+        QFileInfo(target).fileName());
+      QSaveFile stagedFile(staged);
+      if (!stagedFile.open(QIODevice::WriteOnly) ||
+          !sImage.save(&stagedFile, imageFormat.constData()) ||
+          !stagedFile.commit())
 	{
-	  QMessageBox::information(0, "", "Save Image Slices Stopped");
-	  break;
+	  setSlice(cs);
+	  QMessageBox::warning(0, "Save All Image Slices",
+	                       QString("Cannot write staged image '%1'.")
+	                       .arg(target));
+	  return;
 	}
+      targetFiles << target;
+      stagedFiles << staged;
     }
 
   progress.setValue(100);
 
   setSlice(cs);
+
+  QStringList staleTargets;
+  const QString targetPrefix = QFileInfo(imgFile).fileName();
+  const QRegularExpression sequencePattern(
+    QRegularExpression::escape(targetPrefix) + "\\d{5}" +
+    QRegularExpression::escape(ext) + "$",
+    QRegularExpression::CaseInsensitiveOption);
+  const QStringList existing = outputInfo.absoluteDir().entryList(
+    QDir::Files | QDir::NoSymLinks);
+  for (const QString& name : existing)
+    if (sequencePattern.match(name).hasMatch())
+      {
+        const QString path = outputInfo.absoluteDir().absoluteFilePath(name);
+        if (!targetFiles.contains(path))
+          staleTargets << path;
+      }
+  const QStringList allTargets = targetFiles + staleTargets;
+  SlabSaveTransactionState transaction;
+  QString transactionError;
+  if (!SlabSaveTransaction::begin(allTargets, transaction, &transactionError))
+    {
+      QMessageBox::warning(0, "Save All Image Slices", transactionError);
+      return;
+    }
+  for (int i = 0; i < targetFiles.count(); ++i)
+    if (!QFile::rename(stagedFiles.at(i), transaction.entries.at(i).stagePath))
+      {
+        SlabSaveTransaction::discardStages(transaction, 0);
+        QMessageBox::warning(0, "Save All Image Slices",
+                             "The image sequence could not be staged.");
+        return;
+      }
+  for (int i = targetFiles.count(); i < allTargets.count(); ++i)
+    if (!SlabSaveTransaction::setStagePresent(transaction, i, false,
+                                               &transactionError))
+      {
+        SlabSaveTransaction::discardStages(transaction, 0);
+        QMessageBox::warning(0, "Save All Image Slices", transactionError);
+        return;
+      }
+  if (!SlabSaveTransaction::commit(transaction, &transactionError))
+    {
+      QMessageBox::warning(0, "Save All Image Slices", transactionError);
+      return;
+    }
   QMessageBox::information(0, "Save All Image Slices", "Done");
 }
 
@@ -1617,14 +1716,18 @@ ImageWidget::graphcutModeKeyPressEvent(QKeyEvent *event)
 	  ctag = QInputDialog::getInt(0,
 				      "Shrinkwrap/Shell",
 				      QString("Connected region will be shrinkwrapped/shelled with current tag value (%1).\nSpecify tag value of connected region (-1 for connected visible region).").arg(Global::tag()),
-				      -1, -1, 65535, 1);
+				      -1, -1, 65535, 1, &ok);
+	  if (!ok)
+	    return;
 	  
 	  int thickness = 1;
 	  if (shell)
 	    thickness = QInputDialog::getInt(0,
 					     "Shell thickness",
 					     "Shell thickness",
-					     1, 1, 50, 1);
+					     1, 1, 50, 1, &ok);
+	    if (!ok)
+	      return;
 
 	  Vec bmin = Vec(m_minHSlice,
 			 m_minWSlice,
@@ -2075,8 +2178,6 @@ ImageWidget::mouseMoveEvent(QMouseEvent *event)
       if (altModifier)
 	return;
     }
-
-  
   graphcutMouseMoveEvent(event);
 }
 
@@ -2644,17 +2745,30 @@ ImageWidget::applyGraphCut()
 
       MaxFlowMinCut mfmc;
       int tagged = 0;
+      std::atomic_bool graphCutCancelRequested(false);
+      QProgressDialog graphCutProgress(
+        QStringLiteral("Applying Graph Cut"),
+        QStringLiteral("Cancel"), 0, 0, this);
+      graphCutProgress.setWindowModality(Qt::WindowModal);
+      graphCutProgress.setAutoClose(false);
+      QObject::connect(&graphCutProgress, &QProgressDialog::canceled,
+                       [&graphCutCancelRequested]()
+                       { graphCutCancelRequested.store(true); });
+      graphCutProgress.show();
+      QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
       if (!mfmc.run(size1, size2,
 		    Global::boxSize(),
 		    Global::lambda()*0.1f,
 		    Global::tagSimilar(),
 		    imageData.data(), maskData.data(),
 		    Global::tag(), graphTags.data(),
-		    tagged, graphCutError))
+		    tagged, graphCutError, &graphCutCancelRequested))
 	{
+	  graphCutProgress.close();
 	  failGraphCut(graphCutError);
 	  return;
 	}
+      graphCutProgress.close();
       Q_UNUSED(tagged);
 
       std::vector<ushort> finalTags(fullCount);

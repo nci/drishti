@@ -9,6 +9,7 @@ class VED : public QObject, RenderPluginInterface
 {
  Q_OBJECT
    Q_INTERFACES(RenderPluginInterface)
+   Q_PLUGIN_METADATA(IID "drishti.render.Plugin.PluginInterface/1.0")
 
  public :
 

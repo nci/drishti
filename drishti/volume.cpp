@@ -6,9 +6,43 @@
 
 #include <limits>
 #include <new>
+#include <utility>
 
 namespace
 {
+  struct GlobalVolumeLoadState
+  {
+    int volumeType;
+    int pvlVoxelType;
+    int lod;
+    Vec relativeVoxelScaling;
+    VolumeInformation information[4];
+  };
+
+  GlobalVolumeLoadState
+  captureGlobalVolumeLoadState()
+  {
+    GlobalVolumeLoadState state;
+    state.volumeType = Global::volumeType();
+    state.pvlVoxelType = Global::pvlVoxelType();
+    state.lod = Global::lod();
+    state.relativeVoxelScaling = Global::relativeVoxelScaling();
+    for (int i = 0; i < 4; ++i)
+      state.information[i] = VolumeInformation::volumeInformation(i);
+    return state;
+  }
+
+  void
+  restoreGlobalVolumeLoadState(const GlobalVolumeLoadState& state)
+  {
+    Global::setVolumeType(state.volumeType);
+    Global::setPvlVoxelType(state.pvlVoxelType);
+    Global::setLod(state.lod);
+    Global::setRelativeVoxelScaling(state.relativeVoxelScaling);
+    for (int i = 0; i < 4; ++i)
+      VolumeInformation::setVolumeInformation(state.information[i], i);
+  }
+
   bool
   checkedSizeFactor(qint64 factor, qint64 &size)
   {
@@ -161,6 +195,17 @@ Volume::timestepNumber(int vol, int n)
     return n;
 
   return m_volume[vol]->timestepNumber(n);
+}
+
+int
+Volume::currentVolumeNumber(int vol) const
+{
+  if (Global::volumeType() == Global::RGBVolume ||
+      Global::volumeType() == Global::RGBAVolume)
+    return m_volumeRGB ? m_volumeRGB->currentVolumeNumber() : 0;
+  if (vol < 0 || vol >= m_volume.count())
+    return 0;
+  return m_volume[vol]->currentVolumeNumber();
 }
 
 QList<float>
@@ -613,11 +658,96 @@ Volume::Volume()
   m_dragTexture = 0;
   m_lowresTexture = 0;
   m_bbScale = 1.0;
+  m_loadingCandidate = false;
+  m_pendingOldState = 0;
+  m_pendingGlobalStateValid = false;
+  m_pendingVolumeType = Global::DummyVolume;
+  m_pendingPvlVoxelType = 0;
+  m_pendingLod = 1;
+  m_pendingRelativeVoxelScaling = Vec(1,1,1);
 }
 
 Volume::~Volume()
 {
+  if (m_pendingOldState)
+    {
+      const GlobalVolumeLoadState state = captureGlobalVolumeLoadState();
+      delete m_pendingOldState;
+      m_pendingOldState = 0;
+      m_pendingGlobalStateValid = false;
+      restoreGlobalVolumeLoadState(state);
+    }
   clearVolumes();
+}
+
+void
+Volume::commitPendingLoad()
+{
+  if (!m_pendingOldState)
+    return;
+
+  const GlobalVolumeLoadState state = captureGlobalVolumeLoadState();
+  delete m_pendingOldState;
+  m_pendingOldState = 0;
+  m_pendingGlobalStateValid = false;
+  restoreGlobalVolumeLoadState(state);
+}
+
+void
+Volume::rollbackPendingLoad()
+{
+  if (!m_pendingOldState)
+    return;
+
+  Volume *replacement = m_pendingOldState;
+  m_pendingOldState = 0;
+  swapState(*replacement);
+  delete replacement;
+  if (m_pendingGlobalStateValid)
+    restorePendingGlobalState();
+  m_pendingGlobalStateValid = false;
+}
+
+void
+Volume::rememberPendingGlobalState(const int volumeType,
+                                   const int pvlVoxelType,
+                                   const int lod,
+                                   const Vec& relativeVoxelScaling,
+                                   const VolumeInformation *information)
+{
+  m_pendingVolumeType = volumeType;
+  m_pendingPvlVoxelType = pvlVoxelType;
+  m_pendingLod = lod;
+  m_pendingRelativeVoxelScaling = relativeVoxelScaling;
+  for (int i = 0; i < 4; ++i)
+    m_pendingInformation[i] = information[i];
+  m_pendingGlobalStateValid = true;
+}
+
+void
+Volume::restorePendingGlobalState()
+{
+  Global::setVolumeType(m_pendingVolumeType);
+  Global::setPvlVoxelType(m_pendingPvlVoxelType);
+  Global::setLod(m_pendingLod);
+  Global::setRelativeVoxelScaling(m_pendingRelativeVoxelScaling);
+  for (int i = 0; i < 4; ++i)
+    VolumeInformation::setVolumeInformation(m_pendingInformation[i], i);
+}
+
+void
+Volume::swapState(Volume& other)
+{
+  std::swap(m_volume, other.m_volume);
+  std::swap(m_volumeRGB, other.m_volumeRGB);
+  std::swap(m_subvolumeTexture, other.m_subvolumeTexture);
+  std::swap(m_slabLayerCapacity, other.m_slabLayerCapacity);
+  std::swap(m_channelSlabTexture, other.m_channelSlabTexture);
+  std::swap(m_channelSlabBytes, other.m_channelSlabBytes);
+  std::swap(m_dragSubvolumeTexture, other.m_dragSubvolumeTexture);
+  std::swap(m_dragTexture, other.m_dragTexture);
+  std::swap(m_lowresTexture, other.m_lowresTexture);
+  std::swap(m_bbScale, other.m_bbScale);
 }
 
 void
@@ -659,6 +789,31 @@ Volume::clearVolumes()
 bool
 Volume::loadVolumeRGB(const char *flnm, bool redo)
 {
+  if (!m_loadingCandidate)
+    {
+      if (m_pendingOldState)
+        rollbackPendingLoad();
+      const GlobalVolumeLoadState oldState = captureGlobalVolumeLoadState();
+      Volume *candidate = new (std::nothrow) Volume;
+      if (!candidate)
+        return false;
+      candidate->m_loadingCandidate = true;
+      if (!candidate->loadVolumeRGB(flnm, redo))
+	{
+	  delete candidate;
+	  restoreGlobalVolumeLoadState(oldState);
+	  return false;
+	}
+      const GlobalVolumeLoadState newState = captureGlobalVolumeLoadState();
+      swapState(*candidate);
+      m_pendingOldState = candidate;
+      rememberPendingGlobalState(oldState.volumeType, oldState.pvlVoxelType,
+                                 oldState.lod, oldState.relativeVoxelScaling,
+                                 oldState.information);
+      restoreGlobalVolumeLoadState(newState);
+      return true;
+    }
+
   clearVolumes();
 
   bool rgba = VolumeInformation::checkRGBA(flnm);
@@ -681,6 +836,31 @@ Volume::loadVolumeRGB(const char *flnm, bool redo)
 bool
 Volume::loadDummyVolume(int nx, int ny, int nz)
 {
+  if (!m_loadingCandidate)
+    {
+      if (m_pendingOldState)
+        rollbackPendingLoad();
+      const GlobalVolumeLoadState oldState = captureGlobalVolumeLoadState();
+      Volume *candidate = new (std::nothrow) Volume;
+      if (!candidate)
+	return false;
+      candidate->m_loadingCandidate = true;
+      if (!candidate->loadDummyVolume(nx, ny, nz))
+	{
+	  delete candidate;
+	  restoreGlobalVolumeLoadState(oldState);
+	  return false;
+	}
+      const GlobalVolumeLoadState newState = captureGlobalVolumeLoadState();
+      swapState(*candidate);
+      m_pendingOldState = candidate;
+      rememberPendingGlobalState(oldState.volumeType, oldState.pvlVoxelType,
+                                 oldState.lod, oldState.relativeVoxelScaling,
+                                 oldState.information);
+      restoreGlobalVolumeLoadState(newState);
+      return true;
+    }
+
   clearVolumes();
 
   Global::setVolumeType(Global::DummyVolume);
@@ -706,6 +886,31 @@ Volume::loadDummyVolume(int nx, int ny, int nz)
 bool
 Volume::loadVolume(QList<QString> vfiles, bool redo)
 {
+  if (!m_loadingCandidate)
+    {
+      if (m_pendingOldState)
+        rollbackPendingLoad();
+      const GlobalVolumeLoadState oldState = captureGlobalVolumeLoadState();
+      Volume *candidate = new (std::nothrow) Volume;
+      if (!candidate)
+	return false;
+      candidate->m_loadingCandidate = true;
+      if (!candidate->loadVolume(vfiles, redo))
+	{
+	  delete candidate;
+	  restoreGlobalVolumeLoadState(oldState);
+	  return false;
+	}
+      const GlobalVolumeLoadState newState = captureGlobalVolumeLoadState();
+      swapState(*candidate);
+      m_pendingOldState = candidate;
+      rememberPendingGlobalState(oldState.volumeType, oldState.pvlVoxelType,
+                                 oldState.lod, oldState.relativeVoxelScaling,
+                                 oldState.information);
+      restoreGlobalVolumeLoadState(newState);
+      return true;
+    }
+
   clearVolumes();
 
   Global::setVolumeType(Global::SingleVolume);
@@ -746,6 +951,31 @@ Volume::loadVolume(QList<QString> vfiles0,
 		   QList<QString> vfiles1,
 		   bool redo)
 {
+  if (!m_loadingCandidate)
+    {
+      if (m_pendingOldState)
+        rollbackPendingLoad();
+      const GlobalVolumeLoadState oldState = captureGlobalVolumeLoadState();
+      Volume *candidate = new (std::nothrow) Volume;
+      if (!candidate)
+	return false;
+      candidate->m_loadingCandidate = true;
+      if (!candidate->loadVolume(vfiles0, vfiles1, redo))
+	{
+	  delete candidate;
+	  restoreGlobalVolumeLoadState(oldState);
+	  return false;
+	}
+      const GlobalVolumeLoadState newState = captureGlobalVolumeLoadState();
+      swapState(*candidate);
+      m_pendingOldState = candidate;
+      rememberPendingGlobalState(oldState.volumeType, oldState.pvlVoxelType,
+                                 oldState.lod, oldState.relativeVoxelScaling,
+                                 oldState.information);
+      restoreGlobalVolumeLoadState(newState);
+      return true;
+    }
+
   clearVolumes();
 
   Global::setVolumeType(Global::DoubleVolume);
@@ -804,6 +1034,31 @@ Volume::loadVolume(QList<QString> vfiles0,
 		   QList<QString> vfiles2,
 		   bool redo)
 {
+  if (!m_loadingCandidate)
+    {
+      if (m_pendingOldState)
+        rollbackPendingLoad();
+      const GlobalVolumeLoadState oldState = captureGlobalVolumeLoadState();
+      Volume *candidate = new (std::nothrow) Volume;
+      if (!candidate)
+	return false;
+      candidate->m_loadingCandidate = true;
+      if (!candidate->loadVolume(vfiles0, vfiles1, vfiles2, redo))
+	{
+	  delete candidate;
+	  restoreGlobalVolumeLoadState(oldState);
+	  return false;
+	}
+      const GlobalVolumeLoadState newState = captureGlobalVolumeLoadState();
+      swapState(*candidate);
+      m_pendingOldState = candidate;
+      rememberPendingGlobalState(oldState.volumeType, oldState.pvlVoxelType,
+                                 oldState.lod, oldState.relativeVoxelScaling,
+                                 oldState.information);
+      restoreGlobalVolumeLoadState(newState);
+      return true;
+    }
+
   clearVolumes();
 
   Global::setVolumeType(Global::TripleVolume);
@@ -870,6 +1125,31 @@ Volume::loadVolume(QList<QString> vfiles0,
 		   QList<QString> vfiles3,
 		   bool redo)
 {
+  if (!m_loadingCandidate)
+    {
+      if (m_pendingOldState)
+        rollbackPendingLoad();
+      const GlobalVolumeLoadState oldState = captureGlobalVolumeLoadState();
+      Volume *candidate = new (std::nothrow) Volume;
+      if (!candidate)
+	return false;
+      candidate->m_loadingCandidate = true;
+      if (!candidate->loadVolume(vfiles0, vfiles1, vfiles2, vfiles3, redo))
+	{
+	  delete candidate;
+	  restoreGlobalVolumeLoadState(oldState);
+	  return false;
+	}
+      const GlobalVolumeLoadState newState = captureGlobalVolumeLoadState();
+      swapState(*candidate);
+      m_pendingOldState = candidate;
+      rememberPendingGlobalState(oldState.volumeType, oldState.pvlVoxelType,
+                                 oldState.lod, oldState.relativeVoxelScaling,
+                                 oldState.information);
+      restoreGlobalVolumeLoadState(newState);
+      return true;
+    }
+
   clearVolumes();
 
   Global::setVolumeType(Global::QuadVolume);

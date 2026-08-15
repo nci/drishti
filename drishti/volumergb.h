@@ -37,6 +37,7 @@ class VolumeRGB : public VolumeRGBBase
   bool setSubvolume(Vec, Vec,
 		    int volnum = 0,
 		    bool force=false);
+  int currentVolumeNumber() const { return m_volnum; }
 
   bool loadVolume(const char*, bool);
 

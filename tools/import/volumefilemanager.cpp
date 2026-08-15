@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QFileInfo>
+#include <QStorageInfo>
 #include <QUuid>
 
 #include <cstring>
@@ -374,6 +375,26 @@ VolumeFileManager::createFile(bool writeHeader)
         return false;
     }
 
+  // Creation normally writes a staged generation while an existing generation
+  // may be retained as rollback backup.  An outer batch journal can already
+  // have moved that generation to its backup names; in that case counting a
+  // second copy here would double-count the peak.  Detect the target state
+  // before any file is touched and reserve only the bytes this manager will
+  // actually allocate.
+  bool existingGeneration = false;
+  const int targetSlabCount = 1 + (m_depth-1)/m_slabSize;
+  for (int ns = 0; ns < targetSlabCount; ++ns)
+    existingGeneration = existingGeneration || QFileInfo::exists(slabFilename(ns));
+  qint64 requiredBytes = 0;
+  if (!checkedMultiply(volumeBytes, existingGeneration ? 2 : 1, requiredBytes) ||
+      !checkedAdd(requiredBytes, 64LL*1024LL*1024LL, requiredBytes))
+    return setError("create volume files: required disk space overflows");
+  const QStorageInfo storage(QFileInfo(m_baseFilename).absolutePath());
+  if (storage.isValid() && storage.bytesAvailable() < requiredBytes)
+    return setError(QString("create volume files: insufficient disk space "
+                           "(%1 available, %2 required)")
+                    .arg(storage.bytesAvailable()).arg(requiredBytes));
+
   uchar voxelCode = 0;
   if (m_voxelType == _Char) voxelCode = 1;
   else if (m_voxelType == _UShort) voxelCode = 2;
@@ -556,7 +577,16 @@ VolumeFileManager::createFile(bool writeHeader)
 }
 
 bool
-VolumeFileManager::commitFileCreation()
+VolumeFileManager::commitFileCreation(bool releaseBackup)
+{
+  if (!releaseBackup)
+    return true;
+
+  return finalizeFileCreation();
+}
+
+bool
+VolumeFileManager::finalizeFileCreation()
 {
   clearError();
   QStringList failures;

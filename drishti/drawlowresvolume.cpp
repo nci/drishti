@@ -9,6 +9,7 @@
 
 #include <QDebug>
 #include <QDomDocument>
+#include <QSaveFile>
 
 void DrawLowresVolume::activateBounds() {m_boundingBox.activateBounds();}
 bool DrawLowresVolume::raised() { return showing; }
@@ -110,6 +111,7 @@ DrawLowresVolume::~DrawLowresVolume()
   if (m_dataTex)
     glDeleteTextures(1, &m_dataTex);
   m_dataTex = 0;
+  m_lastError.clear();
 
   if (m_progObj)
     glDeleteObjectARB(m_progObj);
@@ -165,13 +167,35 @@ DrawLowresVolume::generateHistogramImage()
   m_histogramImage1D = m_histogramImage1D.mirrored();  
 }
 
-void
-DrawLowresVolume::load3dTexture()
+bool
+DrawLowresVolume::load3dTexture(bool updateViewer)
 {
+  m_lastError.clear();
   if (!m_dataTex)
     glGenTextures(1, &m_dataTex);
+  if (!m_dataTex)
+    {
+      m_lastError = QStringLiteral("OpenGL could not create the low-resolution texture handle");
+      return false;
+    }
 
   Vec textureSize = m_Volume->getLowresTextureVolumeSize();
+  GLint max3dTextureSize = 0;
+  glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &max3dTextureSize);
+  const int textureLimit = qMax(1, static_cast<int>(max3dTextureSize));
+  if (textureSize.x <= 0 || textureSize.y <= 0 || textureSize.z <= 0 ||
+      textureSize.x > textureLimit || textureSize.y > textureLimit ||
+      textureSize.z > textureLimit)
+    {
+      m_lastError = QStringLiteral("Low-resolution texture dimensions %1x%2x%3 exceed OpenGL limit %4")
+        .arg(static_cast<int>(textureSize.x))
+        .arg(static_cast<int>(textureSize.y))
+        .arg(static_cast<int>(textureSize.z))
+        .arg(textureLimit);
+      glDeleteTextures(1, &m_dataTex);
+      m_dataTex = 0;
+      return false;
+    }
   glActiveTexture(GL_TEXTURE1);
   glBindTexture(GL_TEXTURE_3D, m_dataTex);
   glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER); 
@@ -241,13 +265,29 @@ DrawLowresVolume::load3dTexture()
 		   m_Volume->getLowresTextureVolume());
     }
 
-  m_Viewer->setSceneBoundingBox(m_dataMin, m_dataMax);
-  m_Viewer->showEntireScene();
+  const GLenum error = glGetError();
+  if (error != GL_NO_ERROR)
+    {
+      m_lastError = QStringLiteral("Low-resolution texture allocation failed (OpenGL error 0x%1)")
+        .arg(QString::number(static_cast<qulonglong>(error), 16));
+      qWarning() << "volume/lowres texture allocation failed, OpenGL error"
+                 << QString::number(static_cast<qulonglong>(error), 16);
+      glDeleteTextures(1, &m_dataTex);
+      m_dataTex = 0;
+      return false;
+    }
+  if (updateViewer)
+    {
+      m_Viewer->setSceneBoundingBox(m_dataMin, m_dataMax);
+      m_Viewer->showEntireScene();
+    }
+  return true;
 }
 
-void
-DrawLowresVolume::loadVolume()
+bool
+DrawLowresVolume::loadVolume(bool updateViewer)
 {
+  m_lastError.clear();
   generateHistogramImage();
 
   Vec textureSize = m_Volume->getLowresTextureVolumeSize();
@@ -268,8 +308,11 @@ DrawLowresVolume::loadVolume()
 //  Vec voxelScaling = Global::voxelScaling();
 //  m_boundingBox.setBounds(VECPRODUCT(m_dataMin,voxelScaling),
 //			  VECPRODUCT(m_dataMax,voxelScaling));
-  raise();
-  load3dTexture();
+  if (updateViewer)
+    raise();
+  if (!load3dTexture(updateViewer))
+    return false;
+  return true;
 }
 
 void
@@ -724,32 +767,91 @@ DrawLowresVolume::keyPressEvent(QKeyEvent *event)
   return m_boundingBox.keyPressEvent(event);
 }
 
-void
+bool
 DrawLowresVolume::load(const char *flnm)
+{
+  State state;
+  if (!readState(flnm, state))
+    return false;
+  applyState(state);
+  return true;
+}
+
+DrawLowresVolume::State
+DrawLowresVolume::captureState() const
+{
+  State state;
+  state.dataMin = m_dataMin;
+  state.dataMax = m_dataMax;
+  m_boundingBox.bounds(state.subvolumeMin, state.subvolumeMax);
+  state.showing = showing;
+  state.currentVolume = m_currentVolume;
+  return state;
+}
+
+void
+DrawLowresVolume::applyState(const State& state)
+{
+  m_dataMin = state.dataMin;
+  m_dataMax = state.dataMax;
+  showing = state.showing;
+  m_currentVolume = state.currentVolume;
+  m_boundingBox.setBounds(m_dataMin, m_dataMax);
+  m_boundingBox.setPositions(state.subvolumeMin, state.subvolumeMax);
+}
+
+bool
+DrawLowresVolume::readState(const char *flnm, State& state) const
 {
   QDomDocument document;
   QFile f(flnm);
-  if (f.open(QIODevice::ReadOnly))
+  if (!f.open(QIODevice::ReadOnly))
+    return false;
+  QString error;
+  int line = 0, column = 0;
+  if (!document.setContent(&f, &error, &line, &column))
     {
-      document.setContent(&f);
       f.close();
+      return false;
     }
+  f.close();
 
   QDomElement main = document.documentElement();
+  if (main.isNull())
+    return false;
   QDomNodeList dlist = main.childNodes();
+  Vec newDataMin = m_dataMin;
+  Vec newDataMax = m_dataMax;
   Vec svmin = m_dataMin;
   Vec svmax = m_dataMax;
+  bool haveMin = false, haveMax = false;
   for(int i=0; i<dlist.count(); i++)
     {
       if (dlist.at(i).nodeName() == "volmin")
 	{
 	  QString str = dlist.at(i).toElement().text();
-	  m_dataMin = StaticFunctions::getVec(str);
+	  QStringList values = str.split(" ", QString::SkipEmptyParts);
+	  if (values.size() != 3) return false;
+	  bool ok[3] = {false, false, false};
+	  float x = values[0].toFloat(&ok[0]);
+	  float y = values[1].toFloat(&ok[1]);
+	  float z = values[2].toFloat(&ok[2]);
+	  if (!ok[0] || !ok[1] || !ok[2]) return false;
+	  newDataMin = Vec(x, y, z);
+	  haveMin = true;
 	}
       else if (dlist.at(i).nodeName() == "volmax")
 	{
 	  QString str = dlist.at(i).toElement().text();
-	  m_dataMax = StaticFunctions::getVec(str);
+	  QStringList values = str.split(" ", QString::SkipEmptyParts);
+	  if (values.size() != 3) return false;
+	  bool ok[3] = {false, false, false};
+	  float x = values[0].toFloat(&ok[0]);
+	  float y = values[1].toFloat(&ok[1]);
+	  float z = values[2].toFloat(&ok[2]);
+	  if (!ok[0] || !ok[1] || !ok[2]) return false;
+	  newDataMax = Vec(x, y, z);
+	  haveMax = true;
 	}
       else if (dlist.at(i).nodeName() == "subvolmin")
 	{
@@ -763,17 +865,81 @@ DrawLowresVolume::load(const char *flnm)
 	}
     }
 
-//  Vec voxelScaling = Global::voxelScaling();
-//  m_boundingBox.setBounds(VECPRODUCT(m_dataMin,voxelScaling),
-//			  VECPRODUCT(m_dataMax,voxelScaling));
-  m_boundingBox.setBounds(m_dataMin, m_dataMax);
-//  svmin = VECPRODUCT(svmin, voxelScaling);
-//  svmax = VECPRODUCT(svmax, voxelScaling);
-  m_boundingBox.setPositions(svmin, svmax);
+  if (haveMin != haveMax ||
+      (haveMin && (newDataMax.x < newDataMin.x ||
+                   newDataMax.y < newDataMin.y ||
+                   newDataMax.z < newDataMin.z)))
+    return false;
+  if (haveMin)
+    {
+      state.dataMin = newDataMin;
+      state.dataMax = newDataMax;
+    }
+  else
+    {
+      state.dataMin = m_dataMin;
+      state.dataMax = m_dataMax;
+    }
+  state.subvolumeMin = svmin;
+  state.subvolumeMax = svmax;
+  state.showing = showing;
+  state.currentVolume = m_currentVolume;
+  return true;
+}
+
+bool
+DrawLowresVolume::validate(const char *flnm) const
+{
+  QDomDocument document;
+  QFile f(flnm);
+  if (!f.open(QIODevice::ReadOnly))
+    return false;
+  QString error;
+  int line = 0, column = 0;
+  if (!document.setContent(&f, &error, &line, &column))
+    return false;
+  const QDomElement main = document.documentElement();
+  if (main.isNull())
+    return false;
+
+  bool haveMin = false, haveMax = false;
+  Vec minValue, maxValue;
+  const QDomNodeList nodes = main.childNodes();
+  for (int i = 0; i < nodes.count(); ++i)
+    {
+      const QString name = nodes.at(i).nodeName();
+      if (name != "volmin" && name != "volmax" &&
+          name != "subvolmin" && name != "subvolmax")
+        continue;
+      const QStringList values = nodes.at(i).toElement().text().split(
+        " ", QString::SkipEmptyParts);
+      if (values.size() != 3)
+        return false;
+      bool ok[3] = {false, false, false};
+      const float x = values[0].toFloat(&ok[0]);
+      const float y = values[1].toFloat(&ok[1]);
+      const float z = values[2].toFloat(&ok[2]);
+      if (!ok[0] || !ok[1] || !ok[2])
+        return false;
+      if (name == "volmin")
+        {
+          minValue = Vec(x, y, z);
+          haveMin = true;
+        }
+      else if (name == "volmax")
+        {
+          maxValue = Vec(x, y, z);
+          haveMax = true;
+        }
+    }
+  return haveMin == haveMax &&
+    (!haveMin || (maxValue.x >= minValue.x &&
+                  maxValue.y >= minValue.y &&
+                  maxValue.z >= minValue.z));
 }
 
 
-void
+bool
 DrawLowresVolume::save(const char *flnm)
 {
   QDomDocument doc;
@@ -853,13 +1019,18 @@ DrawLowresVolume::save(const char *flnm)
     topElement.appendChild(de1);
   }
 
-  QFile fout(flnm);
-  if (fout.open(QIODevice::WriteOnly))
+  QSaveFile fout(flnm);
+  fout.setDirectWriteFallback(false);
+  if (!fout.open(QIODevice::WriteOnly))
+    return false;
+  QTextStream out(&fout);
+  doc.save(out, 2);
+  if (out.status() != QTextStream::Ok || !fout.commit())
     {
-      QTextStream out(&fout);
-      doc.save(out, 2);
-      fout.close();
+      fout.cancelWriting();
+      return false;
     }
+  return true;
 }
 
 void

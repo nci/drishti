@@ -2194,7 +2194,10 @@ Viewer::processCommand(QString cmd)
       val = QInputDialog::getInt(0,
 				  "Modify Original Volume",
 				  "Please specify value for voxels in the transparent region.",
-				 0, 0, maxlevel, 1);
+				 0, 0, maxlevel, 1, &ok);
+
+      if (!ok)
+		return;
 
       
       emit modifyOriginalVolume(bmin, bmax, val);
@@ -2768,10 +2771,13 @@ Viewer::updateVoxelsForRaycast()
   const int maximumSslevel = qMax(
     5, static_cast<int>(qMin<qint64>(maxSourceDimension,
 				     std::numeric_limits<int>::max())));
-  sslevel = QInputDialog::getInt(this,
+	bool ok = false;
+	sslevel = QInputDialog::getInt(this,
 				 "Subsampling Level",
 				 "Subsampling Level",
-				 sslevel, sslevel, maximumSslevel, 1);
+				 sslevel, sslevel, maximumSslevel, 1, &ok);
+  if (!ok)
+    return false;
 
   dsz = sampledDimension(sourceDepth, sslevel);
   wsz = sampledDimension(sourceWidth, sslevel);
@@ -4045,7 +4051,10 @@ Viewer::regionGrowing(bool sw)
 				  QString("%1 connected region with current label value (%2).\nSpecify label value of connected region (-1 for connected visible region).").\
 				  arg(mesg).\
 				  arg(Global::tag()),
-				  -1, -1, 65535, 1);
+				  -1, -1, 65535, 1, &ok);
+
+      if (!ok)
+		return;
 
       if (tubes)
 	{
@@ -4059,7 +4068,9 @@ Viewer::regionGrowing(bool sw)
 	thickness = QInputDialog::getInt(0,
 					 "Shell thickness",
 					 "Shell thickness",
-					 1, 1, 50, 1);
+					 1, 1, 50, 1, &ok);
+      if (!ok)
+		return;
 
       emit shrinkwrap(bmin, bmax, Global::tag(), shell, thickness,
 		      false, d, w, h, ctag);
@@ -4314,28 +4325,38 @@ Viewer::saveImageSequence()
   QStringList yxaxis;
   yxaxis << "Y";
   yxaxis << "X";
+  bool ok = false;
   QString axistype = QInputDialog::getItem(this,
 					   "Screen Rotation Axis",
 					   "Screen Rotation Axis",
 					   yxaxis,
 					   0,
-					   false);
+					   false,
+					   &ok);
+  if (!ok)
+    return;
 
   m_startAngle = QInputDialog::getDouble(this,
 				     "Start Angle",
 				     "Start Angle",
-				     0, -360, 360, 1);
+				     0, -360, 360, 1, &ok);
+  if (!ok)
+    return;
 
   m_endAngle = QInputDialog::getDouble(this,
 				     "End Angle",
 				     "End Angle",
-				     360, -360, 360, 1);
+				     360, -360, 360, 1, &ok);
+  if (!ok)
+    return;
 
 
   m_totFrames = QInputDialog::getInt(this,
 				     "Number of Frames",
 				     "Number of Frames",
-				     360, 1, 10000, 1);
+				     360, 1, 10000, 1, &ok);
+  if (!ok)
+    return;
 
 
   if (StaticFunctions::checkExtension(flnm, ".mp4"))

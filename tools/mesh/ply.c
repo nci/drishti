@@ -232,7 +232,7 @@ void element_layout_ply( PlyFile *plyfile, char *elem_name, int nelems, int npro
   if ( elem == NULL )
   {
     fprintf( stderr,"element_layout_ply: can't find element '%s'\n",elem_name );
-    exit ( -1 );
+    return;
   }
 
   elem->num = nelems;
@@ -320,7 +320,7 @@ void element_count_ply( PlyFile *plyfile, char *elem_name, int nelems )
   if ( elem == NULL )
   {
     fprintf( stderr,"element_count_ply: can't find element '%s'\n",elem_name );
-    exit ( -1 );
+    return;
   }
 
   elem->num = nelems;
@@ -358,7 +358,7 @@ void header_complete_ply( PlyFile *plyfile )
     default:
       fprintf ( stderr, "ply_header_complete: bad file type = %d\n",
       plyfile->file_type );
-      exit ( -1 );
+      return;
   }
 
   /* write out the comments */
@@ -425,7 +425,7 @@ void put_element_setup_ply( PlyFile *plyfile, char *elem_name )
   if ( elem == NULL )
   {
     fprintf( stderr, "put_element_setup_ply: can't find element '%s'\n", elem_name );
-    exit ( -1 );
+    return;
   }
 
   plyfile->which_elem = elem;
@@ -1440,7 +1440,7 @@ void ascii_get_element( PlyFile *plyfile, char *elem_ptr )
   if ( words == NULL )
   {
     fprintf ( stderr, "ply_get_element: unexpected end of file\n" );
-    exit ( -1 );
+    return;
   }
 
   which_word = 0;
@@ -1688,7 +1688,7 @@ void write_scalar_type( FILE *fp, int code )
   if ( code <= StartType || code >= EndType )
   {
     fprintf ( stderr, "write_scalar_type: bad data code = %d\n", code );
-    exit ( -1 );
+    return;
   }
 
   /* write the code to a file */
@@ -1885,7 +1885,7 @@ double get_item_value( char *item, int type )
       return ( double_value );
     default:
       fprintf ( stderr, "get_item_value: bad type = %d\n", type );
-      exit ( -1 );
+      return ( 0.0 );
   }
 
   return ( 0.0 );  /* never actually gets here */
@@ -1944,7 +1944,7 @@ void write_binary_item( FILE *fp, int int_val, unsigned int uint_val, double dou
       break;
     default:
       fprintf ( stderr, "write_binary_item: bad type = %d\n", type );
-      exit ( -1 );
+      return;
   }
 }
 
@@ -1980,7 +1980,7 @@ void write_ascii_item( FILE *fp, int int_val, unsigned int uint_val, double doub
       break;
     default:
       fprintf ( stderr, "write_ascii_item: bad type = %d\n", type );
-      exit ( -1 );
+      return;
   }
 }
 
@@ -2045,7 +2045,7 @@ void get_stored_item( void *ptr, int type, int *int_val, unsigned int *uint_val,
       break;
     default:
       fprintf ( stderr, "get_stored_item: bad type = %d\n", type );
-      exit ( -1 );
+      return;
   }
 }
 
@@ -2123,7 +2123,7 @@ void get_binary_item( FILE *fp, int type, int *int_val, unsigned int *uint_val, 
       break;
     default:
       fprintf ( stderr, "get_binary_item: bad type = %d\n", type );
-      exit ( -1 );
+      return;
   }
 }
 
@@ -2171,7 +2171,7 @@ void get_ascii_item( char *word, int type, int *int_val, unsigned int *uint_val,
 
     default:
       fprintf ( stderr, "get_ascii_item: bad type = %d\n", type );
-      exit ( -1 );
+      return;
   }
 }
 
@@ -2235,7 +2235,7 @@ void store_item( char *item, int type, int int_val, unsigned int uint_val, doubl
       break;
     default:
       fprintf ( stderr, "store_item: bad type = %d\n", type );
-      exit ( -1 );
+      return;
   }
 }
 
@@ -2765,7 +2765,7 @@ void describe_element_ply( PlyFile *plyfile, char *elem_name, int nelems )
   if ( elem == NULL )
   {
     fprintf( stderr,"describe_element_ply: can't find element '%s'\n",elem_name );
-    exit ( -1 );
+    return;
   }
 
   elem->num = nelems;
@@ -2950,7 +2950,7 @@ PlyPropRules *init_rule_ply( PlyFile *ply, char *elem_name )
   if ( elem == NULL )
   {
     fprintf ( stderr, "init_rule_ply: Can't find element '%s'\n", elem_name );
-    exit ( -1 );
+    return ( NULL );
   }
 
   rules = ( PlyPropRules *  ) myalloc ( sizeof ( PlyPropRules ) );
@@ -3028,7 +3028,7 @@ void modify_rule_ply( PlyPropRules *rules, char *prop_name, int rule_type )
 
   /* we didn't find the property if we get here */
   fprintf ( stderr, "modify_rule_ply: Can't find property '%s'\n", prop_name );
-  exit ( -1 );
+  return;
 }
 
 
@@ -3208,14 +3208,14 @@ void *get_new_props_ply( PlyFile *ply )
           {
             fprintf ( stderr,
             "get_new_props_ply: Error combining properties that should be the same.\n" );
-            exit ( -1 );
+            return ( NULL );
           }
         break;
       }
       default:
         fprintf ( stderr, "get_new_props_ply: Bad rule = %d\n",
         rules->rule_list[i] );
-        exit ( -1 );
+        return ( NULL );
     }
 
     /* store the combined value */

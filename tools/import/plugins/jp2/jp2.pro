@@ -11,7 +11,8 @@ include(../plugins.pri)
 
 win32 {
   SOURCES = jp2plugin.cpp \
-            ../../importmemoryadmission.cpp
+            ../../importmemoryadmission.cpp \
+            ../../../../common/src/memoryreservation.cpp
 
   INCLUDEPATH += ./ ../../
 
@@ -33,7 +34,8 @@ unix {
   QMAKE_LFLAGS += "-Wl,-rpath=\'\$${ORIGIN}/../sharedlibs\'"
 
   SOURCES = jp2plugin.cpp \
-            ../../importmemoryadmission.cpp
+            ../../importmemoryadmission.cpp \
+            ../../../../common/src/memoryreservation.cpp
  }
 }
 

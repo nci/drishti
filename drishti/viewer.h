@@ -248,6 +248,7 @@ class Viewer : public QGLViewer
   QImage m_lutImage;
   unsigned char *m_lut;
   unsigned char *m_prevLut;
+  int m_lutAllocatedSize;
   
   GLuint m_lutTex;
   GLuint m_paintTex;
@@ -332,6 +333,7 @@ class Viewer : public QGLViewer
   void save360Image(QString, QChar, int);
 
   void loadLookupTable(unsigned char*);
+  bool ensureLookupTableStorage();
 
   void processCommand(QString);
   void processLight(QStringList);

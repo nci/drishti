@@ -3,6 +3,7 @@
 
 #include "scriptsplugin.h"
 #include "volinterface.h"
+#include "sourcefilesprovider.h"
 
 class VolumeData : public QObject
 {
@@ -15,6 +16,10 @@ class VolumeData : public QObject
   bool setFile(QStringList, QString);
   bool setFile(QStringList, QString, bool, bool);
   bool replaceFile(QString);
+
+  // The importer keeps the user-confirmed input order so writers can record
+  // the exact Z-stack provenance in the output manifest.
+  QStringList sourceFiles() const;
 
   void setVoxelInfo(int, float, float, float);
 
@@ -57,6 +62,7 @@ class VolumeData : public QObject
   ScriptsPlugin m_scriptsPlugin;
 
   QStringList m_fileName;
+  QObject *m_pluginObject;
   int m_depth, m_width, m_height;
   int m_voxelUnit;
   int m_voxelType;

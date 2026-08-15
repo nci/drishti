@@ -6,6 +6,7 @@
 #include "matrix.h"
 #include "dcolordialog.h"
 #include "lighthandler.h"
+#include "../framebufferbudget.h"
 
 #include <QProgressDialog>
 #include <QInputDialog>
@@ -24,6 +25,7 @@ RcViewer::RcViewer() :
   m_slcTex[1] = 0;
   m_slcTex[2] = 0;
   m_slcTex[3] = 0;
+  m_slcTex[4] = 0;
 
   m_glVertBuffer = 0;
   m_glIndexBuffer = 0;
@@ -51,6 +53,8 @@ RcViewer::RcViewer() :
   m_ftBoxes = 0;
 
   m_maxRayLen = 100;
+  m_max2DTexSize = 0;
+  m_max3DTexSize = 0;
   m_shadow = 5.0;
   m_edge = 5.0;
   m_minGrad = 0;
@@ -141,6 +145,7 @@ RcViewer::init()
   m_slcTex[1] = 0;
   m_slcTex[2] = 0;
   m_slcTex[3] = 0;
+  m_slcTex[4] = 0;
 
   if (m_dataTex) glDeleteTextures(1, &m_dataTex);
   m_dataTex = 0;
@@ -445,40 +450,63 @@ RcViewer::createFBO()
   int wd = m_viewer->camera()->screenWidth();
   int ht = m_viewer->camera()->screenHeight();
 
-  //-----------------------------------------
+  const FramebufferBudget::Admission candidateBudget =
+    FramebufferBudget::evaluate(wd, ht, 68ULL,
+                                512ULL*1024ULL*1024ULL,
+                                qMax(1, m_max2DTexSize));
+  if (!candidateBudget.approved)
+    return;
+
+  GLuint candidateBuffer = 0;
+  GLuint candidateRbo = 0;
+  GLuint candidateTex[5] = {0, 0, 0, 0, 0};
+  GLint previousFramebuffer = 0;
+  GLint previousRenderbuffer = 0;
+  GLint previousTexture = 0;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFramebuffer);
+  glGetIntegerv(GL_RENDERBUFFER_BINDING, &previousRenderbuffer);
+  glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE_ARB, &previousTexture);
+
+  glGenFramebuffers(1, &candidateBuffer);
+  glGenRenderbuffers(1, &candidateRbo);
+  glGenTextures(4, candidateTex);
+  if (!candidateBuffer || !candidateRbo || !candidateTex[0])
+    goto create_fbo_failed;
+
+  glBindFramebuffer(GL_FRAMEBUFFER, candidateBuffer);
+  glBindRenderbuffer(GL_RENDERBUFFER, candidateRbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, wd, ht);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                            GL_RENDERBUFFER, candidateRbo);
+  for (int i=0; i<4; ++i)
+    {
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, candidateTex[i]);
+      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA32F,
+                   wd, ht, 0, GL_RGBA, GL_FLOAT, 0);
+      glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i,
+                             GL_TEXTURE_RECTANGLE_ARB, candidateTex[i], 0);
+    }
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    goto create_fbo_failed;
+
+  glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFramebuffer));
+  glBindRenderbuffer(GL_RENDERBUFFER, static_cast<GLuint>(previousRenderbuffer));
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, static_cast<GLuint>(previousTexture));
   if (m_slcBuffer) glDeleteFramebuffers(1, &m_slcBuffer);
   if (m_rboId) glDeleteRenderbuffers(1, &m_rboId);
-  if (m_slcTex[0]) glDeleteTextures(5, m_slcTex);  
+  if (m_slcTex[0]) glDeleteTextures(5, m_slcTex);
+  m_slcBuffer = candidateBuffer;
+  m_rboId = candidateRbo;
+  for (int i=0; i<5; ++i) m_slcTex[i] = candidateTex[i];
+  return;
 
-  glGenFramebuffers(1, &m_slcBuffer);
-  glGenRenderbuffers(1, &m_rboId);
-  glGenTextures(4, m_slcTex);
-
-  glBindFramebuffer(GL_FRAMEBUFFER, m_slcBuffer);
-  glBindRenderbuffer(GL_RENDERBUFFER, m_rboId);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, wd, ht);
-  glBindRenderbuffer(GL_RENDERBUFFER, 0);
-  // attach the renderbuffer to depth attachment point
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER,      // 1. fbo target: GL_FRAMEBUFFER
-			    GL_DEPTH_ATTACHMENT, // 2. attachment point
-			    GL_RENDERBUFFER,     // 3. rbo target: GL_RENDERBUFFER
-			    m_rboId);            // 4. rbo ID
-
-  for(int i=0; i<4; i++)
-    {
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[i]);
-      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-		   0,
-		   GL_RGBA32F,
-		   wd, ht,
-		   0,
-		   GL_RGBA,
-		   GL_FLOAT,
-		   0);
-    }
-
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  //-----------------------------------------
+create_fbo_failed:
+  glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFramebuffer));
+  glBindRenderbuffer(GL_RENDERBUFFER, static_cast<GLuint>(previousRenderbuffer));
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, static_cast<GLuint>(previousTexture));
+  if (candidateBuffer) glDeleteFramebuffers(1, &candidateBuffer);
+  if (candidateRbo) glDeleteRenderbuffers(1, &candidateRbo);
+  if (candidateTex[0]) glDeleteTextures(4, candidateTex);
 }
 
 void
@@ -639,9 +667,7 @@ RcViewer::updateVoxelsForRaycast(GLuint *dataTex)
 
   m_dataTex = dataTex[1];
   glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_2D_ARRAY);
   glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
-  glDisable(GL_TEXTURE_2D_ARRAY);
 
 
   memcpy(m_subvolume1dHistogram, m_Volume->getSubvolume1dHistogram(0), 256*4);
@@ -994,7 +1020,6 @@ RcViewer::raycast(Vec eyepos, float sceneRadius, bool firstPartOnly)
   glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_slcTex[0]);
 
   glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_2D_ARRAY);
   glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
 
   if (m_amrData)
@@ -1076,7 +1101,6 @@ RcViewer::raycast(Vec eyepos, float sceneRadius, bool firstPartOnly)
       
       glActiveTexture(GL_TEXTURE1);
       //glDisable(GL_TEXTURE_3D);
-      glDisable(GL_TEXTURE_2D_ARRAY);
       
       glActiveTexture(GL_TEXTURE2);
       glDisable(GL_TEXTURE_RECTANGLE_ARB);
@@ -1131,7 +1155,6 @@ RcViewer::raycast(Vec eyepos, float sceneRadius, bool firstPartOnly)
   glDisable(GL_TEXTURE_2D);
 
   glActiveTexture(GL_TEXTURE1);
-  glDisable(GL_TEXTURE_2D_ARRAY);
 
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_RECTANGLE_ARB);

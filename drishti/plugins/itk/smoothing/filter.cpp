@@ -579,7 +579,9 @@ SmoothingFilter::savePvl(QString flnm)
 	  QTextStream out(&fp);
 	  out << "<!DOCTYPE Drishti_Header>\n";
 	  out << "<PvlDotNcFileHeader>\n";
-	  out << QString("  <pvlnames>%1</pvlnames>\n").arg(pdir.relativeFilePath(flnm));
+	  out << "  <pvlnames><name>" << pdir.relativeFilePath(flnm) << "</name></pvlnames>\n";
+	  out << "  <pvlheadersize>13</pvlheadersize>\n";
+	  out << "  <rawheadersize>13</rawheadersize>\n";
 	  out << "  <voxeltype>unsigned char</voxeltype>\n";
 	  out << "  <pvlvoxeltype>unsigned char</pvlvoxeltype>\n";
 	  out << QString("  <gridsize>%1 %2 %3</gridsize>\n").arg(m_nX).arg(m_nY).arg(m_nZ);

@@ -53,9 +53,12 @@ macx {
             ../../tiffpagevalidation.cpp
 }
 
-SOURCES += ../../importmemoryadmission.cpp
+SOURCES += ../../importmemoryadmission.cpp \
+           ../../../../common/src/memoryreservation.cpp
 
 HEADERS = tiffplugin.h \
           ../../importmemoryadmission.h \
-          ../../tiffpagevalidation.h
+          ../../tiffpagevalidation.h \
+          ../../sourcefilesprovider.h \
+          ../../../../common/src/memoryreservation.h
 

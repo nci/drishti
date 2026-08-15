@@ -2,6 +2,7 @@
 #include "pywidget.h"
 #include "global.h"
 #include "staticfunctions.h"
+#include "../../common/src/pvlmanifest.h"
 
 #include <QSplitter>
 #include <QHBoxLayout>
@@ -29,18 +30,18 @@ QString quotedCommandArgument(const QString &value)
 void
 PyWidget::setFilename(QString volfile)
 {
-  QStringList pvlnames = StaticFunctions::getPvlNamesFromHeader(volfile);
-  if (pvlnames.count() > 0)
-    m_fileName = pvlnames[0];
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(volfile, manifest, false) &&
+      !manifest.pvlNames.isEmpty())
+    m_fileName = manifest.pvlNames.first();
   else
-    m_fileName = volfile;
+    m_fileName = volfile + ".001";
     
 
   m_maskName = m_fileName;
   m_maskName.chop(6);
   m_maskName += QString("mask.sc");
 
-  m_fileName += ".001";
   m_plainTextEdit->appendPlainText(m_fileName);
   m_plainTextEdit->appendPlainText(m_maskName+"\n");
 

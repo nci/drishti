@@ -169,7 +169,8 @@ HEADERS += boundingbox.h \
            ../../common/src/widgets/dcolorwheel.h \
 	   ../../common/src/widgets/saveimageseqdialog.h \
            ../../common/src/widgets/savemoviedialog.h \
-           ../../common/src/videoencoder/videoencoder.h
+           ../../common/src/videoencoder/videoencoder.h \
+           ../../common/src/pvlmanifest.h
 
 SOURCES += boundingbox.cpp \
 	   brickinformation.cpp \
@@ -237,4 +238,5 @@ SOURCES += boundingbox.cpp \
            ../../common/src/widgets/dcolorwheel.cpp \
 	   ../../common/src/widgets/saveimageseqdialog.cpp \
            ../../common/src/widgets/savemoviedialog.cpp \
-           ../../common/src/videoencoder/videoencoder.cpp
+           ../../common/src/videoencoder/videoencoder.cpp \
+           ../../common/src/pvlmanifest.cpp

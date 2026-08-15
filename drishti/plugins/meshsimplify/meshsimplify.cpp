@@ -2,9 +2,15 @@
 #include "meshsimplify.h"
 #include "simplify.h"
 
+#include <cstdint>
+#include <limits>
+#include <new>
 MeshSimplify::MeshSimplify()
 {
   vcolor=0;
+  m_nverts = m_nfaces = 0;
+  m_vlist = 0;
+  m_flist = 0;
 
   QStringList ps;
   ps << "x";
@@ -28,7 +34,20 @@ MeshSimplify::MeshSimplify()
       plyStrings << s;
     }
 }
-MeshSimplify::~MeshSimplify() {if (vcolor) delete [] vcolor;}
+MeshSimplify::~MeshSimplify()
+{
+  delete [] vcolor;
+  if (m_vlist)
+    for (int i=0; i<m_nverts; ++i) delete [] reinterpret_cast<uchar*>(m_vlist[i]);
+  if (m_flist)
+    for (int i=0; i<m_nfaces; ++i)
+      {
+        if (m_flist[i]) delete [] m_flist[i]->verts;
+        delete [] reinterpret_cast<uchar*>(m_flist[i]);
+      }
+  delete [] reinterpret_cast<uchar*>(m_vlist);
+  delete [] reinterpret_cast<uchar*>(m_flist);
+}
 
 bool
 MeshSimplify::getValues(float &decimate, int &aggressive, int &meshsmooth, int &colorsmooth)
@@ -322,7 +341,11 @@ MeshSimplify::simplifyMesh(bool plyType,
 	  m_flist[i]->verts[1] = Simplify::triangles[i].v[1];
 	  m_flist[i]->verts[2] = Simplify::triangles[i].v[2];
 	}
-      savePLY(outflnm);
+      if (!savePLY(outflnm))
+        {
+          QMessageBox::warning(0, "Error", "Cannot save "+outflnm);
+          return;
+        }
     }
   else
     Simplify::write_obj(outflnm.toLatin1().data());
@@ -334,7 +357,7 @@ MeshSimplify::simplifyMesh(bool plyType,
   QMessageBox::information(0, "", QString("Mesh saved in "+outflnm));
 }
 
-void
+bool
 MeshSimplify::savePLY(QString flnm)
 {
   m_meshLog->moveCursor(QTextCursor::End);
@@ -360,6 +383,9 @@ MeshSimplify::savePLY(QString flnm)
 
   PlyFile *ply;
   FILE *fp = fopen(flnm.toLatin1().data(), "wb");
+  ply_clear_error();
+  if (!fp)
+    return false;
 
   PlyFace face ;
   int verts[3] ;
@@ -367,7 +393,12 @@ MeshSimplify::savePLY(QString flnm)
   ply = write_ply (fp,
 		   2,
 		   elem_names,
-		   PLY_BINARY_LE );
+                   PLY_BINARY_LE );
+  if (!ply)
+    {
+      fclose(fp);
+      return false;
+    }
 
   /* describe what properties go into the PlyVertex elements */
   describe_element_ply ( ply, plyStrings[10], m_nverts );
@@ -397,15 +428,38 @@ MeshSimplify::savePLY(QString flnm)
   for(int ni=0; ni<m_nfaces; ni++)
     put_element_ply ( ply, ( void * ) m_flist[ni] );
 
+  const bool writeFailedBeforeClose = ply_last_error() || ferror(fp);
   close_ply ( ply );
+  const bool writeFailed = writeFailedBeforeClose || ply_last_error();
   free_ply ( ply );
 
   m_meshProgress->setValue(100);
+  return !writeFailed;
 }
 
 bool
 MeshSimplify::loadPLY(QString flnm)
 {
+  auto releaseMesh = [this]()
+  {
+    if (m_vlist)
+      for (int k=0; k<m_nverts; ++k) delete [] reinterpret_cast<uchar*>(m_vlist[k]);
+    if (m_flist)
+      for (int k=0; k<m_nfaces; ++k)
+        {
+          if (m_flist[k]) delete [] m_flist[k]->verts;
+          delete [] reinterpret_cast<uchar*>(m_flist[k]);
+        }
+    delete [] reinterpret_cast<uchar*>(m_vlist);
+    delete [] reinterpret_cast<uchar*>(m_flist);
+    m_vlist = 0;
+    m_flist = 0;
+    m_nverts = m_nfaces = 0;
+    delete [] vcolor;
+    vcolor = 0;
+  };
+  releaseMesh();
+
   PlyProperty vert_props[] = { /* list of property information for a vertex */
     {plyStrings[0], Float32, Float32, offsetof(PlyVertex,x), 0, 0, 0, 0},
     {plyStrings[1], Float32, Float32, offsetof(PlyVertex,y), 0, 0, 0, 0},
@@ -438,20 +492,51 @@ MeshSimplify::loadPLY(QString flnm)
 
   /*** Read in the original PLY object ***/
   FILE *fp = fopen(flnm.toLatin1().data(), "rb");
+  ply_clear_error();
+  if (!fp)
+    return false;
 
   in_ply  = read_ply (fp);
+  if (!in_ply)
+    {
+      fclose(fp);
+      return false;
+    }
 
   for (i = 0; i < in_ply->num_elem_types; i++) {
 
     /* prepare to read the i'th list of elements */
     elem_name = setup_element_read_ply (in_ply, i, &elem_count);
+    if (!elem_name)
+      {
+        close_ply(in_ply);
+        free_ply(in_ply);
+        return false;
+      }
 
 
     if (QString("vertex") == QString(elem_name)) {
 
       /* create a vertex list to hold all the vertices */
+      if (elem_count < 0 ||
+          static_cast<uint64_t>(elem_count) >
+          static_cast<uint64_t>(std::numeric_limits<size_t>::max()/sizeof(PlyVertex *)))
+        {
+          releaseMesh();
+          close_ply(in_ply);
+          free_ply(in_ply);
+          return false;
+        }
       m_vlist = (PlyVertex **) new uchar[sizeof (PlyVertex *) * elem_count];
+      if (!m_vlist && elem_count > 0)
+        {
+          releaseMesh();
+          close_ply(in_ply);
+          free_ply(in_ply);
+          return false;
+        }
       m_nverts = elem_count;
+      memset(m_vlist, 0, sizeof(PlyVertex *) * elem_count);
 
       /* set up for getting vertex elements */
 
@@ -493,15 +578,46 @@ MeshSimplify::loadPLY(QString flnm)
 
       /* grab all the vertex elements */
       for (j = 0; j < elem_count; j++) {
-        m_vlist[j] = (PlyVertex *) new uchar[sizeof (PlyVertex)];
+        m_vlist[j] = (PlyVertex *) new (std::nothrow) uchar[sizeof (PlyVertex)];
+        if (!m_vlist[j])
+          {
+            releaseMesh();
+            close_ply(in_ply);
+            free_ply(in_ply);
+            return false;
+          }
         get_element_ply (in_ply, (void *) m_vlist[j]);
+        if (ply_last_error())
+          {
+            releaseMesh();
+            close_ply(in_ply);
+            free_ply(in_ply);
+            return false;
+          }
       }
     }
     else if (QString("face") == QString(elem_name)) {
 
       /* create a list to hold all the face elements */
+      if (elem_count < 0 ||
+          static_cast<uint64_t>(elem_count) >
+          static_cast<uint64_t>(std::numeric_limits<size_t>::max()/sizeof(PlyFace *)))
+        {
+          releaseMesh();
+          close_ply(in_ply);
+          free_ply(in_ply);
+          return false;
+        }
       m_flist = (PlyFace **) new uchar[sizeof (PlyFace *) * elem_count];
+      if (!m_flist && elem_count > 0)
+        {
+          releaseMesh();
+          close_ply(in_ply);
+          free_ply(in_ply);
+          return false;
+        }
       m_nfaces = elem_count;
+      memset(m_flist, 0, sizeof(PlyFace *) * elem_count);
 
       /* set up for getting face elements */
 
@@ -509,8 +625,23 @@ MeshSimplify::loadPLY(QString flnm)
 
       /* grab all the face elements */
       for (j = 0; j < elem_count; j++) {
-        m_flist[j] = (PlyFace *) new uchar[sizeof (PlyFace)];
+        m_flist[j] = (PlyFace *) new (std::nothrow) uchar[sizeof (PlyFace)];
+        if (!m_flist[j])
+          {
+            releaseMesh();
+            close_ply(in_ply);
+            free_ply(in_ply);
+            return false;
+          }
+        memset(m_flist[j], 0, sizeof(PlyFace));
         get_element_ply (in_ply, (void *) m_flist[j]);
+        if (ply_last_error())
+          {
+            releaseMesh();
+            close_ply(in_ply);
+            free_ply(in_ply);
+            return false;
+          }
       }
     }
     else
@@ -519,9 +650,20 @@ MeshSimplify::loadPLY(QString flnm)
 
   close_ply (in_ply);
   free_ply (in_ply);
+
+  if (ply_last_error() || m_nverts <= 0 || m_nfaces < 0)
+    {
+      releaseMesh();
+      return false;
+    }
   
 
-  vcolor = new float[m_nverts*3];
+  vcolor = new (std::nothrow) float[static_cast<size_t>(m_nverts)*3];
+  if (!vcolor)
+    {
+      releaseMesh();
+      return false;
+    }
   for(int i=0; i<m_nverts; i++)
     {
       vcolor[3*i+0] = m_vlist[i]->r/255.0f;

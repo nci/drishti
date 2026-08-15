@@ -5,6 +5,7 @@
 #include <QSaveFile>
 
 #include <limits>
+#include <utility>
 
 VolumeMask::VolumeMask()
 {
@@ -57,6 +58,32 @@ VolumeMask::exportMask()
   QMessageBox::information(0, "Export",
                            QString("Exported labeled data to %1 and associated pvl.nc file")
                              .arg(maskfile));
+  return true;
+}
+
+bool
+VolumeMask::prepareForStateSwap()
+{
+  return m_maskFileManager.prepareForStateSwap();
+}
+
+bool
+VolumeMask::swapState(VolumeMask& other)
+{
+  if (this == &other)
+    return true;
+  if (!m_maskFileManager.swapState(other.m_maskFileManager))
+    {
+      m_lastError = m_maskFileManager.lastError();
+      return false;
+    }
+  using std::swap;
+  swap(m_maskfile, other.m_maskfile);
+  swap(m_lastError, other.m_lastError);
+  swap(m_depth, other.m_depth);
+  swap(m_width, other.m_width);
+  swap(m_height, other.m_height);
+  swap(m_maskslice, other.m_maskslice);
   return true;
 }
 void
@@ -154,6 +181,22 @@ VolumeMask::setFile(QString mfile, bool inMem)
 {
   if (!reset())
     return false;
+  const QFileInfo maskInfo(mfile);
+  const QDir maskDir = maskInfo.absoluteDir();
+  const QFileInfo maskDirInfo(maskDir.absolutePath());
+  if (!maskDir.exists() || !maskDirInfo.isReadable() ||
+      !maskDirInfo.isWritable())
+    {
+      m_lastError = QString("Mask workspace directory is not accessible: %1")
+        .arg(maskDir.absolutePath());
+      return false;
+    }
+  if (maskInfo.exists() && !maskInfo.isWritable())
+    {
+      m_lastError = QString("Mask sidecar is read-only: %1")
+        .arg(maskInfo.absoluteFilePath());
+      return false;
+    }
   m_maskfile = mfile;
   QStringList tflnms;
   tflnms << mfile;
@@ -240,9 +283,10 @@ VolumeMask::loadTagNames()
   return tagNames;
 }
 
-void
+bool
 VolumeMask::saveTagNames(QStringList tagNames)
 {
+  m_lastError.clear();
   QString pvlfile = m_maskfile;
   pvlfile += ".pvl.nc";
 
@@ -250,14 +294,24 @@ VolumeMask::saveTagNames(QStringList tagNames)
 
   QDomDocument doc;
   QFile f(pvlfile);
-  if (f.open(QIODevice::ReadOnly))
+  if (!f.open(QIODevice::ReadOnly) ||
+      !doc.setContent(&f))
     {
-      doc.setContent(&f);
-      f.close();
+      m_lastError = QString("save tag names: cannot read '%1'").arg(pvlfile);
+      return false;
+    }
+  f.close();
+
+  const QDomElement root = doc.documentElement();
+  if (root.isNull() || root.tagName() != "PvlDotNcFileHeader")
+    {
+      m_lastError = QString("save tag names: invalid PVL header '%1'")
+        .arg(pvlfile);
+      return false;
     }
 
   int replace = -1;
-  QDomElement topElement = doc.documentElement();
+  QDomElement topElement = root;
   QDomNodeList dlist = topElement.childNodes();
   for(int i=0; i<dlist.count(); i++)
     {
@@ -285,18 +339,34 @@ VolumeMask::saveTagNames(QStringList tagNames)
 
 
   // save file
-  QFile pf(pvlfile.toUtf8().data());
-  if (pf.open(QIODevice::WriteOnly))
+  QSaveFile pf(pvlfile);
+  if (!pf.open(QIODevice::WriteOnly))
     {
-      QTextStream out(&pf);
-      doc.save(out, 2);
-      pf.close();
-    }      
+      m_lastError = QString("save tag names: cannot open '%1': %2")
+        .arg(pvlfile).arg(pf.errorString());
+      return false;
+    }
+  QTextStream out(&pf);
+  doc.save(out, 2);
+  out.flush();
+  if (out.status() != QTextStream::Ok || !pf.commit())
+    {
+      m_lastError = QString("save tag names: cannot commit '%1': %2")
+        .arg(pvlfile).arg(pf.errorString());
+      return false;
+    }
+  return true;
 }
 
 bool
 VolumeMask::createPvlNc(QString maskfile, QString headerBase)
 {
+      // .mask/.mask.sc use VolumeFileManager's independent raw/compressed
+      // mask format.  This sidecar is retained for legacy UI metadata and is
+      // deliberately not a scalar PVL manifest: its <pvlnames> entry may
+      // point at a compressed .mask.sc payload without a 13-byte slab header.
+      // The shared PvlManifestParser must not be used to validate this file;
+      // mask format validation belongs to maskimportutils/VolumeFileManager.
       m_lastError.clear();
       QDomDocument doc("Drishti_Header");
       
@@ -310,14 +380,14 @@ VolumeMask::createPvlNc(QString maskfile, QString headerBase)
 	de0.appendChild(tn0);
 	topElement.appendChild(de0);
       }
-      {      
+      {
 	QDomElement de0 = doc.createElement("pvlnames");
-	QDomText tn0;
 	QFileInfo fileInfo(maskfile);
 	QDir direc = fileInfo.absoluteDir();
 	QString vstr = direc.relativeFilePath(maskfile);
-	tn0 = doc.createTextNode(vstr);
-	de0.appendChild(tn0);
+	QDomElement name = doc.createElement("name");
+	name.appendChild(doc.createTextNode(vstr));
+	de0.appendChild(name);
 	topElement.appendChild(de0);
       }
       {      
@@ -367,6 +437,16 @@ VolumeMask::createPvlNc(QString maskfile, QString headerBase)
 	QDomText tn0;
 	tn0 = doc.createTextNode(QString("%1").arg(m_depth+1));
 	de0.appendChild(tn0);
+	topElement.appendChild(de0);
+      }
+      {
+	QDomElement de0 = doc.createElement("pvlheadersize");
+	de0.appendChild(doc.createTextNode("13"));
+	topElement.appendChild(de0);
+      }
+      {
+	QDomElement de0 = doc.createElement("rawheadersize");
+	de0.appendChild(doc.createTextNode("13"));
 	topElement.appendChild(de0);
       }
       {      

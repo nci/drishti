@@ -1,7 +1,8 @@
 # Drishti CPU + Intel/AMD 核显实施交接
 
 > 交接日期：2026-08-10；背景补充复核：2026-08-13
-> 审计基线：`b53bd9790829dbeb38cbe0f160e79a95349905d2`
+> 上游审计起点：`b53bd9790829dbeb38cbe0f160e79a95349905d2`
+> 当前实现检查点：`e731972d2c8663b001ce06384b9b4074854d0c00`（`codex/cpu-igpu-worktree-checkpoint-20260813`，`checkpoint: preserve CPU and iGPU adaptation work`）
 > 目标平台：Windows 11、i7-13700H 核显笔记本，以及近五年发布的 Intel/AMD 核显设备
 > 目标架构：CPU 执行导入、直方图、转换、分割和网格构建；核显执行 OpenGL 交互显示
 > 非目标：纯 CPU 软件光栅化、无显示设备运行、向上游 GitHub 推送
@@ -10,9 +11,20 @@
 
 请把本文件当作实施任务书，而不是调查建议。先读取目标设备仓库、已安装程序和问题图片的只读信息，再按第 7 节分阶段实施和验证。
 
-第 4 节描述的是本审计工作树的实现状态、已达到的契约和补充复核确认的边界，目标笔记本未必拥有这些未提交修改。目标智能体必须逐项对照目标源码：已有则验证，缺失则在本地实现；标为未完成/P0 的项目必须编码关闭，不能因为相邻条目写着“已实现”就跳过检查。
+第 4 节描述的是当前实现检查点的状态、已达到的契约和补充背景复核确认的边界。目标笔记本未必拥有该检查点，目标智能体必须先核对 `git rev-parse HEAD` 和目标源码：已有则验证，缺失则移植或实现；标为未完成/P0 的项目即使在 `e731972` 上也尚未关闭，不能因为相邻条目写着“已实现”就跳过编码。
 
-本审计工作树没有 commit，也不能只导出普通 `git diff`：多个正式源码和测试文件目前是 untracked。若两台设备之间可以直接传文件，最可靠的载荷是复制整个 Drishti 工作树并排除 `.git`、`.lab-agent` 和根目录测试产物 `*.obj`；不要只复制已跟踪文件。至少确认以下新增源码存在：
+正式源码、测试和此前新增文件已经纳入检查点 `e731972d2c8663b001ce06384b9b4074854d0c00`，不再需要复制整个脏工作树来保住实现。该检查点创建后，本文件又按补充背景修订；交接时必须同时保留当前版本的本 Markdown，不能只解压 `e731972` 的旧文档。当前工作区的其他 untracked 项（如 `.lab-agent/`、`aqtinstall.log`、`__pycache__/`、根目录 `*.obj` 和名为 `-` 的文件）是审计/构建产物，不是产品源码，也不应成为代码智能体的输入载荷。
+
+该检查点所在本地分支尚未 push，目标机器不能假定 `git fetch origin` 可以取得它。如果目标机器能通过 bundle 或其他方式访问该 Git 对象，优先让目标智能体从 `e731972` 建分支或按仓库策略移植该提交；如果只能传文件，导出该检查点的源码归档，并把当前修订后的本文件作为单独交接件放在归档旁：
+
+```powershell
+$checkpoint = 'e731972d2c8663b001ce06384b9b4074854d0c00'
+$dst = 'D:\transfer'
+git archive --format=zip --output "$dst\drishti-$($checkpoint.Substring(0,7)).zip" $checkpoint
+Copy-Item -LiteralPath .\CPU_IGPU_IMPLEMENTATION_HANDOFF.md -Destination $dst
+```
+
+无论采用 Git 还是归档，至少确认以下检查点新增源码存在：
 
 ```text
 framebufferbudget.h
@@ -28,20 +40,9 @@ tools/paint/slabsavetransaction.h
 tools/paint/tests/
 ```
 
-推荐从本机源目录复制源码和已跟踪资源，同时排除本机生成的 Anaconda Qt/MSVC 二进制。`robocopy` 的 0–7 都是成功状态，8 以上才是失败：
-
-```powershell
-$src = 'C:\saveproject\LBJ-workspace\_external\drishti'
-$dst = 'D:\transfer\drishti-cpu-igpu'
-robocopy $src $dst /E /COPY:DAT /DCOPY:DAT `
-  /XD .git .lab-agent `
-  /XF *.obj *.dll *.exe *.lib *.exp *.pdb *.ilk
-if ($LASTEXITCODE -ge 8) { throw "robocopy failed: $LASTEXITCODE" }
-```
-
 不要从相邻的 `_external\bin` 或本机 `.lab-agent\build` 收集 DLL；那里是审计期间的 shadow-build 产物。目标机必须用自己的正式 Qt/MSVC/第三方依赖重新编译。
 
-若目标智能体只收到本 Markdown，则把第 4 节的行为契约作为实现标准，从目标仓库逐项编码，不能假定 GitHub 上的 `b53bd97` 已包含这些改动。
+若目标智能体只收到本 Markdown，则把第 4 节的行为契约作为实现标准，从目标仓库逐项编码，不能假定上游 `b53bd97` 或目标仓库已经包含 `e731972` 的改动。
 
 必须遵守：
 
@@ -53,7 +54,7 @@ if ($LASTEXITCODE -ge 8) { throw "robocopy failed: $LASTEXITCODE" }
 6. 不要把“程序能启动”当作“全部功能可用”，也不要把“全部功能可用”当作“任意尺寸数据都流畅”。按本文件列出的不同口径分别验收。
 7. 不要把历史实验补丁中的 `BATCH_SIZE = 32` 当成现场既定事实。只有目标 `drishtiimport.exe` 能对应到包含该补丁的源码或二进制证据时，才能把它列为现场首因。
 
-`CPU_ADAPTATION_DESIGN.md` 中“主程序只需 OpenGL 2.1”和“Paint 是纯 2D”等判断与当前源码不符，不应作为实施依据。`DRISHTI_IMPORT_FREEZE_HANDOFF.md` 保存了导入问题的完整审计过程，可作为补充背景。
+`CPU_ADAPTATION_DESIGN.md` 中“主程序只需 OpenGL 2.1”和“Paint 是纯 2D”等判断与当前源码不符，不应作为实施依据。`DRISHTI_END_TO_END_WORKFLOW_FIX_HANDOFF_2026-08-12.md` 是补充背景后的全链路问题基线，`DRISHTI_IMPORT_FREEZE_HANDOFF.md` 保存导入卡死审计过程；实现状态发生冲突时，以当前源码、可复现测试和全链路问题基线为准，不能用本文较早的“已完成”概括覆盖后来确认的缺口。
 
 ## 1. 结论和概率
 
@@ -263,7 +264,7 @@ tools/paint/viewer.cpp
 framebufferbudget.h
 ```
 
-已经做的事情：
+当前实现状态（已完成项与缺口）：
 
 - Windows 强制 Desktop OpenGL，避免落到不兼容的 ANGLE/OpenGL ES 路径。
 - 主程序、Paint、Mesh 分别请求 OpenGL 4.5、4.2、4.2 Compatibility Profile。
@@ -277,12 +278,12 @@ framebufferbudget.h
 - 上述 loader 使用稳定的内容哈希标签，记录完整的失败 compile/link log，并清理半创建的 shader/program。
 - 延迟资源失败会锁存，避免每帧重新编译或重复弹窗；lighting 可降级到基础光照，Prune 会关闭 empty-space skip 并阻止无效操作，Mesh 的可选 ClearView 后处理会跳过。
 - 目前只有三处 FBO 使用 `FramebufferBudget::evaluate()` 和 512 MiB 硬上限：主程序 Trisets 按 68 B/pixel、Mesh Trisets 按 100 B/pixel、Paint preview 按 48 B/pixel。两套 Trisets 还具备受检尺寸、事务式 candidate 分配和失败尺寸缓存；失败后走基础网格显示，不在每帧重试同一失败尺寸。
-- **该预算不是全局 FBO 预算。**主程序 Viewer、Mesh Viewer、`DrawHiresVolume`、lighting 和 prune 等 FBO 路径尚未接入同一准入层。现有公式也只计算 candidate attachment 集合，没有计入替换时仍存活的旧附件、驱动 staging 和其他同时驻留资源；事务式替换的瞬时占用可能接近公式结果的两倍。后续智能体必须逐路径补齐或给出等价的受检上限，不能把三处覆盖外推为全部 FBO 已受控。
+- **该预算不是全局 FBO 预算。**Drishti/Mesh Viewer、`DrawHiresVolume`、lighting、prune 和 `RcViewer` 等 FBO 路径尚未接入同一准入层；Paint Viewer preview 是上述三处已预算路径之一，但其状态恢复仍需按 P0-5 验证。现有公式也只计算 candidate attachment 集合，没有计入替换时仍存活的旧附件、驱动 staging 和其他同时驻留资源；事务式替换的瞬时占用可能接近公式结果的两倍。后续智能体必须逐路径补齐或给出等价的受检上限，不能把三处覆盖外推为全部 FBO 已受控。
 - 两套 `ScopedTrisetGlState` 已保存并恢复 DRAW/READ framebuffer、renderbuffer、VAO、array buffer、viewport、program、blend、depth、color mask、cull/front-face/polygon mode、active texture，以及纹理单元 0–7 和原 active unit 的 2D/rectangle binding 与 enable 状态。旧内部 FBO/renderbuffer/texture 被替换时，保存的绑定会映射到新对象，避免恢复到已删除对象。**仍不是通用 GL 快照**：lighting、line smooth/width、point state、depth range、scissor、clear values、draw/read-buffer selection 未覆盖，纹理保护也有 target/unit 范围；见 P0-5 的哨兵验证要求。
 - Mesh/shadow shader 失败按源码锁存，不再每帧重新编译或反复弹窗。Paint crop 改变触发 raycast shader 重建时也检查返回值；失败源码被锁存，渲染、拾取和读回均不得使用旧 shader 或陈旧 FBO。
 - 正常每帧的整窗口 GPU -> CPU 读回已经移除；只在冻结画面或消息首次显示等确实需要静态背景时捕获，避免核显共享内存总线被同步读回持续阻塞。
 
-这些改动已经存在于当前工作树，不应再作为“待编码 P0”重复实现；但它们仍只是源码/API 级兼容基线，尚未在目标 Intel/AMD 驱动上完成端到端验证。当前工作树中常用的 high/low volume、lighting、prune 以及 Mesh copy/dilate/blur 延迟 shader 已不再在失败时 `exit(0)`：失败会清理半成品并返回零 program/不可用状态，已审计调用方会停止对应功能。剩余可执行 `exit()` 属于 launcher/批处理正常结束，或旧 PLY/netCDF 库的边缘输入路径。内容哈希仍不是人工可读的语义名称，目标驱动上的全部调用方也尚未实测。
+本列表中明确写成已实现的项目已经存在于当前检查点，不应重复重写；明确写成“尚未”或“未覆盖”的项目仍须关闭。其中 profile-mask 日志和软件 Renderer 主动拒绝属于 P0-1，全路径 FBO 预算与非 Trisets 路径的 GL 状态恢复属于 P0-5。不得把相邻完成项外推到这些缺口。已完成部分也仍只是源码/API 级兼容基线，尚未在目标 Intel/AMD 驱动上完成端到端验证。当前检查点中常用的 high/low volume、lighting、prune 以及 Mesh copy/dilate/blur 延迟 shader 已不再在失败时 `exit(0)`：失败会清理半成品并返回零 program/不可用状态，已审计调用方会停止对应功能。剩余可执行 `exit()` 属于 launcher/批处理正常结束，或旧 PLY/netCDF 库的边缘输入路径。内容哈希仍不是人工可读的语义名称，目标驱动上的全部调用方也尚未实测。
 
 ### 4.4 纹理预算和 slab 边界
 
@@ -369,7 +370,7 @@ drishti/mainwindow.cpp/.h
 - **应用层加载仍是破坏性的，原 P0-2 只完成了底层对象内部的失败传播。**`MainWindow::preLoadVolume()` 在候选验证前就清空 RawVolume、lighting、主要几何集合和关键帧；单通道、RGB/RGBA、2/3/4 卷入口随后才调用加载。`Volume::loadVolume()` 各重载也会先删除当前活动 volume，失败恢复只是 `clearVolumes()` 并切到 `DummyVolume`，不会恢复旧工作集。DummyVolume 分配失败同样会先清关键帧和旧 volume；项目加载还会提前修改项目/UI 状态，并且没有统一成功结果阻止后续资源继续加载。
 - 因此“失败后可再次重试”不等于事务安全。后续智能体必须按 P0-6 实现两阶段候选加载：volume、lowres 和项目关联资源全部独立准备并验证成功后，才一次性提交活动指针与 UI；任一失败必须让旧体积、几何、TF、关键帧、相机、当前项目/标题和可渲染性逐项保持不变。
 
-主程序的这套契约已经扩展到 Paint 的独立卷文件链路以及已审计的 ITK、Mesh 和 Raw 导出调用方，具体见 4.9。仍不能把这些定向修复外推为全部菜单都具备同等级故障注入证据；旧 PLY、netCDF、视频和未审计插件继续保留在“全部菜单/罕见错误输入”风险口径中。
+底层 VFM/I/O 的显式错误传播和已审计调用方检查已经扩展到 Paint 的独立卷文件链路以及部分 ITK、Mesh 和 Raw 导出路径，具体见 4.9；这只说明这些底层/定向路径不再静默吞掉已覆盖的失败。它不代表 `MainWindow` 的活动工作集和项目加载已经事务化，后者仍由 P0-6 负责。也不能把这些定向修复外推为全部菜单都具备同等级故障注入证据；旧 PLY、netCDF、视频和未审计插件继续保留在“全部菜单/罕见错误输入”风险口径中。
 
 ### 4.8 RGB/RGBA、多卷固定 slab 和高分辨率失败传播
 
@@ -615,7 +616,7 @@ SHA-256: 4A29C10343E1E74EC31BB18F6221F9F6655D6923D99079FA27FDCA4E15FAAF9C
 - `git diff --check` 退出码 0；只有现存 LF/CRLF 转换提示，没有空白错误。
 - `rg -n "glDispatchCompute" .` 只命中本交接文档的说明，活动源码零命中。
 - `rg -n "\\bexit\\s*\\(" drishti tools` 的剩余可执行命中属于 launcher/正常程序退出、batch 完成、旧 netCDF 导入器和多份旧 PLY C 解析器；交互式 volume/shader/GraphCut 活动路径未再命中。PLY/netCDF 仍是全部菜单可靠性的已知缺口。
-- `git status --short` 仍显示原工作树的全部修改和新增文件；未执行 commit、push、reset 或 checkout。
+- 2026-08-13 provenance 更新：实施内容已提交为 `e731972d2c8663b001ce06384b9b4074854d0c00`（本地分支 `codex/cpu-igpu-worktree-checkpoint-20260813`）；tracked worktree 与 index 在本文修订前为干净状态。该检查点未 push，不能假定任何远端引用包含它。除本次 Markdown 修订外，`git status --short` 的剩余项目是未跟踪的审计/构建产物、依赖副本、日志、缓存或对象文件，不应作为源码传输载荷或正式构建证据。此前“尚未 commit”的表述只记录 2026-08-10 的历史状态。
 - 审计过程记录曾运行 VFM safety、RGB(A) 等价、CPU mesh paint、Paint 准入、Checkpoint、异步保存、slab 事务、Undo 和生命周期测试；其中当前仍保留且可核对的只有上文九个 `.lab-agent/build` smoke。未保留 EXE/日志的项目只能视为历史过程记录，目标机必须重新生成并保存结果。
 - 当前保留的最新产品对象只限于上文 10 个 TU。`checkpointhandler.cpp`、`volumemask.cpp`、`volume.cpp`、`drishtipaint.cpp` 及其 MOC 的历史对象当前未保留，不得称为当前源码已有对象证据。
 
@@ -677,29 +678,33 @@ SHA-256: 4A29C10343E1E74EC31BB18F6221F9F6655D6923D99079FA27FDCA4E15FAAF9C
 
 任何 AddressSanitizer、Application Verifier、GL debug output 或哨兵缓冲报告越界，都应视为发布阻断。RGB/RGBA、多卷和奇数深度的目标机集成测试通过前，不要把核心工作流提高到 **88%–93%**；即使通过，也不改变“全部菜单和插件”仅 **50%–65%** 的独立口径。
 
-### P0-5：状态守卫编码已扩展，补齐 FBO 覆盖与实机核验
+### P0-5：Trisets 状态守卫已扩展，补齐其他 FBO 路径、预算与实机核验
 
 启动 `rendererReady` 已覆盖三个 Viewer 的启动资源，当前工作树已把审计到的 lighting、prune、volume 和 Mesh 延迟 shader/FBO 改成失败返回或功能降级。目标智能体仍必须逐项核对，因为“删除 `exit()`”本身不代表每个调用方都能处理零 program/FBO：
 
 1. 不要按旧说明重写两套 `ScopedTrisetGlState`：renderbuffer、VAO、array buffer、active texture，以及单元 0–7/原 active unit 的 2D/rectangle texture 状态都已覆盖。用预置非零哨兵对象验证成功、预算拒绝和 GL allocation 失败三条路径；vertex attribute enable/pointer 是 VAO-local，正常 fallback 路径恢复原 VAO 即可，不能再笼统写成“VAO/attribute 完全未保护”。
 2. 按 fallback 实际修改面核对并按需补齐 lighting、line smooth/width、point state、depth range、scissor、clear values、draw/read-buffer selection；同时验证纹理单元超过 7 或其他 texture target 时的契约。只保护当前审计路径可以，但必须在类型/注释/测试中明确它不是通用 GL 快照。
 3. `createTrisetFramebuffer()` 和外层 `createFBO()` 是嵌套状态保护；确认内层析构不会把外层期望提交的 candidate 状态误恢复。旧内部 FBO/renderbuffer/texture 被删除时继续映射保存绑定，任何其他保存后又被删除的 GL 对象也必须同样处理。
-4. `rg -n "\\bexit\\s*\\(" drishti tools` 后逐个分类。launcher 或批处理正常结束可保留；交互功能的 shader、FBO、分配和文件解析失败不得退出整个进程。
-5. shader 工厂失败后必须删除 candidate、把 program 置零并返回；每个调用方在设置 uniform 或 draw 前检查零 program，停用对应功能并恢复 framebuffer/viewport/UI 状态。
-6. 给人工常用路径增加语义名称；内容哈希用于稳定关联，不能替代 `lighting/diffuse`、`volume/highres` 这类名称。
-7. 在实际附件配置完成处检查每个延迟 FBO，并在失败时释放半初始化资源。把同一受检预算扩展到主程序 Viewer、Mesh Viewer、`DrawHiresVolume`、lighting、prune 等目前未覆盖的 FBO，或为每条路径建立有证据的等价上限和降级策略。
-8. 正常情况下可只记录摘要；失败时必须记录最终 shader 源码、compile/link log、GL error、FBO status、估算 attachment 字节、预算档位，以及旧资源/candidate/driver staging 的并存峰值。
-9. 当前 512 MiB 公式在 3840 x 2160 下估算：主程序 Trisets 约 538 MiB、Mesh Trisets 约 791 MiB，均会拒绝；Paint preview 约 380 MiB，会通过公式。目标机既要验证前两者的 basic-rendering 降级，也要验证 Paint 在旧 FBO + candidate + staging 并存时不会触发系统换页；必要时采用 `RGBA16F`、自适应尺寸或更低预算，但必须先证明算法/画面精度可接受。
+4. 状态恢复要求适用于所有 FBO 创建、校验和替换路径，不只适用于 Trisets。至少审计 Paint `Viewer::createFBO()/createFramebufferSet()`、Drishti/Mesh Viewer 的 image/lowres/save-image FBO、`DrawHiresVolume`、lighting、prune 和 `RcViewer`。`QGLFramebufferObject::release()` 会绑定默认 framebuffer，不能视为恢复调用者原绑定；每条路径必须按实际修改面保存并恢复 DRAW/READ framebuffer、renderbuffer、VAO/buffer、viewport、program、active texture、被触碰的纹理绑定、draw/read-buffer selection 及相关 enable 状态。
+5. 成功替换时，如果保存状态引用了即将删除的旧 FBO、renderbuffer 或 texture，必须映射到 candidate，或在 API 契约中明确解除该引用；失败、预算拒绝和 FBO incomplete 时必须完整恢复原对象与状态。Paint preview 虽已有预算和 candidate 分配，仍需要补齐这项状态契约。所有路径都要用非零哨兵分别验证成功、预算拒绝、GL allocation/FBO incomplete 和旧对象替换，并断言恢复结果没有绑定已删除对象。
+6. `rg -n "\\bexit\\s*\\(" drishti tools` 后逐个分类。launcher 或批处理正常结束可保留；交互功能的 shader、FBO、分配和文件解析失败不得退出整个进程。
+7. shader 工厂失败后必须删除 candidate、把 program 置零并返回；每个调用方在设置 uniform 或 draw 前检查零 program，停用对应功能并恢复 framebuffer/viewport/UI 状态。
+8. 给人工常用路径增加语义名称；内容哈希用于稳定关联，不能替代 `lighting/diffuse`、`volume/highres` 这类名称。
+9. 在实际附件配置完成处检查每个延迟 FBO，并在失败时释放半初始化资源。把同一受检预算扩展到上述非 Trisets 路径，或为每条路径建立有证据的等价上限和降级策略；预算必须覆盖旧资源、candidate、驱动 staging 和同阶段其他常驻附件的并存峰值，而不只是新 attachment 字节和。
+10. 正常情况下可只记录摘要；失败时必须记录最终 shader 源码、compile/link log、GL error、FBO status、估算 attachment 字节、预算档位，以及旧资源/candidate/driver staging 的并存峰值。
+11. 当前 512 MiB 公式在 3840 x 2160 下估算：主程序 Trisets 约 538 MiB、Mesh Trisets 约 791 MiB，均会拒绝；Paint preview 约 380 MiB，会通过公式。目标机既要验证前两者的 basic-rendering 降级，也要验证 Paint 在旧 FBO + candidate + staging 并存时不会触发系统换页；必要时采用 `RGBA16F`、自适应尺寸或更低预算，但必须先证明算法/画面精度可接受。
 
-### P0-6：未完成，Drishti MainWindow 两阶段加载与项目原子提交
+### P0-6：阶段 2部分实现，Drishti MainWindow 两阶段加载与项目原子提交仍未关闭
 
-这是新增背景确认后的发布阻断项。当前 `preLoadVolume()` 和 `Volume::loadVolume()` 会在候选成功前销毁旧场景/旧 volume；失败退到 `DummyVolume` 只是得到一个可重试空状态，不是恢复用户工作区。目标智能体必须修改 `drishti/mainwindow.cpp/.h`、`drishti/volume.cpp/.h` 及候选资源所有权链：
+这是新增背景确认后的发布阻断项。阶段 2已经把部分普通 volume/candidate、时间点 manifest 预检和项目 XML 局部解析接上，但 lowres/preferences/TF/keyframe/渲染资源尚未形成完整 detached candidate，因此仍不能关闭本项。目标智能体必须继续修改 `drishti/mainwindow.cpp/.h`、`drishti/volume.cpp/.h` 及候选资源所有权链：
 
 1. 单通道、RGB/RGBA、2/3/4 卷和 DummyVolume 都先构造独立 candidate；完成文件/manifest、容量、volume、lowres、必要 GL/渲染资源验证前，不得调用会清空活动状态的 `preLoadVolume()`、`clearVolumes()` 或等价逻辑。
 2. 把 `preLoadVolume()` 的破坏性清理移到成功提交之后，或拆成“无副作用预检/候选准备 + 不失败提交”。旧 volume 和场景对象必须一直保有所有权并保持可渲染，直到 candidate 已具备接管条件；只保存已被删除对象的裸指针不构成回滚。
 3. 成功时一次性切换活动 volume、`Global::volumeType()`、RawVolume、lighting、几何、TF、关键帧、相机和 Viewer 状态，再释放旧资源。若提交阶段仍可能失败，必须使用可回滚事务，不能形成新旧混合状态。
-4. 项目加载必须返回统一成功结果并短路后续资源加载；项目文件、volume、几何、TF、关键帧、相机、当前项目路径和窗口标题全部以同一个 candidate/commit 边界处理，不能先改标题或当前项目再发现 volume 失败。
-5. 负例必须在一个已加载、含几何/TF/关键帧/相机状态且可正常渲染的项目上执行：分别注入非法文件和 OOM/准入拒绝，覆盖单通道、RGB/RGBA、2/3/4 卷、DummyVolume 和完整项目候选。每次失败前后逐项比较旧数据/状态（可序列化部分比较字节或哈希），并继续渲染一帧；旧工作集、当前项目/标题和 renderability 任一变化即失败。随后能再加载小样只能作为附加检查，不能替代不变量证明。
+4. **项目解析阶段必须无副作用。**把 XML、volume type、四组文件列表、渲染/偏好字段、相机 FOV、repeat type、TF、lowres 和关键帧解析到独立 `ProjectCandidate`/DTO；解析和验证期间不得修改 `m_volFiles1..4`、任何活动 `Global::*` 状态、Viewer/相机、PreferencesWidget、TF 容器、关键帧、当前项目路径、previous directory、窗口标题或活动工作集。当前 `loadVolumeFromProject()` 会把打开/XML 解析失败默认为 `DummyVolume`，并在解析中直接修改这些现场状态，必须改为 `bool/Result + candidate + error` 或等价的显式失败接口。
+5. `loadProject()` 及 lowres、preferences、TF、keyframe 等项目子加载器必须统一返回成功/失败并支持 detached candidate；不得继续使用 `void`、弹警告后返回、先清空活动容器再解析，或某个子资源失败后继续加载后续资源的契约。先为每类资源明确必需/可选语义：必需资源缺失、损坏或截断必须令整个 candidate 失败；真正可选的资源可以缺失并在 candidate 中形成显式默认/空状态，但已存在却损坏或截断不能按“空数据成功”处理。尤其不能为了新事务实现而把历史上合法的不含 keyframes 项目改成加载失败。
+6. 只有项目 XML、volume 以及按上述契约解析的 lowres、preferences、TF、关键帧、几何和必要渲染资源全部准备完成后，才能统一提交项目路径、窗口标题和 UI。任一必需资源失败或任一已存在资源解析失败，都必须短路后续加载并销毁 detached candidate，不得把部分候选内容泄漏到活动状态。
+7. 测试必须在一个已加载、含几何/TF/关键帧/相机/偏好状态且可正常渲染的项目上执行。失败负例除非法 volume 和 OOM/准入拒绝外，还要覆盖项目文件无法打开、截断/畸形 XML、未知 volume type、缺失必需文件列表、RGB/RGBA 空列表，以及已存在但损坏/截断的 lowres、TF、preferences 和 keyframe sidecar/节点；每次失败前后逐项比较旧数据/状态（可序列化部分比较字节或哈希），并继续渲染一帧。对契约定义为可选的资源还要测试“缺失但项目合法”的成功路径，提交后应得到新项目的显式默认/空状态，而不是泄漏旧项目内容。旧工作集、偏好、当前项目/标题或 renderability 在失败路径任一变化即失败；随后能再加载小样只能作为附加检查，不能替代不变量证明。
 
 ### P1：共享内存和交互性能策略
 
@@ -845,7 +850,7 @@ P0-2、P0-3 以及 4.10–4.11 已在本工作树完成。目标智能体应按 
 1. 极端但合法的宽、高、深组合只计算/拒绝，不得发生 `int` 溢出或按最大轴平方过度分配。
 2. 缺文件、截断文件、只读文件、seek/read/write 短操作必须返回失败，不能返回旧切片或成功状态。
 3. RGB/RGBA 和 2/3/4 卷在 1/多 slab 下记录每次 CPU buffer 容量，峰值必须由固定 slab 决定，不随完整体深度增长。
-4. 先完成 P0-6，再在已有可渲染项目上注入非法/OOM 单通道、RGB/RGBA、2/3/4 卷、DummyVolume 和项目候选。失败前后的 `Volume::valid()`、`Global::volumeType()`、体数据、几何、TF、关键帧、相机、当前项目/标题和可渲染性必须逐项、状态对状态保持不变；可序列化数据比较字节或哈希，并继续渲染一帧。随后成功加载小样只是附加条件。
+4. 先完成 P0-6，再在已有可渲染项目上注入非法/OOM 单通道、RGB/RGBA、2/3/4 卷、DummyVolume 和项目候选，并覆盖无法打开、截断/畸形 XML、未知 volume type、缺失必需文件列表、RGB/RGBA 空列表，以及已存在但损坏/截断的 lowres、TF、preferences、keyframe sidecar/节点。失败前后的 `Volume::valid()`、`Global::volumeType()`、体数据、几何、TF、关键帧、相机、偏好、当前项目/标题和可渲染性必须逐项、状态对状态保持不变；可序列化数据比较字节或哈希，并继续渲染一帧。另测缺失可选资源的合法项目，成功提交后使用新项目的显式默认/空状态；随后成功加载小样只是失败路径的附加条件。
 5. Paint 对截断 PVL/mask、损坏 Blosc block、只读目录和写满磁盘必须返回错误；显式保存或关闭时不得丢失最后一代修改。用典型 mask 记录一次画笔结束、自动保存和退出保存的最长 UI 停顿。
 6. ITK、Mesh/MeshPaint、masked RAW 和 Paint 提取分别注入中途短读/短写；已有同名输出必须保留，失败只清理本轮新建的临时或部分文件。
 7. 在小卷、阈值附近和超阈值数据上记录实时物理/Commit 预算、系统/核显预留和最终模式；当前 `setFile()` 在预算不足时必须于大分配前明确拒绝，显式 offload 路径也不得偷偷整卷分配，不能再出现持续换页。不要把安全拒绝记为大卷功能通过。
@@ -890,12 +895,12 @@ PVL -> Drishti Paint -> 新建/修改 mask -> 保存并重新加载
 |---|---|---|
 | 启动 | 三个 OpenGL 程序各启动 5 次；另测通用/软件 Renderer 拒绝分支 | 实际 Renderer 为 Intel/AMD；profile mask 数值及解析符合请求；`GDI Generic`/`Microsoft Basic Render Driver`/远程软件实现进入错误页且不创建 shader/FBO；无随机黑屏或启动崩溃 |
 | Shader | 主渲染、光照、crop/prune、Paint raycast、Mesh display | compile/link 全成功；失败能定位到稳定标签和语义功能 |
-| FBO | 窗口缩放、截图、低/高质量切换；三处已预算及 Viewer/volume/lighting/prune 未预算路径；成功/预算拒绝/GL allocation 失败哨兵 | 每次重建 complete 或明确降级；不继续访问空资源；原 GL 状态恢复；日志含 candidate、旧资源与 staging 峰值；所有 FBO 有受检上限，不能用旧算术 smoke 代替 |
+| FBO | 窗口缩放、截图、低/高质量切换；三处已预算路径（含 Paint Viewer preview）及未预算的 Drishti/Mesh Viewer、`DrawHiresVolume`、lighting、prune、`RcViewer`；用非零绑定/状态哨兵覆盖成功、预算拒绝、GL allocation/FBO incomplete 和旧对象替换 | 每次重建 complete 或明确降级；不继续访问空资源；原 GL 状态按修改面恢复且不绑定已删除对象；日志含 candidate、旧资源与 staging 峰值；所有 FBO 有受检上限，不能用旧算术 smoke 代替 |
 | TIFF 导入 | 1/2/4/10 张原数据；RGB/tiled/混合布局/损坏负例 | UI 响应，内存不按深度线性增长，灰度结果一致；不支持布局明确拒绝 |
 | Image Stack | 灰度、RGB、RGBA；混合尺寸和损坏图片 | 支持类型结果一致；错误输入安全拒绝；取消后可重试 |
 | Import -> PVL | 无滤波、最大 spread、padding、Merge、Quick RAW；预算阈值上下各一组 | 峰值模型包含所有并存缓冲和滤波窗口；超预算在打开输出/分配前拒绝；成功 PVL 随机体素一致 |
 | 体数据 I/O | 截断 PVL、缺失 slab、只读输出、短读/短写及后续 slab 提交失败注入 | 明确失败、清理部分输出、状态可重试；不复用旧切片；旧多 slab 卷不出现混合代际 |
-| Drishti 候选加载 | 在已填充项目上加载非法/OOM 的单通道、RGB/RGBA、2/3/4 卷、DummyVolume 和完整项目候选 | 失败后旧 volume、几何、TF、关键帧、相机、当前项目/标题逐项不变且仍能渲染；不得退到空 `DummyVolume`；成功提交不出现新旧混合状态 |
+| Drishti 候选加载 | 在已填充项目上加载非法/OOM 的单通道、RGB/RGBA、2/3/4 卷、DummyVolume；另测无法打开/畸形或截断项目 XML、未知类型、缺失必需列表、已存在但损坏的 lowres/TF/preferences/keyframe，以及缺失可选资源的合法项目 | 解析阶段无副作用；失败立即短路且旧 volume、几何、TF、关键帧、相机、偏好、当前项目/标题逐项不变并仍能渲染；不得退到空 `DummyVolume`；合法缺失可选资源提交为新项目默认/空状态；成功提交不出现新旧混合状态 |
 | RGB/多卷 | RGB、RGBA、2/3/4 卷各测单/多 slab | CPU Peak Private 由固定 slab 决定；不构建整卷高分辨率缓存 |
 | Paint | 涂画、GraphCut、8 个已准入三维算法、LiveWire、保存/退出失败、8/16-bit Checkpoint、Undo、损坏已有 mask | 算法完成且结果重载一致；超预算在分配前拒绝；故障注入后 mask 哈希/旧文件不变；非零 ROI 的三个 Watershed 不写 ROI 外；记录最长保存停顿 |
 | ITK/VED | 六个已准入插件的小卷、阈值上下、16-bit 输入和输出失败 | 正式 ITK ABI 下编译运行；拒绝发生在整卷 ITK 分配前；失败保留旧输出；不得用 profile smoke 代替插件运行 |
@@ -947,8 +952,29 @@ RGB/RGBA/2–4 卷固定 slab 峰值：
 
 对 i7-13700H 和近五年的 Intel/AMD 核显，**CPU 负责导入、标注和构建，核显负责 Desktop OpenGL 显示**是现实路线；架构本身的可行性约 **90%–95%**。当前典型灰度核心链路约 **82%–88%**，中心估计 **85%**；目标机用正式依赖、真实 Intel/AMD Renderer 和用户数据跑通矩阵后，核心工作流约 **90%–94%**，中心估计 **92%**。
 
-当前已经修复多项与现场症状相符的确定缺陷，包括导入 GUI 阻塞、泄漏、输入边界、codec 前准入、Import -> PVL 大缓冲、底层卷文件 I/O 与候选对象内部失败传播、RGB/RGBA 与多卷固定 slab、shader/profile/FBO 失败降级、CPU 网格画笔、GraphCut、六个 ITK 插件和 8 个 Paint 原生三维算法。**Drishti 应用层事务式加载尚未完成：坏候选仍会销毁旧工作集，必须先关闭 P0-6 才能把它列为已修复。**同时没有目标 EXE、原图和资源曲线，仍不能声称找到了现场唯一首因。基线 `b53bd97` 的 TIFF 是 GUI 线程顺序单切片实现；`BATCH_SIZE=32` 只是后来撤销的实验实现，只有目标二进制证据匹配时才能列为首因。
+当前已经修复多项与现场症状相符的确定缺陷，包括导入 GUI 阻塞、泄漏、输入边界、codec 前准入、Import -> PVL 大缓冲、底层卷文件 I/O 与候选对象内部失败传播、RGB/RGBA 与多卷固定 slab、已审计 shader/FBO 子路径的失败降级、CPU 网格画笔、GraphCut、六个 ITK 插件和 8 个 Paint 原生三维算法。此后又补充了 Paint 固定大体积门槛移除、curves 短读/有界解析、正式 PVL Save As 的 16-bit padding/空间预检/旧尾 slab 清理、RAW+padding 明确拒绝，以及 Drishti 命令行选项消费。profile-mask 日志、软件 Renderer 主动拒绝、非 Trisets FBO 预算/状态恢复仍未完成，不能包含在“已修复”口径内。**Drishti 应用层项目资源的完整事务式加载尚未完成：低清晰度、preferences、TF、keyframe 和纹理资源仍由旧的就地接口处理，必须先关闭 P0-7 的剩余边界才能把它列为已修复。**同时没有目标 EXE、原图和资源曲线，仍不能声称找到了现场唯一首因。基线 `b53bd97` 的 TIFF 是 GUI 线程顺序单切片实现；`BATCH_SIZE=32` 只是后来撤销的实验实现，只有目标二进制证据匹配时才能列为首因。
 
 剩余不确定性和未完成项主要是 Drishti 两阶段候选/项目加载、目标 Intel/AMD 驱动上的全部延迟 shader/FBO、未纳入预算的 Viewer/volume/lighting/prune FBO、旧 + candidate + 驱动 staging 并存峰值、Trisets 守卫未覆盖状态的实机哨兵验证、正式第三方依赖的完整链接、用户原图、单次第三方 codec 无硬中断、GUI 线程整卷原始 snapshot、snapshot 临时文件清扫、真正的 out-of-core 覆盖、未审计算法、GraphCut 等 CPU 同步长任务，以及 CPU 画笔的大网格性能和 ridged 图案等价性。`meshvertexbuffer.h` 的 packed-count 乘法已在运算前提升到 `qint64` 并通过独立 MSVC 编译。所有当前 Blosc 写路径均为 level 3；后台无进展和关闭等待已有 30 秒上限；多 slab 在首个 stage 前已有 `STAGING` journal。
 
 按当前证据，原来约 10 张图片端到端不再拖死系统约 **80%–90%**；字面意义上所有菜单、ITK/VED/ML/OpenVR 和罕见格式都能运行约 **55%–70%**，中心 **62%**；典型尺寸日常任务较流畅约 **65%–80%**；大 mask、复杂网格和接近内存上限时仍全部流畅只有 **30%–50%**。不要把这些数字解读为无限数据规模或固定 30 FPS。
+## 2026-08-13 后续阶段实施同步
+
+当前源码继续保留并扩展此前 CPU + 核显安全边界：TIFF 混合 orientation 拒绝、显式/目录自然排序、单体素 ROI 安全映射、PVL Save As nearest 锚点、Save Images 批次 staging、Time Series 输出重名拒绝和 Drishti 项目/keyframe 前置校验已落地。它们只代表源码实现边界，不代表正式 GUI、OpenGL、目标 i7-13700H/AMD 核显或最终便携包已验收。
+
+当前源码已补充 Drishti geometry/camera/LightHandler candidate、Time Series 切帧失败后的旧帧恢复、batch/MHD 采样契约以及 Paint curves/mask 的同目录持久 journal；这些路径仍需故障注入和正式运行时验证，不能把静态实现当成证据。XML/PVL/RAW/Time Series/sidecar 共享同一底层 `RecoveryJournal` 协议，但跨产品域的崩溃恢复组合也仍需在核验阶段证明。Paint/Drishti GUI 闭环、净包和硬件验收属于后续核验工作。主问题基线以 `DRISHTI_END_TO_END_WORKFLOW_FIX_HANDOFF_2026-08-12.md` 第 14.23 节为准。
+
+2026-08-14 代码收口补充：TIFF/Image Stack 通过独立可选 `SourceFilesProvider` 返回实际有序切片，避免修改既有 `VolInterface` 插件虚表；显式多文件的用户确认顺序不再被 TIFF 插件重排，目录导入 provenance 不再只记录目录名。Paint `VolumeFileManager` 在切换映射状态、创建新卷和加载新卷后会丢弃旧 dirty-chunk baseline，避免跨卷复用 snapshot。相关 qmake 生成、PVL `sourceorder` smoke 断言和 `git diff --check` 已完成；完整 C++ 构建、GUI/故障注入、Intel/AMD 核显和净包仍是后续核验工作，不能由这些静态证据替代。
+
+2026-08-14 代码/局部构建补充：TIFF decode helper 的 Windows stdout 已切换为 `_O_BINARY`，修复像素 `0x0A` 在 CRT 文本模式下被转换导致的输出长度错误。VS2019 BuildTools 14.29 + Anaconda Qt 5.15.2 下，PVL manifest、TIFF orientation/order/provider、Image Stack transactional、RecoveryJournal/Slab、GraphCut/Algorithm/Import memory admission、Framebuffer budget、Paint slice ordering、Sampling contract 和 Binary PLY writer 独立 smoke 已实际编译运行通过；helper 产物为 `C:\bin\tiffdecodehelper.exe`。完整 Import 工程仍被 `pybind11/embed.h`、`pybind11/pybind11.h` 和默认路径缺失 `tiffio.h` 阻断，VFM lifecycle smoke 被 `QGLViewer/qglviewer.h` 阻断；TIFF 独立插件在显式传入 Anaconda TIFF include/lib 路径后构建通过。以上证据只覆盖独立组件，不代表主工程、GUI、OpenGL、目标核显或便携包验收完成。
+
+进入核验阶段时采用八段式证据顺序：1）MSVC/Qt/第三方依赖闭包；2）确定性 fixture 与独立 smoke；3）Import 正式 GUI；4）Paint 保存、重开、取消与故障注入；5）Drishti 项目加载、低/高分辨率与渲染；6）短写、磁盘满、rename/delete、异常退出；7）Intel i7-13700H 与 AMD 核显/OpenGL/FBO；8）同一源码快照生成净便携包、依赖闭包、manifest 和 SHA-256。每段分别记录命令、源码快照、环境、输入 fixture、日志和通过/阻断结论；在第 3 至 8 段完成前，不得把局部 smoke 或 qmake 结果写成全链路通过。
+
+2026-08-14 VFM 运行边界补充：VFM lifecycle smoke 原先用 `QCoreApplication`，但保存快照路径会创建 `QProgressDialog`，在 Windows 上触发 Qt5Core `0xC0000409`；现已改为 offscreen `QApplication`。`VolumeFileManager::createSaveSnapshot()` 的 immutable snapshot 物化也从未诊断的 `QFile::copy()` 改为受检分块读写/flush/尺寸校验，并报告源目标错误。修补后在 VS2019 + Anaconda Qt/blosc 实际编译运行输出 `VFM lifecycle smoke passed`、返回码 0。该结果只关闭 Paint 生命周期组件阻断，Import 完整依赖、GUI/OpenGL/硬件/净包和全链路证据仍按八段式规划后置。
+
+2026-08-14 阶段 2 smoke 复核：PVL manifest、TIFF orientation/order/provider、Image Stack transactional、Slab journal、VFM lifecycle、GraphCut/Algorithm/Import memory admission、Framebuffer budget、Paint slice ordering、Sampling contract 和 Binary PLY writer 均已在当前 DLL/辅助程序路径下返回 0。Image Stack 损坏 PNG 的 libpng 错误属于预期负例，事务回滚通过；TIFF smoke 显式使用 `DRISHTI_TIFF_HELPER=C:\bin\tiffdecodehelper.exe`。这些证据覆盖组件契约，不替代正式 Import/Paint/Drishti GUI、OpenGL、Intel/AMD 核显和净包验收。
+
+2026-08-14 阶段 3 Import 构建记录：用 VS2019 x64 + Anaconda Qt 5.15.2，显式接入 `.lab-agent/deps/pybind11/include`、Anaconda Python 和 TIFF include/lib 后，Import qmake 生成通过；本轮同时补齐 `tools/import/import.pro` 的 `TIFF_INCLUDE_PATH`/`TIFF_LIBRARY_PATH` 接入，实际编译已越过 `tiffpagevalidation.cpp`，当前首个阻断为缺少 `openvdb/openvdb.h`。插件级 TIFF/Image Stack smoke 已通过，正式 `drishtiimport` GUI 尚未启动；必须先固定完整 OpenVDB/VDB/Gmsh/Imath/TIFF/pybind11/Python ABI 闭包。
+
+2026-08-14 阶段 4 Paint 构建记录：使用 VS2019 x64 + Anaconda Qt 5.15.2、QGLViewer 头文件和 Anaconda blosc include/lib 生成 `tools/paint/paint.pro` 通过，但 Release 构建在 `PRE_TARGETDEPS` 处被缺少 `common/lib/vdb.lib` 阻断。独立 VFM/Slab/内存准入/GraphCut smoke 已通过，`drishtipaint` 正式 GUI、Paint 保存重开和完整算法矩阵仍未执行；需先补齐同一 MSVC/Qt ABI 的 OpenVDB/VDB/Gmsh/Imath/Blosc/QGLViewer。
+
+2026-08-14 阶段 5 Drishti 构建记录：接入 `.lab-agent/deps/glew-release/glew-2.2.0/include` 和 QGLViewer 头文件后，`drishti/drishti.pro` qmake 通过并实际编译越过 `GL/glew.h`，当前首个阻断为缺少 `common/src/videoencoder/ffmpeg.h` 所需的 `libavcodec/avcodec.h`。`drishti.exe` 尚未链接/启动，项目候选加载、shader/FBO、低/高分辨率和最终渲染仍未取得证据。

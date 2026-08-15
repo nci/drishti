@@ -1,6 +1,7 @@
 #include "xmlheaderfunctions.h"
 #include <QMessageBox>
 #include <QDomDocument>
+#include "../common/src/pvlmanifest.h"
 
 void
 XmlHeaderFunctions::replaceInHeader(QString pvlFilename,
@@ -58,194 +59,73 @@ void
 XmlHeaderFunctions::getDimensionsFromHeader(QString pvlFilename,
 					 int &d, int &w, int &h)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
     {
-      document.setContent(&f);
-      f.close();
+      d = manifest.depth;
+      w = manifest.width;
+      h = manifest.height;
+      return;
     }
 
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "gridsize")
-	{
-	  QStringList str = (dlist.at(i).toElement().text()).split(" ", QString::SkipEmptyParts);
-	  d = str[0].toFloat();
-	  w = str[1].toFloat();
-	  h = str[2].toFloat();
-	  return;
-	}
-    }
+  d = w = h = 0;
 }
 
 int
 XmlHeaderFunctions::getSlabsizeFromHeader(QString pvlFilename)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.slabSize;
 
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "slabsize")
-	return (dlist.at(i).toElement().text()).toInt();
-    }
   return 0;
 }
 
 int
 XmlHeaderFunctions::getPvlVoxelTypeFromHeader(QString pvlFilename)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.voxelType;
 
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "pvlvoxeltype")
-	{
-	  if (dlist.at(i).toElement().text() == "unsigned char") return 0;
-	  if (dlist.at(i).toElement().text() == "char") return 1;
-	  if (dlist.at(i).toElement().text() == "unsigned short") return 2;
-	  if (dlist.at(i).toElement().text() == "short") return 3;
-	  if (dlist.at(i).toElement().text() == "int") return 4;
-	  if (dlist.at(i).toElement().text() == "float") return 5;
-	}
-    }
-  return 0;
+  return -1;
 }
 
 int
 XmlHeaderFunctions::getPvlHeadersizeFromHeader(QString pvlFilename)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.headerSize;
 
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "pvlheadersize")
-	return (dlist.at(i).toElement().text()).toInt();
-    }
-
-  // default is 13 byte header
-  return 13;
+  return -1;
 }
 
 int
 XmlHeaderFunctions::getRawHeadersizeFromHeader(QString pvlFilename)
 {
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "rawheadersize")
-	return (dlist.at(i).toElement().text()).toInt();
-    }
-
-  // default is 13 byte header
-  return 13;
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.rawHeaderSize;
+  return -1;
 }
 
 QStringList
 XmlHeaderFunctions::getPvlNamesFromHeader(QString pvlFilename)
 {
-  QStringList filenames;
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.pvlNames;
 
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "pvlnames")
-	{
-	  QString names = (dlist.at(i).toElement().text()).simplified();
-	  QStringList flnms = names.split(" ", QString::SkipEmptyParts);
-
-	  QFileInfo fileInfo(pvlFilename);
-	  QDir direc = fileInfo.absoluteDir();
-	  for(int fi=0; fi<flnms.count(); fi++)
-	    {
-	      fileInfo.setFile(direc, flnms[fi]);
-	      filenames << fileInfo.absoluteFilePath();
-	    }
-
-	  return filenames;
-	}
-    }
-
-  return filenames;
+  return QStringList();
 }
 
 QStringList
 XmlHeaderFunctions::getRawNamesFromHeader(QString pvlFilename)
 {
-  QStringList filenames;
+  PvlManifest manifest;
+  if (PvlManifestParser::parse(pvlFilename, manifest, false))
+    return manifest.rawNames;
 
-  QDomDocument document;
-  QFile f(pvlFilename.toUtf8().data());
-  if (f.open(QIODevice::ReadOnly))
-    {
-      document.setContent(&f);
-      f.close();
-    }
-
-  QDomElement main = document.documentElement();
-  QDomNodeList dlist = main.childNodes();
-  for(int i=0; i<dlist.count(); i++)
-    {
-      if (dlist.at(i).nodeName() == "rawnames")
-	{
-	  QString names = (dlist.at(i).toElement().text()).simplified();
-	  QStringList flnms = names.split(" ", QString::SkipEmptyParts);
-
-	  QFileInfo fileInfo(pvlFilename);
-	  QDir direc = fileInfo.absoluteDir();
-	  for(int fi=0; fi<flnms.count(); fi++)
-	    {
-	      fileInfo.setFile(direc, flnms[fi]);
-	      filenames << fileInfo.absoluteFilePath();
-	    }
-
-	  return filenames;
-	}
-    }
-
-  return filenames;
+  return QStringList();
 }

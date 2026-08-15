@@ -374,7 +374,7 @@ AnisotropicDiffusionVesselEnhancementImageFilter<TInputImage, TOutputImage>
   /* ======================= */
   ImageRegionIterator<OutputImageType>  om(this->GetOutput(),
                                            this->GetOutput()->GetLargestPossibleRegion());
-  om.Begin();
+  om.GoToBegin();
 
   std::cout << "Generate tensor matrix: " << std::endl;
  
@@ -396,7 +396,7 @@ AnisotropicDiffusionVesselEnhancementImageFilter<TInputImage, TOutputImage>
 
   ImageRegionIterator<EigenValueImageType>  eigenImageIterator(eigenValueImage,
                                            eigenValueImage->GetLargestPossibleRegion());
-  eigenImageIterator.Begin();
+  eigenImageIterator.GoToBegin();
 
   VectorPixelType eigenVectorPixel;
  
@@ -407,7 +407,7 @@ AnisotropicDiffusionVesselEnhancementImageFilter<TInputImage, TOutputImage>
 //      niters ++;
 //      it++;
 //    }
-//  it.Begin();
+//  it.GoToBegin();
 //  
 //  int citerstep = niters/10;
 //  int citer = 0;
@@ -523,10 +523,11 @@ AnisotropicDiffusionVesselEnhancementImageFilter<TInputImage, TOutputImage>
   DenseFDThreadStruct * str;
   int total, threadId, threadCount;
 
-  threadId = ((MultiThreader::ThreadInfoStruct *)(arg))->ThreadID;
-  threadCount = ((MultiThreader::ThreadInfoStruct *)(arg))->NumberOfThreads;
+  threadId = ((MultiThreaderBase::WorkUnitInfo *)(arg))->WorkUnitID;
+  threadCount = ((MultiThreaderBase::WorkUnitInfo *)(arg))->NumberOfWorkUnits;
 
-  str = (DenseFDThreadStruct *)(((MultiThreader::ThreadInfoStruct *)(arg))->UserData);
+  str = static_cast<DenseFDThreadStruct *>(
+    static_cast<MultiThreaderBase::WorkUnitInfo *>(arg)->UserData);
 
   // Execute the actual method with appropriate output region
   // first find out how many pieces extent can be split into.
@@ -543,7 +544,7 @@ AnisotropicDiffusionVesselEnhancementImageFilter<TInputImage, TOutputImage>
     str->Filter->ThreadedApplyUpdate(str->TimeStep, splitRegion, splitRegionDiffusionImage, threadId);
     }
 
-  return ITK_THREAD_RETURN_VALUE;
+  return ITK_THREAD_RETURN_DEFAULT_VALUE;
 }
 
 template <class TInputImage, class TOutputImage>
@@ -599,10 +600,11 @@ AnisotropicDiffusionVesselEnhancementImageFilter<TInputImage, TOutputImage>
   DenseFDThreadStruct * str;
   int total, threadId, threadCount;
 
-  threadId = ((MultiThreader::ThreadInfoStruct *)(arg))->ThreadID;
-  threadCount = ((MultiThreader::ThreadInfoStruct *)(arg))->NumberOfThreads;
+  threadId = ((MultiThreaderBase::WorkUnitInfo *)(arg))->WorkUnitID;
+  threadCount = ((MultiThreaderBase::WorkUnitInfo *)(arg))->NumberOfWorkUnits;
 
-  str = (DenseFDThreadStruct *)(((MultiThreader::ThreadInfoStruct *)(arg))->UserData);
+  str = static_cast<DenseFDThreadStruct *>(
+    static_cast<MultiThreaderBase::WorkUnitInfo *>(arg)->UserData);
 
   // Execute the actual method with appropriate output region
   // first find out how many pieces extent can be split into.
@@ -624,7 +626,7 @@ AnisotropicDiffusionVesselEnhancementImageFilter<TInputImage, TOutputImage>
     str->ValidTimeStepList[threadId] = true;
     }
 
-  return ITK_THREAD_RETURN_VALUE;  
+  return ITK_THREAD_RETURN_DEFAULT_VALUE;
 }
 
 template <class TInputImage, class TOutputImage>
@@ -637,8 +639,8 @@ AnisotropicDiffusionVesselEnhancementImageFilter<TInputImage, TOutputImage>
   ImageRegionIterator<UpdateBufferType> u(m_UpdateBuffer,    regionToProcess);
   ImageRegionIterator<OutputImageType>  o(this->GetOutput(), regionToProcess);
 
-  u = u.Begin();
-  o = o.Begin();
+  u.GoToBegin();
+  o.GoToBegin();
 
   while ( !u.IsAtEnd() )
     {

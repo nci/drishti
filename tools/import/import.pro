@@ -23,9 +23,17 @@ win32 {
 
   INCLUDEPATH += ../../common/src/vdb \
                  ../../common/src/widgets \
-                 ../../common/src/pybind \                 
-                 ../../common/src/mesh
+                 ../../common/src/pybind \
+                 ../../common/src/mesh \
+                 ../../common/src
   INCLUDEPATH += $$VCPKG_INCLUDE_PATH
+
+  isEmpty(TIFF_INCLUDE_PATH): TIFF_INCLUDE_PATH = $$(TIFF_INCLUDE_PATH)
+  isEmpty(TIFF_INCLUDE_PATH): TIFF_INCLUDE_PATH = $$VCPKG_INCLUDE_PATH
+  isEmpty(TIFF_LIBRARY_PATH): TIFF_LIBRARY_PATH = $$(TIFF_LIBRARY_PATH)
+  isEmpty(TIFF_LIBRARY_PATH): TIFF_LIBRARY_PATH = $$VCPKG_LIBRARY_PATH
+  INCLUDEPATH += $$TIFF_INCLUDE_PATH
+  QMAKE_LIBDIR += $$TIFF_LIBRARY_PATH
 
   QMAKE_LIBDIR += $$DRISHTI_COMMON_LIB_DIR
   QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
@@ -96,7 +104,9 @@ HEADERS += global.h \
 	    savepvldialog.h \
 	    volumefilemanager.h \
 	    volumedata.h \ 
+            samplingcontract.h \
 	    volinterface.h \
+	    sourcefilesprovider.h \
  	    lookuptable.h \
       scriptsplugin.h \
       ../../common/src/pybind/pythonengine.h \
@@ -106,7 +116,10 @@ HEADERS += global.h \
       ../../common/src/widgets/dcolorwheel.h \
       ../../common/src/widgets/gradienteditor.h \
 	    ../../common/src/widgets/gradienteditorwidget.h \
-      ../../common/src/mesh/meshtools.h
+      ../../common/src/mesh/meshtools.h \
+      ../../common/src/pvlmanifest.h \
+      ../../common/src/memoryreservation.h \
+      ../../common/src/recoveryjournal.h
 
 SOURCES += global.cpp \
 	    staticfunctions.cpp \
@@ -133,5 +146,8 @@ SOURCES += global.cpp \
 	    ../../common/src/widgets/dcolorwheel.cpp \
 	    ../../common/src/widgets/gradienteditor.cpp \
 	    ../../common/src/widgets/gradienteditorwidget.cpp \
-      ../../common/src/mesh/meshtools.cpp
+      ../../common/src/mesh/meshtools.cpp \
+      ../../common/src/pvlmanifest.cpp \
+      ../../common/src/memoryreservation.cpp \
+      ../../common/src/recoveryjournal.cpp
 

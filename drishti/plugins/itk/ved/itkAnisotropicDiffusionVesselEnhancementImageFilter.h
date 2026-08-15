@@ -19,7 +19,7 @@
 
 #include "itkFiniteDifferenceImageFilter.h"
 #include "itkAnisotropicDiffusionVesselEnhancementFunction.h"
-#include "itkMultiThreader.h"
+#include "itkMultiThreaderBase.h"
 #include "itkDiffusionTensor3D.h"
 #include "itkMultiScaleHessianSmoothed3DToVesselnessMeasureImageFilter.h"
 #include "itkHessianRecursiveGaussianImageFilter.h"

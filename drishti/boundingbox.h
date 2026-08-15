@@ -16,7 +16,7 @@ class BoundingBox : public QObject {
 
   void setPositions(Vec, Vec);
   void setBounds(Vec, Vec);
-  void bounds(Vec&, Vec&);
+  void bounds(Vec&, Vec&) const;
   void draw();
   bool keyPressEvent(QKeyEvent*);
 

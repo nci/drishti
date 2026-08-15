@@ -11,9 +11,11 @@
 #include "blendshaderfactory.h"
 #include "geometryobjects.h"
 #include "prunehandler.h"
+#include "../framebufferbudget.h"
 
 #include <QDebug>
 
+#include <limits>
 #include <new>
 
 #define VECDIVIDE(a, b) Vec(a.x/b.x, a.y/b.y, a.z/b.z)
@@ -1181,7 +1183,6 @@ LightHandler::generateOpacityTexture()
 
   // enable drag texture
   glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_2D_ARRAY);
   glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
@@ -1258,7 +1259,6 @@ LightHandler::generateOpacityTexture()
   glUseProgramObjectARB(0);
 
   glActiveTexture(GL_TEXTURE1);
-  glDisable(GL_TEXTURE_2D_ARRAY);
 
   glActiveTexture(GL_TEXTURE2);
   glDisable(GL_TEXTURE_2D);
@@ -1303,7 +1303,6 @@ LightHandler::generateEmissiveTexture()
 
   // enable drag texture
   glActiveTexture(GL_TEXTURE1);
-  glEnable(GL_TEXTURE_2D_ARRAY);
   glBindTexture(GL_TEXTURE_2D_ARRAY, m_dataTex);
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); 
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE); 
@@ -1361,7 +1360,6 @@ LightHandler::generateEmissiveTexture()
   glUseProgramObjectARB(0);
 
   glActiveTexture(GL_TEXTURE1);
-  glDisable(GL_TEXTURE_2D_ARRAY);
 
 
   glActiveTexture(GL_TEXTURE2);
@@ -1552,12 +1550,23 @@ LightHandler::updateEmissiveBuffer(float ldecay)
 bool
 LightHandler::genBuffers()
 {
+  const auto reportGenerationFailure = [&](const QString& label,
+                                            const QString& detail)
+    {
+      const QString message = QStringLiteral("%1 unavailable: %2")
+        .arg(label, detail);
+      m_failureReason = message;
+      qWarning().noquote() << message;
+      if (MainWindowUI::mainWindowUI() &&
+          MainWindowUI::mainWindowUI()->statusBar)
+        MainWindowUI::mainWindowUI()->statusBar->showMessage(message);
+    };
   const qint64 sx64 = static_cast<qint64>(m_ncols)*m_gridx;
   const qint64 sy64 = static_cast<qint64>(m_nrows)*m_gridy;
   if (sx64 <= 0 || sy64 <= 0 ||
       sx64 > Global::max2dTextureSize() || sy64 > Global::max2dTextureSize())
     {
-      fail(QStringLiteral("lighting/framebuffer"),
+      reportGenerationFailure(QStringLiteral("lighting/framebuffer"),
 	   QStringLiteral("computed size %1x%2 is invalid (limit %3)")
 	   .arg(sx64).arg(sy64).arg(Global::max2dTextureSize()));
       return false;
@@ -1566,135 +1575,202 @@ LightHandler::genBuffers()
   const int sX = static_cast<int>(sx64);
   const int sY = static_cast<int>(sy64);
 
-  if (m_opacityBuffer)
+  const std::uint64_t budgetBytes = 512ULL*1024ULL*1024ULL;
+  const FramebufferBudget::Admission candidateBudget =
+    FramebufferBudget::evaluate(
+      sX, sY, 152ULL, budgetBytes,
+      static_cast<int>(Global::max2dTextureSize()));
+  if (!candidateBudget.approved)
     {
-      if (m_opacityBuffer->width() != sX ||
-	  m_opacityBuffer->height() != sY ||
-	  !m_opacityBuffer->isValid() ||
-	  !m_finalLightBuffer || !m_finalLightBuffer->isValid() ||
-	  !m_pruneBuffer || !m_pruneBuffer->isValid() ||
-	  !m_lightBuffer || !m_lightTex[0] || !m_lightTex[1] ||
-	  !m_emisBuffer || !m_emisTex[0] || !m_emisTex[1])
-	releaseBuffers();
+      reportGenerationFailure(QStringLiteral("lighting/framebuffer"),
+	   QStringLiteral("candidate plus old attachments require %1 MiB (budget %2 MiB)")
+	   .arg(static_cast<double>(candidateBudget.requiredBytes)/(1024.0*1024.0), 0, 'f', 1)
+	   .arg(budgetBytes/(1024ULL*1024ULL)));
+      return false;
     }
 
-  if (!m_opacityBuffer)
+  if (m_opacityBuffer && m_opacityBuffer->width() == sX &&
+      m_opacityBuffer->height() == sY && m_opacityBuffer->isValid() &&
+      m_finalLightBuffer && m_finalLightBuffer->isValid() &&
+      m_pruneBuffer && m_pruneBuffer->isValid() && m_lightBuffer &&
+      m_lightTex[0] && m_lightTex[1] && m_emisBuffer && m_emisTex[0] &&
+      m_emisTex[1])
+    return true;
+
+  std::uint64_t oldBytes = 0;
+  if (m_opacityBuffer && m_opacityBuffer->width() > 0 &&
+      m_opacityBuffer->height() > 0)
     {
-      m_opacityBuffer = newFBO(sX, sY);
-      if (!m_opacityBuffer) return false;
+      const FramebufferBudget::Admission oldBudget =
+        FramebufferBudget::evaluate(
+          m_opacityBuffer->width(), m_opacityBuffer->height(), 152ULL,
+          std::numeric_limits<std::uint64_t>::max(),
+          static_cast<int>(Global::max2dTextureSize()));
+      if (!oldBudget.approved ||
+          oldBudget.requiredBytes > budgetBytes - candidateBudget.requiredBytes)
+        {
+          reportGenerationFailure(QStringLiteral("lighting/framebuffer"),
+               QStringLiteral("candidate plus old attachments exceed the %1 MiB budget")
+               .arg(budgetBytes/(1024ULL*1024ULL)));
+          return false;
+        }
+      oldBytes = oldBudget.requiredBytes;
+    }
+  Q_UNUSED(oldBytes);
 
-      m_pruneBuffer = newFBO(sX, sY);
-      if (!m_pruneBuffer) return false;
+  GLint savedFramebuffer = 0;
+  GLint savedActiveTexture = GL_TEXTURE0;
+  GLint savedRectangleTexture = 0;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING_EXT, &savedFramebuffer);
+  glGetIntegerv(GL_ACTIVE_TEXTURE, &savedActiveTexture);
+  glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE_ARB, &savedRectangleTexture);
+  const auto restoreGlState = [&]()
+    {
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT,
+                        static_cast<GLuint>(savedFramebuffer));
+      glActiveTexture(static_cast<GLenum>(savedActiveTexture));
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB,
+                    static_cast<GLuint>(savedRectangleTexture));
+    };
 
-      glActiveTexture(GL_TEXTURE7);
-      m_finalLightBuffer = newFBO(sX, sY);
-      if (!m_finalLightBuffer) return false;
-      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_finalLightBuffer->texture());
-      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-      glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-      m_finalLightBuffer->release();
+  // Keep the current set alive while the complete replacement is allocated.
+  // This prevents a failed resize from destroying a still-renderable scene.
+  QGLFramebufferObject *candidateOpacity = 0;
+  QGLFramebufferObject *candidateFinal = 0;
+  QGLFramebufferObject *candidatePrune = 0;
+  GLuint candidateLight = 0;
+  GLuint candidateLightTex[2] = {0, 0};
+  GLuint candidateEmis = 0;
+  GLuint candidateEmisTex[2] = {0, 0};
+  const auto cleanupCandidate = [&]()
+    {
+      delete candidateOpacity;
+      delete candidateFinal;
+      delete candidatePrune;
+      candidateOpacity = candidateFinal = candidatePrune = 0;
+      if (candidateLight) glDeleteFramebuffers(1, &candidateLight);
+      if (candidateEmis) glDeleteFramebuffers(1, &candidateEmis);
+      if (candidateLightTex[0]) glDeleteTextures(2, candidateLightTex);
+      if (candidateEmisTex[0]) glDeleteTextures(2, candidateEmisTex);
+      candidateLight = candidateEmis = 0;
+      candidateLightTex[0] = candidateLightTex[1] = 0;
+      candidateEmisTex[0] = candidateEmisTex[1] = 0;
+      restoreGlState();
+    };
+  const auto createCandidateFbo = [&](QGLFramebufferObject *&fbo) -> bool
+    {
+      fbo = new (std::nothrow) QGLFramebufferObject(
+        QSize(sX, sY), QGLFramebufferObject::NoAttachment,
+        GL_TEXTURE_RECTANGLE_EXT);
+      if (!fbo || !fbo->isValid() || !fbo->texture()) return false;
+      return true;
+    };
+  const auto failCandidate = [&](const QString& label,
+                                 const QString& detail) -> bool
+    {
+      cleanupCandidate();
+      const QString message = QStringLiteral("%1 unavailable: %2")
+        .arg(label, detail);
+      m_failureReason = message;
+      qWarning().noquote() << message;
+      if (MainWindowUI::mainWindowUI() &&
+          MainWindowUI::mainWindowUI()->statusBar)
+        MainWindowUI::mainWindowUI()->statusBar->showMessage(message);
+      return false;
+    };
 
-      for (int i=0; i<32 && glGetError() != GL_NO_ERROR; ++i) {}
-      glGenFramebuffers(1, &m_lightBuffer);
-      glGenTextures(2, m_lightTex);
-      if (!m_lightBuffer || !m_lightTex[0] || !m_lightTex[1])
-	{
-	  const GLenum error = glGetError();
-	  fail(QStringLiteral("lighting/work framebuffer"),
-	       QStringLiteral("OpenGL did not create all handles (error 0x%1)")
-	       .arg(QString::number(static_cast<qulonglong>(error), 16)));
-	  return false;
-	}
-      for(int i=0; i<2; i++)
-	{
-	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_lightTex[i]);
-	  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-		       0,
-		       //GL_RGBA,
-		       //GL_R16F,
-		       GL_RGBA32F,
-		       sX, sY,
-		       0,
-		       GL_RGBA,
-		       //GL_RED,
-		       GL_FLOAT,
-		       //GL_UNSIGNED_BYTE,
-		       0);
-	}
+  for (int i=0; i<32 && glGetError() != GL_NO_ERROR; ++i) {}
+  if (!createCandidateFbo(candidateOpacity) ||
+      !createCandidateFbo(candidatePrune) ||
+      !createCandidateFbo(candidateFinal))
+    return failCandidate(QStringLiteral("lighting/framebuffer"),
+                         QStringLiteral("candidate FBO creation failed"));
 
+  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, candidateFinal->texture());
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glGenFramebuffers(1, &candidateLight);
+  glGenTextures(2, candidateLightTex);
+  glGenFramebuffers(1, &candidateEmis);
+  glGenTextures(2, candidateEmisTex);
+  if (!candidateLight || !candidateLightTex[0] || !candidateLightTex[1] ||
+      !candidateEmis || !candidateEmisTex[0] || !candidateEmisTex[1])
+    return failCandidate(QStringLiteral("lighting/framebuffer"),
+                         QStringLiteral("OpenGL did not create all candidate handles"));
 
-      glGenFramebuffers(1, &m_emisBuffer);
-      glGenTextures(2, m_emisTex);
-      if (!m_emisBuffer || !m_emisTex[0] || !m_emisTex[1])
-	{
-	  const GLenum error = glGetError();
-	  fail(QStringLiteral("lighting/emissive framebuffer"),
-	       QStringLiteral("OpenGL did not create all handles (error 0x%1)")
-	       .arg(QString::number(static_cast<qulonglong>(error), 16)));
-	  return false;
-	}
-      for(int i=0; i<2; i++)
-	{
-	  glBindTexture(GL_TEXTURE_RECTANGLE_ARB, m_emisTex[i]);
-	  glTexImage2D(GL_TEXTURE_RECTANGLE_ARB,
-		       0,
-		       //GL_RGBA,
-		       GL_RGBA32F,
-		       sX, sY,
-		       0,
-		       GL_RGBA,
-		       GL_FLOAT,
-		       //GL_UNSIGNED_BYTE,
-		       0);
-	}
-
-      const GLenum allocationError = glGetError();
-      if (allocationError != GL_NO_ERROR)
-	{
-	  fail(QStringLiteral("lighting/float textures"),
-	       QStringLiteral("allocation failed (OpenGL error 0x%1)")
-	       .arg(QString::number(static_cast<qulonglong>(allocationError), 16)));
-	  return false;
-	}
-
-      const auto validateAttachments = [&](GLuint buffer,
-					   GLuint *textures,
-					   const QString &label)
-	{
-	  glBindFramebuffer(GL_FRAMEBUFFER_EXT, buffer);
-	  for (int i=0; i<2; ++i)
-	    {
-	      glFramebufferTexture2D(GL_FRAMEBUFFER_EXT,
-				     GL_COLOR_ATTACHMENT0_EXT,
-				     GL_TEXTURE_RECTANGLE_ARB,
-				     textures[i], 0);
-	      const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
-	      const GLenum error = glGetError();
-	      if (status != GL_FRAMEBUFFER_COMPLETE_EXT || error != GL_NO_ERROR)
-		{
-		  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-		  fail(label,
-		       QStringLiteral("attachment %1 failed (status 0x%2, OpenGL error 0x%3)")
-		       .arg(i)
-		       .arg(QString::number(static_cast<qulonglong>(status), 16),
-			    QString::number(static_cast<qulonglong>(error), 16)));
-		  return false;
-		}
-	    }
-	  glFramebufferTexture2D(GL_FRAMEBUFFER_EXT,
-				 GL_COLOR_ATTACHMENT0_EXT,
-				 GL_TEXTURE_RECTANGLE_ARB, 0, 0);
-	  glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
-	  return true;
-	};
-
-      if (!validateAttachments(m_lightBuffer, m_lightTex,
-			       QStringLiteral("lighting/work framebuffer")) ||
-	  !validateAttachments(m_emisBuffer, m_emisTex,
-			       QStringLiteral("lighting/emissive framebuffer")))
-	return false;
+  for (int i=0; i<2; ++i)
+    {
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, candidateLightTex[i]);
+      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA32F,
+                   sX, sY, 0, GL_RGBA, GL_FLOAT, 0);
+      glBindTexture(GL_TEXTURE_RECTANGLE_ARB, candidateEmisTex[i]);
+      glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0, GL_RGBA32F,
+                   sX, sY, 0, GL_RGBA, GL_FLOAT, 0);
     }
 
+  const GLenum allocationError = glGetError();
+  if (allocationError != GL_NO_ERROR)
+    return failCandidate(QStringLiteral("lighting/float textures"),
+                         QStringLiteral("allocation failed (OpenGL error 0x%1)")
+                         .arg(QString::number(static_cast<qulonglong>(allocationError), 16)));
+
+  const auto validateAttachments = [&](GLuint buffer, GLuint *textures,
+                                       const QString &label)
+    {
+      Q_UNUSED(label);
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, buffer);
+      for (int i=0; i<2; ++i)
+        {
+          glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
+                                 GL_TEXTURE_RECTANGLE_ARB, textures[i], 0);
+          const GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER_EXT);
+          const GLenum error = glGetError();
+          if (status != GL_FRAMEBUFFER_COMPLETE_EXT || error != GL_NO_ERROR)
+            {
+              glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+              return false;
+            }
+        }
+      glFramebufferTexture2D(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT,
+                             GL_TEXTURE_RECTANGLE_ARB, 0, 0);
+      glBindFramebuffer(GL_FRAMEBUFFER_EXT, 0);
+      return true;
+    };
+  if (!validateAttachments(candidateLight, candidateLightTex,
+                           QStringLiteral("lighting/work framebuffer")) ||
+      !validateAttachments(candidateEmis, candidateEmisTex,
+                           QStringLiteral("lighting/emissive framebuffer")))
+    return failCandidate(QStringLiteral("lighting/framebuffer"),
+                         QStringLiteral("candidate attachment validation failed"));
+
+  QGLFramebufferObject *oldOpacity = m_opacityBuffer;
+  QGLFramebufferObject *oldFinal = m_finalLightBuffer;
+  QGLFramebufferObject *oldPrune = m_pruneBuffer;
+  const GLuint oldLight = m_lightBuffer;
+  const GLuint oldEmis = m_emisBuffer;
+  GLuint oldLightTex[2] = {m_lightTex[0], m_lightTex[1]};
+  GLuint oldEmisTex[2] = {m_emisTex[0], m_emisTex[1]};
+  m_opacityBuffer = candidateOpacity;
+  m_finalLightBuffer = candidateFinal;
+  m_pruneBuffer = candidatePrune;
+  m_lightBuffer = candidateLight;
+  m_lightTex[0] = candidateLightTex[0];
+  m_lightTex[1] = candidateLightTex[1];
+  m_emisBuffer = candidateEmis;
+  m_emisTex[0] = candidateEmisTex[0];
+  m_emisTex[1] = candidateEmisTex[1];
+  candidateOpacity = candidateFinal = candidatePrune = 0;
+  candidateLight = candidateEmis = 0;
+  candidateLightTex[0] = candidateLightTex[1] = 0;
+  candidateEmisTex[0] = candidateEmisTex[1] = 0;
+  delete oldOpacity;
+  delete oldFinal;
+  delete oldPrune;
+  if (oldLight) glDeleteFramebuffers(1, &oldLight);
+  if (oldEmis) glDeleteFramebuffers(1, &oldEmis);
+  if (oldLightTex[0]) glDeleteTextures(2, oldLightTex);
+  if (oldEmisTex[0]) glDeleteTextures(2, oldEmisTex);
+  restoreGlState();
   return true;
 }
 

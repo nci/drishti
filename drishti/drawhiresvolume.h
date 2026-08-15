@@ -57,7 +57,8 @@ class DrawHiresVolume : public QObject
   void raise();
   void lower();
 
-  void loadVolume();
+  bool loadVolume(bool resetScene = true);
+  QString lastError() const { return m_lastError; }
 
   void setBricks(Bricks*);
 
@@ -106,7 +107,7 @@ class DrawHiresVolume : public QObject
   void collectBrickInformation(bool force=false);
   void updateAndLoadPruneTexture();
   void updateAndLoadLightTexture();
-  void loadTextureMemory();  
+  bool loadTextureMemory();
   void updateScaling();
   void updateSubvolume();
   void updateSubvolume(int, Vec, Vec, bool force=false);
@@ -269,6 +270,7 @@ signals :
   float m_adjustedProjectionMatrix[16];
 
   bool m_loadingData;
+  QString m_lastError;
 
   bool m_updateSubvolume;
 
@@ -331,7 +333,7 @@ signals :
 
   QList<int> getSlices(Vec, Vec, Vec, int);
 
-  void postUpdateSubvolume(Vec, Vec);
+  bool postUpdateSubvolume(Vec, Vec);
 
   void getGeoSliceBound(int, int,
 			Vec, Vec, Vec,

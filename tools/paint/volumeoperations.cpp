@@ -15,6 +15,7 @@
 #include <QStack>
 
 #include <algorithm>
+#include <atomic>
 #include <exception>
 #include <memory>
 #include <new>
@@ -38,6 +39,8 @@ QString paintMemoryBudget(bool checked, std::uint64_t bytes)
 {
   return checked ? paintMemoryAmount(bytes) : QStringLiteral("unavailable");
 }
+
+thread_local QProgressDialog *s_transactionalPaintProgress = 0;
 
 QString paintVolumeMemoryAdmissionReason(
   PaintAlgorithmMemoryAdmissionReason reason)
@@ -78,7 +81,18 @@ bool admitPaintVolumeAlgorithm(
       static_cast<std::uint64_t>(height));
 
   if (admission.approved)
-    return true;
+    {
+      if (!reservePaintAlgorithmMemory(admission))
+        {
+          QMessageBox::warning(
+            0, operation,
+            QStringLiteral("%1 was stopped because another Import/Paint "
+                           "task acquired the remaining memory budget.")
+              .arg(operation));
+          return false;
+        }
+      return true;
+    }
 
   QMessageBox::warning(
     0, operation,
@@ -107,6 +121,9 @@ void reportPaintVolumeAlgorithmFailure(const QString& operation,
 
 void reportRolledBackPaintVolumeAllocationFailure(const QString& operation)
 {
+  if (s_transactionalPaintProgress &&
+      s_transactionalPaintProgress->wasCanceled())
+    return;
   QMessageBox::critical(
     0, operation,
     QStringLiteral("%1 failed while processing temporary data. "
@@ -172,9 +189,41 @@ bool summarizeConnectedComponentLabels(
     operation, startingLabel, maximumSourceLabel);
 }
 
-void processTransactionalPaintEvents()
+class PaintCancellationScope
 {
-  qApp->processEvents(QEventLoop::ExcludeUserInputEvents);
+ public:
+  explicit PaintCancellationScope(QProgressDialog *progress)
+    : m_previous(s_transactionalPaintProgress),
+      m_installed(false)
+  {
+    if (!m_previous)
+      {
+        s_transactionalPaintProgress = progress;
+        m_installed = true;
+      }
+  }
+
+  ~PaintCancellationScope()
+  {
+    if (m_installed)
+      s_transactionalPaintProgress = m_previous;
+  }
+
+ private:
+  QProgressDialog *m_previous;
+  bool m_installed;
+};
+
+bool processTransactionalPaintEvents(QProgressDialog *progress = 0)
+{
+  if (!progress)
+    progress = s_transactionalPaintProgress;
+  qApp->processEvents(QEventLoop::AllEvents);
+  if (progress && progress->wasCanceled())
+    return false;
+  return !s_transactionalPaintProgress ||
+    s_transactionalPaintProgress == progress ||
+    !s_transactionalPaintProgress->wasCanceled();
 }
 
 class MaskRegionTransaction
@@ -263,6 +312,77 @@ class MaskRegionTransaction
   int m_de, m_we, m_he;
   bool m_active;
   std::unique_ptr<ushort[]> m_original;
+};
+
+class VolumeRegionTransaction
+{
+ public:
+  VolumeRegionTransaction(uchar *data, qint64 fullWidth, qint64 fullHeight,
+                          int ds, int ws, int hs, int de, int we, int he,
+                          std::size_t bytesPerVoxel)
+    : m_data(data), m_fullWidth(fullWidth), m_fullHeight(fullHeight),
+      m_ds(ds), m_ws(ws), m_hs(hs), m_de(de), m_we(we), m_he(he),
+      m_bytesPerVoxel(bytesPerVoxel), m_active(false)
+  {
+    if (!m_data || bytesPerVoxel == 0 || fullWidth <= 0 || fullHeight <= 0 ||
+        ds < 0 || ws < 0 || hs < 0 || de < ds || we < ws || he < hs)
+      return;
+    const std::uint64_t voxelCount =
+      static_cast<std::uint64_t>(de-ds+1)*
+      static_cast<std::uint64_t>(we-ws+1)*
+      static_cast<std::uint64_t>(he-hs+1);
+    if (voxelCount > static_cast<std::uint64_t>(
+          std::numeric_limits<std::size_t>::max())/bytesPerVoxel)
+      return;
+    m_original.reset(new (std::nothrow) uchar[
+      static_cast<std::size_t>(voxelCount)*bytesPerVoxel]);
+    if (!m_original)
+      return;
+    std::size_t outputIndex = 0;
+    for (int d=ds; d<=de; ++d)
+      for (int w=ws; w<=we; ++w)
+        for (int h=hs; h<=he; ++h)
+          {
+            const qint64 inputIndex =
+              static_cast<qint64>(d)*m_fullWidth*m_fullHeight +
+              static_cast<qint64>(w)*m_fullHeight + h;
+            std::copy(m_data + inputIndex*bytesPerVoxel,
+                      m_data + inputIndex*bytesPerVoxel + bytesPerVoxel,
+                      m_original.get() + outputIndex*bytesPerVoxel);
+            ++outputIndex;
+          }
+    m_active = true;
+  }
+
+  ~VolumeRegionTransaction()
+  {
+    if (!m_active || !m_original)
+      return;
+    std::size_t inputIndex = 0;
+    for (int d=m_ds; d<=m_de; ++d)
+      for (int w=m_ws; w<=m_we; ++w)
+        for (int h=m_hs; h<=m_he; ++h)
+          {
+            const qint64 outputIndex =
+              static_cast<qint64>(d)*m_fullWidth*m_fullHeight +
+              static_cast<qint64>(w)*m_fullHeight + h;
+            std::copy(m_original.get() + inputIndex*m_bytesPerVoxel,
+                      m_original.get() + (inputIndex+1)*m_bytesPerVoxel,
+                      m_data + outputIndex*m_bytesPerVoxel);
+            ++inputIndex;
+          }
+  }
+
+  bool valid() const { return m_active && m_original.get(); }
+  void commit() { m_active = false; m_original.reset(); }
+
+ private:
+  uchar *m_data;
+  qint64 m_fullWidth, m_fullHeight;
+  int m_ds, m_ws, m_hs, m_de, m_we, m_he;
+  std::size_t m_bytesPerVoxel;
+  bool m_active;
+  std::unique_ptr<uchar[]> m_original;
 };
 
 bool createConnectedComponentLabels(
@@ -634,8 +754,19 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);  
+  progress.setMinimumDuration(0);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
   qApp->processEvents();
+
+  const std::uint64_t roiVoxelCount =
+    static_cast<std::uint64_t>(mx)*static_cast<std::uint64_t>(my)*
+    static_cast<std::uint64_t>(mz);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, roiVoxelCount);
+  if (!maskTransaction.valid())
+    return false;
 
   
   
@@ -644,8 +775,10 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
   getVisibleRegion(ds, ws, hs,
 		   de, we, he,
 		   tag, false,
-		   gradType, minGrad, maxGrad,
-		   tagbitmask);
+	   gradType, minGrad, maxGrad,
+	   tagbitmask);
+  if (!processTransactionalPaintEvents(&progress))
+    return false;
   //--------------------
   
   progress.setValue(50);
@@ -677,6 +810,8 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
 			      de, we, he,
 			      tagbitmask,
 			      roibitmask);
+      if (!processTransactionalPaintEvents(&progress))
+	return false;
     }
   //--------------------
 
@@ -688,6 +823,9 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
   //--------------------
   // update mask
   for(qint64 d2=ds; d2<=de; d2++)
+  {
+  if (!processTransactionalPaintEvents(&progress))
+    return false;
   for(qint64 w2=ws; w2<=we; w2++)
   for(qint64 h2=hs; h2<=he; h2++)
     {      
@@ -696,8 +834,10 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
 	{
 	  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
 	  m_maskDataUS[idx] = resultTag;
-	}
-    }
+      }
+
+  }
+  }
   //--------------------
 
   progress.setValue(100);
@@ -708,6 +848,8 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
   maxD = de;
   maxW = we;
   maxH = he;
+
+  maskTransaction.commit();
 
   QMessageBox::information(0, "ROI Operation", "Done");	
   return true;
@@ -972,6 +1114,24 @@ VolumeOperations::resetT(int ds, int ws, int hs,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
+
+  if (ds < 0 || ws < 0 || hs < 0 ||
+      de < ds || we < ws || he < hs ||
+      de >= m_depth || we >= m_width || he >= m_height)
+    return;
+
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(de-ds+1)*
+    static_cast<std::uint64_t>(we-ws+1)*
+    static_cast<std::uint64_t>(he-hs+1);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
+  std::atomic_bool cancelRequested(false);
 
   // collect stuff for parallel processing
   QList<QList<QVariant>> param;
@@ -986,6 +1146,7 @@ VolumeOperations::resetT(int ds, int ws, int hs,
       plist << QVariant(he);
       plist << QVariant(d2);
       plist << QVariant(tag);
+      plist << QVariant::fromValue(static_cast<void*>(&cancelRequested));
       //plist << QVariant::fromValue(static_cast<void*>(m_maskData));
       
       param << plist;
@@ -999,6 +1160,8 @@ VolumeOperations::resetT(int ds, int ws, int hs,
   QFutureWatcher<void> futureWatcher;
   QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
   QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+  QObject::connect(&progress, &QProgressDialog::canceled,
+                   [&cancelRequested]() { cancelRequested.store(true); });
   QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
   QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
   
@@ -1009,6 +1172,11 @@ VolumeOperations::resetT(int ds, int ws, int hs,
   progress.exec();
   
   futureWatcher.waitForFinished();
+
+  if (cancelRequested.load() || futureWatcher.isCanceled())
+    return;
+
+  maskTransaction.commit();
 }
 
 void
@@ -1022,6 +1190,10 @@ VolumeOperations::parResetTag(QList<QVariant> plist)
   int he = plist[5].toInt();
   qint64 d2 = plist[6].toInt();
   int tag = plist[7].toInt();
+  std::atomic_bool *cancelRequested = 0;
+  if (plist.size() > 8)
+    cancelRequested = static_cast<std::atomic_bool*>(
+      plist[8].value<void*>());
 
   uchar *lut = Global::lut();
 
@@ -1032,6 +1204,8 @@ VolumeOperations::parResetTag(QList<QVariant> plist)
   for(qint64 w2=ws; w2<=we; w2++)
     for(qint64 h2=hs; h2<=he; h2++)
       {
+	if (cancelRequested && cancelRequested->load())
+	  return;
 	bool clipped = VolumeOperations::checkClipped(Vec(h2, w2, d2));
 	
 	if (!clipped)
@@ -1104,9 +1278,25 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
 
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(mz)*static_cast<std::uint64_t>(my)*
+    static_cast<std::uint64_t>(mx);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
+
   MyBitArray bitmask;
   bitmask.resize(mx*my*mz);
   bitmask.fill(false);
+
+  QProgressDialog progress("Updating voxel structure", "Cancel",
+                           0, 100, 0,
+                           Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
 
   getConnectedRegion(dr, wr, hr,
 		     ds, ws, hs,
@@ -1114,20 +1304,15 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
 		     ctag, true,
 		     bitmask,
 		     0, 0.0, 1.0);
-
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-
   //----------------------------  
   // set the maskData
   minD = maxD = dr;
   minW = maxW = wr;
   minH = maxH = hr;
   for(qint64 d2=ds; d2<=de; d2++)
+  {
+  if (!processTransactionalPaintEvents(&progress))
+    return;
   for(qint64 w2=ws; w2<=we; w2++)
   for(qint64 h2=hs; h2<=he; h2++)
     {
@@ -1153,6 +1338,7 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
 	    }
 	}
     }
+  }
   //----------------------------  
   
   minD = qMax(minD-1, 0);
@@ -1161,6 +1347,8 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
   maxD = qMin(maxD+1, m_depth);
   maxW = qMin(maxW+1, m_width);
   maxH = qMin(maxH+1, m_height);
+
+  maskTransaction.commit();
 
   progress.setValue(100);
 }
@@ -1192,11 +1380,12 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
   GeometryObjects::crops()->collectCropInfoBeforeCheckCropped();
 
   QProgressDialog progress;
+  std::atomic_bool cancelRequested(false);
 
   if (showProgress)
     {
       progress.setLabelText("Identifying visible region");
-      progress.setCancelButton(NULL);
+      progress.setCancelButtonText("Cancel");
       progress.setWindowFlags(Qt::WindowStaysOnTopHint);
       progress.setMinimumDuration(0);
     }
@@ -1219,6 +1408,7 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
       plist << QVariant(tag);
       plist << QVariant(checkZero);
       plist << QVariant::fromValue(static_cast<void*>(&cbitmask));
+      plist << QVariant::fromValue(static_cast<void*>(&cancelRequested));
       
       param << plist;
     }
@@ -1229,11 +1419,19 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
   // Create a QFutureWatcher and connect signals and slots.
   QFutureWatcher<void> futureWatcher;
 
+  if (s_transactionalPaintProgress &&
+      s_transactionalPaintProgress != &progress)
+    QObject::connect(s_transactionalPaintProgress,
+                     &QProgressDialog::canceled,
+                     [&cancelRequested]() { cancelRequested.store(true); });
+
   if (showProgress)
     {
       progress.setLabelText(QString("Identifying visible region using %1 thread(s)...").arg(nThreads));
       QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
       QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+      QObject::connect(&progress, &QProgressDialog::canceled,
+                       [&cancelRequested]() { cancelRequested.store(true); });
       QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
       QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
     }
@@ -1248,6 +1446,12 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
     }
   
   futureWatcher.waitForFinished();
+
+  if (cancelRequested.load() || futureWatcher.isCanceled())
+    {
+      cbitmask.fill(false);
+      return;
+    }
 
   m_visibilityMap = cbitmask;
   m_vmDirty.set(ds, ws, hs,
@@ -1272,6 +1476,8 @@ VolumeOperations::parVisibleRegionGeneration(QList<QVariant> plist)
   int tag = plist[10].toInt();
   bool checkZero = plist[11].toBool();
   MyBitArray *cbitmask = static_cast<MyBitArray*>(plist[12].value<void*>());
+  std::atomic_bool *cancelRequested =
+    static_cast<std::atomic_bool*>(plist[13].value<void*>());
 
   uchar *lut = Global::lut();
 
@@ -1282,6 +1488,8 @@ VolumeOperations::parVisibleRegionGeneration(QList<QVariant> plist)
   for(qint64 w2=ws; w2<=we; w2++)
     for(qint64 h2=hs; h2<=he; h2++)
       {
+	if (cancelRequested && cancelRequested->load())
+	  return;
 	bool clipped = VolumeOperations::checkClipped(Vec(h2, w2, d2));
 	
 	bool opaque = false;
@@ -1368,19 +1576,28 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
   bitmask.resize(mx*my*mz);
   bitmask.fill(false);
 
+  QProgressDialog progress("Updating voxel structure",
+                           QString(),
+                           0, 100,
+                           0,
+                           Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
+
   getConnectedRegion(dr, wr, hr,
 		     ds, ws, hs,
 		     de, we, he,
 		     ctag, true,
 		     bitmask,
 		     gradType, minGrad, maxGrad);
-
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);  
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he,
+    static_cast<std::uint64_t>(mx)*static_cast<std::uint64_t>(my)*
+    static_cast<std::uint64_t>(mz));
+  if (!maskTransaction.valid())
+    return;
   
   //----------------------------  
   // set the maskData
@@ -1388,6 +1605,9 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
   minW = maxW = wr;
   minH = maxH = hr;
   for(qint64 d2=ds; d2<=de; d2++)
+  {
+  if (!processTransactionalPaintEvents(&progress))
+    return;
   for(qint64 w2=ws; w2<=we; w2++)
   for(qint64 h2=hs; h2<=he; h2++)
     {
@@ -1404,6 +1624,7 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
 	  maxH = qMax(maxH, (int)h2);
 	}
     }
+  }
   //----------------------------  
   
   minD = qMax(minD-1, 0);
@@ -1412,6 +1633,8 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
   maxD = qMin(maxD+1, m_depth);
   maxW = qMin(maxW+1, m_width);
   maxH = qMin(maxH+1, m_height);
+
+  maskTransaction.commit();
 
   progress.setValue(100);
 }
@@ -1502,6 +1725,8 @@ VolumeOperations::getConnectedRegionFromBitmask(int dr, int wr, int hr,
   QList<Vec> tedges;
   while(!done)
     {
+      if (!processTransactionalPaintEvents(&progress))
+	return;
       nd = (nd + 1)%100000;
       int pnd = 90*(float)nd/(float)100000;
       if (pnd != pvnd)
@@ -1520,6 +1745,8 @@ VolumeOperations::getConnectedRegionFromBitmask(int dr, int wr, int hr,
       // find outer boundary to fill
       for(int e=0; e<edges.count(); e++)
 	{
+	  if ((e & 255) == 0 && !processTransactionalPaintEvents(&progress))
+	    return;
 	  int dx = edges[e].x;
 	  int wx = edges[e].y;
 	  int hx = edges[e].z;
@@ -1598,6 +1825,8 @@ VolumeOperations::getRegionConnectedToROI(int ds, int ws, int hs,
   for(qint64 w2=ws; w2<=we; w2++)
   for(qint64 h2=hs; h2<=he; h2++)
     {
+      if (!processTransactionalPaintEvents())
+	return;
       qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
       if (maskbitmask.testBit(bidx))
 	seeds << Vec(d2,w2,h2);
@@ -1605,7 +1834,8 @@ VolumeOperations::getRegionConnectedToROI(int ds, int ws, int hs,
 
   bitmask = maskbitmask;
 
-  
+  if (!processTransactionalPaintEvents(&progress))
+    return;
 
   //------------------------------------------------------
   // dilate from seeds
@@ -1614,6 +1844,8 @@ VolumeOperations::getRegionConnectedToROI(int ds, int ws, int hs,
   int pvnd = 0;
   while(!done)
     {
+      if (!processTransactionalPaintEvents(&progress))
+	return;
       nd = (nd + 1)%100000;
       int pnd = 90*(float)nd/(float)100000;
       progress.setValue(pnd);
@@ -1631,6 +1863,8 @@ VolumeOperations::getRegionConnectedToROI(int ds, int ws, int hs,
       // find outer boundary to fill
       for(int e=0; e<seeds.count(); e++)
 	{
+	  if ((e & 255) == 0 && !processTransactionalPaintEvents(&progress))
+	    return;
 	  int dx = seeds[e].x;
 	  int wx = seeds[e].y;
 	  int hx = seeds[e].z;
@@ -1689,6 +1923,9 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
+  std::atomic_bool cancelRequested(false);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -1714,6 +1951,7 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
       plist << QVariant(my);
       plist << QVariant(mz);
       plist << QVariant::fromValue(static_cast<void*>(&cbitmask));      
+      plist << QVariant::fromValue(static_cast<void*>(&cancelRequested));
       
       param << plist;
   }
@@ -1727,6 +1965,8 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
   QFutureWatcher<void> futureWatcher;
   QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
   QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+  QObject::connect(&progress, &QProgressDialog::canceled,
+                   [&cancelRequested]() { cancelRequested.store(true); });
   QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
   QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
   
@@ -1737,6 +1977,12 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
   progress.exec();
   
   futureWatcher.waitForFinished();
+
+  if (cancelRequested.load() || futureWatcher.isCanceled())
+    {
+      cbitmask.fill(false);
+      return;
+    }
   
   
   progress.setValue(100);
@@ -1759,11 +2005,16 @@ VolumeOperations::parTransparentRegionGeneration(QList<QVariant> plist)
   qint64 my = plist[11].toLongLong();
   qint64 mz = plist[12].toLongLong();
   MyBitArray *cbitmask = static_cast<MyBitArray*>(plist[13].value<void*>());
+  std::atomic_bool *cancelRequested = 0;
+  if (plist.size() > 14)
+    cancelRequested = static_cast<std::atomic_bool*>(plist[14].value<void*>());
   uchar *lut = Global::lut();
 
   for(qint64 w2=ws; w2<=we; w2++)
     for(qint64 h2=hs; h2<=he; h2++)
     {
+      if (cancelRequested && cancelRequested->load())
+	return;
       bool clipped = VolumeOperations::checkClipped(Vec(h2, w2, d2));
       bool transparent = false;
       
@@ -1839,10 +2090,13 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 {
   //-------------------------
   int holeSize = 0;
+  bool ok = false;
   holeSize = QInputDialog::getInt(0,
 				  "Fill Holes",
 				  "Size of holes to fill",
-				  0, 0, 5000, 1);
+				  0, 0, 5000, 1, &ok);
+  if (!ok)
+    return;
   //-------------------------
 
   int ds = qMax(0, qFloor(bmin.z));
@@ -1856,6 +2110,19 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
+
+  QProgressDialog progress("Shrinkwrap", "Cancel", 0, 100, 0,
+                           Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  PaintCancellationScope cancellationScope(&progress);
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(mz)*static_cast<std::uint64_t>(my)*
+    static_cast<std::uint64_t>(mx);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
 
   MyBitArray cbitmask;
   cbitmask.resize(mx*my*mz);
@@ -1886,6 +2153,8 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
       // invert all values in cbitmask
       cbitmask.invert();
     }
+  if (!processTransactionalPaintEvents(&progress))
+    return;
   //----------------------------  
 
 
@@ -1893,14 +2162,6 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   // cbitmask is true for transparent region
   // cbitmask is false for opaque region
   //----------------------------  
-
-
-  QProgressDialog progress("Shrinkwrap",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
 
 
   //----------------------------
@@ -1914,10 +2175,13 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 		       true, // open transparent region
 		       mx, my, mz,
 		       cbitmask); // cbitmask contains transparent region
+      if (!processTransactionalPaintEvents(&progress))
+		return;
       progress.setLabelText("Shrinkwrap - holes closed");
       progress.setValue(75);
       qApp->processEvents();
     }
+
   //----------------------------
 
 
@@ -1949,6 +2213,8 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 				mz+1, my+1, mx+1,
 				bitmask,
 				cbitmask);
+  if (!processTransactionalPaintEvents(&progress))
+    return;
   //--------------------------------
 
 
@@ -1960,6 +2226,9 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
       for(qint64 w2=0; w2<my; w2++)
 	for(qint64 h2=0; h2<mx; h2++)
 	  {
+	    if ((h2 & 1023) == 0 &&
+		!processTransactionalPaintEvents(&progress))
+	      return;
 	    qint64 bidx = (d2+1)*(mx+2)*(my+2)+(w2+1)*(mx+2)+(h2+1);
 	    if (!cbitmask.testBit(bidx))
 	      {
@@ -1980,6 +2249,12 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 	for(qint64 w2=0; w2<my; w2++)
 	  for(qint64 h2=0; h2<mx; h2++)
 	    {
+	      if ((h2 & 1023) == 0 &&
+		  !processTransactionalPaintEvents(&progress))
+		{
+		  delete [] dt;
+		  return;
+		}
 	      qint64 bidx = (d2+1)*(mx+2)*(my+2)+(w2+1)*(mx+2)+(h2+1);
 	      if (dt[bidx] > 0.0 && qFloor(sqrt(dt[bidx])) <= shellThickness+0.75)
 		{
@@ -1994,6 +2269,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   minD = ds;  maxD = de;
   minW = ws;  maxW = we;
   minH = hs;  maxH = he;
+  maskTransaction.commit();
 }
 
 
@@ -2018,6 +2294,19 @@ VolumeOperations::poreCharacterization(Vec bmin, Vec bmax,
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
+
+  QProgressDialog progress("Pore Identification", "Cancel", 0, 100, 0,
+                           Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  PaintCancellationScope cancellationScope(&progress);
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(mz)*static_cast<std::uint64_t>(my)*
+    static_cast<std::uint64_t>(mx);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
 
   MyBitArray cbitmask;
   cbitmask.resize(mx*my*mz);
@@ -2074,15 +2363,10 @@ VolumeOperations::poreCharacterization(Vec bmin, Vec bmax,
 				mz+1, my+1, mx+1,
 				allPores,
 				externalPores);
+  if (!processTransactionalPaintEvents(&progress))
+    return;
   //--------------------------------
 
-
-  QProgressDialog progress("Pore Identification",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
 
   //----------------------------
   // apply open operation to transparent region
@@ -2095,6 +2379,8 @@ VolumeOperations::poreCharacterization(Vec bmin, Vec bmax,
 		       true, // open transparent region
 		       mx, my, mz,
 		       cbitmask); // cbitmask contains transparent region
+      if (!processTransactionalPaintEvents(&progress))
+		return;
       progress.setLabelText("Shrinkwrap - holes closed");
       progress.setValue(75);
       qApp->processEvents();
@@ -2119,6 +2405,8 @@ VolumeOperations::poreCharacterization(Vec bmin, Vec bmax,
 				mz+1, my+1, mx+1,
 				bitmask,
 				cbitmask);
+  if (!processTransactionalPaintEvents(&progress))
+    return;
   if (fringe > 0)
     {
       // dilate the outer region so that we remove the fringe
@@ -2137,6 +2425,9 @@ VolumeOperations::poreCharacterization(Vec bmin, Vec bmax,
     for(qint64 w2=0; w2<my; w2++)
       for(qint64 h2=0; h2<mx; h2++)
 	{
+	  if ((h2 & 1023) == 0 &&
+	      !processTransactionalPaintEvents(&progress))
+	    return;
 	  qint64 bidx = (d2+1)*(mx+2)*(my+2)+(w2+1)*(mx+2)+(h2+1);
 	  if (!cbitmask.testBit(bidx))
 	    {
@@ -2157,6 +2448,7 @@ VolumeOperations::poreCharacterization(Vec bmin, Vec bmax,
   minD = ds;  maxD = de;
   minW = ws;  maxW = we;
   minH = hs;  maxH = he;
+  maskTransaction.commit();
 }
 
 void
@@ -2207,6 +2499,8 @@ VolumeOperations::openCloseBitmask(int offset1, int offset2,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
   qApp->processEvents();
 
   progress.setValue(10);
@@ -2222,16 +2516,22 @@ VolumeOperations::openCloseBitmask(int offset1, int offset2,
   int mzP = mz + 2*padding;
   
   padBitmask(paddedBitmask, bitmask, mx, my, mz, true, padding);
+  if (!processTransactionalPaintEvents(&progress))
+    return;
 
   if (htype) // Open
     {
       _dilatebitmask(offset1, false, // erode
 		     mxP, myP, mzP,
 		     paddedBitmask);
+      if (!processTransactionalPaintEvents(&progress))
+	return;
       paddedBitmask.invert();
       _dilatebitmask(offset2, true, // dilate
 		     mxP, myP, mzP,
 		     paddedBitmask);
+      if (!processTransactionalPaintEvents(&progress))
+	return;
       paddedBitmask.invert();
     }
   else // Close
@@ -2240,10 +2540,14 @@ VolumeOperations::openCloseBitmask(int offset1, int offset2,
       _dilatebitmask(offset1, true, // dilate
 		     mxP, myP, mzP,
 		     paddedBitmask);
+      if (!processTransactionalPaintEvents(&progress))
+	return;
       paddedBitmask.invert();
       _dilatebitmask(offset2, false, // erode
 		     mxP, myP, mzP,
 		     paddedBitmask);
+      if (!processTransactionalPaintEvents(&progress))
+	return;
     }
 
   unpadBitmask(bitmask, paddedBitmask, mx, my, mz, padding);
@@ -2265,11 +2569,15 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
   if (showProgress)
     {
       progress.setLabelText(htype?"Dilate":"Erode");
-      progress.setCancelButton(NULL);
+      progress.setCancelButtonText("Cancel");
       progress.setWindowFlags(Qt::WindowStaysOnTopHint);
       progress.setMinimumDuration(0);
       qApp->processEvents();
     }
+
+  PaintCancellationScope cancellationScope(showProgress ? &progress : 0);
+  if (!processTransactionalPaintEvents(&progress))
+    return;
 
   
   progress.setValue(50);
@@ -2278,7 +2586,13 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
   // generate squared distance transform
   float *dt = BinaryDistanceTransform::binaryEDTsq(bitmask,
 						   mx, my, mz,
-						   false);
+				   false);
+
+  if (!processTransactionalPaintEvents(showProgress ? &progress : 0))
+    {
+      delete [] dt;
+      return;
+    }
   
   progress.setValue(75);
   qApp->processEvents();
@@ -2287,6 +2601,12 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
   // check distance transform
   for(qint64 idx=0; idx<mx*my*mz; idx++)
     {
+      if ((idx & 4095) == 0 &&
+          !processTransactionalPaintEvents(showProgress ? &progress : 0))
+	{
+	  delete [] dt;
+	  return;
+	}
       if (qFloor(sqrt(dt[idx])) <= nDilate)
 	bitmask.setBit(idx, false);
     }
@@ -2437,6 +2757,19 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
 
+  QProgressDialog progress("Updating voxel structure", "Cancel",
+                           0, 100, 0,
+                           Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  PaintCancellationScope cancellationScope(&progress);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he,
+    static_cast<std::uint64_t>(mx)*static_cast<std::uint64_t>(my)*
+    static_cast<std::uint64_t>(mz));
+  if (!maskTransaction.valid())
+    return;
+
   MyBitArray bitmask;
   bitmask.resize(mx*my*mz);
   bitmask.fill(false);
@@ -2445,8 +2778,13 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
 		   -1, false,
 		   gradType, minGrad, maxGrad,
 		   bitmask);
+  if (!processTransactionalPaintEvents(&progress))
+    return;
 
   for(qint64 d=ds; d<=de; d++)
+    {
+    if (!processTransactionalPaintEvents(&progress))
+      return;
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
@@ -2454,7 +2792,9 @@ VolumeOperations::setVisible(Vec bmin, Vec bmax,
 	  qint64 bidx = (d-ds)*mx*my + (w-ws)*mx + (h-hs);
 	  if (bitmask.testBit(bidx) == visible)
 	    m_maskDataUS[idx] = tag;
-	}
+	    }
+  }
+  maskTransaction.commit();
   minD = ds;
   maxD = de;
   minW = ws;
@@ -2492,12 +2832,23 @@ VolumeOperations::stepTags(Vec bmin, Vec bmax,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(de-ds+1)*
+    static_cast<std::uint64_t>(we-ws+1)*
+    static_cast<std::uint64_t>(he-hs+1);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
 
   for(qint64 d=ds; d<=de; d++)
     {
       progress.setValue(90*(d-ds)/((de-ds+1)));
-      if (d%10 == 0)
-	qApp->processEvents();
+      if (d%10 == 0 && !processTransactionalPaintEvents(&progress))
+	    return;
       for(qint64 w=ws; w<=we; w++)
 	for(qint64 h=hs; h<=he; h++)
 	  {
@@ -2522,8 +2873,9 @@ VolumeOperations::stepTags(Vec bmin, Vec bmax,
 		else
 		  m_maskDataUS[idx] = tagVal;		
 	      }
-	  }
     }
+  }
+  maskTransaction.commit();
 }
 
 void
@@ -2552,6 +2904,17 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(de-ds+1)*
+    static_cast<std::uint64_t>(we-ws+1)*
+    static_cast<std::uint64_t>(he-hs+1);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
 
   if (useTF)
     {
@@ -2559,8 +2922,8 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
       for(qint64 d=ds; d<=de; d++)
 	{
 	  progress.setValue(90*(d-ds)/((de-ds+1)));
-	  if (d%10 == 0)
-	    qApp->processEvents();
+      if (d%10 == 0 && !processTransactionalPaintEvents(&progress))
+	    return;
 	  for(qint64 w=ws; w<=we; w++)
 	    for(qint64 h=hs; h<=he; h++)
 	      {
@@ -2640,6 +3003,7 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
 	      }
 	}
     }
+  maskTransaction.commit();
 }
 
 
@@ -2665,6 +3029,8 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 
   QList<int> ut;
   for(qint64 d=ds; d<=de; d++)
+    {
+    qApp->processEvents();
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
@@ -2672,6 +3038,7 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 	  if (m_maskDataUS[idx] > 0 && !ut.contains(m_maskDataUS[idx]))
 	    ut << m_maskDataUS[idx];
 	}
+    }
 
   QMessageBox::information(0, "Labels", QString("Total labels : %1").arg(ut.count()));
 
@@ -2682,6 +3049,16 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he,
+    static_cast<std::uint64_t>(de-ds+1)*
+    static_cast<std::uint64_t>(we-ws+1)*
+    static_cast<std::uint64_t>(he-hs+1));
+  if (!maskTransaction.valid())
+    return;
   qApp->processEvents();
 
 
@@ -2867,10 +3244,11 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
   if (showProgress)
     {
       progress.setLabelText("Updating voxel structure");
-      progress.setCancelButton(NULL);
+      progress.setCancelButtonText("Cancel");
       progress.setWindowFlags(Qt::WindowStaysOnTopHint);
       progress.setMinimumDuration(0);
     }
+  PaintCancellationScope cancellationScope(showProgress ? &progress : 0);
 
   int ds = qMax(0, qFloor(bmin.z));
   int ws = qMax(0, qFloor(bmin.y));
@@ -2879,6 +3257,16 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
   int de = qMin(qCeil(bmax.z), m_depth-1);
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
+
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(de-ds+1)*
+    static_cast<std::uint64_t>(we-ws+1)*
+    static_cast<std::uint64_t>(he-hs+1);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
 
 
   qint64 mx = he-hs+1;
@@ -2909,6 +3297,8 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 		 mx, my, mz,
 		 bitmask,
 		 showProgress);
+  if (!processTransactionalPaintEvents(showProgress ? &progress : 0))
+    return;
   bitmask.invert();
 
 
@@ -2924,6 +3314,8 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 	  progress.setValue(100*(d2-ds)/(mz));
 	  qApp->processEvents();
 	}
+      if (!processTransactionalPaintEvents(showProgress ? &progress : 0))
+	return;
       for(qint64 w2=ws; w2<=we; w2++)
 	for(qint64 h2=hs; h2<=he; h2++)
 	  {
@@ -2969,6 +3361,7 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
   maxW = we;
   minH = hs;
   maxH = he;
+  maskTransaction.commit();
 
   return;
 }
@@ -2992,6 +3385,17 @@ VolumeOperations::writeToMask(int ds, int ws, int hs,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  PaintCancellationScope cancellationScope(&progress);
+  std::atomic_bool cancelRequested(false);
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(de-ds+1)*
+    static_cast<std::uint64_t>(we-ws+1)*
+    static_cast<std::uint64_t>(he-hs+1);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
 
   // collect stuff for parallel processing
   QList<QList<QVariant>> param;
@@ -3011,6 +3415,7 @@ VolumeOperations::writeToMask(int ds, int ws, int hs,
       plist << QVariant(tag);
       plist << QVariant(allVisible);
       plist << QVariant::fromValue(static_cast<void*>(&bitmask));
+      plist << QVariant::fromValue(static_cast<void*>(&cancelRequested));
       
       param << plist;
     }
@@ -3023,6 +3428,8 @@ VolumeOperations::writeToMask(int ds, int ws, int hs,
   QFutureWatcher<void> futureWatcher;
   QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
   QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
+  QObject::connect(&progress, &QProgressDialog::canceled,
+                   [&cancelRequested]() { cancelRequested.store(true); });
   QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
   QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
   
@@ -3033,6 +3440,9 @@ VolumeOperations::writeToMask(int ds, int ws, int hs,
   progress.exec();
   
   futureWatcher.waitForFinished();
+  if (cancelRequested.load() || futureWatcher.isCanceled())
+    return;
+  maskTransaction.commit();
 }
 
 void
@@ -3051,6 +3461,10 @@ VolumeOperations::parWriteToMask(QList<QVariant> plist)
   int tag = plist[10].toInt();
   bool allVisible = plist[11].toBool();
   MyBitArray *bitmask = static_cast<MyBitArray*>(plist[12].value<void*>());
+  std::atomic_bool *cancelRequested = 0;
+  if (plist.size() > 13)
+    cancelRequested = static_cast<std::atomic_bool*>(
+      plist[13].value<void*>());
 
   uchar *lut = Global::lut();
 
@@ -3061,6 +3475,8 @@ VolumeOperations::parWriteToMask(QList<QVariant> plist)
   for(qint64 w2=ws; w2<=we; w2++)
     for(qint64 h2=hs; h2<=he; h2++)
       {
+	if (cancelRequested && cancelRequested->load())
+	  return;
 	qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
 	if (bitmask->testBit(bidx))
 	      {
@@ -3119,6 +3535,8 @@ VolumeOperations::openAll(Vec bmin, Vec bmax, int tag,
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
 
   
   int ds = qMax(0, qFloor(bmin.z));
@@ -3128,6 +3546,16 @@ VolumeOperations::openAll(Vec bmin, Vec bmax, int tag,
   int de = qMin(qCeil(bmax.z), m_depth-1);
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
+
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(de-ds+1)*
+    static_cast<std::uint64_t>(we-ws+1)*
+    static_cast<std::uint64_t>(he-hs+1);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3153,6 +3581,8 @@ VolumeOperations::openAll(Vec bmin, Vec bmax, int tag,
 		   true, // open operation
 		   mx, my, mz,
 		   bitmask);
+  if (!processTransactionalPaintEvents(&progress))
+    return;
   
   
   progress.setLabelText("writing to mask");
@@ -3160,7 +3590,8 @@ VolumeOperations::openAll(Vec bmin, Vec bmax, int tag,
   for(qint64 d2=ds; d2<=de; d2++)
     {
       progress.setValue(100*(d2-ds)/(mz));
-      qApp->processEvents();
+      if (!processTransactionalPaintEvents(&progress))
+	return;
       for(qint64 w2=ws; w2<=we; w2++)
 	for(qint64 h2=hs; h2<=he; h2++)
 	  {
@@ -3180,6 +3611,7 @@ VolumeOperations::openAll(Vec bmin, Vec bmax, int tag,
   maxW = we;
   minH = hs;
   maxH = he;
+  maskTransaction.commit();
 }
 
 
@@ -3200,6 +3632,8 @@ VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
 
   
   int ds = qMax(0, qFloor(bmin.z));
@@ -3209,6 +3643,16 @@ VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
   int de = qMin(qCeil(bmax.z), m_depth-1);
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
+
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(de-ds+1)*
+    static_cast<std::uint64_t>(we-ws+1)*
+    static_cast<std::uint64_t>(he-hs+1);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3232,6 +3676,8 @@ VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
 		   false, // close operation
 		   mx, my, mz,
 		   bitmask);
+  if (!processTransactionalPaintEvents(&progress))
+    return;
   
 
   
@@ -3240,7 +3686,8 @@ VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
   for(qint64 d2=ds; d2<=de; d2++)
     {
       progress.setValue(100*(d2-ds)/(mz));
-      qApp->processEvents();
+      if (!processTransactionalPaintEvents(&progress))
+	return;
       for(qint64 w2=ws; w2<=we; w2++)
 	for(qint64 h2=hs; h2<=he; h2++)
 	  {
@@ -3260,6 +3707,7 @@ VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
   maxW = we;
   minH = hs;
   maxH = he;
+  maskTransaction.commit();
 }
 
 
@@ -3517,13 +3965,16 @@ VolumeOperations::erodeAll(Vec bmin, Vec bmax,
   _dilatebitmask(nErode, false, // dilate transparent region
 		 mx, my, mz,
 		 bitmask);
+  if (!processTransactionalPaintEvents(&progress))
+    return;
 
   
   progress.setLabelText("writing to mask");
   for(qint64 d2=ds; d2<=de; d2++)
     {
       progress.setValue(100*(d2-ds)/(mz));
-      qApp->processEvents();
+      if (!processTransactionalPaintEvents(&progress))
+	return;
       for(qint64 w2=ws; w2<=we; w2++)
 	for(qint64 h2=hs; h2<=he; h2++)
 	  {
@@ -3765,6 +4216,14 @@ VolumeOperations::modifyOriginalVolume(Vec bmin, Vec bmax,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
+  progress.setCancelButtonText("Cancel");
+  PaintCancellationScope cancellationScope(&progress);
+  VolumeRegionTransaction volumeTransaction(
+    m_volData, m_width, m_height,
+    ds, ws, hs, de, we, he,
+    Global::bytesPerVoxel() == 2 ? 2 : 1);
+  if (!volumeTransaction.valid())
+    return;
 
   minD = maxD = -1;
   minW = maxW = -1;
@@ -3775,8 +4234,8 @@ VolumeOperations::modifyOriginalVolume(Vec bmin, Vec bmax,
   for(qint64 d=ds; d<=de; d++)
     {
       progress.setValue(90*(d-ds)/((de-ds+1)));
-      if (d%10 == 0)
-	qApp->processEvents();
+      if (d%10 == 0 && !processTransactionalPaintEvents(&progress))
+	return;
       for(qint64 w=ws; w<=we; w++)
 	for(qint64 h=hs; h<=he; h++)
 	  {
@@ -3810,9 +4269,10 @@ VolumeOperations::modifyOriginalVolume(Vec bmin, Vec bmax,
 		    minW = maxW = w;
 		    minH = maxH = h;
 		  }
-	      } // modify original volume if voxel is clipped or transparent
-	  }
+      } // modify original volume if voxel is clipped or transparent
+        }
     }
+  volumeTransaction.commit();
 }
 
 
@@ -3827,10 +4287,13 @@ VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
 {
   //-------------------------
   int tubeSize = 0;
+  bool ok = false;
   tubeSize = QInputDialog::getInt(0,
 				  "Tube/Sheet Size",
 				  "Size",
-				  0, 0, 100, 1);
+				  0, 0, 100, 1, &ok);
+  if (!ok)
+    return;
   if (tubeSize == 0)
     {
       QMessageBox::information(0, "", "0 size not valid");
@@ -3845,6 +4308,21 @@ VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
   int de = qMin(qCeil(bmax.z), m_depth-1);
   int we = qMin(qCeil(bmax.y), m_width-1);
   int he = qMin(qCeil(bmax.x), m_height-1);
+
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(de-ds+1)*
+    static_cast<std::uint64_t>(we-ws+1)*
+    static_cast<std::uint64_t>(he-hs+1);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
+
+  QProgressDialog progress("Tag Tubes", "Cancel", 0, 100, 0,
+                           Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  PaintCancellationScope cancellationScope(&progress);
 
   qint64 mx = he-hs+1;
   qint64 my = we-ws+1;
@@ -3876,14 +4354,18 @@ VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
       // invert all values in cbitmask
       cbitmask.invert();
     }
+  if (!processTransactionalPaintEvents(&progress))
+    return;
   else // identify connected opaque region
     {
       getConnectedRegion(dr, wr, hr,
 			 ds, ws, hs,
 			 de, we, he,
 			 ctag, false,
-			 cbitmask,
-			 gradType, minGrad, maxGrad);
+		       cbitmask,
+		       gradType, minGrad, maxGrad);
+  if (!processTransactionalPaintEvents(&progress))
+    return;
     }
   //----------------------------  
 
@@ -3922,6 +4404,8 @@ VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
   for(qint64 w2=ws; w2<=we; w2++)
   for(qint64 h2=hs; h2<=he; h2++)
     {
+      if (!processTransactionalPaintEvents(&progress))
+	return;
       qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
       if (cbitmask.testBit(bidx))
 	{
@@ -3934,6 +4418,7 @@ VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
   minD = ds;  maxD = de;
   minW = ws;  maxW = we;
   minH = hs;  maxH = he;
+  maskTransaction.commit();
 }
 
 
@@ -4156,6 +4641,19 @@ VolumeOperations::smoothAllRegion(Vec bmin, Vec bmax,
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
 
+  QProgressDialog progress("Updating voxel structure", "Cancel",
+                           0, 100, 0,
+                           Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  PaintCancellationScope cancellationScope(&progress);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he,
+    static_cast<std::uint64_t>(mx)*static_cast<std::uint64_t>(my)*
+    static_cast<std::uint64_t>(mz));
+  if (!maskTransaction.valid())
+    return;
+
   MyBitArray bitmask;
   bitmask.resize(mx*my*mz);
   bitmask.fill(false);
@@ -4166,6 +4664,8 @@ VolumeOperations::smoothAllRegion(Vec bmin, Vec bmax,
 		   tag, false,
 		   gradType, minGrad, maxGrad,
 		   bitmask);
+  if (!processTransactionalPaintEvents(&progress))
+    return;
 
   
   convertToVDBandSmooth(ds, ws, hs,
@@ -4179,6 +4679,7 @@ VolumeOperations::smoothAllRegion(Vec bmin, Vec bmax,
   maxD = de;
   maxW = we;
   maxH = he;
+  maskTransaction.commit();
 }
 
 
@@ -4311,10 +4812,13 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
   //------------------
   // ignore all components below componentThreshold
   int componentThreshold = 1000;
+  bool ok = false;
   componentThreshold = QInputDialog::getInt(0,
 					    "Component Threshold",
 					    "Minimum number of voxels per labeled component",
-					    1000);  
+					    1000, 0, std::numeric_limits<int>::max(), 1, &ok);
+  if (!ok)
+    return;
   //------------------
   
 
@@ -4344,12 +4848,13 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
 
 
   QProgressDialog progress("Calculating voxelcount per component",
-			   QString(),
+			   "Cancel",
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
-  processTransactionalPaintEvents();
+  if (!processTransactionalPaintEvents(&progress))
+    return;
  
   //------------------
   // calculate volume (no. of voxels) per component
@@ -4357,7 +4862,8 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
   for(qint64 d=ds; d<=de; d++)
     {
       progress.setValue(100*(float)(d-ds)/(float)(de-ds+1));
-      processTransactionalPaintEvents();
+      if (!processTransactionalPaintEvents(&progress))
+        return;
       for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
@@ -4375,7 +4881,8 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
   for(qint64 d=ds; d<=de; d++)
     {
       progress.setValue(100*(float)(d-ds)/(float)(de-ds+1));
-      processTransactionalPaintEvents();
+      if (!processTransactionalPaintEvents(&progress))
+        return;
       for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
@@ -4471,10 +4978,13 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
   //------------------
   // ignore all components above componentThreshold
   int largestComponents = 1;
+  bool ok = false;
   largestComponents = QInputDialog::getInt(0,
 					   "Largest Components",
 					   "How many top largest components to remove.\n1 = remove only the largest component",
-					   1);
+					   1, 1, std::numeric_limits<int>::max(), 1, &ok);
+  if (!ok)
+    return;
   if (largestComponents < 1)
     return;
   //------------------
@@ -4502,6 +5012,12 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
       return;
     }
 
+  QProgressDialog progress("Remove Largest Components", "Cancel",
+                           0, 100, 0,
+                           Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  PaintCancellationScope cancellationScope(&progress);
+
   //------------------
 
  
@@ -4509,6 +5025,10 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
   // calculate volume (no. of voxels) per component
   QMap<int, int> labelMap; // contains (number of voxels) volume for each label
   for(qint64 d=ds; d<=de; d++)
+    {
+      progress.setValue(static_cast<int>(50.0*(d-ds)/(de-ds+1)));
+      if (!processTransactionalPaintEvents())
+        return;
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
@@ -4516,6 +5036,7 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
 	  if (bitmask.testBit(bidx))
 	    labelMap[labels[bidx]] = labelMap[labels[bidx]] + 1;
 	}
+  }
   //------------------
 
 
@@ -4541,6 +5062,10 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
   //------------------
   // remove components with volume less than componentThreshold
   for(qint64 d=ds; d<=de; d++)
+    {
+      progress.setValue(50+static_cast<int>(50.0*(d-ds)/(de-ds+1)));
+      if (!processTransactionalPaintEvents())
+        return;
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
@@ -4549,6 +5074,7 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
 	  if (removeComponents.contains(labels[bidx]))
 	    m_maskDataUS[idx] = 0;
 	}
+    }
   //------------------
 
   minD = ds;
@@ -4638,10 +5164,14 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   //------------------
   // starting label number
   int startLabel = 0;
+  bool ok = false;
   startLabel = QInputDialog::getInt(0,
 				    "Starting Label",
 				    "Starting label number (label numbers will be offset by this value)",
-				    startLabel);
+				    startLabel, 0, 65530, 1, &ok);
+
+  if (!ok)
+    return;
 
   startLabel = qBound(0, startLabel, 65530);
   //------------------
@@ -4676,10 +5206,13 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   //------------------
   // ignore all components below componentThreshold
   int componentThreshold = 100;
+  ok = false;
   componentThreshold = QInputDialog::getInt(0,
 					    "Component Threshold",
 					    "Minimum number of voxels per labeled component",
-					    100);
+					    100, 0, std::numeric_limits<int>::max(), 1, &ok);
+  if (!ok)
+    return;
   //------------------
   
 
@@ -4722,10 +5255,20 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   
   
   QMap<int, int> labelMap; // contains (number of voxels) volume for each label
+
+  QProgressDialog progress("Connected Components", "Cancel",
+                           0, 100, 0,
+                           Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  PaintCancellationScope cancellationScope(&progress);
   
   //------------------
   // calculate volume (no. of voxels) per component
   for(qint64 d=ds; d<=de; d++)
+    {
+      progress.setValue(static_cast<int>(30.0*(d-ds)/(de-ds+1)));
+      if (!processTransactionalPaintEvents())
+        return;
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
@@ -4733,6 +5276,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	  if (labels[bidx] > 0)
 	    labelMap[labels[bidx]] = labelMap[labels[bidx]] + 1;
 	}
+    }
   //------------------
 
   //------------------
@@ -4740,6 +5284,10 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   if (componentThreshold > 0)
     {
       for(qint64 d=ds; d<=de; d++)
+	{
+	  progress.setValue(30+static_cast<int>(30.0*(d-ds)/(de-ds+1)));
+	  if (!processTransactionalPaintEvents())
+	    return;
 	for(qint64 w=ws; w<=we; w++)
 	  for(qint64 h=hs; h<=he; h++)
 	    {
@@ -4750,6 +5298,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 		    labels[bidx] = 0;
 		}
 	    }
+	}
     }
   //------------------
   
@@ -4845,10 +5394,13 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
       return;
     }
 
-
   //------------------
   // apply remapping of labels to reflect sorted component volumes
   for(qint64 d=ds; d<=de; d++)
+    {
+      progress.setValue(static_cast<int>(100.0*(d-ds)/(de-ds+1)));
+      if (!processTransactionalPaintEvents())
+        return;
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
@@ -4859,6 +5411,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	      m_maskDataUS[idx] = labelMap[labels[bidx]];
 	    }
 	}
+    }
   //------------------
 
   minD = ds;
@@ -4907,6 +5460,19 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
 
+  QProgressDialog progress("Sort on voxel count", "Cancel", 0, 100, 0,
+                           Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+  PaintCancellationScope cancellationScope(&progress);
+  const std::uint64_t voxelCount =
+    static_cast<std::uint64_t>(mz)*static_cast<std::uint64_t>(my)*
+    static_cast<std::uint64_t>(mx);
+  MaskRegionTransaction maskTransaction(
+    m_maskDataUS, m_width, m_height,
+    ds, ws, hs, de, we, he, voxelCount);
+  if (!maskTransaction.valid())
+    return;
+
   
   bool ascending = true;
   
@@ -4939,6 +5505,9 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
+	  if ((h & 1023) == 0 &&
+	      !processTransactionalPaintEvents(&progress))
+	    return;
 	  bool clipped = checkClipped(Vec(h, w, d));
 	  if (!clipped)
 	    {
@@ -5001,6 +5570,9 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
+	  if ((h & 1023) == 0 &&
+	      !processTransactionalPaintEvents(&progress))
+	    return;
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  if (m_maskDataUS[idx] > 0)
 	    m_maskDataUS[idx] = labelMap[m_maskDataUS[idx]];
@@ -5008,6 +5580,7 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
   //-------
 
   QMessageBox::information(0, "Sort on voxel count", "Done sort on voxel count");
+  maskTransaction.commit();
 }
 
 
@@ -5019,12 +5592,13 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
 				    int gradType, float minGrad, float maxGrad) try
 {
   QProgressDialog progress("Distance Transform",
-			   QString(),
+			   "Cancel",
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
   qApp->processEvents();
+  PaintCancellationScope cancellationScope(&progress);
 
   
   minD = maxD = minW = maxW = minH = maxH = -1;
@@ -5074,7 +5648,9 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
 
   
   progress.setValue(50);
-  qApp->processEvents();
+  qApp->processEvents(QEventLoop::AllEvents);
+  if (progress.wasCanceled())
+    return;
 
   // generate squared distance transform
   std::unique_ptr<float[]> dt;
@@ -5085,7 +5661,9 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
     return;
   
   progress.setValue(75);
-  qApp->processEvents();
+  qApp->processEvents(QEventLoop::AllEvents);
+  if (progress.wasCanceled())
+    return;
 
 
   MaskRegionTransaction maskTransaction(
@@ -5106,6 +5684,12 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
   for(qint64 w=0; w<my; w++)
   for(qint64 h=0; h<mx; h++)
     {
+      if ((h & 1023) == 0)
+        {
+          qApp->processEvents(QEventLoop::AllEvents);
+          if (progress.wasCanceled())
+            return;
+        }
       qint64 bidx = ((qint64)(d+ds))*m_width*m_height+((qint64)(w+ws))*m_height+(h+hs);
       m_maskDataUS[bidx] = qRound(sqrt(dt[idx]));
       idx++;
@@ -5152,12 +5736,13 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 				 int gradType, float minGrad, float maxGrad) try
 {
   QProgressDialog progress("Local Thickness",
-			   QString(),
+			   "Cancel",
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
   qApp->processEvents();
+  PaintCancellationScope cancellationScope(&progress);
 
 
   minD = maxD = minW = maxW = minH = maxH = -1;
@@ -5207,7 +5792,9 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 
   
   progress.setValue(10);
-  qApp->processEvents();
+  qApp->processEvents(QEventLoop::AllEvents);
+  if (progress.wasCanceled())
+    return;
 
   
   // generate squared distance transform
@@ -5224,6 +5811,12 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   float maxLT = 0;
   for(qint64 i=0; i<voxelCount; i++)
     {
+      if ((i & 4095) == 0)
+        {
+          qApp->processEvents(QEventLoop::AllEvents);
+          if (progress.wasCanceled())
+            return;
+        }
       lt[i] = qSqrt(lt[i]);
       maxLT = qMax(maxLT, lt[i]);
     }
@@ -5248,7 +5841,9 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
     {
       progress.setLabelText(QString("%1 of %2").arg(r).arg((int)maxLT));
       progress.setValue(100*float(r)/maxLT);
-      qApp->processEvents();
+      qApp->processEvents(QEventLoop::AllEvents);
+      if (progress.wasCanceled())
+        return;
 
       // dilate distance
       distDilate(lt.get(), out.get(),
@@ -5257,6 +5852,12 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
      
       for(qint64 i=0; i<voxelCount; i++)
 	{
+	  if ((i & 4095) == 0)
+	    {
+	      qApp->processEvents(QEventLoop::AllEvents);
+	      if (progress.wasCanceled())
+		return;
+	    }
 	  if (lt[i] > r)
 	    lt[i] = out[i];
 	}
@@ -5298,6 +5899,12 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   for(qint64 w=0; w<my; w++)
   for(qint64 h=0; h<mx; h++)
     {
+      if ((h & 1023) == 0)
+        {
+          qApp->processEvents(QEventLoop::AllEvents);
+          if (progress.wasCanceled())
+            return;
+        }
       qint64 bidx = ((qint64)(d+ds))*m_width*m_height+((qint64)(w+ws))*m_height+(h+hs);
       if (lt[idx] > 0)
 	m_maskDataUS[bidx] = 64000 + 999*lt[idx]/maxLT;
@@ -5308,7 +5915,8 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   //----------------------------
 
   progress.setValue(100);
-  processTransactionalPaintEvents();
+  if (!processTransactionalPaintEvents())
+    return;
 
   
 
@@ -5347,15 +5955,21 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
       pvlMap << 0;
       pvlMap << 255;
       
-      StaticFunctions::savePvlHeader(pvlflnm,
-				     true,
-				     rawflnm,
-				     0, 0, pvlInfo.voxelUnit,
-				     mz, my, mx,
-				     voxelSize.x, voxelSize.y, voxelSize.z,
-				     rawMap, pvlMap,
-				     "Local Thickness",
-				     mz+1);
+      if (!StaticFunctions::savePvlHeader(pvlflnm,
+						   true,
+						   rawflnm,
+						   0, 0, pvlInfo.voxelUnit,
+						   mz, my, mx,
+						   voxelSize.x, voxelSize.y, voxelSize.z,
+						   rawMap, pvlMap,
+						   "Local Thickness",
+						   mz+1))
+		{
+		  reportPaintVolumeAlgorithmFailure(
+			QStringLiteral("Local Thickness"),
+			QStringLiteral("Cannot write the PVL header"));
+		  return;
+		}
       //----------
       
       
@@ -5630,10 +6244,14 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   //------------------
   // starting label number
   int startLabel = 0;
+  bool ok = false;
   startLabel = QInputDialog::getInt(0,
 				    "Starting Label",
 				    "Starting label number (label numbers will be offset by this value)",
-				    startLabel);
+				    startLabel, 0, 65530, 1, &ok);
+
+  if (!ok)
+    return;
 
   startLabel = qBound(0, startLabel, 65530);
   //------------------
@@ -5649,12 +6267,13 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 
 
   QProgressDialog progress("Watershed",
-			   QString(),
+			   "Cancel",
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
   qApp->processEvents();
+  PaintCancellationScope cancellationScope(&progress);
 
   
   minD = maxD = minW = maxW = minH = maxH = -1;
@@ -5761,7 +6380,8 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 
 
   progress.setValue(30);
-  processTransactionalPaintEvents();
+  if (!processTransactionalPaintEvents())
+    return;
 
   
   //------------------
@@ -5797,7 +6417,8 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
 
   progress.setLabelText("Watershed");
   progress.setValue(50);
-  processTransactionalPaintEvents();
+  if (!processTransactionalPaintEvents())
+    return;
   
 
   //------------------------------------------------------
@@ -5824,10 +6445,14 @@ VolumeOperations::watershed(Vec bmin, Vec bmax, int tag,
   for (int z = 0; z < mz; ++z)
     {
       progress.setValue(100*(float)z/(float)mz);
-      processTransactionalPaintEvents();
+      if (!processTransactionalPaintEvents())
+        return;
       for (int y = 0; y < my; ++y)
       for (int x = 0; x < mx; ++x)
 	{
+	  if ((x & 63) == 0)
+	    if (!processTransactionalPaintEvents())
+	      return;
 	  bool verbose = false;
 	  
 	  qint64 bidx = getIndex(x, y, z);
@@ -6005,21 +6630,26 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
   //------------------
   // starting label number
   int startLabel = 0;
+  bool ok = false;
   startLabel = QInputDialog::getInt(0,
 				    "Starting Label",
 				    "Starting label number (label numbers will be offset by this value)",
-				    startLabel);
+				    startLabel, 0, 65530, 1, &ok);
+
+  if (!ok)
+    return;
 
   startLabel = qBound(0, startLabel, 65530);
   //------------------
 
   QProgressDialog progress("Watershed Plus",
-			   QString(),
+			   "Cancel",
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
   qApp->processEvents();
+  PaintCancellationScope cancellationScope(&progress);
 
   
   minD = maxD = minW = maxW = minH = maxH = -1;
@@ -6147,10 +6777,14 @@ VolumeOperations::watershedPlus(Vec bmin, Vec bmax,
   for (int z = 0; z < mz; ++z)
     {
       progress.setValue(100*(float)z/(float)mz);
-      processTransactionalPaintEvents();
+      if (!processTransactionalPaintEvents())
+        return;
       for (int y = 0; y < my; ++y)
       for (int x = 0; x < mx; ++x)
 	{
+	  if ((x & 63) == 0)
+	    if (!processTransactionalPaintEvents())
+	      return;
 	  bool verbose = false;
 	  
 	  qint64 bidx = getIndex(x, y, z);
@@ -6388,10 +7022,14 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
   //------------------
   // starting label number
   int startLabel = 0;
+  bool ok = false;
   startLabel = QInputDialog::getInt(0,
 				    "Starting Label",
 				    "Starting label number (label numbers will be offset by this value)",
-				    startLabel);
+				    startLabel, 0, 65530, 1, &ok);
+
+  if (!ok)
+    return;
 
   startLabel = qBound(0, startLabel, 65530);
   //------------------
@@ -6407,12 +7045,13 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
 
 
   QProgressDialog progress("Watershed",
-			   QString(),
+			   "Cancel",
 			   0, 100,
 			   0,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
   qApp->processEvents();
+  PaintCancellationScope cancellationScope(&progress);
 
   
   minD = maxD = minW = maxW = minH = maxH = -1;
@@ -6543,17 +7182,25 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
 
 
   progress.setValue(30);
-  processTransactionalPaintEvents();
+      if (!processTransactionalPaintEvents())
+        return;
 
   //------------------
   // Reset only after every whole-volume workspace has been allocated.
   for(qint64 d=ds; d<=de; d++)
+    {
+    if (!processTransactionalPaintEvents(&progress))
+      return;
     for(qint64 w=ws; w<=we; w++)
       for(qint64 h=hs; h<=he; h++)
 	{
+	  if (((d-ds) & 7) == 0 && (w == ws) && (h == hs))
+	    if (!processTransactionalPaintEvents())
+	      return;
 	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
 	  m_maskDataUS[idx] = 0;
 	}
+    }
   //------------------
 
   //------------------
@@ -6574,7 +7221,8 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
 
   progress.setLabelText("Watershed");
   progress.setValue(50);
-  processTransactionalPaintEvents();
+  if (!processTransactionalPaintEvents())
+    return;
   
   
   int labelMax = startLabel + markerLabelCount + 1;
@@ -6668,12 +7316,14 @@ VolumeOperations::watershedPriorityQueue(Vec bmin, Vec bmax, int tag,
       //---
       nd = (nd + 1)%1000000;
       int pnd = 90*(float)nd/(float)1000000;
-      if (pnd != pvnd)
+	if (pnd != pvnd)
 	{
 	  progress.setLabelText(QString("Watershed %1 : %2").arg(labelMax-1).arg(pq.size()));
-	  processTransactionalPaintEvents();
+	  if (!processTransactionalPaintEvents())
+	    return;
 	  progress.setValue(pnd);
-	  processTransactionalPaintEvents();
+	  if (!processTransactionalPaintEvents())
+	    return;
 	}
       pvnd = pnd;
       //---

@@ -15,6 +15,7 @@ using namespace std;
 #include <QDir>
 #include <QTextStream>
 #include <QFileDialog>
+#include <QSaveFile>
 
 #include <limits>
 
@@ -1479,7 +1480,7 @@ StaticFunctions::convertFromGLImage(QImage &img, int w, int h)
   img = img.mirrored();
 }
 
-void
+bool
 StaticFunctions::savePvlHeader(QString pvlFilename,
 			       bool saveRawFile, QString rawfile,
 			       int voxelType, int pvlVoxelType, int voxelUnit,
@@ -1508,7 +1509,33 @@ StaticFunctions::savePvlHeader(QString pvlFilename,
   QDomElement topElement = doc.createElement("PvlDotNcFileHeader");
   doc.appendChild(topElement);
 
-  {      
+  {
+    QDomElement names = doc.createElement("pvlnames");
+    const int slabCount = slabSize > 0 ? 1 + (d-1)/slabSize : 0;
+    QFileInfo headerInfo(pvlFilename);
+    for (int i = 0; i < slabCount; ++i)
+      {
+        QDomElement name = doc.createElement("name");
+        name.appendChild(doc.createTextNode(
+          headerInfo.absoluteDir().relativeFilePath(
+            QString("%1.%2").arg(headerInfo.fileName()).arg(i+1, 3, 10, QChar('0')))));
+        names.appendChild(name);
+      }
+    topElement.appendChild(names);
+  }
+
+  {
+    QDomElement de0 = doc.createElement("pvlheadersize");
+    de0.appendChild(doc.createTextNode("13"));
+    topElement.appendChild(de0);
+  }
+  {
+    QDomElement de0 = doc.createElement("rawheadersize");
+    de0.appendChild(doc.createTextNode("13"));
+    topElement.appendChild(de0);
+  }
+
+  {
     QString vstr;
     if (saveRawFile)
       {
@@ -1638,13 +1665,18 @@ StaticFunctions::savePvlHeader(QString pvlFilename,
     topElement.appendChild(de0);
   }
   
-  QFile f(xmlfile.toUtf8().data());
-  if (f.open(QIODevice::WriteOnly))
+  QSaveFile f(xmlfile);
+  if (!f.open(QIODevice::WriteOnly))
+    return false;
+  QTextStream out(&f);
+  doc.save(out, 2);
+  out.flush();
+  if (out.status() != QTextStream::Ok)
     {
-      QTextStream out(&f);
-      doc.save(out, 2);
-      f.close();
+      f.cancelWriting();
+      return false;
     }
+  return f.commit();
 }
 
 void

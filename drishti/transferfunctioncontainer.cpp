@@ -5,6 +5,13 @@ int TransferFunctionContainer::count() { return m_splineTF.count(); }
 int TransferFunctionContainer::maxSets() { return m_maxSets; }
 
 void
+TransferFunctionContainer::swapState(TransferFunctionContainer& other)
+{
+  m_splineTF.swap(other.m_splineTF);
+  qSwap(m_maxSets, other.m_maxSets);
+}
+
+void
 TransferFunctionContainer::switch1D()
 {
   for(int si=0; si<m_splineTF.count(); si++)

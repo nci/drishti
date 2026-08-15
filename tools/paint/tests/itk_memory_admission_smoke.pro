@@ -10,7 +10,8 @@ INCLUDEPATH += ../../../drishti/plugins/itk \
                ..
 
 SOURCES += itk_memory_admission_smoke.cpp \
-           ../getmemorysize.cpp
+           ../getmemorysize.cpp \
+           ../../../common/src/memoryreservation.cpp
 
 HEADERS += ../../../drishti/plugins/itk/itkmemoryadmission.h \
            ../getmemorysize.h

@@ -29,7 +29,7 @@ class ClipInformation
   void save(fstream&);
   
   void clear();
-  int size();
+  int size() const;
 
   QList<bool> show;
   QList<Vec> pos;

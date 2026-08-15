@@ -16,4 +16,5 @@ include(../plugins.itk)
 HEADERS = niftiplugin.h \
           ../../importmemoryadmission.h
 SOURCES = niftiplugin.cpp \
-          ../../importmemoryadmission.cpp
+          ../../importmemoryadmission.cpp \
+          ../../../../common/src/memoryreservation.cpp

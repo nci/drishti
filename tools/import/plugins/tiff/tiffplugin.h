@@ -6,12 +6,13 @@
 #include <QObject>
 #include <QVector>
 #include "volinterface.h"
+#include "../../sourcefilesprovider.h"
 
-class TiffPlugin : public QObject, VolInterface
+class TiffPlugin : public QObject, VolInterface, SourceFilesProvider
 {
   Q_OBJECT
   Q_PLUGIN_METADATA(IID "drishti.import.Plugin.VolInterface/1.0")
-  Q_INTERFACES(VolInterface)
+  Q_INTERFACES(VolInterface SourceFilesProvider)
 
  public :
   QStringList registerPlugin();
@@ -22,6 +23,7 @@ class TiffPlugin : public QObject, VolInterface
   void setValue(QString, float) {};
 
   bool setFile(QStringList);
+  QStringList sourceFiles() const;
   void replaceFile(QString);
 
   void gridSize(int&, int&, int&);
@@ -70,6 +72,7 @@ class TiffPlugin : public QObject, VolInterface
 
   QList<QString> m_imageList;
   QVector<quint32> m_directoryList;
+  QVector<quint64> m_scanlineBytes;
 
   std::atomic_bool m_cancelRequested;
   std::atomic_int m_progressValue;
@@ -94,7 +97,8 @@ class TiffPlugin : public QObject, VolInterface
 
   bool loadTiffImage(int, uchar*, quint64, QString*,
                      const std::atomic_bool* = 0) const;
-  bool loadTiffRow(int, int, QByteArray*, QString*) const;
+  bool loadTiffRow(int, int, QByteArray*, QString*,
+                   const std::atomic_bool* = 0) const;
 };
 
 #endif

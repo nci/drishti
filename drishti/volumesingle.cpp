@@ -7,6 +7,7 @@
 #include "prunehandler.h"
 #include "mainwindowui.h"
 #include "xmlheaderfunctions.h"
+#include "../common/src/pvlmanifest.h"
 
 #include <QFileDialog>
 #include <QInputDialog>
@@ -14,9 +15,28 @@
 
 #include <limits>
 #include <new>
+#include <QCoreApplication>
+#include <QDateTime>
+#include <QDir>
+#include <QTextStream>
 
 namespace
 {
+  void
+  appendVolumeRuntimeDiagnostic(const QString &message)
+  {
+    if (!QCoreApplication::instance())
+      return;
+    QFile log(QDir(QCoreApplication::applicationDirPath())
+              .filePath(QStringLiteral("drishti-runtime.log")));
+    if (log.open(QIODevice::Append | QIODevice::Text))
+      {
+        QTextStream stream(&log);
+        stream << QDateTime::currentDateTime().toString(Qt::ISODate)
+               << " volume-single " << message << "\n";
+      }
+  }
+
   bool
   checkedSizeFactor(qint64 factor, qint64 &size)
   {
@@ -192,6 +212,26 @@ VolumeSingle::loadVolume(QList<QString> vfiles, bool redo)
   if (vfiles.isEmpty())
     return false;
 
+  // Validate every time point before changing the active list.  Loading only
+  // vfiles[0] used to allow a malformed later frame to poison a live session
+  // when the timeline was advanced.
+  PvlManifest firstManifest;
+  if (!PvlManifestParser::parse(vfiles.at(0), firstManifest, true) ||
+      firstManifest.isColor)
+    return false;
+  for (int i = 1; i < vfiles.count(); ++i)
+    {
+      PvlManifest manifest;
+      if (!PvlManifestParser::parse(vfiles.at(i), manifest, true) ||
+          manifest.isColor ||
+          manifest.depth != firstManifest.depth ||
+          manifest.width != firstManifest.width ||
+          manifest.height != firstManifest.height ||
+          manifest.slabSize != firstManifest.slabSize ||
+          manifest.voxelType != firstManifest.voxelType)
+        return false;
+    }
+
   Global::setLod(1);
 
   m_repeatType = true;
@@ -241,21 +281,22 @@ VolumeSingle::setBasicInformation(int volnum)
   //---------------------------------------------------------
   // --- set the information for pvl.nc file manager
   //---------------------------------------------------------
-  int n_depth, n_width, n_height;
-  int slabSize;
-  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[volnum],
-					      n_depth, n_width, n_height);
-  slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFiles[volnum]);
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(m_volumeFiles[volnum], manifest, true) ||
+      manifest.isColor)
+    return;
 
-  int headerSize = XmlHeaderFunctions::getPvlHeadersizeFromHeader(m_volumeFiles[volnum]);
-  QStringList pvlnames = XmlHeaderFunctions::getPvlNamesFromHeader(m_volumeFiles[volnum]);
-  if (pvlnames.count() > 0)
-    m_pvlFileManager.setFilenameList(pvlnames);
+  const int n_depth = manifest.depth;
+  const int n_width = manifest.width;
+  const int n_height = manifest.height;
+  const int slabSize = manifest.slabSize;
+  const int headerSize = manifest.headerSize;
+  m_pvlFileManager.setFilenameList(manifest.pvlNames);
   m_pvlFileManager.setBaseFilename(m_volumeFiles[volnum]);
   m_pvlFileManager.setDepth(n_depth);
   m_pvlFileManager.setWidth(n_width);
   m_pvlFileManager.setHeight(n_height);
-  m_pvlFileManager.setVoxelType(m_pvlVoxelType);
+  m_pvlFileManager.setVoxelType(manifest.voxelType);
   m_pvlFileManager.setHeaderSize(headerSize); // default is 13 bytes
   m_pvlFileManager.setSlabSize(slabSize);
 
@@ -320,6 +361,12 @@ VolumeSingle::setSubvolume(Vec boxMin, Vec boxMax,
 
   int volnum = timestepNumber(volnum1);  
 
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(m_volumeFiles.at(volnum), manifest, true) ||
+      manifest.isColor ||
+      manifest.depth <= 0 || manifest.width <= 0 || manifest.height <= 0)
+    return false;
+
   boxMin = StaticFunctions::clampVec(Vec(0,0,0),
 				     boxMin,
 				     Vec(m_maxHeight-1, m_maxWidth-1, m_maxDepth-1));
@@ -340,9 +387,9 @@ VolumeSingle::setSubvolume(Vec boxMin, Vec boxMax,
   m_dataMin = boxMin;
   m_dataMax = boxMax;
 
-  int cd, cw, ch;
-  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[m_volnum],
-					      m_depth, m_width, m_height);
+  m_depth = manifest.depth;
+  m_width = manifest.width;
+  m_height = manifest.height;
 //  m_offH = (m_maxHeight- m_height)/2;
 //  m_offW = (m_maxWidth - m_width)/2;
 //  m_offD = (m_maxDepth - m_depth)/2;
@@ -974,16 +1021,21 @@ VolumeSingle::saveVolume(uchar *lut,
 	  rawMap << f;
 	  pvlMap << b;
 	}
-      StaticFunctions::savePvlHeader(opFile,
-				     false, "",
-				     pvlInfo.voxelType,
-				     m_pvlVoxelType,
-				     pvlInfo.voxelUnit,
-				     nz, ny, nx,
-				     vx, vy, vz,
-				     rawMap, pvlMap,
-				     pvlInfo.description,
-				     opslabSize);
+      if (!StaticFunctions::savePvlHeader(opFile,
+						   false, "",
+						   pvlInfo.voxelType,
+						   m_pvlVoxelType,
+						   pvlInfo.voxelUnit,
+						   nz, ny, nx,
+						   vx, vy, vz,
+						   rawMap, pvlMap,
+						   pvlInfo.description,
+						   opslabSize))
+		{
+		  reportVolumeIoFailure("Writing subsampled volume header",
+						"Cannot atomically write the PVL header");
+		  return;
+		}
     }
       
 
@@ -2067,6 +2119,16 @@ VolumeSingle::endHistogramCalculation()
 void
 VolumeSingle::calculateGradientsForDragTexture()
 {
+  if (!m_dragSubvolumeTexture ||
+      m_dragSubvolumeTextureSize.x <= 0 ||
+      m_dragSubvolumeTextureSize.y <= 0 ||
+      m_dragSubvolumeTextureSize.z <= 0)
+    {
+      appendVolumeRuntimeDiagnostic(QStringLiteral(
+        "gradient calculation skipped: drag texture is unavailable"));
+      return;
+    }
+
   MainWindowUI::mainWindowUI()->statusBar->showMessage("Histogram calculation");
   Global::progressBar()->show();
   qApp->processEvents();
@@ -3139,6 +3201,10 @@ VolumeSingle::deleteTextureSlab()
 bool
 VolumeSingle::allocSlabs(int layerCapacity, bool allocateSlabTexture)
 {
+  appendVolumeRuntimeDiagnostic(
+    QStringLiteral("allocSlabs enter this=0x%1 capacity=%2")
+    .arg(reinterpret_cast<quintptr>(this), 0, 16)
+    .arg(layerCapacity));
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
 

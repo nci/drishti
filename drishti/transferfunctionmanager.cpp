@@ -2,6 +2,7 @@
 #include "transferfunctionmanager.h"
 #include "propertyeditor.h"
 #include <QDomDocument>
+#include <QSaveFile>
 
 #include <QPushButton>
 #include <QFileDialog>
@@ -565,28 +566,51 @@ TransferFunctionManager::removeTransferFunction()
     }
 }
 
-void
+bool
 TransferFunctionManager::load(const char *flnm)
 {
-  m_tfContainer->clearContainer();
-
   QDomDocument document;
   QFile f(flnm);
-  if (f.open(QIODevice::ReadOnly))
+  if (!f.open(QIODevice::ReadOnly))
+    return false;
+  QString error;
+  int line = 0, column = 0;
+  if (!document.setContent(&f, &error, &line, &column))
     {
-      document.setContent(&f);
       f.close();
+      return false;
     }
+  f.close();
 
   QDomElement main = document.documentElement();
+  if (main.isNull())
+    return false;
+  TransferFunctionContainer candidate;
   QDomNodeList dlist = main.childNodes();
   for(int i=0; i<dlist.count(); i++)
     {
       if (dlist.at(i).nodeName() == "transferfunction")
-	m_tfContainer->fromDomElement(dlist.at(i).toElement());
+	candidate.fromDomElement(dlist.at(i).toElement());
     }
 
+  m_tfContainer->swapState(candidate);
+
   refreshManager(0);
+  return true;
+}
+
+bool
+TransferFunctionManager::validate(const char *flnm) const
+{
+  QDomDocument document;
+  QFile f(flnm);
+  if (!f.open(QIODevice::ReadOnly))
+    return false;
+  QString error;
+  int line = 0, column = 0;
+  if (!document.setContent(&f, &error, &line, &column))
+    return false;
+  return !document.documentElement().isNull();
 }
 
 void
@@ -623,7 +647,7 @@ TransferFunctionManager::load(QList<SplineInformation> splineInfo)
 }
 
 
-void
+bool
 TransferFunctionManager::save(const char *flnm)
 {
   QDomDocument document;
@@ -640,13 +664,18 @@ TransferFunctionManager::save(const char *flnm)
       topElement.appendChild(de);
     }
 
-  QFile fout(flnm);
-  if (fout.open(QIODevice::WriteOnly))
+  QSaveFile fout(flnm);
+  fout.setDirectWriteFallback(false);
+  if (!fout.open(QIODevice::WriteOnly))
+    return false;
+  QTextStream out(&fout);
+  document.save(out, 2);
+  if (out.status() != QTextStream::Ok || !fout.commit())
     {
-      QTextStream out(&fout);
-      document.save(out, 2);
-      fout.close();
+      fout.cancelWriting();
+      return false;
     }
+  return true;
 }
 
 void

@@ -34,6 +34,9 @@ public:
       m_blendEnabled(GL_FALSE),
       m_depthTestEnabled(GL_FALSE),
       m_cullFaceEnabled(GL_FALSE),
+      m_lightingEnabled(GL_FALSE),
+      m_lineSmoothEnabled(GL_FALSE),
+      m_lineWidth(1.0f),
       m_depthWriteMask(GL_TRUE),
       m_blendSourceRgb(GL_ONE),
       m_blendDestinationRgb(GL_ZERO),
@@ -76,6 +79,9 @@ public:
     m_blendEnabled = glIsEnabled(GL_BLEND);
     m_depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
     m_cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+    m_lightingEnabled = glIsEnabled(GL_LIGHTING);
+    m_lineSmoothEnabled = glIsEnabled(GL_LINE_SMOOTH);
+    glGetFloatv(GL_LINE_WIDTH, &m_lineWidth);
 
     GLint maximumTextureUnits = 0;
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maximumTextureUnits);
@@ -133,9 +139,12 @@ public:
     glFrontFace(static_cast<GLenum>(m_frontFace));
     glPolygonMode(GL_FRONT, static_cast<GLenum>(m_polygonMode[0]));
     glPolygonMode(GL_BACK, static_cast<GLenum>(m_polygonMode[1]));
+    glLineWidth(m_lineWidth);
     if (m_blendEnabled) glEnable(GL_BLEND); else glDisable(GL_BLEND);
     if (m_depthTestEnabled) glEnable(GL_DEPTH_TEST); else glDisable(GL_DEPTH_TEST);
     if (m_cullFaceEnabled) glEnable(GL_CULL_FACE); else glDisable(GL_CULL_FACE);
+    if (m_lightingEnabled) glEnable(GL_LIGHTING); else glDisable(GL_LIGHTING);
+    if (m_lineSmoothEnabled) glEnable(GL_LINE_SMOOTH); else glDisable(GL_LINE_SMOOTH);
   }
 
   void replaceFramebuffer(GLuint oldFramebuffer, GLuint replacementFramebuffer)
@@ -208,6 +217,9 @@ private:
   GLboolean m_blendEnabled;
   GLboolean m_depthTestEnabled;
   GLboolean m_cullFaceEnabled;
+  GLboolean m_lightingEnabled;
+  GLboolean m_lineSmoothEnabled;
+  GLfloat m_lineWidth;
   GLboolean m_depthWriteMask;
   GLboolean m_colorWriteMask[4];
   GLint m_blendSourceRgb;

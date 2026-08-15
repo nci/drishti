@@ -16,6 +16,11 @@
 #include <QMessageBox>
 #include <QRegularExpression>
 #include <QSet>
+#include <QFile>
+#include <QDir>
+#include <QCoreApplication>
+#include <QDateTime>
+#include <QTextStream>
 
 namespace
 {
@@ -233,6 +238,20 @@ void showShaderDiagnostic(const QString &title,
     diagnostic += "\n\nSource:\n" + numberedSource(source);
 
   qCritical().noquote() << diagnostic;
+
+  // GUI builds do not have a console. Keep the complete driver diagnostic
+  // beside the executable so a shader failure on a target iGPU is actionable.
+  if (QCoreApplication::instance())
+    {
+      QFile log(QDir(QCoreApplication::applicationDirPath())
+                .filePath(QStringLiteral("drishti-runtime.log")));
+      if (log.open(QIODevice::Append | QIODevice::Text))
+        {
+          QTextStream stream(&log);
+          stream << QDateTime::currentDateTime().toString(Qt::ISODate)
+                 << " " << diagnostic << "\n";
+        }
+    }
 
   QDialog dialog;
   dialog.setWindowTitle(title);

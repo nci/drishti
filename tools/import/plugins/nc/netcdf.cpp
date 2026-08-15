@@ -1647,12 +1647,14 @@ int NcError::set_err (int err)
 	if(ncopts == verbose_nonfatal || ncopts == verbose_fatal) {
 	    std::cout << nc_strerror(err) << std::endl;
 	}
-	if(ncopts == silent_fatal || ncopts == verbose_fatal) {
-	    exit(ncopts);
-	}
+	// Fatal modes are retained for source compatibility, but this embedded
+	// wrapper returns errors to the Import caller instead of terminating the
+	// host process.
     }
     return err;
 }
 
 int NcError::ncerr = NC_NOERR;
-int NcError::ncopts = NcError::verbose_fatal ; // for backward compatibility
+// Import plugins must be able to propagate malformed-file errors to their
+// callers. A library error must never terminate the host GUI process.
+int NcError::ncopts = NcError::verbose_nonfatal ;

@@ -11,11 +11,13 @@
 #include "mainwindowui.h"
 
 #include "cube2sphere.h"
+#include "../../framebufferbudget.h"
 
 #include <stdio.h>
 #include <math.h>
 #include <fstream>
 #include <limits>
+#include <climits>
 #include <memory>
 #include <new>
 #include <time.h>
@@ -36,14 +38,18 @@ bool framebufferComplete(QGLFramebufferObject *buffer, QString &error)
       return false;
     }
 
+  GLint previousFramebuffer = 0;
+  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &previousFramebuffer);
   if (!buffer->bind())
     {
+      glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFramebuffer));
       error = QStringLiteral("OpenGL could not bind the required RGBA16F framebuffer.");
       return false;
     }
 
   GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   buffer->release();
+  glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(previousFramebuffer));
   if (status != GL_FRAMEBUFFER_COMPLETE)
     {
       error = QStringLiteral("Required RGBA16F framebuffer is incomplete (0x%1).")
@@ -52,6 +58,34 @@ bool framebufferComplete(QGLFramebufferObject *buffer, QString &error)
     }
 
   return true;
+}
+
+const std::uint64_t c_viewerFramebufferBudgetBytes = 512ULL*1024ULL*1024ULL;
+const std::uint64_t c_viewerFramebufferBytesPerPixel = 12ULL;
+
+bool viewerFramebufferBudgetOk(int width, int height,
+                               QGLFramebufferObject *oldBuffer)
+{
+  const FramebufferBudget::Admission candidate =
+    FramebufferBudget::evaluate(width, height,
+                                c_viewerFramebufferBytesPerPixel,
+                                c_viewerFramebufferBudgetBytes,
+                                Global::max2dTextureSize());
+  if (!candidate.approved)
+    return false;
+  if (!oldBuffer)
+    return true;
+  std::uint64_t oldPixels = 0;
+  std::uint64_t oldBytes = 0;
+  if (!FramebufferBudget::checkedMultiply(
+        static_cast<std::uint64_t>(qMax(0, oldBuffer->width())),
+        static_cast<std::uint64_t>(qMax(0, oldBuffer->height())), oldPixels) ||
+      !FramebufferBudget::checkedMultiply(oldPixels,
+                                           c_viewerFramebufferBytesPerPixel,
+                                           oldBytes))
+    return false;
+  return candidate.requiredBytes + oldBytes <=
+         c_viewerFramebufferBudgetBytes;
 }
 
 bool programLinked(GLuint program)
@@ -316,6 +350,12 @@ Viewer::createImageBuffers()
   int ibw = qMax(1, m_origWidth);
   int ibh = qMax(1, m_origHeight);
 
+  if (!viewerFramebufferBudgetOk(ibw, ibh, m_imageBuffer))
+    {
+      failRenderer(QStringLiteral("image framebuffer budget exceeded"));
+      return false;
+    }
+
 
   QGLFramebufferObjectFormat fbFormat;
   fbFormat.setInternalTextureFormat(GL_RGBA16F_ARB);
@@ -324,7 +364,7 @@ Viewer::createImageBuffers()
   fbFormat.setTextureTarget(GL_TEXTURE_RECTANGLE_EXT);
 
   QGLFramebufferObject *imageBuffer =
-    new QGLFramebufferObject(ibw, ibh, fbFormat);
+    new (std::nothrow) QGLFramebufferObject(ibw, ibh, fbFormat);
   QString error;
   if (!framebufferComplete(imageBuffer, error))
     {
@@ -333,13 +373,27 @@ Viewer::createImageBuffers()
       return false;
     }
 
-  delete m_imageBuffer;
+  const qint64 frameBytes = 4LL*qMax(1, m_imageWidth)*qMax(1, m_imageHeight);
+  if (frameBytes <= 0 || frameBytes > INT_MAX)
+    {
+      delete imageBuffer;
+      failRenderer(QStringLiteral("image readback buffer is too large"));
+      return false;
+    }
+  unsigned char *movieFrame =
+    new (std::nothrow) unsigned char[static_cast<size_t>(frameBytes)];
+  if (!movieFrame)
+    {
+      delete imageBuffer;
+      failRenderer(QStringLiteral("image readback buffer allocation failed"));
+      return false;
+    }
+
+  QGLFramebufferObject *oldImageBuffer = m_imageBuffer;
   m_imageBuffer = imageBuffer;
-
-
-  if (m_movieFrame)
-    delete [] m_movieFrame;
-  m_movieFrame = new unsigned char[4*m_imageWidth*m_imageHeight];
+  delete oldImageBuffer;
+  delete [] m_movieFrame;
+  m_movieFrame = movieFrame;
 
   return true;
 }
@@ -354,22 +408,29 @@ Viewer::imageSize(int &wd, int &ht)
 void
 Viewer::setImageSize(int wd, int ht)
 {
-  m_imageWidth = wd;
-  m_imageHeight = ht;
+  int requestedWidth = wd;
+  int requestedHeight = ht;
 
   if (Global::imageQuality() == Global::_LowQuality)
     {
-      m_imageWidth = wd/2;
-      m_imageHeight = ht/2;
+      requestedWidth = wd/2;
+      requestedHeight = ht/2;
     }
   else if (Global::imageQuality() == Global::_VeryLowQuality)
     {
-      m_imageWidth = wd/4;
-      m_imageHeight = ht/4;
+      requestedWidth = wd/4;
+      requestedHeight = ht/4;
     }
 
+  requestedWidth = qMax(1, requestedWidth);
+  requestedHeight = qMax(1, requestedHeight);
+
   if (!m_rendererReady)
-    return;
+    {
+      m_imageWidth = requestedWidth;
+      m_imageHeight = requestedHeight;
+      return;
+    }
 
   makeCurrent();
 
@@ -378,9 +439,15 @@ Viewer::setImageSize(int wd, int ht)
   fbFormat.setAttachment(QGLFramebufferObject::Depth);
   //fbFormat.setSamples(8);
   fbFormat.setTextureTarget(GL_TEXTURE_RECTANGLE_EXT);
+  if (!viewerFramebufferBudgetOk(requestedWidth, requestedHeight,
+                                 m_imageBuffer))
+    {
+      failRenderer(QStringLiteral("image framebuffer budget exceeded"));
+      return;
+    }
   QGLFramebufferObject *imageBuffer =
-    new QGLFramebufferObject(qMax(1, m_imageWidth),
-			     qMax(1, m_imageHeight),
+    new (std::nothrow) QGLFramebufferObject(requestedWidth,
+				     requestedHeight,
 			     fbFormat);
   QString error;
   if (!framebufferComplete(imageBuffer, error))
@@ -390,8 +457,11 @@ Viewer::setImageSize(int wd, int ht)
       return;
     }
 
-  delete m_imageBuffer;
+  QGLFramebufferObject *oldImageBuffer = m_imageBuffer;
   m_imageBuffer = imageBuffer;
+  delete oldImageBuffer;
+  m_imageWidth = requestedWidth;
+  m_imageHeight = requestedHeight;
 
   float ratio = qMax(1.0f, qMax((float)m_imageWidth/(float)m_origWidth,
 			       (float)m_imageHeight/(float)m_origHeight));

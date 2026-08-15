@@ -99,7 +99,7 @@ class MeshGenerator
 		    uchar*,
 		    int, bool);
 
-  void savePLY(QString);
+  bool savePLY(QString);
   bool loadPLY(QString);
 
   bool getValues(int&, int&,

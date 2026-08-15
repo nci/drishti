@@ -86,7 +86,10 @@ HEADERS = ..\..\mainwindowui.h \
 	..\..\classes.h \
 	..\..\matrix.h \
 	..\..\global.h \
-	..\..\..\common\src\mesh\binaryplywriter.h
+	..\..\..\common\src\mesh\binaryplywriter.h \
+	..\..\..\common\src\pvlmanifest.h \
+	..\..\..\common\src\memoryreservation.h \
+	..\..\..\common\src\recoveryjournal.h
 	
 
 SOURCES = ../../mainwindowui.cpp \
@@ -103,4 +106,7 @@ SOURCES = ../../mainwindowui.cpp \
 	../../classes.cpp \
 	../../matrix.cpp \
 	../../global.cpp \
-	../../../common/src/mesh/binaryplywriter.cpp
+	../../../common/src/mesh/binaryplywriter.cpp \
+	../../../common/src/pvlmanifest.cpp \
+	../../../common/src/memoryreservation.cpp \
+	../../../common/src/recoveryjournal.cpp

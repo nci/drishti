@@ -469,7 +469,10 @@ template <typename captype, typename tcaptype, typename flowtype>
 /***********************************************************************/
 
 template <typename captype, typename tcaptype, typename flowtype> 
-	flowtype Graph<captype,tcaptype,flowtype>::maxflow(bool reuse_trees, Block<node_id>* _changed_list)
+	flowtype Graph<captype,tcaptype,flowtype>::maxflow(bool reuse_trees,
+							 Block<node_id>* _changed_list,
+							 cancel_callback cancel,
+							 void *cancel_context)
 {
 	node *i, *j, *current_node = NULL;
 	arc *a;
@@ -498,6 +501,8 @@ template <typename captype, typename tcaptype, typename flowtype>
 	// main loop
 	while ( 1 )
 	{
+		if (cancel && (*cancel)(cancel_context))
+			throw std::runtime_error("Graph Cut cancelled");
 		// test_consistency(current_node);
 
 		if ((i=current_node))
@@ -517,6 +522,8 @@ template <typename captype, typename tcaptype, typename flowtype>
 			for (a=i->first; a; a=a->next)
 			if (a->r_cap)
 			{
+				if (cancel && (*cancel)(cancel_context))
+					throw std::runtime_error("Graph Cut cancelled");
 				j = a -> head;
 				if (!j->parent)
 				{
@@ -544,6 +551,8 @@ template <typename captype, typename tcaptype, typename flowtype>
 			for (a=i->first; a; a=a->next)
 			if (a->sister->r_cap)
 			{
+				if (cancel && (*cancel)(cancel_context))
+					throw std::runtime_error("Graph Cut cancelled");
 				j = a -> head;
 				if (!j->parent)
 				{
@@ -580,6 +589,8 @@ template <typename captype, typename tcaptype, typename flowtype>
 			/* adoption */
 			while ((np=orphan_first))
 			{
+				if (cancel && (*cancel)(cancel_context))
+					throw std::runtime_error("Graph Cut cancelled");
 				np_next = np -> next;
 				np -> next = NULL;
 

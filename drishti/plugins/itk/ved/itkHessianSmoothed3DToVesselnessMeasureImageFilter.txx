@@ -21,6 +21,7 @@
 #include "itkImageRegionIterator.h"
 #include "itkImageRegionConstIterator.h"
 #include "vnl/vnl_math.h"
+#include "vcl_legacy_aliases.h"
 
 #define EPSILON  1e-03
 

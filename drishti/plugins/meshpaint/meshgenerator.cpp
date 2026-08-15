@@ -3,11 +3,17 @@
 
 #include <QFileInfo>
 
+#include <cstdint>
+#include <limits>
+#include <new>
 #include <stdexcept>
 
 MeshGenerator::MeshGenerator()
 {
   vcolor=0;
+  m_nverts = m_nfaces = 0;
+  m_vlist = 0;
+  m_flist = 0;
 
   QStringList ps;
   ps << "x";
@@ -31,7 +37,20 @@ MeshGenerator::MeshGenerator()
       plyStrings << s;
     }
 }
-MeshGenerator::~MeshGenerator() {if (vcolor) delete [] vcolor;}
+MeshGenerator::~MeshGenerator()
+{
+  if (vcolor) delete [] vcolor;
+  if (m_vlist)
+    for (int i=0; i<m_nverts; ++i) free(m_vlist[i]);
+  if (m_flist)
+    for (int i=0; i<m_nfaces; ++i)
+      {
+        if (m_flist[i]) free(m_flist[i]->verts);
+        free(m_flist[i]);
+      }
+  free(m_vlist);
+  free(m_flist);
+}
 
 QGradientStops
 MeshGenerator::resampleGradientStops(QGradientStops stops)
@@ -1216,7 +1235,11 @@ MeshGenerator::generateMesh(int nSlabs,
       m_vlist[ni]->b = 255*vcolor[3*ni+2];
     }
 
-  savePLY(flnm);
+  if (!savePLY(flnm))
+    {
+      QMessageBox::warning(0, "Error", "Cannot save "+flnm);
+      return;
+    }
 
   m_meshLog->moveCursor(QTextCursor::End);
   m_meshLog->insertPlainText("Mesh saved in "+flnm);
@@ -1225,7 +1248,7 @@ MeshGenerator::generateMesh(int nSlabs,
 
 
 }
-void
+bool
 MeshGenerator::savePLY(QString flnm)
 {
   m_meshLog->moveCursor(QTextCursor::End);
@@ -1268,6 +1291,9 @@ MeshGenerator::savePLY(QString flnm)
 
   PlyFile *ply;
   FILE *fp = fopen(flnm.toLatin1().data(), "wb");
+  ply_clear_error();
+  if (!fp)
+    return false;
 
   Face face ;
   int verts[3] ;
@@ -1275,7 +1301,12 @@ MeshGenerator::savePLY(QString flnm)
   ply = write_ply (fp,
 		   2,
 		   elem_names,
-		   PLY_BINARY_LE );
+                   PLY_BINARY_LE );
+  if (!ply)
+    {
+      fclose(fp);
+      return false;
+    }
 
   /* describe what properties go into the PlyVertex elements */
   describe_element_ply ( ply, plyStrings[10], m_nverts );
@@ -1305,15 +1336,38 @@ MeshGenerator::savePLY(QString flnm)
   for(int ni=0; ni<m_nfaces; ni++)
     put_element_ply ( ply, ( void * ) m_flist[ni] );
 
+  const bool writeFailedBeforeClose = ply_last_error() || ferror(fp);
   close_ply ( ply );
+  const bool writeFailed = writeFailedBeforeClose || ply_last_error();
   free_ply ( ply );
 
   m_meshProgress->setValue(100);
+  return !writeFailed;
 }
 
 bool
 MeshGenerator::loadPLY(QString flnm)
 {
+  auto releaseMesh = [this]()
+  {
+    if (m_vlist)
+      for (int k=0; k<m_nverts; ++k) free(m_vlist[k]);
+    if (m_flist)
+      for (int k=0; k<m_nfaces; ++k)
+        {
+          if (m_flist[k]) free(m_flist[k]->verts);
+          free(m_flist[k]);
+        }
+    free(m_vlist);
+    free(m_flist);
+    m_vlist = 0;
+    m_flist = 0;
+    m_nverts = m_nfaces = 0;
+    delete [] vcolor;
+    vcolor = 0;
+  };
+  releaseMesh();
+
   PlyProperty vert_props[] = { /* list of property information for a vertex */
     {plyStrings[0], Float32, Float32, offsetof(Vertex,x), 0, 0, 0, 0},
     {plyStrings[1], Float32, Float32, offsetof(Vertex,y), 0, 0, 0, 0},
@@ -1363,20 +1417,53 @@ MeshGenerator::loadPLY(QString flnm)
 
   /*** Read in the original PLY object ***/
   FILE *fp = fopen(flnm.toLatin1().data(), "rb");
+  ply_clear_error();
+  if (!fp)
+    return false;
 
   in_ply  = read_ply (fp);
+  if (!in_ply)
+    {
+      fclose(fp);
+      return false;
+    }
 
   for (i = 0; i < in_ply->num_elem_types; i++) {
 
     /* prepare to read the i'th list of elements */
     elem_name = setup_element_read_ply (in_ply, i, &elem_count);
+    if (!elem_name)
+      {
+        close_ply(in_ply);
+        free_ply(in_ply);
+        return false;
+      }
 
 
     if (QString("vertex") == QString(elem_name)) {
 
       /* create a vertex list to hold all the vertices */
+      if (elem_count < 0 ||
+          static_cast<uint64_t>(elem_count) >
+          static_cast<uint64_t>(std::numeric_limits<size_t>::max()/sizeof(Vertex *)))
+        {
+          ply_clear_error();
+          releaseMesh();
+          close_ply(in_ply);
+          free_ply(in_ply);
+          return false;
+        }
       m_vlist = (Vertex **) malloc (sizeof (Vertex *) * elem_count);
+      if (!m_vlist && elem_count > 0)
+        {
+          ply_clear_error();
+          releaseMesh();
+          close_ply(in_ply);
+          free_ply(in_ply);
+          return false;
+        }
       m_nverts = elem_count;
+      memset(m_vlist, 0, sizeof(Vertex *) * elem_count);
 
       /* set up for getting vertex elements */
 
@@ -1419,14 +1506,46 @@ MeshGenerator::loadPLY(QString flnm)
       /* grab all the vertex elements */
       for (j = 0; j < elem_count; j++) {
         m_vlist[j] = (Vertex *) malloc (sizeof (Vertex));
+        if (!m_vlist[j])
+          {
+            ply_clear_error();
+            releaseMesh();
+            close_ply(in_ply);
+            free_ply(in_ply);
+            return false;
+          }
         get_element_ply (in_ply, (void *) m_vlist[j]);
+        if (ply_last_error())
+          {
+            releaseMesh();
+            close_ply(in_ply);
+            free_ply(in_ply);
+            return false;
+          }
       }
     }
     else if (QString("face") == QString(elem_name)) {
 
       /* create a list to hold all the face elements */
+      if (elem_count < 0 ||
+          static_cast<uint64_t>(elem_count) >
+          static_cast<uint64_t>(std::numeric_limits<size_t>::max()/sizeof(Face *)))
+        {
+          releaseMesh();
+          close_ply(in_ply);
+          free_ply(in_ply);
+          return false;
+        }
       m_flist = (Face **) malloc (sizeof (Face *) * elem_count);
+      if (!m_flist && elem_count > 0)
+        {
+          releaseMesh();
+          close_ply(in_ply);
+          free_ply(in_ply);
+          return false;
+        }
       m_nfaces = elem_count;
+      memset(m_flist, 0, sizeof(Face *) * elem_count);
 
       /* set up for getting face elements */
 
@@ -1435,7 +1554,22 @@ MeshGenerator::loadPLY(QString flnm)
       /* grab all the face elements */
       for (j = 0; j < elem_count; j++) {
         m_flist[j] = (Face *) malloc (sizeof (Face));
+        if (!m_flist[j])
+          {
+            releaseMesh();
+            close_ply(in_ply);
+            free_ply(in_ply);
+            return false;
+          }
+        memset(m_flist[j], 0, sizeof(Face));
         get_element_ply (in_ply, (void *) m_flist[j]);
+        if (ply_last_error())
+          {
+            releaseMesh();
+            close_ply(in_ply);
+            free_ply(in_ply);
+            return false;
+          }
       }
     }
     else
@@ -1444,9 +1578,20 @@ MeshGenerator::loadPLY(QString flnm)
 
   close_ply (in_ply);
   free_ply (in_ply);
+
+  if (ply_last_error() || m_nverts <= 0 || m_nfaces < 0)
+    {
+      releaseMesh();
+      return false;
+    }
   
 
-  vcolor = new float[m_nverts*3];
+  vcolor = new (std::nothrow) float[static_cast<size_t>(m_nverts)*3];
+  if (!vcolor)
+    {
+      releaseMesh();
+      return false;
+    }
   for(int i=0; i<m_nverts; i++)
     {
       vcolor[3*i+0] = m_vlist[i]->r/255.0f;

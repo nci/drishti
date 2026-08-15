@@ -5,12 +5,18 @@
 #include "propertyeditor.h"
 
 #include <QFile>
+#include <QSaveFile>
 #include <QTextStream>
 #include <QDomDocument>
+#include <cstring>
 
 PreferencesWidget::PreferencesWidget(QWidget *parent) :
   QWidget(parent)
 {
+  m_eyeSeparation = 0.062f;
+  m_focusDistance = 1.0f;
+  m_minFocusDistance = 0.1f;
+  m_maxFocusDistance = 2.0f;
   ui.setupUi(this);
 
   ui.m_still->setRange(-5, 16);
@@ -51,6 +57,57 @@ void
 PreferencesWidget::updateTagColors()
 {
   m_tagColorEditor->setColors();
+}
+
+PreferencesWidget::State
+PreferencesWidget::captureState() const
+{
+  State state;
+  state.backgroundColor = Global::backgroundColor();
+  state.stepsizeStill = Global::stepsizeStill();
+  state.stepsizeDrag = Global::stepsizeDrag();
+  state.gamma = Global::gamma();
+  state.eyeSeparation = m_eyeSeparation;
+  state.tickSize = Tick::tickSize();
+  state.tickStep = Tick::tickStep();
+  state.labelX = Tick::labelX();
+  state.labelY = Tick::labelY();
+  state.labelZ = Tick::labelZ();
+  state.tagColors = QByteArray(reinterpret_cast<const char*>(Global::tagColors()),
+                               4*256);
+  return state;
+}
+
+void
+PreferencesWidget::restoreState(const State& state)
+{
+  Global::setBackgroundColor(state.backgroundColor);
+  Global::setStepsizeStill(state.stepsizeStill);
+  Global::setStepsizeDrag(state.stepsizeDrag);
+  Global::setGamma(state.gamma);
+  m_eyeSeparation = state.eyeSeparation;
+  ui.m_eyeSeparation->setText(QString("%1").arg(m_eyeSeparation));
+  setImageQualitySliderValues(renderQualityValue(state.stepsizeStill),
+                              renderQualityValue(state.stepsizeDrag));
+  ui.m_tickSize->setValue(state.tickSize);
+  ui.m_tickStep->setValue(state.tickStep);
+  ui.m_labelX->setText(state.labelX);
+  ui.m_labelY->setText(state.labelY);
+  ui.m_labelZ->setText(state.labelZ);
+  Tick::setTickSize(state.tickSize);
+  Tick::setTickStep(state.tickStep);
+  Tick::setLabelX(state.labelX);
+  Tick::setLabelY(state.labelY);
+  Tick::setLabelZ(state.labelZ);
+  if (state.tagColors.size() == 4*256)
+    {
+      uchar colors[4*256];
+      memcpy(colors, state.tagColors.constData(), sizeof(colors));
+      Global::setTagColors(colors);
+      m_tagColorEditor->setColors();
+    }
+  emit updateLookupTable();
+  emit updateGL();
 }
 
 void
@@ -416,7 +473,7 @@ PreferencesWidget::on_m_bgcolor_clicked()
     }
 }
 
-void
+bool
 PreferencesWidget::save(const char* flnm)
 {
   QDomDocument doc;
@@ -528,27 +585,95 @@ PreferencesWidget::save(const char* flnm)
   topElement.appendChild(de);
 
 
-  QFile fout(flnm);
-  if (fout.open(QIODevice::WriteOnly))
+  QSaveFile fout(flnm);
+  fout.setDirectWriteFallback(false);
+  if (!fout.open(QIODevice::WriteOnly))
+    return false;
+  QTextStream out(&fout);
+  doc.save(out, 2);
+  if (out.status() != QTextStream::Ok || !fout.commit())
     {
-      QTextStream out(&fout);
-      doc.save(out, 2);
-      fout.close();
+      fout.cancelWriting();
+      return false;
     }
+  return true;
 }
 
-void 
+bool
 PreferencesWidget::load(const char* flnm)
 {
   QDomDocument document;
   QFile f(flnm);
-  if (f.open(QIODevice::ReadOnly))
+  if (!f.open(QIODevice::ReadOnly))
+    return false;
+  QString error;
+  int line = 0, column = 0;
+  if (!document.setContent(&f, &error, &line, &column))
     {
-      document.setContent(&f);
       f.close();
+      return false;
     }
+  f.close();
 
   QDomElement main = document.documentElement();
+  if (main.isNull())
+    return false;
+
+  // Validate sidecar values before mutating widgets or Global state.
+  const QDomNodeList preferenceNodes = main.elementsByTagName("preferences");
+  for (int pi = 0; pi < preferenceNodes.count(); ++pi)
+    {
+      const QDomNodeList nodes = preferenceNodes.at(pi).childNodes();
+      for (int ni = 0; ni < nodes.count(); ++ni)
+        {
+          const QString name = nodes.at(ni).nodeName();
+          const QString text = nodes.at(ni).toElement().text();
+          if (name == "backgroundcolor")
+            {
+              const QStringList values = text.split(" ", QString::SkipEmptyParts);
+              if (values.size() != 3) return false;
+              for (int i = 0; i < 3; ++i)
+                {
+                  bool ok = false;
+                  values[i].toFloat(&ok);
+                  if (!ok) return false;
+                }
+            }
+          else if (name == "imagequality" || name == "tick")
+            {
+              const QStringList values = text.split(" ", QString::SkipEmptyParts);
+              if (values.size() < 2) return false;
+              for (int i = 0; i < 2; ++i)
+                {
+                  bool ok = false;
+                  values[i].toInt(&ok);
+                  if (!ok) return false;
+                }
+            }
+          else if (name == "brightness")
+            {
+              bool ok = false;
+              text.toInt(&ok);
+              if (!ok) return false;
+            }
+          else if (name == "tagcolors")
+            {
+              const QStringList rows = text.split("\n", QString::SkipEmptyParts);
+              if (rows.size() > 256) return false;
+              for (int ri = 0; ri < rows.size(); ++ri)
+                {
+                  const QStringList values = rows[ri].split(" ", QString::SkipEmptyParts);
+                  if (values.size() != 4) return false;
+                  for (int ci = 0; ci < 4; ++ci)
+                    {
+                      bool ok = false;
+                      const int value = values[ci].toInt(&ok);
+                      if (!ok || value < 0 || value > 255) return false;
+                    }
+                }
+            }
+        }
+    }
   QDomNodeList tlist = main.childNodes();
   for(int i=0; i<tlist.count(); i++)
     {
@@ -645,6 +770,78 @@ PreferencesWidget::load(const char* flnm)
       Global::setStepsizeDrag(imageQualityValue(ui.m_drag->value()));
       Global::setStepsizeStill(imageQualityValue(ui.m_still->value()));
     }
+  return true;
+}
+
+bool
+PreferencesWidget::validate(const char* flnm) const
+{
+  QDomDocument document;
+  QFile f(flnm);
+  if (!f.open(QIODevice::ReadOnly))
+    return false;
+  QString error;
+  int line = 0, column = 0;
+  if (!document.setContent(&f, &error, &line, &column))
+    return false;
+  const QDomElement main = document.documentElement();
+  if (main.isNull())
+    return false;
+  const QDomNodeList preferenceNodes = main.elementsByTagName("preferences");
+  for (int pi = 0; pi < preferenceNodes.count(); ++pi)
+    {
+      const QDomNodeList nodes = preferenceNodes.at(pi).childNodes();
+      for (int ni = 0; ni < nodes.count(); ++ni)
+        {
+          const QString name = nodes.at(ni).nodeName();
+          const QString text = nodes.at(ni).toElement().text();
+          if (name == "backgroundcolor")
+            {
+              const QStringList values = text.split(" ", QString::SkipEmptyParts);
+              if (values.size() != 3) return false;
+              for (int i = 0; i < 3; ++i)
+                {
+                  bool ok = false;
+                  values[i].toFloat(&ok);
+                  if (!ok) return false;
+                }
+            }
+          else if (name == "imagequality" || name == "tick")
+            {
+              const QStringList values = text.split(" ", QString::SkipEmptyParts);
+              if (values.size() < 2) return false;
+              for (int i = 0; i < 2; ++i)
+                {
+                  bool ok = false;
+                  values[i].toInt(&ok);
+                  if (!ok) return false;
+                }
+            }
+          else if (name == "brightness")
+            {
+              bool ok = false;
+              text.toInt(&ok);
+              if (!ok) return false;
+            }
+          else if (name == "tagcolors")
+            {
+              const QStringList rows = text.split("\n", QString::SkipEmptyParts);
+              if (rows.size() > 256) return false;
+              for (int ri = 0; ri < rows.size(); ++ri)
+                {
+                  const QStringList values = rows[ri].split(" ", QString::SkipEmptyParts);
+                  if (values.size() != 4) return false;
+                  for (int ci = 0; ci < 4; ++ci)
+                    {
+                      bool ok = false;
+                      const int value = values[ci].toInt(&ok);
+                      if (!ok || value < 0 || value > 255) return false;
+                    }
+                }
+            }
+        }
+    }
+  return true;
 }
 
 

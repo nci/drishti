@@ -48,10 +48,11 @@ class Curves : public QWidget
   void setSliderValue(int slc) { m_slider->setValue(slc); setSliceNumber(slc); }
   void setSliderRange(int, int, int, int, int);
   
-  void saveCurves();
-  void saveCurves(QString);
-  void loadCurves();
-  void loadCurves(QString);
+  bool saveCurves();
+  bool saveCurves(QString);
+  bool loadCurves();
+  bool loadCurves(QString);
+  bool validateCurves(QString);
 
   void setCurve(bool);
   void setLivewire(bool);

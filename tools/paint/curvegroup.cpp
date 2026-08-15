@@ -93,6 +93,26 @@ CurveGroup::reset()
   m_selectedPtCoord = QPointF(-1,-1);
 }
 
+void
+CurveGroup::swapState(CurveGroup& other)
+{
+  qSwap(m_lambda, other.m_lambda);
+  qSwap(m_seglen, other.m_seglen);
+  qSwap(m_selectedPtCoord, other.m_selectedPtCoord);
+  qSwap(m_shrinkwrapIgnoreSize, other.m_shrinkwrapIgnoreSize);
+  m_cg.swap(other.m_cg);
+  m_mcg.swap(other.m_mcg);
+  m_sw.swap(other.m_sw);
+  m_swcg.swap(other.m_swcg);
+  qSwap(m_addingCurves, other.m_addingCurves);
+  m_tmcg.swap(other.m_tmcg);
+  qSwap(m_pointsDirtyBit, other.m_pointsDirtyBit);
+  m_xpoints.swap(other.m_xpoints);
+  m_ypoints.swap(other.m_ypoints);
+  qSwap(m_copyCurve, other.m_copyCurve);
+  qSwap(m_moveCurve, other.m_moveCurve);
+}
+
 QList<int>
 CurveGroup::polygonLevels()
 {
@@ -102,6 +122,19 @@ CurveGroup::polygonLevels()
 void
 CurveGroup::removePolygonAt(int key, int v0, int v1, bool all)
 {
+  QPair<int, int> swsel = getActiveShrinkwrapCurve(key, v0, v1);
+  int minCurveLen = 0;
+  if (all && swsel.first >= 0)
+    {
+      bool ok = false;
+      minCurveLen = QInputDialog::getInt(0,
+                                         "Remove Curves",
+                                         "Remove curves less than",
+                                         20, 1, 1000, 1, &ok);
+      if (!ok)
+        return;
+    }
+
   m_pointsDirtyBit = true;
 
   int ic = getActiveCurve(key, v0, v1);
@@ -126,18 +159,12 @@ CurveGroup::removePolygonAt(int key, int v0, int v1, bool all)
 
 
   // remove shrinkwrap curves if any
-  QPair<int, int> swsel = getActiveShrinkwrapCurve(key, v0, v1);
   ic = swsel.first;
   int crv = swsel.second;
   if (ic >= 0)
     {
       if (all)
 	{
-	  int minCurveLen = 0;
-	  minCurveLen = QInputDialog::getInt(0,
-					     "Remove Curves",
-					     "Remove curves less than",
-					     20, 1, 1000, 1);
 	  if (minCurveLen == 1)
 	    {
 	      QList<Curve*> curves = m_swcg[ic].values();

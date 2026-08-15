@@ -19,10 +19,11 @@ class TransferFunctionManager : public QFrame
   TransferFunctionManager(QWidget *parent=0);
 
   void registerContainer(TransferFunctionContainer*);
-  void load(const char *);
+  bool load(const char *);
+  bool validate(const char *) const;
   void append(const char *);
   void load(QList<SplineInformation>);
-  void save(const char *);
+  bool save(const char *);
   void loadDefaultTF();
 
  public slots :

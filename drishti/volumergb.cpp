@@ -3,6 +3,7 @@
 #include "staticfunctions.h"
 #include "mainwindowui.h"
 #include "xmlheaderfunctions.h"
+#include "../common/src/pvlmanifest.h"
 
 #include <QEventLoop>
 #include <QFile>
@@ -309,43 +310,58 @@ VolumeRGB::setSubvolume(Vec boxMin, Vec boxMax,
       return false;
     }
 
-  int n_depth, n_width, n_height;
-
-  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[volnum],
-					      n_depth, n_width, n_height);
+  PvlManifest manifest;
+  if (!PvlManifestParser::parse(m_volumeFiles[volnum], manifest, true) ||
+      !manifest.isColor)
+    {
+      QMessageBox::warning(0, "SubVolume Update",
+                           manifest.error.isEmpty() ?
+                           QString("Invalid colour volume manifest") :
+                           manifest.error);
+      return false;
+    }
+  const int n_depth = manifest.depth;
+  const int n_width = manifest.width;
+  const int n_height = manifest.height;
 
   //----------------
   int nRGB = 3;
   if (Global::volumeType() == Global::RGBAVolume)
     nRGB = 4;
+  if (manifest.channelNames.count() != nRGB)
+    {
+      QMessageBox::warning(0, "SubVolume Update",
+                           "Colour manifest channel count does not match the active RGB mode");
+      return false;
+    }
   //---------------
 
-  int slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFiles[volnum]);
-  QString rgbfile = m_volumeFiles[volnum];
-  rgbfile.chop(6);
-  QString rFilename = rgbfile + QString("red");
-  QString gFilename = rgbfile + QString("green");
-  QString bFilename = rgbfile + QString("blue");
-  QString aFilename = rgbfile + QString("alpha");
-
-  m_rgbaFileManager[0].setBaseFilename(rFilename);
-  m_rgbaFileManager[1].setBaseFilename(gFilename);
-  m_rgbaFileManager[2].setBaseFilename(bFilename);
-  m_rgbaFileManager[3].setBaseFilename(aFilename);
+  int slabSize = manifest.slabSize;
+  VolumeFileManager candidateManagers[4];
+  for (int channel = 0; channel < manifest.channelNames.count(); ++channel)
+    {
+      candidateManagers[channel].setBaseFilename(manifest.channelNames.at(channel));
+      candidateManagers[channel].setDepth(n_depth);
+      candidateManagers[channel].setWidth(n_width);
+      candidateManagers[channel].setHeight(n_height);
+      candidateManagers[channel].setHeaderSize(13);
+      candidateManagers[channel].setSlabSize(slabSize);
+      if (!candidateManagers[channel].exists())
+        {
+          QMessageBox::warning(0, "SubVolume Update",
+                               QString("Cannot read colour channel %1").
+                               arg(candidateManagers[channel].fileName()));
+          return false;
+        }
+    }
   for(int a=0; a<nRGB; a++)
     {
+      m_rgbaFileManager[a].setBaseFilename(manifest.channelNames.at(a));
       m_rgbaFileManager[a].setDepth(n_depth);
       m_rgbaFileManager[a].setWidth(n_width);
       m_rgbaFileManager[a].setHeight(n_height);
       m_rgbaFileManager[a].setHeaderSize(13);
       m_rgbaFileManager[a].setSlabSize(slabSize);
-      if (!m_rgbaFileManager[a].exists())
-        {
-          QMessageBox::warning(0, "SubVolume Update",
-                               QString("Cannot read colour channel %1").
-                               arg(m_rgbaFileManager[a].fileName()));
-          return false;
-        }
     }
   //----------------
 
@@ -366,6 +382,9 @@ VolumeRGB::setSubvolume(Vec boxMin, Vec boxMax,
 	  return false;
     }
 
+  // All manifest and channel checks above are complete before changing the
+  // active time point. A failed future-frame check therefore leaves the
+  // currently rendered frame and bounds untouched.
   m_volnum = volnum;
   m_dataMin = boxMin;
   m_dataMax = boxMax;

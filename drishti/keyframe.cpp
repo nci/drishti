@@ -1,6 +1,29 @@
 #include "keyframe.h"
+#include <new>
 #include "global.h"
 #include "geometryobjects.h"
+#include <cmath>
+
+namespace
+{
+bool finiteVec(const Vec& value)
+{
+  return std::isfinite(value.x) && std::isfinite(value.y) &&
+         std::isfinite(value.z);
+}
+
+bool finiteQuaternion(const Quaternion& value)
+{
+  const Vec axis = value.axis();
+  const float angle = value.angle();
+  return finiteVec(axis) && std::isfinite(angle);
+}
+
+bool boundedList(int size, int limit = 1000000)
+{
+  return size >= 0 && size <= limit;
+}
+}
 #include "propertyeditor.h"
 #include "staticfunctions.h"
 #include "prunehandler.h"
@@ -50,6 +73,87 @@ KeyFrame::clear()
 
   m_savedKeyFrame.clear();
   m_copyKeyFrame.clear();
+}
+
+void
+KeyFrame::swapState(KeyFrame& other)
+{
+  m_cameraList.swap(other.m_cameraList);
+  m_keyFrameInfo.swap(other.m_keyFrameInfo);
+  m_tgP.swap(other.m_tgP);
+  m_tgQ.swap(other.m_tgQ);
+  KeyFrameInformation saved = m_savedKeyFrame;
+  m_savedKeyFrame = other.m_savedKeyFrame;
+  other.m_savedKeyFrame = saved;
+  KeyFrameInformation copied = m_copyKeyFrame;
+  m_copyKeyFrame = other.m_copyKeyFrame;
+  other.m_copyKeyFrame = copied;
+
+  for (QList<CameraPathNode*>::const_iterator it = m_cameraList.constBegin();
+       it != m_cameraList.constEnd(); ++it)
+    connect(*it, SIGNAL(modified()), this, SLOT(updateKeyFrameInterpolator()));
+
+  QList<int> frameNumbers;
+  QList<QImage> images;
+  for (QList<KeyFrameInformation*>::const_iterator it = m_keyFrameInfo.constBegin();
+       it != m_keyFrameInfo.constEnd(); ++it)
+    {
+      frameNumbers << (*it)->frameNumber();
+      images << (*it)->image();
+    }
+  emit loadKeyframes(frameNumbers, images);
+}
+
+bool
+KeyFrame::validateRendererCandidate()
+{
+  if (!finiteVec(m_savedKeyFrame.position()) ||
+      !finiteQuaternion(m_savedKeyFrame.orientation()) ||
+      !std::isfinite(m_savedKeyFrame.focusDistance()) ||
+      !std::isfinite(m_savedKeyFrame.eyeSeparation()) ||
+      m_savedKeyFrame.focusDistance() <= 0.0f ||
+      m_savedKeyFrame.eyeSeparation() < 0.0f)
+    return false;
+
+  Vec bmin, bmax;
+  m_savedKeyFrame.volumeBounds(bmin, bmax);
+  if (!finiteVec(bmin) || !finiteVec(bmax) ||
+      bmax.x < bmin.x || bmax.y < bmin.y || bmax.z < bmin.z)
+    return false;
+
+  if (!boundedList(m_cameraList.size(), 100000) ||
+      !boundedList(m_keyFrameInfo.size(), 100000) ||
+      !boundedList(m_savedKeyFrame.captions().size()) ||
+      !boundedList(m_savedKeyFrame.imageCaptions().size()) ||
+      !boundedList(m_savedKeyFrame.paths().size()) ||
+      !boundedList(m_savedKeyFrame.trisets().size()) ||
+      !boundedList(m_savedKeyFrame.networks().size()))
+    return false;
+
+  const ClipInformation clip = m_savedKeyFrame.clipInfo();
+  if (clip.size() < 0 || clip.size() > 1024 ||
+      clip.pos.size() != clip.rot.size() ||
+      clip.pos.size() != clip.show.size())
+    return false;
+  for (int i = 0; i < clip.pos.size(); ++i)
+    if (!finiteVec(clip.pos.at(i)) || !finiteQuaternion(clip.rot.at(i)))
+      return false;
+  return true;
+}
+
+bool
+KeyFrame::commitRendererCandidate()
+{
+  if (!validateRendererCandidate())
+    return false;
+
+  // Keep the parsed state detached until this single commit boundary.  The
+  // copy is deep (KeyFrameInformation owns its LUT/tag buffers), so no
+  // signal, setter or later UI mutation can alter the pending project while
+  // it is being validated or queued for commit.
+  KeyFrameInformation candidate(m_savedKeyFrame);
+  applyRendererCandidate(candidate);
+  return true;
 }
 
 void
@@ -882,6 +986,15 @@ KeyFrame::interpolateAt(int kf, float frc,
 void
 KeyFrame::playSavedKeyFrame()
 {
+  applyRendererCandidate(m_savedKeyFrame);
+}
+
+void
+KeyFrame::applyRendererCandidate(const KeyFrameInformation& state)
+{
+  // Preserve the historical implementation below while making its input an
+  // explicit detached candidate rather than the mutable member itself.
+  KeyFrameInformation m_savedKeyFrame(state);
   Global::disableViewerUpdate();
   MainWindowUI::changeDrishtiIcon(false);
 
@@ -1355,7 +1468,7 @@ KeyFrame::playFrameNumber(int fno)
 //--------------------------------
 //---- load and save -------------
 //--------------------------------
-void
+bool
 KeyFrame::load(fstream &fin)
 {
   char keyword[100];
@@ -1364,31 +1477,57 @@ KeyFrame::load(fstream &fin)
 
   int n;
   fin.read((char*)&n, sizeof(int));
+  if (!fin.good() || n < 0 || n > 100000)
+    return false;
 
   bool savedFirst = false;
+  bool foundDone = false;
   while (!fin.eof())
     {
       fin.getline(keyword, 100, 0);
 
+      if (!fin.good() && !fin.eof())
+	return false;
+
       if (strcmp(keyword, "done") == 0)
-	break;
+	{
+	  foundDone = true;
+	  break;
+	}
 
       if (strcmp(keyword, "keyframestart") == 0)
 	{
 	  // the zeroeth keyframe should be moved to m_savedKeyFrame
 	  if (!savedFirst)
 	    {
-	      m_savedKeyFrame.load(fin);
+      m_savedKeyFrame.load(fin);
+      if (!fin.good())
+        return false;
 	      savedFirst = true;
 	    }
 	  else
 	    {
-	      KeyFrameInformation *kfi = new KeyFrameInformation();
-	      kfi->load(fin);
+	      KeyFrameInformation *kfi = new (std::nothrow) KeyFrameInformation();
+      if (!kfi)
+        {
+          delete kfi;
+          return false;
+        }
+      kfi->load(fin);
+      if (!fin.good())
+        {
+          delete kfi;
+          return false;
+        }
 	      m_keyFrameInfo.append(kfi);
 	    }
 	}
     }
+
+  if (!foundDone || !savedFirst)
+    return false;
+  if (m_keyFrameInfo.size() != n)
+    return false;
 
   // read all keyframes.  now generate the camerapath information
   for (int i=0; i<m_keyFrameInfo.size(); i++)
@@ -1420,6 +1559,7 @@ KeyFrame::load(fstream &fin)
 
   //playSavedKeyFrame();
   // ----------------------------------
+  return true;
 }
 
 void

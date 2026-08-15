@@ -22,5 +22,6 @@ HEADERS = dicomplugin.h \
           ../../importmemoryadmission.h
 
 SOURCES = dicomplugin.cpp \
-          ../../importmemoryadmission.cpp
+          ../../importmemoryadmission.cpp \
+          ../../../../common/src/memoryreservation.cpp
 

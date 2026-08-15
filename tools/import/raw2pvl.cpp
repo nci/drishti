@@ -1,4 +1,5 @@
 #include "raw2pvl.h"
+#include "samplingcontract.h"
 //#include "vdbvolume.h"
 
 #include "global.h"
@@ -24,15 +25,18 @@
 #include <QTemporaryFile>
 #include <QTextCodec>
 #include <QUuid>
+#include <QStorageInfo>
 
 #include <QtConcurrentMap>
 #include <QTableWidget>
 #include <QPushButton>
+#include <QSet>
 
 #include "savepvldialog.h"
 #include "volumefilemanager.h"
 #include "propertyeditor.h"
 #include "meshtools.h"
+#include "../../common/src/recoveryjournal.h"
 
 
 using namespace std;
@@ -119,6 +123,157 @@ QString importAdmissionError(const QString& operation,
          reason);
 }
 
+class BatchPathJournal
+{
+public:
+  BatchPathJournal() : m_committed(false), m_started(false) {}
+
+  ~BatchPathJournal()
+  {
+    if (!m_committed)
+      rollback();
+  }
+
+  bool addPath(const QString& path, QString& error)
+  {
+    const QString clean = QFileInfo(path).absoluteFilePath();
+    if (!m_started)
+      {
+        if (!RecoveryJournal::beginDirect(QFileInfo(clean).absolutePath(),
+                                          QStringLiteral("import-batch"),
+                                          m_state, &error))
+          return false;
+        m_started = true;
+      }
+    return RecoveryJournal::addDirectTarget(m_state, clean, &error);
+  }
+
+  bool commit()
+  {
+    if (!m_started)
+      {
+        m_committed = true;
+        return true;
+      }
+    QString error;
+    if (!RecoveryJournal::commitDirect(m_state, &error))
+      {
+        qWarning() << "Cannot commit batch recovery journal" << error;
+        return false;
+      }
+    m_committed = true;
+    return true;
+  }
+
+  void rollback()
+  {
+    if (!m_started)
+      return;
+    QString error;
+    if (!RecoveryJournal::rollbackDirect(m_state, &error) && !error.isEmpty())
+      qWarning() << "Cannot roll back batch recovery journal" << error;
+    m_started = false;
+  }
+
+private:
+  RecoveryJournalState m_state;
+  bool m_committed;
+  bool m_started;
+};
+
+bool recoverBatchJournals(const QString& directory, QString& error)
+{
+  return RecoveryJournal::recoverDirectory(directory,
+                                           QStringLiteral("import-batch"),
+                                           &error);
+}
+
+bool removeStaleNumberedSlabs(const QString& baseFilename, int slabCount,
+                              QString& error)
+{
+  const QFileInfo baseInfo(baseFilename);
+  const QDir directory = baseInfo.absoluteDir();
+  const QString prefix = baseInfo.fileName() + ".";
+  const QStringList entries = directory.entryList(
+    QStringList() << (baseInfo.fileName() + ".???"),
+    QDir::Files | QDir::NoSymLinks);
+  for (const QString& entry : entries)
+    {
+      if (!entry.startsWith(prefix))
+        continue;
+      bool ok = false;
+      const int number = entry.mid(prefix.size()).toInt(&ok);
+      if (!ok || number <= slabCount)
+        continue;
+      const QString path = directory.absoluteFilePath(entry);
+      if (!QFile::remove(path))
+        {
+          error = QString("Cannot remove stale slab '%1'").arg(path);
+          return false;
+        }
+    }
+  return true;
+}
+
+QStringList numberedOutputPaths(const QString& baseFilename)
+{
+  const QFileInfo baseInfo(baseFilename);
+  const QDir directory = baseInfo.absoluteDir();
+  const QString prefix = baseInfo.fileName() + ".";
+  QStringList paths;
+  const QStringList entries = directory.entryList(
+    QStringList() << (baseInfo.fileName() + ".???"),
+    QDir::Files | QDir::NoSymLinks);
+  for (const QString& entry : entries)
+    {
+      if (!entry.startsWith(prefix))
+        continue;
+      bool ok = false;
+      entry.mid(prefix.size()).toInt(&ok);
+      if (ok)
+        paths << directory.absoluteFilePath(entry);
+    }
+  return paths;
+}
+
+bool checkedAddBytes(qint64 a, qint64 b, qint64& result)
+{
+  if (a < 0 || b < 0 || a > std::numeric_limits<qint64>::max() - b)
+    return false;
+  result = a + b;
+  return true;
+}
+
+bool checkedMulBytes(qint64 a, qint64 b, qint64& result)
+{
+  if (a < 0 || b < 0 ||
+      (b != 0 && a > std::numeric_limits<qint64>::max()/b))
+    return false;
+  result = a*b;
+  return true;
+}
+
+void fillVoxelBuffer(uchar *buffer, std::size_t voxelCount,
+                     int bytesPerVoxel, int value)
+{
+  if (!buffer || bytesPerVoxel <= 0)
+    return;
+  if (bytesPerVoxel == 1)
+    {
+      std::memset(buffer, static_cast<unsigned char>(value), voxelCount);
+      return;
+    }
+  if (bytesPerVoxel == 2)
+    {
+      const ushort voxel = static_cast<ushort>(value);
+      ushort *out = reinterpret_cast<ushort*>(buffer);
+      for (std::size_t i = 0; i < voxelCount; ++i)
+        out[i] = voxel;
+      return;
+    }
+  std::memset(buffer, 0, voxelCount*static_cast<std::size_t>(bytesPerVoxel));
+}
+
 bool checkedPlaneLayout(int width, int height,
                         std::uint64_t bytesPerElement,
                         std::uint64_t& pixels,
@@ -144,7 +299,8 @@ bool addImportBytes(std::uint64_t bytes, std::uint64_t& total)
 
 bool admitImportBuffers(const QString& operation,
                         std::uint64_t allocationBytes,
-                        QString& error)
+                        QString& error,
+                        std::shared_ptr<ProcessMemoryReservation>& reservation)
 {
   std::uint64_t requiredBytes = allocationBytes;
   if (!checkedImportAdd(requiredBytes, kImportStageSafetyBytes,
@@ -160,6 +316,13 @@ bool admitImportBuffers(const QString& operation,
   if (!admission.approved)
     {
       error = importAdmissionError(operation, admission);
+      return false;
+    }
+  if (!reserveImportMemory(admission, reservation))
+    {
+      error = operation + QStringLiteral(
+        " was stopped because another Import/Paint task acquired the "
+        "remaining memory budget before allocation.");
       return false;
     }
   return true;
@@ -193,6 +356,7 @@ struct ConversionBuffers
   std::unique_ptr<uchar[]> finalSlice;
   std::unique_ptr<uchar[]> filterWindow;
   std::unique_ptr<uchar*[]> filterSlices;
+  std::shared_ptr<ProcessMemoryReservation> reservation;
 
   ConversionBuffers()
     : rawPixels(0), outputPixels(0), finalPixels(0), rawBytes(0),
@@ -207,6 +371,7 @@ struct IsosurfaceBuffers
   std::uint64_t valuePixels;
   std::unique_ptr<uchar[]> raw;
   std::unique_ptr<float[]> values;
+  std::shared_ptr<ProcessMemoryReservation> reservation;
 
   IsosurfaceBuffers() : rawBytes(0), valuePixels(0) {}
 };
@@ -262,7 +427,8 @@ bool prepareIsosurfaceBuffers(const QString& operation,
       return false;
     }
 
-  if (!admitImportBuffers(operation, allocationBytes, error))
+  if (!admitImportBuffers(operation, allocationBytes, error,
+                          buffers.reservation))
     return false;
   if (!allocateImportArray(buffers.rawBytes, buffers.raw) ||
       !allocateImportArray(buffers.valuePixels, buffers.values))
@@ -278,7 +444,8 @@ bool prepareIsosurfaceBuffers(const QString& operation,
 bool prepareMeshColorBuffer(const QString& operation,
                             int vertexCount,
                             QVector<QVector3D>& colors,
-                            QString& error)
+                            QString& error,
+                            std::shared_ptr<ProcessMemoryReservation>& reservation)
 {
   if (vertexCount < 0)
     {
@@ -292,7 +459,7 @@ bool prepareMeshColorBuffer(const QString& operation,
   std::uint64_t colorBytes = 0;
   if (!checkedImportMultiply(static_cast<std::uint64_t>(vertexCount),
                              sizeof(QVector3D), colorBytes) ||
-      !admitImportBuffers(operation, colorBytes, error))
+      !admitImportBuffers(operation, colorBytes, error, reservation))
     {
       if (error.isEmpty())
         error = operation + QStringLiteral(
@@ -395,7 +562,8 @@ bool prepareConversionBuffers(const QString& operation,
         }
     }
 
-  if (!admitImportBuffers(operation, allocationBytes, error))
+  if (!admitImportBuffers(operation, allocationBytes, error,
+                          buffers.reservation))
     return false;
 
   if (!allocateImportArray(buffers.outputPixels, buffers.filter) ||
@@ -1039,7 +1207,8 @@ Raw2Pvl::savePvlHeader(QString pvlFilename,
 		       float vx, float vy, float vz,
 		       QList<float> rawMap, QList<int> pvlMap,
 		       QString description,
-		       int slabSize)
+		       int slabSize,
+		       QStringList sourceOrder)
 {
   QString xmlfile = pvlFilename;
   g_pvlHeaderWriteError.clear();
@@ -1147,7 +1316,51 @@ Raw2Pvl::savePvlHeader(QString pvlFilename,
     topElement.appendChild(de0);
   }
 
-  {      
+  {
+    QDomElement names = doc.createElement("pvlnames");
+    const int slabCount = slabSize > 0 ? 1 + (d-1)/slabSize : 0;
+    QFileInfo headerInfo(pvlFilename);
+    for (int i = 0; i < slabCount; ++i)
+      {
+        QDomElement name = doc.createElement("name");
+        name.appendChild(doc.createTextNode(
+          headerInfo.absoluteDir().relativeFilePath(
+            QString("%1.%2").arg(headerInfo.fileName()).arg(i+1, 3, 10, QChar('0')))));
+        names.appendChild(name);
+      }
+    topElement.appendChild(names);
+  }
+
+  {
+    QDomElement de0 = doc.createElement("pvlheadersize");
+    de0.appendChild(doc.createTextNode("13"));
+    topElement.appendChild(de0);
+  }
+
+  // Keep the confirmed import order in structured XML.  Unlike the legacy
+  // whitespace-separated slab list, each path remains unambiguous when it
+  // contains spaces or non-ASCII characters.
+  if (!sourceOrder.isEmpty())
+    {
+      QDomElement order = doc.createElement("sourceorder");
+      for (const QString& source : sourceOrder)
+        {
+          if (source.trimmed().isEmpty())
+            continue;
+          QDomElement file = doc.createElement("file");
+          file.appendChild(doc.createTextNode(source));
+          order.appendChild(file);
+        }
+      if (!order.firstChildElement().isNull())
+        topElement.appendChild(order);
+    }
+  {
+    QDomElement de0 = doc.createElement("rawheadersize");
+    de0.appendChild(doc.createTextNode("13"));
+    topElement.appendChild(de0);
+  }
+
+  {
     QDomElement de0 = doc.createElement("slabsize");
     QDomText tn0;
     tn0 = doc.createTextNode(QString("%1").arg(slabSize));
@@ -1249,8 +1462,6 @@ Raw2Pvl::savePvl(VolumeData* volData,
   int hsz=hmax-hmin+1;
 
   uchar voxelType = volData->voxelType();  
-  int headerBytes = volData->headerBytes();
-
   if (voxelType > _Float)
     {
       QMessageBox::warning(0, "Save",
@@ -1352,6 +1563,13 @@ Raw2Pvl::savePvl(VolumeData* volData,
       rawfile = getRawFilename(pvlFilename);
       if (rawfile.isEmpty())
 	return false;
+      if (QFileInfo(rawfile).absolutePath().compare(
+            QFileInfo(pvlFilename).absolutePath(), Qt::CaseInsensitive) != 0)
+        {
+          QMessageBox::warning(0, "Save",
+                               "PVL and RAW outputs must be in the same directory for atomic Save As.");
+          return false;
+        }
     }
 
   int svslz = getZSubsampling(dsz, wsz, hsz, &choiceAccepted);
@@ -1363,10 +1581,14 @@ Raw2Pvl::savePvl(VolumeData* volData,
   svslz = qBound(1, svslz, dsz);
   svsl = qBound(1, svsl, qMin(wsz, hsz));
 
-  int dsz2 = dsz/svslz;
-  int wsz2 = wsz/svsl;
-  int hsz2 = hsz/svsl;
-  const double svsl3 = static_cast<double>(svslz)*svsl*svsl;
+  // Preserve partial trailing sampling blocks in the regular PVL Save As
+  // path.  The conversion loops clamp each block to the selected ROI.
+  const SamplingContract::Axis depthAxis(dsz, svslz);
+  const SamplingContract::Axis widthAxis(wsz, svsl);
+  const SamplingContract::Axis heightAxis(hsz, svsl);
+  const int dsz2 = depthAxis.output;
+  const int wsz2 = widthAxis.output;
+  const int hsz2 = heightAxis.output;
   //------------------------------------------------------
 
   //------------------------------------------------------
@@ -1467,6 +1689,15 @@ Raw2Pvl::savePvl(VolumeData* volData,
 
     slabSize = final_dsz2;
   }
+  if (saveRawFile &&
+      (final_dsz2 != dsz2 || final_wsz2 != wsz2 || final_hsz2 != hsz2))
+    {
+      QMessageBox::warning(0, "Save",
+                           "RAW export with padding is not supported yet. "
+                           "Choose PVL-only export or remove padding so the "
+                           "RAW and PVL geometries remain identical.");
+      return false;
+    }
   //------------------------------------------------------
 
   //------------------------------------------------------
@@ -1582,8 +1813,131 @@ Raw2Pvl::savePvl(VolumeData* volData,
       return false;
     };
 
+  // A Save As produces a header plus one or more PVL/RAW slabs.  Keep all
+  // final paths in one journal so a failure in any later artifact restores the
+  // previous generation instead of leaving a mixed header/data set.
+  BatchPathJournal saveJournal;
+  // Declare the managers after the journal so their destructors roll back
+  // active VFM generations before the outer journal restores old paths.
   VolumeFileManager rawFileManager;
   VolumeFileManager pvlFileManager;
+  const int plannedSlabCount = 1 + (final_dsz2-1)/slabSize;
+  QString saveJournalError;
+  QSet<QString> plannedBatchOutputs;
+  qint64 voxelCount = 0;
+  qint64 pvlDataBytes = 0;
+  qint64 rawDataBytes = 0;
+  qint64 pvlHeaderBytes = static_cast<qint64>(plannedSlabCount) * 13 +
+                          1024*1024;
+  const int plannedTimeSeriesCount = qMax(1, timeseriesFiles.count());
+  if (!checkedMulBytes(static_cast<qint64>(final_dsz2), final_wsz2,
+                       voxelCount) ||
+      !checkedMulBytes(voxelCount, final_hsz2, voxelCount) ||
+      !checkedMulBytes(voxelCount, pvlbpv, pvlDataBytes) ||
+      (saveRawFile && !checkedMulBytes(voxelCount, bpv, rawDataBytes)))
+    {
+      QMessageBox::critical(0, "Save",
+                            "The output volume size is too large to stage safely.");
+      return false;
+    }
+  qint64 oneGeneration = 0;
+  qint64 stagedRequirement = 0;
+  if (!checkedAddBytes(pvlDataBytes, pvlHeaderBytes, oneGeneration) ||
+      !checkedAddBytes(oneGeneration, rawDataBytes, oneGeneration) ||
+      !checkedMulBytes(oneGeneration, 3, stagedRequirement) ||
+      !checkedMulBytes(stagedRequirement, plannedTimeSeriesCount,
+                       stagedRequirement) ||
+      !checkedAddBytes(stagedRequirement, 64LL*1024LL*1024LL,
+                       stagedRequirement))
+    {
+      QMessageBox::critical(0, "Save",
+                            "The output volume staging requirement overflows.");
+      return false;
+    }
+  // Recover an interrupted Save As before reserving any existing generation
+  // for this run.  The journal is intentionally persisted in the output
+  // directory so a later invocation can restore the previous header/slabs.
+  QString recoveryError;
+  if (!recoverBatchJournals(QFileInfo(pvlFilename).absolutePath(),
+                            recoveryError))
+    {
+      QMessageBox::critical(0, "Save", QString("Cannot recover the previous batch: %1")
+                             .arg(recoveryError));
+      return false;
+    }
+  const QStorageInfo outputStorage(QFileInfo(pvlFilename).absolutePath());
+  // Pre-register every output in a time-series batch before reading or
+  // replacing any source frame.  This makes collisions and old-generation
+  // preservation failures fail before the first output is touched.
+  qint64 existingBatchBytes = 0;
+  for (int tsf = 0; tsf < plannedTimeSeriesCount; ++tsf)
+    {
+      QString plannedPvl = pvlFilename;
+      QString plannedRaw = rawfile;
+      if (plannedTimeSeriesCount > 1)
+        {
+          QFileInfo ftpvl(pvlFilename);
+          QFileInfo ftraw(timeseriesFiles[tsf]);
+          plannedPvl = QFileInfo(ftpvl.absolutePath(),
+                                 ftraw.completeBaseName() + ".pvl.nc")
+                       .absoluteFilePath();
+          plannedRaw = QFileInfo(ftpvl.absolutePath(),
+                                 ftraw.completeBaseName() + ".raw")
+                       .absoluteFilePath();
+        }
+      QStringList outputPaths;
+      outputPaths << plannedPvl;
+      for (int slab = 0; slab < plannedSlabCount; ++slab)
+        outputPaths << QString("%1.%2").arg(plannedPvl)
+                       .arg(slab+1, 3, 10, QChar('0'));
+      outputPaths << numberedOutputPaths(plannedPvl);
+      if (saveRawFile)
+        {
+          outputPaths << plannedRaw;
+          for (int slab = 0; slab < plannedSlabCount; ++slab)
+            outputPaths << QString("%1.%2").arg(plannedRaw)
+                         .arg(slab+1, 3, 10, QChar('0'));
+          outputPaths << numberedOutputPaths(plannedRaw);
+        }
+      QSet<QString> localManifestPaths;
+      for (const QString& outputPath : outputPaths)
+        {
+          const QString cleanOutputPath = QFileInfo(outputPath).absoluteFilePath();
+          if (localManifestPaths.contains(cleanOutputPath))
+            continue;
+          localManifestPaths.insert(cleanOutputPath);
+          if (plannedBatchOutputs.contains(cleanOutputPath))
+            {
+              QMessageBox::critical(0, "Save",
+                                     QString("Time-series outputs collide at '%1'.")
+                                     .arg(cleanOutputPath));
+              return false;
+            }
+          plannedBatchOutputs.insert(cleanOutputPath);
+          const QFileInfo existingInfo(cleanOutputPath);
+          if (existingInfo.exists() &&
+              !checkedAddBytes(existingBatchBytes, existingInfo.size(),
+                               existingBatchBytes))
+            {
+              QMessageBox::critical(0, "Save",
+                                    "Existing output size exceeds the staging accounting range.");
+              return false;
+            }
+          if (!saveJournal.addPath(cleanOutputPath, saveJournalError))
+            {
+              QMessageBox::critical(0, "Save", saveJournalError);
+              return false;
+            }
+        }
+    }
+  if (outputStorage.isValid() &&
+      (existingBatchBytes > outputStorage.bytesAvailable() ||
+       outputStorage.bytesAvailable() - existingBatchBytes < stagedRequirement))
+    {
+      QMessageBox::critical(0, "Save",
+                            "Insufficient disk space to preserve existing outputs and stage the complete Save As batch.");
+      return false;
+    }
 
   
   
@@ -1597,7 +1951,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
   progress.move(QCursor::pos());
   
   //------------------------------------------------------
-  int tsfcount = qMax(1, timeseriesFiles.count());
+  int tsfcount = plannedTimeSeriesCount;
   for (int tsf=0; tsf<tsfcount; tsf++)
     {
       if (progress.wasCanceled())
@@ -1634,7 +1988,35 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	        "Conversion was stopped before reading into the fixed slice buffer.");
 	      return false;
 	    }
-	}
+        }
+
+      QStringList outputPaths;
+      outputPaths << pvlflnm;
+      for (int slab = 0; slab < plannedSlabCount; ++slab)
+        outputPaths << QString("%1.%2").arg(pvlflnm).arg(slab+1, 3, 10, QChar('0'));
+      outputPaths << numberedOutputPaths(pvlflnm);
+      if (saveRawFile)
+        {
+          outputPaths << rawflnm;
+          for (int slab = 0; slab < plannedSlabCount; ++slab)
+            outputPaths << QString("%1.%2").arg(rawflnm).arg(slab+1, 3, 10, QChar('0'));
+          outputPaths << numberedOutputPaths(rawflnm);
+        }
+      QSet<QString> localOutputPaths;
+      for (const QString& outputPath : outputPaths)
+        {
+          const QString cleanOutputPath = QFileInfo(outputPath).absoluteFilePath();
+          if (localOutputPaths.contains(cleanOutputPath))
+            continue;
+          localOutputPaths.insert(cleanOutputPath);
+          if (!plannedBatchOutputs.contains(cleanOutputPath))
+            {
+              QMessageBox::critical(0, "Save",
+                                     QString("Time-series output manifest changed unexpectedly at '%1'.")
+                                     .arg(cleanOutputPath));
+              return false;
+            }
+        }
 
       pvlFileManager.setBaseFilename(pvlflnm);
 //      pvlFileManager.setDepth(dsz2);
@@ -1656,9 +2038,9 @@ Raw2Pvl::savePvl(VolumeData* volData,
       if (saveRawFile)
 	{
 	  rawFileManager.setBaseFilename(rawflnm);
-	  rawFileManager.setDepth(dsz2);
-	  rawFileManager.setWidth(wsz2);
-	  rawFileManager.setHeight(hsz2);
+	  rawFileManager.setDepth(final_dsz2);
+	  rawFileManager.setWidth(final_wsz2);
+	  rawFileManager.setHeight(final_hsz2);
 	  rawFileManager.setVoxelType(voxelType);
 	  rawFileManager.setHeaderSize(13);
 	  rawFileManager.setSlabSize(slabSize);
@@ -1701,8 +2083,9 @@ Raw2Pvl::savePvl(VolumeData* volData,
       // add padding
       if (sfd > 0)
 	{
-	  memset(final_val, pad_value,
-                 static_cast<std::size_t>(conversionBuffers.finalBytes));
+	  fillVoxelBuffer(final_val,
+                   static_cast<std::size_t>(final_wsz2)*final_hsz2,
+                   pvlbpv, pad_value);
 	  for(int esl=0; esl<sfd; esl++)
 	    if (!pvlFileManager.setSlice(esl, final_val))
 	      {
@@ -1730,8 +2113,8 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	      return false;
 	    }
 
-	  int d0 = dmin + dd*svslz; 
-	  int d1 = d0 + svslz-1;
+	  int d0 = dmin + dd*svslz;
+	  int d1 = qMin(dmax, d0 + svslz-1);
 
 	  if (spread == 0) // No Filter - Nearest Neighbour
 	    {
@@ -1819,14 +2202,19 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		  for(int j=0; j<wsz2; j++)
 		    {
 		      int y0 = wmin+j*svsl;
-		      int y1 = y0+svsl-1;
+		      int y1 = qMin(wmax, y0+svsl-1);
 		      for(int i=0; i<hsz2; i++)
 			{
 			  int x0 = hmin+i*svsl;
-			  int x1 = x0+svsl-1;
+		      int x1 = qMin(hmax, x0+svsl-1);
 			  for(int y=y0; y<=y1; y++)
 			    for(int x=x0; x<=x1; x++)
 			      {
+				// The no-filter contract is nearest-neighbour anchored at
+				// the first voxel of each source block.  Do not let later
+				// pixels overwrite that anchor.
+				if (spread == 0 && (y != y0 || x != x0))
+				  continue;
 				if (spread > 0)
 				  {
 				    if (voxelType == _UChar)
@@ -1868,8 +2256,18 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	    {
 	      if (spread > 0)
 		{
-		  for(int fi=0; fi<wsz2*hsz2; fi++)
-		    filtervol[fi] /= svsl3;
+		  int fi = 0;
+		  for (int j=0; j<wsz2; ++j)
+		    {
+		      for (int i=0; i<hsz2; ++i, ++fi)
+		        {
+		          const double blockSamples = static_cast<double>(
+		            SamplingContract::sampleCount(depthAxis, widthAxis,
+		                                          heightAxis, dd, j, i));
+		          const double safeBlockSamples = qMax(1.0, blockSamples);
+		          filtervol[fi] /= safeBlockSamples;
+		        }
+		    }
 		}
 	      
 	      if (voxelType == _UChar)
@@ -1946,8 +2344,9 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	    }
 	  else // add padding if required
 	    {
-	      memset(final_val, pad_value,
-                     static_cast<std::size_t>(conversionBuffers.finalBytes));
+	      fillVoxelBuffer(final_val,
+                       static_cast<std::size_t>(final_wsz2)*final_hsz2,
+                       pvlbpv, pad_value);
 	      if (pvlbpv == 1)
 		{
 		  for(int wi=0; wi<wsz2; wi++)
@@ -1972,8 +2371,9 @@ Raw2Pvl::savePvl(VolumeData* volData,
       // add padding if required
       if (efd > 0)
 	{
-	  memset(final_val, pad_value,
-                 static_cast<std::size_t>(conversionBuffers.finalBytes));
+	  fillVoxelBuffer(final_val,
+                   static_cast<std::size_t>(final_wsz2)*final_hsz2,
+                   pvlbpv, pad_value);
 	  for(int esl=0; esl<efd; esl++)
 	    if (!pvlFileManager.setSlice(dsz2+sfd+esl, final_val))
 	      {
@@ -1990,7 +2390,8 @@ Raw2Pvl::savePvl(VolumeData* volData,
 			 vx, vy, vz,
 			 rawMap, pvlMap,
 			 description,
-			 slabSize))
+			 slabSize,
+                         volData->sourceFiles()))
 	{
 	  QMessageBox::critical(0, "Save", g_pvlHeaderWriteError);
 	  return false;
@@ -2008,9 +2409,25 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	  QMessageBox::critical(0, "Save", rawFileManager.lastError());
 	  return false;
 	}
+      QString staleSlabError;
+      const int committedSlabs = 1 + (final_dsz2-1)/slabSize;
+      if (!removeStaleNumberedSlabs(pvlflnm, committedSlabs, staleSlabError) ||
+          (saveRawFile && !removeStaleNumberedSlabs(rawflnm, committedSlabs,
+                                                    staleSlabError)))
+	{
+	  QMessageBox::warning(0, "Save", staleSlabError);
+	  return false;
+	}
     }
 
   progress.setValue(100);
+
+  if (!saveJournal.commit())
+    {
+      QMessageBox::critical(0, "Save",
+                            "Cannot finalize the saved volume transaction.");
+      return false;
+    }
 
 
   QMessageBox mb;
@@ -2110,10 +2527,15 @@ void
 getSettings(int &memGb,
 	    int &spareMb)
 {
-  int mem = QInputDialog::getInt(0, "Main Memory Size in GB", "size (GB)", 1, 1, 1000);
+  bool ok = false;
+  int mem = QInputDialog::getInt(0, "Main Memory Size in GB", "size (GB)", 1, 1, 1000, 1, &ok);
+  if (!ok)
+    return;
   memGb = mem;
 
-  mem = QInputDialog::getInt(0, "Keep Spare Memory (in MB)", "size (MB)", 1, 1, 1000);
+  mem = QInputDialog::getInt(0, "Keep Spare Memory (in MB)", "size (MB)", 1, 1, 1000, 1, &ok);
+  if (!ok)
+    return;
   spareMb = mem;
 }
 
@@ -2129,17 +2551,105 @@ Raw2Pvl::batchProcess(VolumeData* volData,
       return;
     }
 
-  bool save0AtTop = saveSliceZeroAtTop();;
-
-  bool saveRawFile = getSaveRawFile();
-
+  // Resolve the complete batch manifest before touching any output.  A
+  // basename-only scheme silently aliases inputs from different directories;
+  // reject that ambiguity rather than allowing later time points to overwrite
+  // earlier results.
+  const QFileInfo requestedPvl(pvlFilename);
+  const QString outputDirectory = requestedPvl.absolutePath();
+  // A previous process may have exited after moving an old output aside but
+  // before committing the new batch. Restore that generation before starting
+  // another batch in the same directory.
+  QString recoveryError;
+  if (!recoverBatchJournals(outputDirectory, recoveryError))
+    {
+      QMessageBox::warning(0, "Batch Processing",
+                           QString("Cannot recover the previous batch: %1")
+                           .arg(recoveryError));
+      return;
+    }
+  const int requestedCount = qMax(1, timeseriesFiles.count());
+  const auto outputStem = [](const QFileInfo& info) -> QString
+    {
+      QString name = info.fileName();
+      if (name.endsWith(".pvl.nc", Qt::CaseInsensitive))
+        name.chop(7);
+      else if (name.endsWith(".pvl", Qt::CaseInsensitive))
+        name.chop(4);
+      else
+        name = info.completeBaseName();
+      return name;
+    };
+  bool choiceAccepted = false;
+  bool saveRawFile = getSaveRawFile(&choiceAccepted);
+  if (!choiceAccepted)
+    return;
   QString rawfile;
-  if (saveRawFile) rawfile = getRawFilename(pvlFilename);
+  if (saveRawFile)
+    rawfile = getRawFilename(pvlFilename);
   if (rawfile.isEmpty())
     saveRawFile = false;
+  BatchPathJournal batchJournal;
+  QStringList batchBaseNames;
+  QSet<QString> outputBases;
+  for (int index=0; index<requestedCount; ++index)
+    {
+      QString base = outputStem(requestedPvl);
+      if (requestedCount > 1)
+        {
+          const QFileInfo source(timeseriesFiles.at(index));
+          base = outputStem(source);
+        }
+      if (base.isEmpty())
+        {
+          QMessageBox::warning(0, "Batch Processing",
+                               "A time-series input has no usable output basename.");
+          return;
+        }
+      const QString normalized = QDir::cleanPath(
+        QDir(outputDirectory).absoluteFilePath(base + ".pvl.nc")).toLower();
+      if (outputBases.contains(normalized))
+        {
+          QMessageBox::warning(0, "Batch Processing",
+                               QString("Time-series output name collision: %1")
+                               .arg(base + ".pvl.nc"));
+          return;
+        }
+      outputBases.insert(normalized);
+      batchBaseNames << base;
 
-  int svslz = getZSubsampling(1024, 1024, 1024);
-  int svsl = getXYSubsampling(svslz, 1024, 1024, 1024);
+      QString journalError;
+      if (!batchJournal.addPath(QFileInfo(outputDirectory,
+                                          base + ".pvl.nc").absoluteFilePath(),
+                                journalError))
+        {
+          QMessageBox::warning(0, "Batch Processing", journalError);
+          return;
+        }
+      if (saveRawFile)
+        {
+          const QString rawTarget = requestedCount == 1 ?
+            QFileInfo(rawfile).absoluteFilePath() :
+            QFileInfo(outputDirectory, base + ".raw").absoluteFilePath();
+          if (!batchJournal.addPath(rawTarget,
+                                    journalError))
+            {
+              QMessageBox::warning(0, "Batch Processing", journalError);
+              return;
+            }
+        }
+    }
+
+  bool save0AtTop = saveSliceZeroAtTop(&choiceAccepted);
+  if (!choiceAccepted)
+    return;
+
+  int svslz = getZSubsampling(1024, 1024, 1024, &choiceAccepted);
+  if (!choiceAccepted)
+    return;
+  int svsl = getXYSubsampling(svslz, 1024, 1024, 1024, &choiceAccepted);
+  if (!choiceAccepted)
+    return;
   //------------------------------------------------------
 
   //------------------------------------------------------
@@ -2206,10 +2716,7 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 
   svslz = qBound(1, svslz, dsz);
   svsl = qBound(1, svsl, qMin(wsz, hsz));
-  const double svsl3 = static_cast<double>(svslz)*svsl*svsl;
-
   uchar voxelType = volData->voxelType();  
-  int headerBytes = volData->headerBytes();
 
   if (voxelType > _Float)
     {
@@ -2226,9 +2733,13 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   else if (voxelType == _Int) bpv = 4;
   else if (voxelType == _Float) bpv = 4;
   
-  int dsz2 = dsz/svslz;
-  int wsz2 = wsz/svsl;
-  int hsz2 = hsz/svsl;
+  // Preserve partial trailing sampling blocks instead of dropping the tail.
+  const SamplingContract::Axis depthAxis(dsz, svslz);
+  const SamplingContract::Axis widthAxis(wsz, svsl);
+  const SamplingContract::Axis heightAxis(hsz, svsl);
+  const int dsz2 = depthAxis.output;
+  const int wsz2 = widthAxis.output;
+  const int hsz2 = heightAxis.output;
 
   QList<float> rawMap = volData->rawMap();
   QList<int> pvlMap = volData->pvlMap();
@@ -2280,6 +2791,67 @@ Raw2Pvl::batchProcess(VolumeData* volData,
     1, oneGiB/conversionBuffers.rawBytes);
   const int slabSize = static_cast<int>(qMin<std::uint64_t>(
     static_cast<std::uint64_t>(dsz2), slabCapacity));
+  const int batchSlabCount = 1 + (dsz2-1)/slabSize;
+  for (int bi = 0; bi < batchBaseNames.count(); ++bi)
+    {
+      const QString pvlBase = QFileInfo(outputDirectory,
+                                        batchBaseNames.at(bi) + ".pvl.nc")
+        .absoluteFilePath();
+      QString journalError;
+      const auto protectExistingSlabs = [&](const QString& base) -> bool
+        {
+          const QFileInfo baseInfo(base);
+          const QString prefix = baseInfo.fileName() + ".";
+          const QStringList existing = baseInfo.absoluteDir().entryList(
+            QStringList() << (baseInfo.fileName() + ".???"),
+            QDir::Files | QDir::NoSymLinks);
+          for (const QString& name : existing)
+            {
+              bool ok = false;
+              name.mid(prefix.size()).toInt(&ok);
+              if (ok && !batchJournal.addPath(
+                    baseInfo.absoluteDir().absoluteFilePath(name),
+                    journalError))
+                return false;
+            }
+          return true;
+        };
+      if (!protectExistingSlabs(pvlBase))
+        {
+          QMessageBox::warning(0, "Batch Processing", journalError);
+          return;
+        }
+      for (int slab = 1; slab <= batchSlabCount; ++slab)
+        if (!batchJournal.addPath(QString("%1.%2")
+                                  .arg(pvlBase)
+                                  .arg(slab, 3, 10, QChar('0')),
+                                  journalError))
+          {
+            QMessageBox::warning(0, "Batch Processing", journalError);
+            return;
+          }
+      if (saveRawFile)
+        {
+          const QString rawBase = requestedCount == 1 ?
+            QFileInfo(rawfile).absoluteFilePath() :
+            QFileInfo(outputDirectory, batchBaseNames.at(bi) + ".raw")
+              .absoluteFilePath();
+          if (!protectExistingSlabs(rawBase))
+            {
+              QMessageBox::warning(0, "Batch Processing", journalError);
+              return;
+            }
+          for (int slab = 1; slab <= batchSlabCount; ++slab)
+            if (!batchJournal.addPath(QString("%1.%2")
+                                      .arg(rawBase)
+                                      .arg(slab, 3, 10, QChar('0')),
+                                      journalError))
+              {
+                QMessageBox::warning(0, "Batch Processing", journalError);
+                return;
+              }
+        }
+    }
   int rawSize = rawMap.size()-1;
   int width = wsz2;
   int height = hsz2;
@@ -2288,7 +2860,6 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   
   //------------------------------------------------------
   int tsfcount = qMax(1, timeseriesFiles.count());
-  bool vol4d = tsfcount > 0;
   for (int tsf=0; tsf<tsfcount; tsf++)
     {
 
@@ -2388,7 +2959,9 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 	    }
 
 	  int d0 = dmin + dd*svslz; 
-	  int d1 = d0 + svslz-1;
+	  int d1 = qMin(dmax, d0 + svslz-1);
+	  if (spread == 0)
+	    d1 = d0;
 	  
 	  progress.setValue((int)(100*(float)dd/(float)dsz2));
 	  qApp->processEvents();
@@ -2467,15 +3040,17 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 		  for(int j=0; j<wsz2; j++)
 		    {
 		      int y0 = wmin+j*svsl;
-		      int y1 = y0+svsl-1;
+	      int y1 = qMin(wmax, y0+svsl-1);
 		      for(int i=0; i<hsz2; i++)
 			{
 			  int x0 = hmin+i*svsl;
-			  int x1 = x0+svsl-1;
-			  for(int y=y0; y<=y1; y++)
-			    for(int x=x0; x<=x1; x++)
-			      {
-				if (voxelType == _UChar)
+		  int x1 = qMin(hmax, x0+svsl-1);
+			      for(int y=y0; y<=y1; y++)
+				for(int x=x0; x<=x1; x++)
+				  {
+				    if (spread == 0 && (y != y0 || x != x0))
+				      continue;
+				    if (voxelType == _UChar)
 				  { uchar *ptr = raw; filtervol[fi] += ptr[y*rvheight+x]; }
 				else if (voxelType == _Char)
 				  { char *ptr = (char*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
@@ -2498,8 +3073,19 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 	    {
 	      if (subsample)
 		{
-		  for(int fi=0; fi<wsz2*hsz2; fi++)
-		    filtervol[fi] /= svsl3;
+		  int fi = 0;
+		  for (int j=0; j<wsz2; ++j)
+		    {
+		      const int y0 = wmin+j*svsl;
+		      const int y1 = qMin(wmax, y0+svsl-1);
+		      for (int i=0; i<hsz2; ++i, ++fi)
+			{
+			  const std::uint64_t samples =
+			    SamplingContract::sampleCount(depthAxis, widthAxis,
+			                                 heightAxis, dd, j, i);
+			  filtervol[fi] /= static_cast<double>(qMax<std::uint64_t>(1, samples));
+			}
+		    }
 		}
 	      
 	      if (voxelType == _UChar)
@@ -2563,7 +3149,7 @@ Raw2Pvl::batchProcess(VolumeData* volData,
       if (!savePvlHeader(pvlflnm,
 			 saveRawFile, rawflnm+".001",
 			 voxelType, pvlVoxelType, voxelUnit,
-			 dsz/svslz, wsz/svsl, hsz/svsl,
+			 dsz2, wsz2, hsz2,
 			 vx, vy, vz,
 			 rawMap, pvlMap,
 			 description,
@@ -2573,27 +3159,46 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 				g_pvlHeaderWriteError);
 	  return;
 	}
-      const bool pvlCommitted = pvlFileManager.commitFileCreation();
+      const bool pvlCommitted = pvlFileManager.commitFileCreation(false);
       const bool rawCommitted = !saveRawFile ||
-	                        rawFileManager.commitFileCreation();
+	                        rawFileManager.commitFileCreation(false);
       if (!pvlCommitted)
 	{
+	  pvlFileManager.rollbackFileCreation();
+	  if (saveRawFile && rawCommitted)
+	    rawFileManager.rollbackFileCreation();
 	  QMessageBox::critical(0, "Batch Processing",
 				pvlFileManager.lastError());
 	  return;
 	}
       if (!rawCommitted)
 	{
+	  pvlFileManager.rollbackFileCreation();
 	  QMessageBox::critical(0, "Batch Processing",
-				rawFileManager.lastError());
+				 rawFileManager.lastError());
 	  return;
 	}
+	      if (!pvlFileManager.finalizeFileCreation() ||
+	          (saveRawFile && !rawFileManager.finalizeFileCreation()))
+	        {
+	          QMessageBox::critical(0, "Batch Processing",
+                                 "The output was written but old-generation cleanup failed.");
+	          return;
+	        }
 
       progress.setLabelText(QString("Processed %1 of %2").arg(tsf).arg(tsfcount));
     }
 
   progress.setValue(100);
-  
+  if (!batchJournal.commit())
+    {
+      QMessageBox::critical(0, "Batch Processing",
+                            "The batch completed but its recovery journal "
+                            "could not be finalized. Existing outputs were "
+                            "left recoverable; retry after resolving the "
+                            "directory permission problem.");
+      return;
+    }
   QMessageBox::information(0, "Batch Processing", "-----Done-----");
 }
 
@@ -2655,14 +3260,16 @@ Raw2Pvl::saveMHD(QString mhdFilename,
   svslz = qBound(1, svslz, dsz);
   svsl = qBound(1, svsl, qMin(wsz, hsz));
 
-  int dsz2 = dsz/svslz;
-  int wsz2 = wsz/svsl;
-  int hsz2 = hsz/svsl;
-  int svsl3 = svslz*svsl*svsl;
+  // MHD uses the same edge-block contract as PVL: every source voxel is
+  // represented, including partial blocks at the selected ROI boundary.
+  const SamplingContract::Axis depthAxis(dsz, svslz);
+  const SamplingContract::Axis widthAxis(wsz, svsl);
+  const SamplingContract::Axis heightAxis(hsz, svsl);
+  const int dsz2 = depthAxis.output;
+  const int wsz2 = widthAxis.output;
+  const int hsz2 = heightAxis.output;
 
   uchar voxelType = volData->voxelType();  
-  int headerBytes = volData->headerBytes();
-
   if (voxelType > _Float)
     {
       QMessageBox::warning(0, "Save MHD",
@@ -2732,6 +3339,29 @@ Raw2Pvl::saveMHD(QString mhdFilename,
       
       if (!zrawFilename.endsWith(".raw"))
 	zrawFilename += ".raw";
+    }
+
+  // The header and RAW data are one logical MHD output.  Register both
+  // paths before opening QSaveFile so an interrupted pair can be restored by
+  // the next import operation.
+  QString recoveryError;
+  if (!recoverBatchJournals(QFileInfo(mhdFilename).absolutePath(),
+                            recoveryError))
+    {
+      QMessageBox::critical(0, "Save MetaImage",
+                            QString("Cannot recover the previous batch: %1")
+                            .arg(recoveryError));
+      return false;
+    }
+  BatchPathJournal mhdJournal;
+  QString mhdJournalError;
+  if (!mhdJournal.addPath(QFileInfo(mhdFilename).absoluteFilePath(),
+                          mhdJournalError) ||
+      !mhdJournal.addPath(QFileInfo(zrawFilename).absoluteFilePath(),
+                          mhdJournalError))
+    {
+      QMessageBox::critical(0, "Save MetaImage", mhdJournalError);
+      return false;
     }
 
   QList<float> rawMap = volData->rawMap();
@@ -2891,7 +3521,9 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 	  }
 
 	int d0 = dmin + dd*svslz; 
-	int d1 = d0 + svslz-1;
+	int d1 = qMin(dmax, d0 + svslz-1);
+	if (spread == 0)
+	  d1 = d0;
 	  
 	progress.setValue((int)(100*(float)dd/(float)dsz2));
 	qApp->processEvents();
@@ -2970,15 +3602,17 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 		for(int j=0; j<wsz2; j++)
 		  {
 		    int y0 = wmin+j*svsl;
-		    int y1 = y0+svsl-1;
+		    int y1 = qMin(wmax, y0+svsl-1);
 		    for(int i=0; i<hsz2; i++)
 		      {
 			int x0 = hmin+i*svsl;
-			int x1 = x0+svsl-1;
-			for(int y=y0; y<=y1; y++)
-			  for(int x=x0; x<=x1; x++)
-			    {
-			      if (voxelType == _UChar)
+			  int x1 = qMin(hmax, x0+svsl-1);
+			  for(int y=y0; y<=y1; y++)
+			    for(int x=x0; x<=x1; x++)
+			      {
+				if (spread == 0 && (y != y0 || x != x0))
+				  continue;
+				if (voxelType == _UChar)
 				{ uchar *ptr = raw; filtervol[fi] += ptr[y*rvheight+x]; }
 			      else if (voxelType == _Char)
 				{ char *ptr = (char*)raw; filtervol[fi] += ptr[y*rvheight+x]; }
@@ -3001,8 +3635,19 @@ Raw2Pvl::saveMHD(QString mhdFilename,
 	  {
 	    if (subsample)
 	      {
-		for(int fi=0; fi<wsz2*hsz2; fi++)
-		  filtervol[fi] /= svsl3;
+		int fi = 0;
+		for (int j=0; j<wsz2; ++j)
+		  {
+		    const int y0 = wmin+j*svsl;
+		    const int y1 = qMin(wmax, y0+svsl-1);
+		    for (int i=0; i<hsz2; ++i, ++fi)
+		      {
+		    const std::uint64_t samples =
+			  SamplingContract::sampleCount(depthAxis, widthAxis,
+			                               heightAxis, dd, j, i);
+			filtervol[fi] /= static_cast<double>(qMax<std::uint64_t>(1, samples));
+		      }
+		  }
 	      }
 	    
 	    if (voxelType == _UChar)
@@ -3104,84 +3749,32 @@ Raw2Pvl::saveMHD(QString mhdFilename,
       }
     progress.setValue(100);
 
-  const QString rawBackup = zrawFilename + ".drishti-backup-" +
-    QUuid::createUuid().toString(QUuid::WithoutBraces);
-  const bool hadRaw = QFileInfo::exists(zrawFilename);
-  if (hadRaw && !QFile::rename(zrawFilename, rawBackup))
-    {
-      zraw.cancelWriting();
-      mhd.cancelWriting();
-      QMessageBox::critical(0, "Save MetaImage",
-	QString("Cannot preserve existing RAW output '%1'.")
-	.arg(zrawFilename));
-      return false;
-    }
-
   if (!zraw.commit())
     {
       const QString commitError = zraw.errorString();
-      QStringList rollbackIssues;
-      const bool failedOutputRemoved =
-	!QFileInfo::exists(zrawFilename) || QFile::remove(zrawFilename);
-      if (!failedOutputRemoved)
-	rollbackIssues << QString("The uncommitted RAW output could not be "
-	                          "removed: %1").arg(zrawFilename);
-      if (hadRaw)
-	{
-	  if (failedOutputRemoved)
-	    {
-	      if (!QFile::rename(rawBackup, zrawFilename))
-		rollbackIssues << QString("The previous RAW file could not be "
-		                          "restored. Its backup remains at: %1")
-		                          .arg(rawBackup);
-	    }
-	  else
-	    rollbackIssues << QString("The previous RAW backup remains at: %1")
-	                      .arg(rawBackup);
-	}
       mhd.cancelWriting();
-      QString message = QString("Cannot commit RAW output '%1': %2")
-	                  .arg(zrawFilename).arg(commitError);
-      if (!rollbackIssues.isEmpty())
-	message += "\n\nRollback warning:\n" + rollbackIssues.join("\n");
-      QMessageBox::critical(0, "Save MetaImage", message);
+      QMessageBox::critical(0, "Save MetaImage",
+	QString("Cannot commit RAW output '%1': %2")
+	.arg(zrawFilename).arg(commitError));
       return false;
     }
 
   if (!mhd.commit())
     {
       const QString commitError = mhd.errorString();
-      QStringList rollbackIssues;
-      const bool newRawRemoved =
-	!QFileInfo::exists(zrawFilename) || QFile::remove(zrawFilename);
-      if (!newRawRemoved)
-	rollbackIssues << QString("The newly committed RAW file could not be "
-	                          "removed: %1").arg(zrawFilename);
-      if (hadRaw)
-	{
-	  if (newRawRemoved)
-	    {
-	      if (!QFile::rename(rawBackup, zrawFilename))
-		rollbackIssues << QString("The previous RAW file could not be "
-		                          "restored. Its backup remains at: %1")
-		                          .arg(rawBackup);
-	    }
-	  else
-	    rollbackIssues << QString("The previous RAW backup remains at: %1")
-	                      .arg(rawBackup);
-	}
       QString message = QString("Cannot commit MHD header '%1': %2")
 	                  .arg(mhdFilename).arg(commitError);
-      if (!rollbackIssues.isEmpty())
-	message += "\n\nRollback warning:\n" + rollbackIssues.join("\n");
       QMessageBox::critical(0, "Save MetaImage", message);
       return false;
     }
 
-  if (hadRaw && !QFile::remove(rawBackup))
-    QMessageBox::warning(0, "Save MetaImage",
-	QString("The output is complete, but the old RAW backup could not be "
-	        "removed: %1").arg(rawBackup));
+  if (!mhdJournal.commit())
+    {
+      QMessageBox::critical(0, "Save MetaImage",
+                            "The MHD/RAW pair could not be finalized; "
+                            "the recovery journal was retained.");
+      return false;
+    }
   
   QMessageBox::information(0, "Save MetaImage Volume", "-----Done-----");
   return true;
@@ -3213,8 +3806,6 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   int hsz=hmax-hmin+1;
 
   uchar voxelType = volData->voxelType();  
-  int headerBytes = volData->headerBytes();
-
   if (voxelType > _Float)
     {
       QMessageBox::warning(0, "Merge Volumes",
@@ -3279,6 +3870,41 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
       return false;
     }
 
+  QString recoveryError;
+  if (!recoverBatchJournals(QFileInfo(pvlFilename).absolutePath(),
+                            recoveryError))
+    {
+      QMessageBox::warning(0, "Merge Volumes",
+                           QString("Cannot recover the previous batch: %1")
+                           .arg(recoveryError));
+      return false;
+    }
+  BatchPathJournal mergeJournal;
+  QString mergeJournalError;
+  if (!mergeJournal.addPath(QFileInfo(pvlFilename).absoluteFilePath(),
+                            mergeJournalError))
+    {
+      QMessageBox::warning(0, "Merge Volumes", mergeJournalError);
+      return false;
+    }
+  const QFileInfo mergeHeaderInfo(pvlFilename);
+  const QString mergePrefix = mergeHeaderInfo.fileName() + ".";
+  const QStringList existingMergeSlabs = mergeHeaderInfo.absoluteDir().entryList(
+    QStringList() << (mergeHeaderInfo.fileName() + ".???"),
+    QDir::Files | QDir::NoSymLinks);
+  for (const QString& name : existingMergeSlabs)
+    {
+      bool numberOk = false;
+      name.mid(mergePrefix.size()).toInt(&numberOk);
+      if (numberOk && !mergeJournal.addPath(
+            mergeHeaderInfo.absoluteDir().absoluteFilePath(name),
+            mergeJournalError))
+        {
+          QMessageBox::warning(0, "Merge Volumes", mergeJournalError);
+          return false;
+        }
+    }
+
   int pvlbpv = 1;
   if (pvlMap[pvlMap.count()-1] > 255)
     pvlbpv = 2;
@@ -3292,6 +3918,7 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   std::uint64_t pvlPixels = 0;
   std::uint64_t pvlBytes = 0;
   std::uint64_t allocationBytes = 0;
+  std::shared_ptr<ProcessMemoryReservation> mergeReservation;
   QString bufferError;
   if (!checkedPlaneLayout(rvwidth, rvheight, bpv,
                           rawPixels, rawBytes) ||
@@ -3301,7 +3928,8 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
       !addImportBytes(pvlBytes, allocationBytes) ||
       !addImportBytes(pvlBytes, allocationBytes) ||
       !admitImportBuffers(QStringLiteral("Volume merge"),
-                          allocationBytes, bufferError))
+                          allocationBytes, bufferError,
+                          mergeReservation))
     {
       if (bufferError.isEmpty())
         bufferError = QStringLiteral(
@@ -3524,12 +4152,23 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
       QMessageBox::critical(0, "Merge Volumes", g_pvlHeaderWriteError);
       return false;
     }
-  if (!pvlFileManager.commitFileCreation())
+  if (!pvlFileManager.commitFileCreation(false))
     {
       QMessageBox::critical(0, "Merge Volumes",
 			    pvlFileManager.lastError());
       return false;
     }
+
+  if (!mergeJournal.commit())
+    {
+      pvlFileManager.rollbackFileCreation();
+      QMessageBox::critical(0, "Merge Volumes",
+                            "The merged volume was written, but its "
+                            "recovery journal could not be finalized.");
+      return false;
+    }
+
+  pvlFileManager.finalizeFileCreation();
 
   progress.setValue(100);
   
@@ -3603,6 +4242,7 @@ Raw2Pvl::quickRaw(VolumeData* volData,
   std::uint64_t pvlBytes = 0;
   std::uint64_t outputBytes = 0;
   std::uint64_t allocationBytes = 0;
+  std::shared_ptr<ProcessMemoryReservation> quickRawReservation;
   QString bufferError;
   if (!checkedPlaneLayout(rvwidth, rvheight, bpv,
                           rawPixels, rawBytes) ||
@@ -3615,7 +4255,8 @@ Raw2Pvl::quickRaw(VolumeData* volData,
       !addImportBytes(rawBytes, allocationBytes) ||
       !addImportBytes(pvlBytes, allocationBytes) ||
       !admitImportBuffers(QStringLiteral("Quick RAW conversion"),
-                          allocationBytes, bufferError))
+                          allocationBytes, bufferError,
+                          quickRawReservation))
     {
       if (bufferError.isEmpty())
         bufferError = QStringLiteral(
@@ -3914,6 +4555,7 @@ Raw2Pvl::saveVDB(int volIdx,
   std::uint64_t resampledVoxels = 0;
   std::uint64_t vdbWorkingBytes = 0;
   std::uint64_t allocationBytes = 0;
+  std::shared_ptr<ProcessMemoryReservation> vdbReservation;
   const double safeResample = static_cast<double>(resample);
   const std::uint64_t rd = safeResample > 0.0 ?
     static_cast<std::uint64_t>(std::ceil(
@@ -3938,7 +4580,8 @@ Raw2Pvl::saveVDB(int volIdx,
       !addImportBytes(rawBytes, allocationBytes) ||
       !addImportBytes(vdbWorkingBytes, allocationBytes) ||
       !admitImportBuffers(QStringLiteral("VDB conversion"),
-                          allocationBytes, bufferError))
+                          allocationBytes, bufferError,
+                          vdbReservation))
     {
       if (bufferError.isEmpty())
         bufferError = QStringLiteral(
@@ -4216,7 +4859,10 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
   if (StaticFunctions::checkExtension(meshFilename, ".msh"))
     tetMesh = true;    
 
-  bool save0AtTop = saveSliceZeroAtTop();;
+  bool choiceAccepted = false;
+  bool save0AtTop = saveSliceZeroAtTop(&choiceAccepted);
+  if (!choiceAccepted)
+    return;
   
   int ivType = -2;
   int bType = -2;
@@ -4551,8 +5197,10 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
       else if (meshflnm.right(3).toLower() == "obj")
 	{
 	  QVector<QVector3D> C;
+	  std::shared_ptr<ProcessMemoryReservation> meshReservation;
 	  if (!prepareMeshColorBuffer(QStringLiteral("OBJ mesh export"),
-	                              V.count(), C, bufferError))
+	                              V.count(), C, bufferError,
+	                              meshReservation))
 	    {
 	      QMessageBox::warning(0, "Export Mesh", bufferError);
 	      return;
@@ -4565,8 +5213,10 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
       else if (meshflnm.right(3).toLower() == "ply")
 	{
 	  QVector<QVector3D> C;
+	  std::shared_ptr<ProcessMemoryReservation> meshReservation;
 	  if (!prepareMeshColorBuffer(QStringLiteral("PLY mesh export"),
-	                              V.count(), C, bufferError))
+	                              V.count(), C, bufferError,
+	                              meshReservation))
 	    {
 	      QMessageBox::warning(0, "Export Mesh", bufferError);
 	      return;
@@ -4872,8 +5522,10 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
   if (iso_meshflnm.right(3).toLower() == "obj")
     {
       QVector<QVector3D> C;
+      std::shared_ptr<ProcessMemoryReservation> meshReservation;
       if (!prepareMeshColorBuffer(QStringLiteral("OBJ mesh export"),
-                                  V.count(), C, bufferError))
+                                  V.count(), C, bufferError,
+                                  meshReservation))
         {
           if (showProgress)
             QMessageBox::warning(0, "Export Mesh", bufferError);
@@ -4889,8 +5541,10 @@ Raw2Pvl::parIsoGen(VolumeData* volData,
   else if (iso_meshflnm.right(3).toLower() == "ply")
     {
       QVector<QVector3D> C;
+      std::shared_ptr<ProcessMemoryReservation> meshReservation;
       if (!prepareMeshColorBuffer(QStringLiteral("PLY mesh export"),
-                                  V.count(), C, bufferError))
+                                  V.count(), C, bufferError,
+                                  meshReservation))
         {
           if (showProgress)
             QMessageBox::warning(0, "Export Mesh", bufferError);

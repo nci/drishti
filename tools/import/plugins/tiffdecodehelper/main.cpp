@@ -17,6 +17,7 @@
 #if defined(Q_OS_WIN)
 #include <fcntl.h>
 #include <io.h>
+#include <qt_windows.h>
 #endif
 
 namespace
@@ -37,6 +38,15 @@ int main(int argc, char **argv)
   _setmode(_fileno(stdout), _O_BINARY);
 #endif
   const QStringList args = app.arguments();
+#if defined(Q_OS_WIN)
+  if (args.contains(QStringLiteral("--no-console-required")) &&
+      GetConsoleWindow() != nullptr)
+    {
+      std::fprintf(stderr,
+                   "TIFF decode helper unexpectedly has a console window\n");
+      return 9;
+    }
+#endif
   const QString imagePath = argument(app.arguments(), QStringLiteral("--image"));
   if (args.contains(QStringLiteral("--inspect")))
     {

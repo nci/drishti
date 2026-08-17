@@ -17,6 +17,10 @@
 #include <QFileInfo>
 #include <QTimer>
 
+#if defined(Q_OS_WIN)
+#include <qt_windows.h>
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -52,6 +56,36 @@ namespace
     std::atomic_bool& m_flag;
     bool m_acquired;
   };
+
+  std::atomic_bool g_tiffHelperProcessActive(false);
+
+  void configureTiffHelperProcess(QProcess *process)
+  {
+#if defined(Q_OS_WIN)
+    // The helper is a console application because its stdout is the binary
+    // decode protocol.  A GUI parent otherwise creates a visible console for
+    // every slice on some Windows systems.
+    process->setCreateProcessArgumentsModifier(
+      [](QProcess::CreateProcessArguments *arguments)
+      {
+        arguments->flags |= CREATE_NO_WINDOW;
+      });
+#else
+    Q_UNUSED(process);
+#endif
+  }
+
+  void appendTiffHelperSafetyArguments(QStringList *arguments)
+  {
+#if defined(Q_OS_WIN)
+    // Make the helper verify the process-creation contract itself.  If a
+    // future refactor drops CREATE_NO_WINDOW, importing stops after the first
+    // helper instead of flooding the desktop with console windows.
+    arguments->append(QStringLiteral("--no-console-required"));
+#else
+    Q_UNUSED(arguments);
+#endif
+  }
 
   QString tiffDecodeHelperPath()
   {
@@ -96,13 +130,21 @@ namespace
         *error = QStringLiteral("TIFF isolated decode row range overflow");
         return false;
       }
+    AtomicFlagGuard helperGuard(g_tiffHelperProcessActive);
+    if (!helperGuard.acquired())
+      {
+        *error = QStringLiteral("Another TIFF helper operation is already active");
+        return false;
+      }
     QProcess process;
+    configureTiffHelperProcess(&process);
     QStringList arguments;
     arguments << QStringLiteral("--image") << imagePath
               << QStringLiteral("--directory") << QString::number(directory)
               << QStringLiteral("--rows") << QString::number(rowCount)
               << QStringLiteral("--row-bytes") << QString::number(rowBytes)
               << QStringLiteral("--first-row") << QString::number(firstRow);
+    appendTiffHelperSafetyArguments(&arguments);
     process.start(tiffDecodeHelperPath(), arguments,
                   QIODevice::ReadOnly);
     if (!process.waitForStarted(2000))
@@ -179,11 +221,19 @@ namespace
     pages->clear();
     directories->clear();
 
+    AtomicFlagGuard helperGuard(g_tiffHelperProcessActive);
+    if (!helperGuard.acquired())
+      {
+        *error = QStringLiteral("Another TIFF helper operation is already active");
+        return false;
+      }
     QProcess process;
-    process.start(tiffDecodeHelperPath(),
-                  QStringList() << QStringLiteral("--inspect")
-                                << QStringLiteral("--image") << imagePath,
-                  QIODevice::ReadOnly);
+    configureTiffHelperProcess(&process);
+    QStringList arguments;
+    arguments << QStringLiteral("--inspect")
+              << QStringLiteral("--image") << imagePath;
+    appendTiffHelperSafetyArguments(&arguments);
+    process.start(tiffDecodeHelperPath(), arguments, QIODevice::ReadOnly);
     if (!process.waitForStarted(2000))
       {
         *error = QStringLiteral("TIFF metadata helper could not be started: ") +
@@ -515,6 +565,12 @@ TiffPlugin::replaceFile(QString flnm)
 {
   m_lastError.clear();
   m_lastOperationCanceled = false;
+  AtomicFlagGuard loadGuard(m_loadActive);
+  if (!loadGuard.acquired())
+    {
+      m_lastError = QStringLiteral("A TIFF volume is already being loaded.");
+      return;
+    }
   m_cancelRequested.store(false);
   const QStringList previousImageList = m_imageList;
   const QVector<quint32> previousDirectoryList = m_directoryList;
@@ -702,6 +758,12 @@ TiffPlugin::setFile(QStringList files)
 {
   m_lastError.clear();
   m_lastOperationCanceled = false;
+  AtomicFlagGuard loadGuard(m_loadActive);
+  if (!loadGuard.acquired())
+    {
+      m_lastError = QStringLiteral("A TIFF volume is already being loaded.");
+      return false;
+    }
   m_cancelRequested.store(false);
   if (files.isEmpty())
     {
@@ -797,6 +859,8 @@ TiffPlugin::setFile(QStringList files)
   // Explicit selections retain the reorder-dialog order; directories use
   // the natural order produced above.
   m_fileName = imageFiles;
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
   return true;
 }
 

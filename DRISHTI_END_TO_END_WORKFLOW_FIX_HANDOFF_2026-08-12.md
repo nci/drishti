@@ -1666,3 +1666,70 @@ TIFF 混合方向、Paint harness 断言/保存状态、正式 GUI、Drishti 渲
 
 最终 SHA-256 必须以完成本节文档提交后重新打包并复算的值为准；不得再使用 2026-08-15
 旧包或其哈希。
+
+### 14.39 i7-13700H 实机否决与 TIFF helper 窗口风暴修复（2026-08-17）
+
+目标 i7-13700H 核显笔记本实测 14.38 的新包时，DrishtiImport 仍在导入阶段闪退，
+并连续弹出大量带乱码的控制台窗口，直至必须重启机器。因此以下包及哈希已明确作废，
+不得继续测试或交付：
+
+`C:\saveproject\LBJ-workspace\_external\drishti\.lab-agent\package\drishti-cpu-igpu-release-2026-08-17-ui-fix.zip`
+
+`fb0ee911f892a32c5da99f9de51b892df0205e3f57293bd5be5f35c03628ac2e`
+
+#### 新确认的根因与漏测原因
+
+`tiffdecodehelper.exe` 为保留 stdout 二进制解码协议而使用 console subsystem。TIFF 插件
+对每个输入文件至少启动一次 metadata helper，初始统计又对每张切片启动一次 decode
+helper，随后首张预览还会再次启动；N 张单页 TIFF 因而约有 `2N+1` 次 helper 启动。
+Windows GUI 父进程此前没有设置 `CREATE_NO_WINDOW`，目标机为每次启动创建可见控制台，
+raw scanline 输出在窗口中表现为乱码。大量窗口创建、焦点切换和进程启动共同拖累桌面
+Shell；DrishtiImport 退出后 Explorer 恢复，与本次实机现象一致。该 helper 隔离机制最早
+由全链路提交 `66f86bd` 引入，用于给 TIFF codec 提供 30 秒硬超时边界。
+
+14.38 的 orientation 与 offscreen smoke 使用 console 测试父进程和极小 TIFF 栈，子进程
+可以继承已有控制台，既没有覆盖 GUI 父进程创建新窗口的行为，也没有形成足够的启动压力。
+因此此前“新包可交付实机验收”的结论证据不足。14.38 的绘制副作用和 preview 重入修复
+仍是必要修复，但已被实机证明并不充分。
+
+#### 修复
+
+1. Windows 下 TIFF 插件对 metadata/decode 两类 `QProcess` 统一设置
+   `CREATE_NO_WINDOW`，同时保留 stdout/stderr pipe 和 console subsystem，不破坏现有二进制
+   协议及硬超时隔离。
+2. 插件传递 `--no-console-required`，helper 使用 `GetConsoleWindow()` 自检。若未来重构
+   丢失无窗口创建标志，第一项 helper 操作会明确失败，不能再次演变成窗口风暴。
+3. 插件增加全局 helper 原子 guard，同一进程中任意时刻最多运行一个 TIFF helper；
+   `setFile()`/`replaceFile()` 增加整段加载原子 guard，事件循环中的嵌套加载会被拒绝，
+   外层成功状态和已提交数据不受污染。
+4. `tiff_plugin_orientation_smoke` 新增嵌套加载断言及 128 张重复切片压力段；新增
+   `remap_tiff_integration_smoke`，通过正式 `RemapWidget -> VolumeData -> TIFF plugin`
+   组合加载 64 张灰度 TIFF，并强制执行首次绘制和 Z/Y/X 三方向预览。它补上了此前把
+   UI 与插件分开测试的覆盖缺口。
+
+#### 当前自动化证据
+
+- 128 张压力栈完整通过；5 ms 桌面进程采样记录 helper 并发峰值 `1`、有效采样 `559`
+  次、非零 `MainWindowHandle` 样本 `0`、结束残留 `0`。helper 内部无控制台断言也全程
+  通过。
+- 64 个不同灰度 TIFF 的 `TIFF -> VolumeFileManager` 测试通过，保存 50 层、2 个连续
+  slab，回读 SHA-256 为
+  `a5e877bb0292789c924b2e95589e512a67a618fdd116b5f694a89d8e0042b809`。
+- `RemapWidget -> VolumeData -> TIFF plugin` 64 张组合链连续运行 5 次均返回 `0`；首次
+  histogram 绘制及 Z/Y/X preview 全部通过，测试期间 Windows Application Error 新增
+  `0` 条，helper 残留 `0`。
+- `remap_histogram_widget_smoke`、`volume_file_transaction_smoke`、`pvl_manifest_smoke`
+  和 canonical `vfm_lifecycle_smoke` 继续通过。因此“每张图片分散导出、Paint 无法打开”
+  对应的 PVL manifest、连续 slab、事务提交及 Paint 共用 VFM 契约没有回归。
+- 组合测试开发时曾出现一次 `Qt5Widgets.dll + 0x188a1f / 0xC0000005`；故障偏移对应
+  `QStatusBar::clearMessage()`，原因是初版测试夹具未像正式 DrishtiImport 一样注册
+  `Global::statusBar()`。补齐夹具初始化后连续 5 次通过。该事件不得误记为产品崩溃证据。
+
+#### 当前边界
+
+本机自动化已覆盖本次新增的窗口风暴、加载重入、UI 首绘/三方向 preview、TIFF 到连续
+PVL slab 以及 Paint 共用读取契约。目标 i7-13700H 的原始 TIFF 数据和驱动环境仍无法由
+本机完全复制，因此只有从本节源码重新全量构建、打包的新 ZIP 才能进入下一次最终实机
+验收；通过前仍不得写成目标硬件已验收。若新包在目标机仍发生闪退，必须取得该次
+Application Error/WER 的 faulting module、exception offset 和 dump，不能再把所有
+`0xC0000005` 统一归因于同一问题。

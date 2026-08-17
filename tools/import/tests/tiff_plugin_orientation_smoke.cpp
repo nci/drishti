@@ -20,6 +20,7 @@ namespace
 {
 const uint32_t kWidth = 4;
 const uint32_t kHeight = 3;
+const int kStressSliceCount = 128;
 
 TIFF *openTiffForWrite(const QString &fileName)
 {
@@ -202,9 +203,23 @@ int main(int argc, char **argv)
     return fail("Loaded object does not implement VolInterface");
   plugin->init();
 
+  bool nestedLoadAttempted = false;
+  bool nestedLoadAccepted = true;
+  QString nestedLoadError;
+  QTimer::singleShot(0, [&]()
+    {
+      nestedLoadAttempted = true;
+      nestedLoadAccepted = plugin->setFile(QStringList() << top);
+      nestedLoadError = lastError(pluginObject);
+    });
   if (!plugin->setFile(QStringList() << bottom0 << bottom1))
     return fail(QString("Bottom-left TIFF stack was rejected: %1")
                   .arg(lastError(pluginObject)));
+  if (!nestedLoadAttempted || nestedLoadAccepted ||
+      !nestedLoadError.contains("already being loaded", Qt::CaseInsensitive))
+    return fail("A nested TIFF volume load was not rejected safely");
+  if (!lastError(pluginObject).isEmpty())
+    return fail("A rejected nested TIFF load contaminated the outer result");
 
   int depth = 0;
   int width = 0;
@@ -331,6 +346,23 @@ int main(int argc, char **argv)
     qobject_cast<SourceFilesProvider *>(pluginObject);
   if (!sourceProvider || sourceProvider->sourceFiles() != explicitOrder)
     return fail("TIFF source provenance did not preserve explicit order");
+
+  // Exercise the GUI-parent helper contract at a size large enough to catch
+  // per-slice process/window regressions.  The plugin passes a Windows-only
+  // helper assertion that rejects any child which still owns a console.
+  QStringList stressFiles;
+  stressFiles.reserve(kStressSliceCount);
+  for (int index=0; index<kStressSliceCount; ++index)
+    stressFiles.append(top);
+  plugin->clear();
+  if (!plugin->setFile(stressFiles))
+    return fail(QString("Large TIFF helper stress stack was rejected: %1")
+                  .arg(lastError(pluginObject)));
+  plugin->gridSize(depth, width, height);
+  if (depth != kStressSliceCount ||
+      !checkSlice(plugin, pluginObject, kStressSliceCount-1, 201, &sliceError))
+    return fail(QString("Large TIFF helper stress stack was corrupted: %1")
+                  .arg(sliceError));
 
   plugin->clear();
   std::cout << "TIFF top-left/bottom-left orientation smoke passed" << std::endl;

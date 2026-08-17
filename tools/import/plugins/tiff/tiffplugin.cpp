@@ -32,6 +32,27 @@ namespace
   const quint64 kTiffDecodeSafetyBytes = 64ULL*1024ULL*1024ULL;
   const int kTiffDecodeTimeoutMs = 30000;
 
+  class AtomicFlagGuard
+  {
+  public:
+    explicit AtomicFlagGuard(std::atomic_bool& flag)
+      : m_flag(flag), m_acquired(!m_flag.exchange(true))
+    {
+    }
+
+    ~AtomicFlagGuard()
+    {
+      if (m_acquired)
+        m_flag.store(false);
+    }
+
+    bool acquired() const { return m_acquired; }
+
+  private:
+    std::atomic_bool& m_flag;
+    bool m_acquired;
+  };
+
   QString tiffDecodeHelperPath()
   {
     const QString configured = qEnvironmentVariable("DRISHTI_TIFF_HELPER");
@@ -1165,9 +1186,18 @@ TiffPlugin::getDepthSlice(int slc,
       return;
     }
 
+  AtomicFlagGuard previewGuard(m_previewReadActive);
+  if (!previewGuard.acquired())
+    {
+      m_lastError = QStringLiteral("A TIFF preview is already being loaded.");
+      std::memset(slice, 0, static_cast<size_t>(m_sliceBytes));
+      return;
+    }
+
   std::atomic_bool cancelRequested(false);
   QString workerError;
   QProgressDialog progress("Loading TIFF slice", "Cancel", 0, 1, 0);
+  progress.setWindowModality(Qt::ApplicationModal);
   progress.setMinimumDuration(500);
   QFutureWatcher<bool> watcher;
   QEventLoop loop;
@@ -1199,6 +1229,8 @@ TiffPlugin::getDepthSlice(int slc,
       std::memset(slice, 0, static_cast<size_t>(m_sliceBytes));
       return;
     }
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 }
 
 QString TiffPlugin::lastError() const { return m_lastError; }
@@ -1220,8 +1252,16 @@ TiffPlugin::getWidthSlice(int slc, uchar *slice)
     }
   std::memset(slice, 0, static_cast<size_t>(outputBytes));
 
+  AtomicFlagGuard previewGuard(m_previewReadActive);
+  if (!previewGuard.acquired())
+    {
+      m_lastError = QStringLiteral("A TIFF preview is already being loaded.");
+      return;
+    }
+
   QProgressDialog progress("Extracting TIFF width slice", "Cancel",
                            0, m_depth, 0);
+  progress.setWindowModality(Qt::ApplicationModal);
   progress.setMinimumDuration(500);
   std::atomic_bool cancelRequested(false);
   QString workerError;
@@ -1264,6 +1304,8 @@ TiffPlugin::getWidthSlice(int slc, uchar *slice)
       return;
     }
   progress.setValue(m_depth);
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 }
 
 void
@@ -1279,6 +1321,13 @@ TiffPlugin::getHeightSlice(int slc, uchar *slice)
     }
   std::memset(slice, 0, static_cast<size_t>(outputBytes));
 
+  AtomicFlagGuard previewGuard(m_previewReadActive);
+  if (!previewGuard.acquired())
+    {
+      m_lastError = QStringLiteral("A TIFF preview is already being loaded.");
+      return;
+    }
+
   std::unique_ptr<uchar[]> decoded(new (std::nothrow) uchar[
     static_cast<size_t>(m_sliceBytes)]);
   if (!decoded)
@@ -1290,6 +1339,7 @@ TiffPlugin::getHeightSlice(int slc, uchar *slice)
 
   QProgressDialog progress("Extracting TIFF height slice", "Cancel",
                            0, m_depth, 0);
+  progress.setWindowModality(Qt::ApplicationModal);
   progress.setMinimumDuration(500);
   std::atomic_bool cancelRequested(false);
   QString workerError;
@@ -1337,6 +1387,8 @@ TiffPlugin::getHeightSlice(int slc, uchar *slice)
       return;
     }
   progress.setValue(m_depth);
+  m_lastError.clear();
+  m_lastOperationCanceled = false;
 }
 
 QVariant

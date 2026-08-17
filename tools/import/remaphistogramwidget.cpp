@@ -505,10 +505,7 @@ void
 RemapHistogramWidget::drawHistogram(QPainter *p)
 {
   if (m_histogramScaled.size() == 0)
-    {
-      emit getHistogram();
-      return;
-    }
+    return;
 
   QList<float> tk = m_Line->ticks();
   QList<float> otk = m_Line->ticksOriginal();

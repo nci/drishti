@@ -76,6 +76,7 @@ class TiffPlugin : public QObject, VolInterface, SourceFilesProvider
 
   std::atomic_bool m_cancelRequested;
   std::atomic_int m_progressValue;
+  std::atomic_bool m_previewReadActive{false};
   QString m_lastError;
   bool m_lastOperationCanceled;
 

@@ -1593,3 +1593,60 @@ TIFF 混合方向、Paint harness 断言/保存状态、正式 GUI、Drishti 渲
 `drishti/drishti_resource.rc`；`.lab-agent`、自动生成 Makefile、对象文件和缓存等明确排除
 的本地构建产物不再污染 `BUILD_INFO.txt`。最终 ZIP 必须在本节源码提交完成后重新生成，
 并以同目录 SHA-256 校验值为转移依据。
+
+### 14.38 i7-13700H TIFF 导入闪退回归修复（2026-08-17）
+
+目标 i7-13700H 核显笔记本使用 14.36/14.37 对应旧包导入 TIFF 时，在
+`Loading TIFF slice` 阶段再次出现 `drishtiimport.exe` 闪退。与最初问题不同，资源管理器
+只在 Import 存活期间暂时无法操作，Import 退出后立即恢复；没有再次出现资源管理器持续
+卡死。旧包
+`.lab-agent/package/drishti-cpu-igpu-release-2026-08-15-audited.zip` 因包含本回归，已失去
+最终验收资格，不得继续转移到目标机。
+
+#### 根因和引入范围
+
+该问题不是 OpenGL 或核显渲染崩溃。DrishtiImport 的该入口不使用 OpenGL。根因是旧的
+`RemapHistogramWidget::paintEvent()` 路径会在直方图为空时同步发出 `getHistogram()`；
+全链路修改又把 TIFF 预览改为 `QtConcurrent` worker、`QFutureWatcher` 和局部
+`QEventLoop::exec()` 等待。两者组合形成以下可重入调用链：
+
+`paintEvent -> getHistogram -> setHistogram -> newMapping -> getDepthSliceImage ->`
+`TiffPlugin::getDepthSlice -> nested event loop -> recursive repaint`
+
+因此，本次闪退是全链路修改与遗留绘制副作用发生交互后引入的回归，而不是最初 Explorer
+持续卡死修复失效。目标机截图中的 Qt active-painter 警告尾部也与该调用链一致。回归首次
+进入全链路提交 `66f86bd`，旧包源码提交 `2212919` 仍包含该问题。
+
+#### 修复
+
+1. `RemapHistogramWidget::drawHistogram()` 在空直方图时只返回；绘制函数不再发起同步体数据
+   I/O。
+2. `RemapWidget::setRawMinMax()` 在首次绘制前主动设置 raw range、histogram 和映射；使用
+   `QSignalBlocker` 阻止初始化中的 `newMapping` 提前触发预览，随后直接把映射提交给
+   `VolumeData`。`newMinMax()` 中重复设置 histogram 的路径一并删除。
+3. TIFF depth/width/height preview 增加共享原子不可重入保护。外层预览读取期间的嵌套读取
+   会被拒绝并清零嵌套输出缓冲，外层结果和最终 `lastError()` 不受嵌套失败污染。
+4. 三种 TIFF preview 进度对话框设为 application-modal；这不是主要修复，只用于限制用户
+   在局部等待期间触发新的应用级交互。
+
+#### 当前自动化证据
+
+- `remap_histogram_widget_smoke` 使用 canonical Qt/VS2019 重建并通过：空直方图绘制发出的
+  数据读取请求数为 `0`；常量、全零、单 bin 和窄控件回归保持通过。
+- `tiff_plugin_orientation_smoke` 使用新 TIFF DLL 和包内 helper 通过。新增定时嵌套预览
+  用例确认内层请求被安全拒绝、内层缓冲清零、外层切片逐像素正确且外层成功状态未被污染。
+- `tiffplugin.dll` 和 `drishtiimport.exe` 已在 canonical
+  `.lab-agent/dependencies/build/main-current` 中重新编译链接成功。
+- 与“每张图片分散导出、Paint 无法打开”直接相关的回归保持通过：
+  `pvl_manifest_smoke`、`volume_file_transaction_smoke` 和 canonical
+  `vfm_lifecycle_smoke` 均返回 `0`。这证明普通体数据输出仍采用一个 PVL manifest 加
+  `.001/.002/...` 连续分片，事务提交后无临时尾文件，并可由 Paint 共用 parser/VFM
+  保存和重开。旧 `volume_chain_harness` 的 4 个计数仍来自 14.36 已登记的过时断言，
+  不得作为当前产品失败证据。
+
+#### 验收边界
+
+代码和自动化层面已关闭此次可重入闪退，并确认普通 Save As/PVL/Paint 契约未被破坏；但
+目标 i7-13700H 上同一组真实 TIFF 的文件选择、首张预览、ROI/Z、普通 Save As 和 Paint
+打开仍必须使用 2026-08-17 新包实际走一遍。只有该实机流程不再闪退，且导出目录表现为
+一个 `.pvl.nc` 清单和其连续分片，才能把目标机人工验收标为通过。

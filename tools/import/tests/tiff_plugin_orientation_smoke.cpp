@@ -8,6 +8,7 @@
 #include <QFileInfo>
 #include <QPluginLoader>
 #include <QTemporaryDir>
+#include <QTimer>
 #include <QVector>
 
 #include <tiffio.h>
@@ -220,6 +221,32 @@ int main(int argc, char **argv)
       std::fabs(plugin->rawMin()-1.0f) > 0.01f ||
       std::fabs(plugin->rawMax()-112.0f) > 0.01f)
     return fail("Bottom-left TIFF statistics are incorrect");
+
+  QVector<quint16> outerValues(static_cast<int>(kWidth*kHeight), 0);
+  QVector<quint16> nestedValues(static_cast<int>(kWidth*kHeight), 0xffff);
+  bool nestedAttempted = false;
+  QString nestedError;
+  QTimer::singleShot(0, [&]()
+    {
+      nestedAttempted = true;
+      plugin->getDepthSlice(0,
+                            reinterpret_cast<uchar *>(nestedValues.data()));
+      nestedError = lastError(pluginObject);
+    });
+  plugin->getDepthSlice(0, reinterpret_cast<uchar *>(outerValues.data()));
+  if (!nestedAttempted ||
+      !nestedError.contains("already being loaded", Qt::CaseInsensitive))
+    return fail("A nested TIFF preview was not rejected safely");
+  if (!lastError(pluginObject).isEmpty())
+    return fail("A rejected nested preview contaminated the outer result");
+  for (uint32_t y=0; y<kHeight; ++y)
+    for (uint32_t x=0; x<kWidth; ++x)
+      {
+        const int index = static_cast<int>(y*kWidth+x);
+        const quint16 expected = static_cast<quint16>(1+y*kWidth+x);
+        if (outerValues[index] != expected || nestedValues[index] != 0)
+          return fail("Nested preview protection damaged a TIFF slice buffer");
+      }
 
   QString sliceError;
   if (!checkSlice(plugin, pluginObject, 0, 1, &sliceError) ||

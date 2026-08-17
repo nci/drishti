@@ -1,4 +1,6 @@
 #include "remapwidget.h"
+
+#include <QSignalBlocker>
 #include "global.h"
 #include "staticfunctions.h"
 #include "common.h"
@@ -325,7 +327,6 @@ RemapWidget::newMinMax(float rmin, float rmax)
       return;
     }
   setRawMinMax();
-  m_histogramWidget->setHistogram(m_volData->histogram());
 }
 
 void
@@ -348,7 +349,17 @@ RemapWidget::setRawMinMax()
   if (m_volData->voxelType() == _UShort) { minRaw=0; maxRaw=65535; }
   if (m_volData->voxelType() == _Short) { minRaw=-32768; maxRaw=32767; }
 
-  m_histogramWidget->setRawMinMax(rawMin, rawMax, minRaw, maxRaw);
+  // Rendering must never trigger synchronous volume I/O.  Initialize the
+  // histogram and mapping before the widget is painted, while blocking the
+  // normal mapping-changed signal that would otherwise decode a preview
+  // before the slice orientation has been configured.
+  {
+    const QSignalBlocker blocker(m_histogramWidget);
+    m_histogramWidget->setRawMinMax(rawMin, rawMax, minRaw, maxRaw);
+    m_histogramWidget->setHistogram(m_volData->histogram());
+  }
+  m_volData->setMap(m_histogramWidget->rawMap(),
+                    m_histogramWidget->pvlMap());
 
   if (ui.butZ->isChecked())
     m_imageWidget->setSliceType(RemapImage::DSlice);

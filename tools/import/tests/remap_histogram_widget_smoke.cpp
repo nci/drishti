@@ -43,9 +43,16 @@ int main(int argc, char **argv)
 
   RemapHistogramWidget widget;
   widget.resize(640, 360);
+  int histogramRequests = 0;
+  QObject::connect(&widget, &RemapHistogramWidget::getHistogram,
+                   [&histogramRequests]() { ++histogramRequests; });
   widget.setGradientStops(QGradientStops()
                           << QGradientStop(0.0, Qt::black)
                           << QGradientStop(1.0, Qt::white));
+
+  renderWidget(widget);
+  if (histogramRequests != 0)
+    return fail("Painting an empty histogram requested synchronous volume I/O.");
 
   QList<uint> singlePeak;
   for(int i=0; i<256; ++i)

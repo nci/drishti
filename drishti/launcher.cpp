@@ -14,10 +14,19 @@ Launcher::Launcher(QWidget *parent) :
   
   
   setStyleSheet("QWidget{background:black;}");
-        ui.drishti->setStyleSheet("QWidget{background:#e7feff;}");
+  ui.drishti->setStyleSheet("QWidget{background:#e7feff;}");
   ui.drishtiImport->setStyleSheet("QWidget{background:#e4f5ff;}");
-   ui.drishtiPaint->setStyleSheet("QWidget{background:#e0eafe;}");
-    ui.drishtiMesh->setStyleSheet("QWidget{background:#ddddfe;}");
+  ui.drishtiPaint->setStyleSheet("QWidget{background:#e0eafe;}");
+  
+  ui.drishtiMesh->setStyleSheet("QWidget{background:#ddddfe;}");
+
+  QString drishtiMeshExe = qApp->applicationDirPath() + QDir::separator() + "drishtimesh.exe";
+  if (!QFile::exists(drishtiMeshExe))
+    {
+      ui.drishtiMesh->hide();
+      resize(191, 200);
+    }
+  
 
   {
     QIcon icon;
@@ -46,10 +55,10 @@ Launcher::Launcher(QWidget *parent) :
 	  this, SLOT(drishtiImport(bool)));
   connect(ui.drishtiPaint, SIGNAL(clicked(bool)),
 	  this, SLOT(drishtiPaint(bool)));
+
   connect(ui.drishtiMesh, SIGNAL(clicked(bool)),
 	  this, SLOT(drishtiMesh(bool)));
 
-  //ui.drishtiMesh->hide();
 }
 
 

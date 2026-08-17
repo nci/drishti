@@ -126,11 +126,12 @@ ScriptsPlugin::start(QString pyver, QString pydir, QString jsonflnm)
     //-----------------------------------
 
     
-    QPluginLoader loader(pyver);
-    QObject *plugin = loader.instance();
-    if (plugin)
+    m_loader.setFileName(pyver);
+
+    m_pluginInstance = m_loader.instance();
+    if (m_pluginInstance)
     {
-        m_plugin = qobject_cast<PyPluginInterface*>(plugin);
+        m_plugin = qobject_cast<PyPluginInterface*>(m_pluginInstance);
         if (m_plugin)
         {
           QString mesg = m_plugin->init(m_script);

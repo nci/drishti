@@ -4,6 +4,8 @@
 #include "pyplugininterface.h"
 
 #include "commonqtclasses.h"
+//#include <QObject>
+//#include <QPluginLoader>
 
 
 class ScriptsPlugin
@@ -50,6 +52,8 @@ class ScriptsPlugin
     QString m_interpreter;
     
     PyPluginInterface *m_plugin;
+    QObject* m_pluginInstance;
+    QPluginLoader m_loader;
 
     QStringList m_fileName;
     bool m_4dvol;

@@ -1724,6 +1724,12 @@ Shell；DrishtiImport 退出后 Explorer 恢复，与本次实机现象一致。
 - 组合测试开发时曾出现一次 `Qt5Widgets.dll + 0x188a1f / 0xC0000005`；故障偏移对应
   `QStatusBar::clearMessage()`，原因是初版测试夹具未像正式 DrishtiImport 一样注册
   `Global::statusBar()`。补齐夹具初始化后连续 5 次通过。该事件不得误记为产品崩溃证据。
+- 独立 package stage 首次运行组合 smoke 时还出现过 `Qt5Core + 0x204e8 / 0xC0000409`
+  和一次 QtWidgets 访问冲突：测试 EXE 位于外部 build 目录，却未显式锁定 stage 的 Qt
+  platform plugin 与 `tiffdecodehelper.exe`。包内 Qt/plugin/helper 与 canonical 文件哈希
+  完全一致；测试改为从被测 `tiffplugin.dll` 目录反推并设置两条运行时路径后，orientation
+  压力与 Remap 组合测试均在独立 stage 返回 `0`。这两条 WER 同样是夹具路径错误，不是
+  产品失败证据。
 
 #### 当前边界
 

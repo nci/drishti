@@ -704,7 +704,8 @@ $productSourceFiles = @(
     {
       Get-ChildItem -LiteralPath (Join-Path $RepositoryRoot $sourceDirectory) `
                     -Recurse -File | Where-Object {
-        $_.Extension -in $sourceExtensions
+        $_.Extension -in $sourceExtensions -and
+        $_.FullName -notmatch '[\\/]tests[\\/]'
       }
     }
 )

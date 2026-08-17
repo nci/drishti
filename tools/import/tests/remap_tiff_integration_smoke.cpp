@@ -2,6 +2,8 @@
 #include "../global.h"
 
 #include <QApplication>
+#include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QImage>
 #include <QPainter>
@@ -40,6 +42,17 @@ int main(int argc, char **argv)
 
   const QString pluginPath =
     QFileInfo(QString::fromLocal8Bit(argv[1])).absoluteFilePath();
+  QDir runtimeDirectory = QFileInfo(pluginPath).absoluteDir();
+  if (!runtimeDirectory.cdUp())
+    return fail("Cannot locate the TIFF plugin runtime directory");
+  const QString platformDirectory = runtimeDirectory.filePath("platforms");
+  if (!QFileInfo::exists(QDir(platformDirectory).filePath("qoffscreen.dll")))
+    return fail("The Qt offscreen platform plugin is missing");
+  qputenv("QT_QPA_PLATFORM_PLUGIN_PATH", QFile::encodeName(platformDirectory));
+  const QString helperPath = runtimeDirectory.filePath("tiffdecodehelper.exe");
+  if (!QFileInfo::exists(helperPath))
+    return fail("The TIFF decode helper is missing");
+  qputenv("DRISHTI_TIFF_HELPER", QFile::encodeName(helperPath));
   QStringList files;
   for (int index=3; index<argc; ++index)
     files.append(QFileInfo(QString::fromLocal8Bit(argv[index])).absoluteFilePath());

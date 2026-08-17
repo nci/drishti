@@ -177,6 +177,11 @@ int main(int argc, char **argv)
 
   qputenv("QT_QPA_PLATFORM_PLUGIN_PATH",
           QFile::encodeName(platformDirectory));
+  const QString helperPath = runtimeDirectory.filePath("tiffdecodehelper.exe");
+  if (!QFileInfo::exists(helperPath))
+    return fail(QString("Cannot locate the TIFF decode helper: %1")
+                  .arg(QDir::toNativeSeparators(helperPath)));
+  qputenv("DRISHTI_TIFF_HELPER", QFile::encodeName(helperPath));
   QApplication application(argc, argv);
 
   QTemporaryDir directory;

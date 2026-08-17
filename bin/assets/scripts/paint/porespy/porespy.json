@@ -10,5 +10,9 @@ Available functions for 3D processing :
 Modules Required : porespy, numpy
 
 https://porespy.org/
+
+To install porespy - 
+git clone https://github.com/PMEAL/porespy
+uv pip install .
 "
 }

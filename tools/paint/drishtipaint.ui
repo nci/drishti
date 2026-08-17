@@ -384,40 +384,15 @@
    </widget>
    <widget class="QMenu" name="menuProcess">
     <property name="title">
-     <string>Process</string>
+     <string>Python</string>
     </property>
-    <widget class="QMenu" name="menuTrain_3D">
-     <property name="title">
-      <string>Train 3D</string>
-     </property>
-     <addaction name="actionHelp3D"/>
-     <addaction name="action3DBoxSize"/>
-     <addaction name="actionDrawBoxes3D"/>
-     <addaction name="action3DBoxList"/>
-     <addaction name="actionSave3DList"/>
-     <addaction name="actionLoad3DList"/>
-     <addaction name="actionClear3DList"/>
-    </widget>
-    <widget class="QMenu" name="menuTrain_2D">
-     <property name="title">
-      <string>Train 2D</string>
-     </property>
-     <addaction name="actionHelp2D"/>
-     <addaction name="action2DBoxSize"/>
-     <addaction name="actionDrawBoxes2D"/>
-     <addaction name="action2DBoxList"/>
-     <addaction name="actionSave2DList"/>
-     <addaction name="actionLoad2DList"/>
-     <addaction name="actionClear2DList"/>
-    </widget>
-    <addaction name="menuTrain_2D"/>
-    <addaction name="menuTrain_3D"/>
     <addaction name="separator"/>
     <addaction name="actionScriptFolder"/>
     <addaction name="actionCommand"/>
     <addaction name="separator"/>
     <addaction name="actionPyVer"/>
     <addaction name="actionPyDir"/>
+    <addaction name="actionPyVenv"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuView"/>
@@ -777,6 +752,11 @@
   <action name="actionPyDir">
    <property name="text">
     <string>Python Directory</string>
+   </property>
+  </action>
+  <action name="actionPyVenv">
+   <property name="text">
+    <string>Python venv</string>
    </property>
   </action>
  </widget>

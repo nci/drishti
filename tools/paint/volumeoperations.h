@@ -306,6 +306,8 @@ class VolumeOperations
 			   int&, int&,
 			   int, float, float);
   static void deleteROI();
+
+  static void upscaleMask(ushort*, int, int, int);
   
  private :
   static QString m_filename;
@@ -408,6 +410,7 @@ class VolumeOperations
 			   MyBitArray&,
 			   qint64, qint64, qint64,
 			   int);
+
 };
 
 #endif

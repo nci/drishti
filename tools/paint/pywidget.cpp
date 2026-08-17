@@ -263,13 +263,23 @@ PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
   libPath = pythonDir + "/Lib";
   scriptsPath = pythonDir + "/Scripts";
   newPath = pythonDir + ";" + dllPath + ";" + scriptsPath + QString::fromLocal8Bit(qgetenv("PATH"));
-  
+
+  QString venv = Global::pythonVenv();
+  if (!venv.isEmpty())
+    {
+      libPath = libPath + ";" + venv + "/Lib/site-packages";
+      //scriptsPath = scriptsPath + ";" + venv +"/Scripts";
+      //newPath = venv + ";" + newPath;
+    }
+
   qputenv("PATH", newPath.toLocal8Bit());
   qputenv("PYTHONHOME", pythonDir.toLocal8Bit());
   qputenv("PYTHONPATH", libPath.toLocal8Bit());
 
   std::cout << "\n\n\n----------------\n";
-  std::cout << " Using Python : " << qgetenv("PYTHONHOME").data() << "\n";
+  std::cout << " Using Python : " << "\n";
+  std::cout << qgetenv("PYTHONHOME").data() << "\n";
+  std::cout << qgetenv("PYTHONPATH").data() << "\n";
   std::cout << "----------------\n";
   
   

@@ -28,5 +28,30 @@ Available functions for 3D processing :
 
 Modules Required : biomedisa, torch, torchvision, scikit_image,
                    medpy, simpleitkscipy, numba, importlib_metadata
-                   mpi4py, keras, pycuda/pyopencl (depending on your gpu)"
+                   mpi4py, keras, pycuda/pyopencl (depending on your gpu)
+
+To install biomedisa on Windows -
+Have a look at https://biomedisa.info/
+https://github.com/biomedisa/biomedisa/blob/master/README/windows.md
+
+Install Cuda (for nvidia gpu) and OpenCL (for other gpu)
+If you don't have Visual Studio - Install visual studio cpp build tools - https://visualstudio.microsoft.com/visual-cpp-build-tools/
+Install msmpisetup.exe from https://learn.microsoft.com/en-us/message-passing-interface/microsoft-mpi
+
+uv pip install numba
+uv pip install zarr
+uv pip install numpy
+uv pip install pycuda (for nvidia)  pyopencl (otherwise)
+uv pip install mpi4py
+uv Install pytorch from https://pytorch.org/
+uv pip install keras
+uv pip install scikit_image
+uv pip install medpy
+uv pip install importlib_metadata
+uv pip install opencv-python
+uv pip install matplotlib
+uv pip install biomedisa
+
+Install Segment Anything Model (SAM) for instance segmentation
+uv pip install git+https://github.com/facebookresearch/segment-anything.git"
 }

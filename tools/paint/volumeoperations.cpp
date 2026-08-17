@@ -5036,3 +5036,219 @@ VolumeOperations::parDistDilate(QList<QVariant> plist)
 //}
 
 
+void
+VolumeOperations::upscaleMask(ushort *lmask, int lrd, int lrw, int lrh)
+{
+  float scld = (float)m_depth/lrd;
+  float sclw = (float)m_width/lrw;
+  float sclh = (float)m_height/lrh;
+
+  QString mesg;
+  mesg += QString("Volume Size : %1 %2 %3\n").			\
+	              arg(m_height).arg(m_width).arg(m_depth);
+  mesg += QString("Input Mask Size : %1 %2 %3\n").	\
+	              arg(lrh).arg(lrw).arg(lrd);
+  mesg += QString("Scaling applied : %1 %2 %3").	\
+	              arg(sclh).arg(sclw).arg(scld);
+  QMessageBox::information(0, "", mesg);
+
+  if (scld <= 1.01 && sclw <= 1.01 && sclh <= 1.01)
+    {
+      QProgressDialog progress("Mask Upscale Operation",
+			       QString(),
+			       0, 100,
+			       0,
+			       Qt::WindowStaysOnTopHint);
+      progress.setMinimumDuration(0);  
+      qApp->processEvents();
+      for(qint64 d=0; d<lrd; d++)
+	{
+	  progress.setValue(100*d/lrd);
+	  qApp->processEvents();
+	  for(qint64 w=0; w<lrw; w++)
+	  for(qint64 h=0; h<lrh; h++)
+	    {
+	      qint64 ds = qBound(0, (int)(d*scld), m_depth-1);
+	      qint64 ws = qBound(0, (int)(w*sclw), m_width-1);
+	      qint64 hs = qBound(0, (int)(h*sclh), m_height-1);
+	      qint64 idx = ds*m_width*m_height + ws*m_height + hs;
+	      m_maskDataUS[idx] = lmask[d*lrw*lrh + w*lrh + h];
+	    }
+	}
+      return;
+    }
+  
+  
+  int spread = 1;
+  
+  MyBitArray bitmask;
+  bitmask.resize(lrd*lrw*lrh);
+  QList<int> ut;
+  for(qint64 d=0; d<lrd; d++)
+    for(qint64 w=0; w<lrw; w++)
+      for(qint64 h=0; h<lrh; h++)
+	{
+	  qint64 idx = ((qint64)d)*lrw*lrh + ((qint64)w)*lrh + h;
+	  if (lmask[idx] > 0 && !ut.contains(lmask[idx]))
+	    ut << lmask[idx];
+	}
+
+  QMessageBox::information(0, "", QString("Labels Used: %1").arg(ut.count()));
+
+  // ------------------
+  // calculate weights for Gaussian filter
+  float weights[100];
+  float wsum = 0.0;
+  for(int i=-spread; i<=spread; i++)
+    {
+      float wgt = qExp(-qAbs(i)/(2.0*spread*spread))/(M_PI*2*spread*spread);
+      wsum +=  wgt;
+      weights[i+spread] = wgt;
+    }
+  weights[2*spread+2] = wsum;
+  // ------------------
+
+  QProgressDialog progress("Mask Upscale Operation",
+			   QString(),
+			   0, 100,
+			   0,
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);  
+  qApp->processEvents();
+
+  int nbytes = m_width*m_height;
+  uchar **val = new uchar*[2*spread+1];
+  for (int i=0; i<2*spread+1; i++)
+    {
+      val[i] = new uchar[nbytes];
+      memset(val[i], 0, nbytes);
+    }
+  uchar *final_val = new uchar[nbytes];
+
+  for(int i=0; i<ut.count(); i++)
+    {
+      progress.setValue(100*i/ut.count());
+      qApp->processEvents();
+
+      int label = ut[i];
+
+      MyBitArray tbitmask;
+      tbitmask.resize(((qint64)m_depth)*((qint64)m_width)*((qint64)m_height));
+      tbitmask.fill(false);
+      
+      for(qint64 d=0; d<lrd; d++)
+	for(qint64 w=0; w<lrw; w++)
+	  for(qint64 h=0; h<lrh; h++)
+	    {	  
+	      if (lmask[d*lrw*lrh + w*lrh + h] == label)
+		{
+		  int ds = qMax(0, (int)(d*scld-scld/2));
+		  int ws = qMax(0, (int)(w*sclw-sclw/2));
+		  int hs = qMax(0, (int)(h*sclh-sclh/2));
+		  int de = qMin(m_depth-1, (int)((d+1)*scld-scld/2));
+		  int we = qMin(m_width-1, (int)((w+1)*sclw-sclw/2));
+		  int he = qMin(m_height-1,(int)((h+1)*sclh-sclh/2));
+
+		  for(qint64 d0=ds; d0<de; d0++)
+		    for(qint64 w0=ws; w0<we; w0++)
+		      for(qint64 h0=hs; h0<he; h0++)
+			tbitmask.setBit(d0*nbytes + w0*m_height + h0, true);
+		}
+	    }
+
+      for (int i=0; i<2*spread+1; i++)
+	memset(val[i], 0, nbytes);
+
+      // populate val for smoothing
+      for(qint64 d=0; d<=spread; d++)
+	{	  
+	  for(qint64 w=0; w<m_width; w++)
+	  for(qint64 h=0; h<m_height; h++)
+	    {
+	      qint64 idx = d*nbytes + w*m_height + h;
+	      if (tbitmask.testBit(idx))
+		val[spread+d][idx] = 128;	      
+	    }
+	  if (d==0)
+	    {
+	      for (int i=0; i<spread; i++)
+		memcpy(val[i], val[spread], nbytes);
+	    }
+	}
+      
+      for(qint64 d=0; d<m_depth; d++)
+	{
+	  progress.setValue(100*d/m_depth);
+	  qApp->processEvents();
+
+	  memset(val[spread], 0, nbytes);
+	  
+	  for(qint64 w=0; w<m_width; w++)
+	  for(qint64 h=0; h<m_height; h++)
+	    {
+	      qint64 idx = d*nbytes + w*m_height + h;
+	      if (tbitmask.testBit(idx))
+		val[spread][w*m_height+h] = 128;	      
+	    }
+
+	  //------------
+	  // apply smoothing on slice
+	  memset(final_val, 0, nbytes);
+	  for(int i=0; i<m_height; i++)			
+	    for(int j=0; j<m_width; j++)				
+	      {							
+		float pj = 0;						
+		int jdx = 0;						
+		for(int j1=j-spread; j1<=j+spread; j1++)			
+		  {							
+		    int idx = qBound(0, j1, m_width-1)*m_height+i;	
+		     pj += weights[jdx]*val[spread][idx];			
+		    jdx ++;						
+		  }							
+		final_val[j*m_height+i] = pj/wsum;				
+	      }							
+	  
+	  for(int j=0; j<m_width; j++)					
+	    for(int i=0; i<m_height; i++)				
+	      {							
+		float pj = 0;						
+		int jdx = 0;						
+		for(int i1=i-spread; i1<=i+spread; i1++)			
+		  {							
+		    int idx = j*m_height + qBound(0, i1, m_height-1);	
+		    pj += weights[jdx]*final_val[idx];			
+		    jdx ++;						
+		  }							
+		val[spread][j*m_height+i] = pj/wsum;				
+	      }							
+	  //------------
+
+	  // apply smoothing across the slices
+	  for(int w=0; w<m_width; w++)
+	    for(int h=0; h<m_height; h++)
+	      {
+		float sum = 0; 
+		for(int i=0; i<2*spread+1; i++) 
+		  sum += weights[i]*val[i][w*m_height+h]; 
+
+		if (sum/wsum > 90)
+		{
+		    qint64 idx = d*m_width*m_height + w*m_height + h;
+		    m_maskDataUS[idx] = label;
+		  }
+	      }
+	  
+	  // now shift the planes
+	  uchar *tmp = val[0];
+	  for(int i=0; i<2*spread; i++)
+	    val[i] = val[i+1];
+	  val[2*spread] = tmp;	  
+	} // loop over the volume mask
+
+    } // loop over labels
+  
+  delete [] final_val;
+  for (int i=0; i<2*spread+1; i++)
+    delete [] val[i];
+  delete [] val;
+}

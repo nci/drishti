@@ -139,6 +139,8 @@ class Global
   static QString pythonVersion();
   static void setPythonDirectory(QString);
   static QString pythonDirectory();
+  static void setPythonVenv(QString);
+  static QString pythonVenv();
   
  private :
   static QWidget* m_mainWindow;
@@ -188,7 +190,8 @@ class Global
 
   static PyWidget* m_pywidget;
   static QString m_pythonVersion;
-  static QString m_pythonDirectory;  
+  static QString m_pythonDirectory;
+  static QString m_pythonVenv;  
 };
 
 #endif

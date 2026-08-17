@@ -71,6 +71,7 @@ class DrishtiPaint : public QMainWindow
 
   void on_actionPyVer_triggered();
   void on_actionPyDir_triggered();
+  void on_actionPyVenv_triggered();
 
   void on_actionAbout_triggered();
   void on_actionHelp_triggered();

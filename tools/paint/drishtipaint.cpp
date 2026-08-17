@@ -1098,6 +1098,18 @@ DrishtiPaint::on_actionPyDir_triggered()
 }
 
 void
+DrishtiPaint::on_actionPyVenv_triggered()
+{
+  QString dirname = QFileDialog::getExistingDirectory(this,
+						      "Python Virtual Environment Directory",
+						      Global::pythonVenv(),
+						      QFileDialog::ShowDirsOnly |
+						      QFileDialog::DontUseNativeDialog);
+  if (!dirname.isEmpty())
+    Global::setPythonVenv(dirname);
+}
+
+void
 DrishtiPaint::on_actionPyVer_triggered()
 {
   QString plugindir = qApp->applicationDirPath() + QDir::separator() + "pyversion";
@@ -2031,6 +2043,11 @@ DrishtiPaint::loadSettings()
 	  QString str = dlist.at(i).toElement().text();
 	  Global::setPythonDirectory(str);
 	}
+      else if (dlist.at(i).nodeName() == "python_venv")
+	{
+	  QString str = dlist.at(i).toElement().text();
+	  Global::setPythonVenv(str);
+	}
       else if (dlist.at(i).nodeName() == "scriptfolder")
 	    {
 	      QString str = dlist.at(i).toElement().text();
@@ -2085,6 +2102,13 @@ DrishtiPaint::saveSettings()
     QDomElement de0 = doc.createElement("python_dir");
     QDomText tn0;
     tn0 = doc.createTextNode(Global::pythonDirectory());
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+  {
+    QDomElement de0 = doc.createElement("python_venv");
+    QDomText tn0;
+    tn0 = doc.createTextNode(Global::pythonVenv());
     de0.appendChild(tn0);
     topElement.appendChild(de0);
   }
@@ -3181,23 +3205,15 @@ DrishtiPaint::on_actionLoadMask_triggered()
   float sclw = (float)m_width/lrw;
   float sclh = (float)m_height/lrh;
   
-  QString mesg;
-  mesg += QString("Volume Size : %1 %2 %3\n").			\
-	              arg(m_height).arg(m_width).arg(m_depth);
-  mesg += QString("Input Mask Size : %1 %2 %3\n").	\
-	              arg(lrh).arg(lrw).arg(lrd);
-  mesg += QString("Scaling applied : %1 %2 %3").	\
-	              arg(sclh).arg(sclw).arg(scld);
-  QMessageBox::information(0, "", mesg);
-
   uchar *lmask;
-  lmask = new uchar[(qint64)lrd*(qint64)lrw*(qint64)lrh];
+  lmask = new uchar[2*(qint64)lrd*(qint64)lrw*(qint64)lrh];
 
-  if (StaticFunctions::checkExtension(flnm, ".mask"))
-    {
-      mfile.read((char*)lmask, (qint64)lrd*(qint64)lrw*(qint64)lrh);
-    }
-  else if (StaticFunctions::checkExtension(flnm, ".mask.sc"))
+//  if (StaticFunctions::checkExtension(flnm, ".mask"))
+//    {
+//      mfile.read((char*)lmask, (qint64)lrd*(qint64)lrw*(qint64)lrh);
+//    }
+//  else if (StaticFunctions::checkExtension(flnm, ".mask.sc"))
+  if (StaticFunctions::checkExtension(flnm, ".mask.sc"))
     {
       int mb100, nblocks;
       mfile.read((char*)&nblocks, 4);
@@ -3213,57 +3229,61 @@ DrishtiPaint::on_actionLoadMask_triggered()
 	    {
 	      QMessageBox::information(0, "", "Error in decompression : .mask.sc file not read");
 	      mfile.close();
+	      delete [] vBuf;
 	      return;
 	    }
 	}
-    }
-  
+      delete [] vBuf;
+    }  
   mfile.close();
 
+  VolumeOperations::upscaleMask((ushort*)lmask, lrd, lrw, lrh);
+
+  reloadAllMask();
   
-  uchar *maskptr = m_volume->memMaskDataPtr();
-
-  bool s0top = sliceZeroAtTop();
-
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-  int d;
-  for(qint64 slc=0; slc<lrd; slc++)
-    {      
-      if (s0top)
-	d = slc;
-      else
-	d = lrd-1-slc;
-      progress.setValue((95.0*d)/lrd);
-      for(qint64 w=0; w<lrw; w++)
-      for(qint64 h=0; h<lrh; h++)
-	{
-	  if (lmask[slc*lrw*lrh + w*lrh + h] > 0)
-	    {
-	      int ds = qMax(0, (int)(d*scld-scld/2));
-	      int ws = qMax(0, (int)(w*sclw-sclw/2));
-	      int hs = qMax(0, (int)(h*sclh-sclh/2));
-	      int de = qMin(m_depth-1, (int)((d+1)*scld-scld/2));
-	      int we = qMin(m_width-1, (int)((w+1)*sclw-sclw/2));
-	      int he = qMin(m_height-1,(int)((h+1)*sclh-sclh/2));
-
-	      uchar mv = lmask[slc*lrw*lrh + w*lrh + h];
-	      for(qint64 d0=ds; d0<de; d0++)
-		for(qint64 w0=ws; w0<we; w0++)
-		  for(qint64 h0=hs; h0<he; h0++)
-		    maskptr[d0*m_width*m_height + w0*m_height + h0] = mv;
-	    }
-	}
-    }
+//  uchar *maskptr = m_volume->memMaskDataPtr();
+//
+//  bool s0top = sliceZeroAtTop();
+//
+//  QProgressDialog progress("Updating voxel structure",
+//			   QString(),
+//			   0, 100,
+//			   0,
+//			   Qt::WindowStaysOnTopHint);
+//  progress.setMinimumDuration(0);
+//  int d;
+//  for(qint64 slc=0; slc<lrd; slc++)
+//    {      
+//      if (s0top)
+//	d = slc;
+//      else
+//	d = lrd-1-slc;
+//      progress.setValue((95.0*d)/lrd);
+//      for(qint64 w=0; w<lrw; w++)
+//      for(qint64 h=0; h<lrh; h++)
+//	{
+//	  if (lmask[slc*lrw*lrh + w*lrh + h] > 0)
+//	    {
+//	      int ds = qMax(0, (int)(d*scld-scld/2));
+//	      int ws = qMax(0, (int)(w*sclw-sclw/2));
+//	      int hs = qMax(0, (int)(h*sclh-sclh/2));
+//	      int de = qMin(m_depth-1, (int)((d+1)*scld-scld/2));
+//	      int we = qMin(m_width-1, (int)((w+1)*sclw-sclw/2));
+//	      int he = qMin(m_height-1,(int)((h+1)*sclh-sclh/2));
+//
+//	      uchar mv = lmask[slc*lrw*lrh + w*lrh + h];
+//	      for(qint64 d0=ds; d0<de; d0++)
+//		for(qint64 w0=ws; w0<we; w0++)
+//		  for(qint64 h0=hs; h0<he; h0++)
+//		    maskptr[d0*m_width*m_height + w0*m_height + h0] = mv;
+//	    }
+//	}
+//    }
 
   delete [] lmask;
-  progress.setValue(100);
+  //progress.setValue(100);
 
-  QMessageBox::information(0, "", "Transfer Done.\n  Check 2D slice view.\n  Update 3D viewer.\n  If everything looks alright Save Work using File menu to save this change to mask file.");
+  QMessageBox::information(0, "", "Transfer Done");
 }
 //-----------------------------
 

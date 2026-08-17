@@ -81,3 +81,7 @@ QString Global::m_pythonDirectory;
 void Global::setPythonDirectory(QString s) { m_pythonDirectory = s; }
 QString Global::pythonDirectory() { return m_pythonDirectory; }
 
+QString Global::m_pythonVenv;
+void Global::setPythonVenv(QString s) { m_pythonVenv = s; }
+QString Global::pythonVenv() { return m_pythonVenv; }
+

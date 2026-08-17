@@ -962,3 +962,15 @@ DrishtiImport::on_actionPyDir_triggered()
   if (!dirname.isEmpty())
     Global::setPythonDirectory(dirname);
 }
+
+void
+DrishtiImport::on_actionPyVenv_triggered()
+{
+  QString dirname = QFileDialog::getExistingDirectory(this,
+						      "Python Virtual Environment Directory",
+						      Global::pythonVenv(),
+						      QFileDialog::ShowDirsOnly |
+						      QFileDialog::DontUseNativeDialog);
+  if (!dirname.isEmpty())
+    Global::setPythonVenv(dirname);
+}

@@ -30,6 +30,7 @@ ScriptsPlugin::~ScriptsPlugin()
     delete m_plugin;
       
   m_plugin = nullptr;
+  m_loader.unload();
 }
 
 QStringList
@@ -43,7 +44,7 @@ ScriptsPlugin::registerPlugin()
 }
 
 bool
-ScriptsPlugin::start(QString pyver, QString pydir, QString jsonflnm)
+ScriptsPlugin::start(QString pyver, QString pydir, QString pyvenv, QString jsonflnm)
 {
   QString mesg = QString("Script Plugin', 'Received JSON file: %1").arg(jsonflnm);
   //std::cout << mesg.toStdString() << "\n";
@@ -102,21 +103,18 @@ ScriptsPlugin::start(QString pyver, QString pydir, QString jsonflnm)
     //-----------------------------------    
     QString pythonDir, dllPath, libPath, scriptsPath;
     QString newPath;
-    //if (pyver.contains("3.10"))
-    //  pythonDir = "C:/Apps/Python310";
-    //if (pyver.contains("3.11"))
-    //  pythonDir = "C:/Apps/Python311";
-    //if (pyver.contains("3.12"))
-    //  pythonDir = "C:/Apps/Python312";
-    //if (pyver.contains("3.14"))
-    //  pythonDir = "C:/Apps/Python314";
     pythonDir = pydir;
         
     dllPath = pythonDir + "/DLLs";
     libPath = pythonDir + "/Lib";
     scriptsPath = pythonDir + "/Scripts";
     newPath = pythonDir + ";" + dllPath + ";" + scriptsPath + QString::fromLocal8Bit(qgetenv("PATH"));
-    
+
+    if (!pyvenv.isEmpty())
+    {
+      libPath = libPath + ";" + pyvenv + "/Lib/site-packages";
+    }
+
     qputenv("PATH", newPath.toLocal8Bit());
     qputenv("PYTHONHOME", pythonDir.toLocal8Bit());
     qputenv("PYTHONPATH", libPath.toLocal8Bit());

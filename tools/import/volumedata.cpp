@@ -161,7 +161,7 @@ VolumeData::loadPlugin(QString pluginflnm)
       QString pyver = "/pyi"+Global::pythonVersion()+".dll";
       pyver = plugindir + pyver;
       
-      if (m_scriptsPlugin.start(pyver, Global::pythonDirectory(), jsonflnm))
+      if (m_scriptsPlugin.start(pyver, Global::pythonDirectory(), Global::pythonVenv(), jsonflnm))
       { 
         m_scriptsPluginActive = true;
         //QMessageBox::information(0, "Script Plugin Loaded", "Successfully loaded script plugin");

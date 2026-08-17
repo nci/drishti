@@ -28,6 +28,8 @@ class Global
   static QString pythonVersion();
   static void setPythonDirectory(QString);
   static QString pythonDirectory();
+  static void setPythonVenv(QString);
+  static QString pythonVenv();
 
  private :
   static QString m_previousDirectory;
@@ -37,6 +39,7 @@ class Global
 
   static QString m_pythonVersion;
   static QString m_pythonDirectory;  
+  static QString m_pythonVenv;  
 };
 
 #endif

@@ -74,6 +74,7 @@
     </property>
     <addaction name="actionPyVer"/>
     <addaction name="actionPyDir"/>
+    <addaction name="actionPyVenv"/>
    </widget>
    <addaction name="menuFiles"/>
    <addaction name="menuView"/>
@@ -252,6 +253,11 @@
   <action name="actionPyDir">
    <property name="text">
     <string>Python Directory</string>
+   </property>
+  </action>
+  <action name="actionPyVenv">
+   <property name="text">
+    <string>Python venv</string>
    </property>
   </action>
  </widget>

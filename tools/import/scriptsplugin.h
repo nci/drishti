@@ -16,7 +16,7 @@ class ScriptsPlugin
     
     QStringList registerPlugin();
     
-  bool start(QString, QString, QString);
+    bool start(QString, QString, QString, QString);
 
     void init();
     void clear();

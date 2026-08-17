@@ -1650,3 +1650,19 @@ TIFF 混合方向、Paint harness 断言/保存状态、正式 GUI、Drishti 渲
 目标 i7-13700H 上同一组真实 TIFF 的文件选择、首张预览、ROI/Z、普通 Save As 和 Paint
 打开仍必须使用 2026-08-17 新包实际走一遍。只有该实机流程不再闪退，且导出目录表现为
 一个 `.pvl.nc` 清单和其连续分片，才能把目标机人工验收标为通过。
+
+#### 2026-08-17 新包
+
+四个主程序、16 个 Import 插件、TIFF helper 和 8 个 Render 插件均在本节源码之后强制
+重建。打包脚本的产品新鲜度、x64 PE、非系统 DLL 闭包、插件数量、Python/NumPy、帮助和
+脚本清单审计通过。独立解压目录中重新运行上述五项关键 smoke，全部返回 `0`；包内
+`drishtiimport.exe` 在 offscreen 事件循环保持 5 秒，`drishtipaint.exe` 在真实桌面 OpenGL
+会话保持 7 秒，均由测试主动终止。Paint 的 offscreen 启动不作为有效产品证据，因为该
+程序要求桌面 OpenGL 上下文。
+
+最终转移文件为：
+
+`C:\saveproject\LBJ-workspace\_external\drishti\.lab-agent\package\drishti-cpu-igpu-release-2026-08-17-ui-fix.zip`
+
+最终 SHA-256 必须以完成本节文档提交后重新打包并复算的值为准；不得再使用 2026-08-15
+旧包或其哈希。

@@ -329,10 +329,10 @@
      <string>File</string>
     </property>
     <addaction name="actionLoad"/>
-    <addaction name="actionLoadMask"/>
+    <addaction name="actionLoadLabels"/>
     <addaction name="separator"/>
-    <addaction name="actionExportMask"/>
-    <addaction name="actionImportMask"/>
+    <addaction name="actionExportLabels"/>
+    <addaction name="actionImportLabels"/>
     <addaction name="separator"/>
     <addaction name="actionExtractTag"/>
     <addaction name="actionMeshTag"/>
@@ -477,9 +477,9 @@
     <string>Load TF</string>
    </property>
   </action>
-  <action name="actionLoadMask">
+  <action name="actionLoadLabels">
    <property name="text">
-    <string>Load Mask</string>
+    <string>Load Labels</string>
    </property>
   </action>
   <action name="actionBakeCurves">
@@ -607,9 +607,9 @@
     <string>Load Checkpoint</string>
    </property>
   </action>
-  <action name="actionExportMask">
+  <action name="actionExportLabels">
    <property name="text">
-    <string>Export Mask To Raw</string>
+    <string>Export Labels To Raw</string>
    </property>
   </action>
   <action name="actionDeleteCheckpoint">
@@ -704,9 +704,9 @@
     <string>From File</string>
    </property>
   </action>
-  <action name="actionImportMask">
+  <action name="actionImportLabels">
    <property name="text">
-    <string>Import Mask From Raw</string>
+    <string>Import Labels From Raw</string>
    </property>
   </action>
   <action name="actionHelp2D">

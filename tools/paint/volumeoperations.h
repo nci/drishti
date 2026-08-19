@@ -411,6 +411,10 @@ class VolumeOperations
 			   qint64, qint64, qint64,
 			   int);
 
+  static void upscaleMaskUsingVDB(ushort*, int, int, int);
+//  static void parSmoothH(QList<QVariant>);
+//  static void parSmoothW(QList<QVariant>);
+//  static void parSmoothD(QList<QVariant>);
 };
 
 #endif

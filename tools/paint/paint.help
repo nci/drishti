@@ -102,3 +102,66 @@ Use "Snapshot" button to save an image from the 3D Viewer display.
 Press "o: to switch camera to orthographic projection.
 Press "p" to switch camera to perspective projection - default is perspective projection.
 #end
+
+
+#begin
+Checkpoint
+Save/retrieve label information.
+
+Checkpoints containing labels are saved to disk. Users can specify as multiple checkpoints.
+
+-----
+Save Checkpoint
+Save current labels to checkpoint file.  User is asked to name the checkpoint.
+-----
+
+-----
+Load Checkpoint
+Load and replace current labels with the one from checkpoint file.
+User is asked for the name of checkpoint to load.
+-----
+
+-----
+Delete Checkpoint
+Delete given checkpoint from checkpoint file.
+User is asked for the name of the checkpoint.
+-----
+
+
+#end
+
+#begin
+ROI
+Region of Interest
+
+Allows users to save regions for interest.  Users can specify as multiple ROIs.
+ROI buffers are saved to disk.
+
+Available on main menu under Functions -
+
+------
+Save ROI
+Save the visible portion of region labeled with <label> is saved to a ROI (region of interest) buffer.  User is asked to name the buffer.
+If no <label> is specified, all the visible region is saved to the buffer.  Label information is not saved  to the buffer, only what is visible.
+------
+
+------
+Load ROI
+
+Apply ROI (region of interest) operation to the given visible portion of the <label> labeled region.  User is asked for the ROI buffer and operation type (intersection/union/A-B/B-A/connected_to_roi) to use.  User is asked for the label number to save the result into.
+
+If no <label> is specified, all the visible region is considered for ROI operation.
+
+intersection - take intersection of <label>/visible region with roi and set its label to the selected label number.
+union - take union of <label>/visible region with roi and set its label to the selected label number.
+A-B - remove <label>/visible region from roi and set its label to the selected label number.
+B-A - remove roi from the <label>/visible region and set its label to the selected label number.
+connected_to_roi - consider all voxels of <label>/visible reion connected to roi and set their label to the selected label number.
+------
+
+------
+Delete ROI
+User is asked for the name of the ROI (region of interest) buffer to remove.
+------
+
+#end

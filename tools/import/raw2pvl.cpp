@@ -1182,12 +1182,14 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	      break;
 	    }
 
-	  int d0 = dmin + dd*svslz; 
+	  //int d0 = dmin + dd*svslz;
+	  int d0 = dmin + ((float)dd/(float)(dsz2-1))*(dmax-dmin);
 	  int d1 = d0 + svslz-1;
 
 	  if (spread == 0) // No Filter - Nearest Neighbour
 	    {
-	      d0 = dmin + dd*svslz;
+	      //d0 = dmin + dd*svslz;
+	      d0 = dmin + ((float)dd/(float)(dsz2-1))*(dmax-dmin);
 	      d1 = d0;
 	    }
 	  
@@ -1269,11 +1271,13 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		  int fi = 0;
 		  for(int j=0; j<wsz2; j++)
 		    {
-		      int y0 = wmin+j*svsl;
+		      //int y0 = wmin+j*svsl;
+		      int y0 = wmin + ((float)j/(float)(wsz2-1))*(wmax-wmin);
 		      int y1 = y0+svsl-1;
 		      for(int i=0; i<hsz2; i++)
 			{
-			  int x0 = hmin+i*svsl;
+			  //int x0 = hmin+i*svsl;
+			  int x0 = hmin + ((float)i/(float)(hsz2-1))*(hmax-hmin);
 			  int x1 = x0+svsl-1;
 			  for(int y=y0; y<=y1; y++)
 			    for(int x=x0; x<=x1; x++)

@@ -2,11 +2,7 @@
 #define SCRIPTSPLUGIN_H
 
 #include "pyplugininterface.h"
-
 #include "commonqtclasses.h"
-//#include <QObject>
-//#include <QPluginLoader>
-
 
 class ScriptsPlugin
 {

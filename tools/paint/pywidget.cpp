@@ -158,14 +158,6 @@ PyWidget::callFunctionFromScript(QString fnc)
     return false;
   }
 
-//  if (!m_plugin->hasVolumeProcessor())
-//  {
-//    QMessageBox::information(0, "Error", 
-//              QString("No Volume Processor found in script [%1]").\
-//              arg(m_plugin->scriptName()));
-//    return false;
-//  }
-
   populateArguments();
 
   bool result = m_plugin->call_function(fnc);
@@ -248,14 +240,6 @@ PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
 
   QString pythonDir, dllPath, libPath, scriptsPath;
   QString newPath;
-//  if (m_pyversionflnm.contains("3.10"))
-//    pythonDir = "C:/Apps/Python310";
-//  if (m_pyversionflnm.contains("3.11"))
-//    pythonDir = "C:/Apps/Python311";
-//  if (m_pyversionflnm.contains("3.12"))
-//    pythonDir = "C:/Apps/Python312";
-//  if (m_pyversionflnm.contains("3.14"))
-//    pythonDir = "C:/Apps/Python314";
   
   pythonDir = Global::pythonDirectory();
   
@@ -268,8 +252,6 @@ PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
   if (!venv.isEmpty())
     {
       libPath = libPath + ";" + venv + "/Lib/site-packages";
-      //scriptsPath = scriptsPath + ";" + venv +"/Scripts";
-      //newPath = venv + ";" + newPath;
     }
 
   qputenv("PATH", newPath.toLocal8Bit());

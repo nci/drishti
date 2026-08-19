@@ -32,7 +32,9 @@ VolumeFileManager::~VolumeFileManager()
     {
       if (m_handler->savingFile())
 	{
-	  QMessageBox::information(0, "Saving Mask File", "Please wait a minute and then close this window");
+	  QMessageBox::information(Global::mainWindow(),
+				   "Saving Mask File",
+				   "Please wait a minute and then close this window");
 	}
     }
   
@@ -84,7 +86,7 @@ VolumeFileManager::checkPoint()
     cflnm.chop(3);
   cflnm += ".checkpoint";
   bool ok;
-  QString desc = QInputDialog::getText(0,
+  QString desc = QInputDialog::getText(Global::mainWindow(),
 				       "Checkpoint",
 				       "Description",
 				       QLineEdit::Normal,
@@ -93,7 +95,9 @@ VolumeFileManager::checkPoint()
   desc = desc.trimmed();
   if (!ok || desc.isEmpty())
     {
-      QMessageBox::information(0, "Checkpoint", "Empty description not allowed - checkpoint not saved\nPlease try again.");
+      QMessageBox::information(Global::mainWindow(),
+			       "Checkpoint",
+			       "Empty description not allowed - checkpoint not saved\nPlease try again.");
       return;
     }
   
@@ -360,7 +364,7 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 				   arg(mflnm),
 				   "Cancel",
 				   0, 100,
-				   0,
+				   Global::mainWindow(),
 				   Qt::WindowStaysOnTopHint);
 	  progress.setMinimumDuration(0);
 	  progress.setCancelButton(0);
@@ -429,7 +433,7 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
 			   arg(m_baseFilename),
 			   "Cancel",
 			   0, 100,
-			   0);
+			   Global::mainWindow());
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
 
@@ -1105,7 +1109,7 @@ VolumeFileManager::saveSlicesToFile()
 			   arg(m_baseFilename),
 			   "Cancel",
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
@@ -1188,7 +1192,7 @@ VolumeFileManager::saveMemFile()
     }
 
 
-  QMessageBox::information(0,
+  QMessageBox::information(Global::mainWindow(),
 			   "Why are we here ?",
 			   "We really shouldn't be in this part of the code !!");
     
@@ -1198,7 +1202,7 @@ QString
 VolumeFileManager::exportMask()
 {
   QString flnm;
-  flnm = QFileDialog::getSaveFileName(0,
+  flnm = QFileDialog::getSaveFileName(Global::mainWindow(),
 				      "Export to .raw file",
 				      Global::previousDirectory(),
 				      "Mask Files (*.raw)",
@@ -1223,7 +1227,7 @@ VolumeFileManager::exportMask()
   QProgressDialog progress(QString("Saving %1").arg(flnm),
 			   "Cancel",
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
@@ -1264,7 +1268,9 @@ VolumeFileManager::loadRawFile(QString flnm)
 {
   if (m_bytesPerVoxel == 1)
     {
-      QMessageBox::information(0, "Error", "Cannot proceed to replace 8bit label data");
+      QMessageBox::information(Global::mainWindow(),
+			       "Error",
+			       "Cannot proceed to replace 8bit label data");
       return;
     }
   
@@ -1272,7 +1278,7 @@ VolumeFileManager::loadRawFile(QString flnm)
 			   arg(flnm),
 			   "Cancel",
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
@@ -1388,7 +1394,7 @@ VolumeFileManager::loadMemFile()
 			   arg(m_baseFilename),
 			   "Cancel",
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
@@ -1438,7 +1444,8 @@ VolumeFileManager::loadMemFile()
     {
       if (StaticFunctions::checkExtension(m_filenames[0], ".mask"))
 	{
-	  QMessageBox::information(0, "", "saveMemFile - from loadMemFile");
+	  QMessageBox::information(Global::mainWindow(),
+				   "", "saveMemFile - from loadMemFile");
 	  m_handler->saveMemFile();
 	}
     }
@@ -1647,7 +1654,7 @@ VolumeFileManager::setValueMem(int d, int w, int h, int val)
   else if (m_bytesPerVoxel == 2)
     ((ushort*)m_volData)[d*m_width*m_height + w*m_height + h] = val;
   
-//  QMessageBox::information(0, "", QString("%1 %2 %3 : %4").\
+//  QMessageBox::information(Global::mainWindow(), "", QString("%1 %2 %3 : %4").\
 //			   arg(d).arg(w).arg(h).arg(m_volData[d*m_width*m_height + w*m_height + h]));
 
   m_memChanged = true;

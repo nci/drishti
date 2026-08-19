@@ -92,9 +92,6 @@
   connect(m_viewer, SIGNAL(reloadMask()),
 	  this, SLOT(reloadMask()));
 
-  connect(m_viewer, SIGNAL(loadRawMask(QString)),
-	  this, SLOT(loadRawMask(QString)));
-
 //  connect(m_viewer, SIGNAL(updateSliceBounds(Vec, Vec)),
 //	  this, SLOT(updateSliceBounds(Vec, Vec)));
 

@@ -921,7 +921,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 void
 Viewer::commandEditor()
 {
-  PropertyEditor propertyEditor;
+  PropertyEditor propertyEditor(this);
   QMap<QString, QVariantList> plist;
   QVariantList vlist;
   vlist.clear();
@@ -1071,34 +1071,8 @@ Viewer::processCommand(QString cmd)
       emit tagsUsed(ut);
       return;
     }
-
-  if (list[0] == "savetoroi")
-    {
-      int tag = -1;
-      if (list.size() == 2)
-	tag = list[1].toInt(&ok);
-
-      saveToROI(tag);
-      return;
-    }
-
-  if (list[0] == "roi")
-    {
-      int tag = -1;
-      if (list.size() == 2)
-	tag = list[1].toInt(&ok);
-
-      roiOperation(tag);
-      return;
-    }
-  
-  if (list[0] == "deleteroi")
-    {
-      VolumeOperations::deleteROI();
-      return;     
-    }
        
-  if (list[0] == "cc")
+  if (list[0] == "connected_components")
     {
       int tag = -1;
       if (list.size() == 2)
@@ -1108,29 +1082,14 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0] == "dt")
+  if (list[0] == "distance_transform")
     {
       distanceTransform(-1, 0);
-      
-//      int tag = -1;
-//      int size = -1;
-//      if (list.size() == 2)
-//	{
-//	  size = list[1].toInt(&ok);
-//	  if (size > 0)
-//	    {
-//	      distanceTransform(tag, size);
-//	      return;
-//	    }
-//	}
-//
-//      QMessageBox::information(0, "DistanceTransform", "Expecting - dt <size>");
-      
       return;
     }
 
 
-  if (list[0] == "lt")
+  if (list[0] == "local_thickness")
     {
       int label = -1;
       if (list.size() == 2)
@@ -1140,7 +1099,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0] == "removecomponents")
+  if (list[0] == "remove_small_components")
     {
       int tag = -1;
       if (list.size() == 2)
@@ -1150,7 +1109,7 @@ Viewer::processCommand(QString cmd)
       
       return;
     }
-  if (list[0] == "removelargestcomponents")
+  if (list[0] == "remove_largest_components")
     {
       int tag = -1;
       if (list.size() == 2)
@@ -1430,18 +1389,6 @@ Viewer::processCommand(QString cmd)
       emit reloadMask();
       return;
     }
-  if (list[0] == "loadmask")
-    {
-      QString flnm;
-      flnm = QFileDialog::getOpenFileName(0,
-					  "Raw Mask File",
-					  Global::previousDirectory(),
-					  "Raw Mask Files (*.raw)");
-      
-      if (flnm.isEmpty())
-	return;
-      emit loadRawMask(flnm);
-    }
   
   if (list[0] == "measures")
     {
@@ -1583,7 +1530,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
   
-  if (list[0] == "d2s")
+  if (list[0] == "distance_to_surface")
     {
       int label = -1;
       if (list.size() == 2)
@@ -1637,7 +1584,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0] == "mergetf")
+  if (list[0] == "merge_labels")
     {
       if (list.size() == 3)
 	{
@@ -1710,14 +1657,14 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0] == "modifyoriginalvolume")
+  if (list[0] == "modify_original_volume")
     {
       QStringList dtypes;
       dtypes << "No";
       dtypes << "Yes"; 
       bool ok;
-      QString option = QInputDialog::getItem(0,
-				  "Modify Original Volume",
+      QString option = QInputDialog::getItem(this,
+					     "Modify Original Volume",
 				   QString("BE VERY CAREFUL WHEN USING THIS FUNCTION\nOriginal Volume will be modified.\nValues for the voxels in the region that is invisible in the 3D Preview window\nwill be replaced with the value that you specify.\nDo you want to proceed ?"),
 				   dtypes,
 				   0,
@@ -1732,7 +1679,7 @@ Viewer::processCommand(QString cmd)
       
       int val = 0;
       int maxlevel = (Global::bytesPerVoxel() == 1 ? 255 : 65535);
-      val = QInputDialog::getInt(0,
+      val = QInputDialog::getInt(this,
 				  "Modify Original Volume",
 				  "Please specify value for voxels in the transparent region.",
 				 0, 0, maxlevel, 1);
@@ -2309,7 +2256,7 @@ Viewer::updateVoxelsForRaycast()
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   //----------------------------
@@ -2710,7 +2657,7 @@ Viewer::generateBoxes()
   QProgressDialog progress("Updating box structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -3214,7 +3161,7 @@ Viewer::hatch()
 
   bool ok;
   int ctag = -1;
-  ctag = QInputDialog::getInt(0,
+  ctag = QInputDialog::getInt(this,
 			      "Hatch Region",
 			      QString("Region will be hatched with current label value (%1).\nSpecify label value of connected region (-1 for connected visible region).").arg(Global::tag()),
 			      -1, -1, 65535, 1,
@@ -3411,7 +3358,7 @@ Viewer::smoothRegion(bool flag, int tag, int filterWidth)
 
   bool ok;
   if (tag == -1)
-    tag = QInputDialog::getInt(0,
+    tag = QInputDialog::getInt(this,
 			       "Smooth Region",
 			       mesg,
 			       -1, -1, 65535, 1,
@@ -3420,7 +3367,7 @@ Viewer::smoothRegion(bool flag, int tag, int filterWidth)
     return;
 
   if (filterWidth == -1)
-    filterWidth = QInputDialog::getInt(0,
+    filterWidth = QInputDialog::getInt(this,
 				       "Gaussian Filter Width",
 				       "filter width",
 				       1, 1, 5, 1,
@@ -3455,7 +3402,7 @@ Viewer::regionGrowing(bool sw)
       cout << "fill region" << endl;
       bool ok;
       int ctag = -1;
-      ctag = QInputDialog::getInt(0,
+      ctag = QInputDialog::getInt(this,
 				  "Fill",
 				  QString("Connected region will be filled with current label value (%1).\nSpecify label value of connected region (-1 for connected visible region).").arg(Global::tag()),
 				  -1, -1, 65535, 1,
@@ -3472,7 +3419,7 @@ Viewer::regionGrowing(bool sw)
       dtypes << "Shell";
       dtypes << "Tubes";
       bool ok;
-      QString option = QInputDialog::getItem(0,
+      QString option = QInputDialog::getItem(this,
 					     "Shrinkwrap",
 					     "Shrinkwrap/Shell/Tubes",
 					     dtypes,
@@ -3494,7 +3441,7 @@ Viewer::regionGrowing(bool sw)
 	      mesg = "Identify tubes in ";
 
       int ctag = -1;
-      ctag = QInputDialog::getInt(0,
+      ctag = QInputDialog::getInt(this,
 				  "Shrinkwrap/Shell/Tubes",
 				  QString("%1 connected region with current label value (%2).\nSpecify label value of connected region (-1 for connected visible region).").\
 				  arg(mesg).\
@@ -3511,7 +3458,7 @@ Viewer::regionGrowing(bool sw)
 
       int thickness = 1;
       if (shell)
-	        thickness = QInputDialog::getInt(0,
+	        thickness = QInputDialog::getInt(this,
 					 "Shell thickness",
 					 "Shell thickness",
 					 1, 1, 50, 1);
@@ -3752,7 +3699,7 @@ Viewer::saveImage()
   else
     {
       QString flnm;
-      flnm = QFileDialog::getSaveFileName(0,
+      flnm = QFileDialog::getSaveFileName(this,
 		  "Save snapshot",
 		  Global::previousDirectory(),
 		  "Image Files (*.png *.tif *.bmp *.jpg)");
@@ -3769,7 +3716,7 @@ void
 Viewer::saveImageSequence()
 {
   QString flnm;
-  flnm = QFileDialog::getSaveFileName(0,
+  flnm = QFileDialog::getSaveFileName(this,
 				      "Save Movie / Image Sequence",
 				      Global::previousDirectory(),
        "*.mp4 ;; *.png *.tif *.bmp *.jpg");
@@ -4000,7 +3947,7 @@ Viewer::generateBoxMinMax()
   QProgressDialog progress(QString("Updating min-max structure (%1)").arg(m_boxSize),
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -4069,7 +4016,7 @@ Viewer::usedTags()
   QProgressDialog progress("Calculating labels Used",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -4144,7 +4091,7 @@ Viewer::markValidBoxes()
   QProgressDialog progress("Marking valid boxes - (1/2)",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -4311,7 +4258,7 @@ Viewer::generateDrawBoxes()
   QProgressDialog progress("Marking valid boxes - (2/2)",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -4382,7 +4329,7 @@ Viewer::loadAllBoxesToVBO()
   QProgressDialog progress("Loading box structure to vbo",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -4531,7 +4478,7 @@ Viewer::allMeasures(int label)
 {
   QMap<QString, bool> flags;
   
-  PropertyEditor propertyEditor;
+  PropertyEditor propertyEditor(this);
   QMap<QString, QVariantList> plist;
 
   QStringList keys;

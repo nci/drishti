@@ -472,6 +472,11 @@ DrishtiImport::loadSettings()
 	  QString str = dlist.at(i).toElement().text();
 	  Global::setPythonDirectory(str);
 	}
+      if (dlist.at(i).nodeName() == "python_venv")
+	{
+	  QString str = dlist.at(i).toElement().text();
+	  Global::setPythonVenv(str);
+	}
     }
 }
 
@@ -495,6 +500,13 @@ DrishtiImport::saveSettings()
     QDomElement de0 = doc.createElement("python_dir");
     QDomText tn0;
     tn0 = doc.createTextNode(Global::pythonDirectory());
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
+  {
+    QDomElement de0 = doc.createElement("python_venv");
+    QDomText tn0;
+    tn0 = doc.createTextNode(Global::pythonVenv());
     de0.appendChild(tn0);
     topElement.appendChild(de0);
   }

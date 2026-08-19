@@ -164,7 +164,6 @@ VolumeData::loadPlugin(QString pluginflnm)
       if (m_scriptsPlugin.start(pyver, Global::pythonDirectory(), Global::pythonVenv(), jsonflnm))
       { 
         m_scriptsPluginActive = true;
-        //QMessageBox::information(0, "Script Plugin Loaded", "Successfully loaded script plugin");
         return true;
       }
 

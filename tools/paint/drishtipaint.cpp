@@ -1136,7 +1136,7 @@ DrishtiPaint::on_actionPyVer_triggered()
 
   if (list.size() == 0)
     {
-      QMessageBox::information(0, "Error", QString("No python versions found in %1").arg(plugindir));
+      QMessageBox::information(this, "Error", QString("No python versions found in %1").arg(plugindir));
       close();
     }
 
@@ -1188,7 +1188,7 @@ DrishtiPaint::on_actionAbout_triggered()
   mesg += "Drishti User Group :\nhttps://groups.google.com/group/drishti-user-group\n\n";
   mesg += "YouTube :\nhttps://www.youtube.com/user/900acl/videos?sort=dd&flow=list&page=1&view=1\n";
 
-  QMessageBox::information(0, "Drishti", mesg);
+  QMessageBox::information(this, "Drishti", mesg);
 }
 
 
@@ -1199,7 +1199,7 @@ void DrishtiPaint::on_saveImage_triggered()
   itype << "Y";
   itype << "X";
   bool ok;
-  QString option = QInputDialog::getItem(0,
+  QString option = QInputDialog::getItem(this,
 					 "Save Image Slice",
 					 "Image plane",
 					 itype,
@@ -1224,7 +1224,7 @@ void DrishtiPaint::on_saveImageSequence_triggered()
   itype << "Y";
   itype << "X";
   bool ok;
-  QString option = QInputDialog::getItem(0,
+  QString option = QInputDialog::getItem(this,
 					 "Save All Image Slices ",
 					 "Image plane",
 					 itype,
@@ -1283,7 +1283,7 @@ DrishtiPaint::on_saveWork_triggered()
 
       m_volume->exiting();
 
-      QMessageBox::information(0, "Save Work", "Saved");
+      QMessageBox::information(this, "Save Work", "Saved");
     }
 }
 void
@@ -1679,7 +1679,7 @@ void
 DrishtiPaint::on_actionLoad_triggered()
 {
   QString flnm;
-  flnm = QFileDialog::getOpenFileName(0,
+  flnm = QFileDialog::getOpenFileName(this,
 				      "Load Processed Volume File",
 				      Global::previousDirectory(),
 				      "PVL Files (*.pvl.nc)",
@@ -2170,7 +2170,7 @@ DrishtiPaint::saveSettings()
       f.close();
     }
   else
-    QMessageBox::information(0, "Cannot save ", flnm.toUtf8().data());
+    QMessageBox::information(this, "Cannot save ", flnm.toUtf8().data());
 }
 
 void
@@ -2200,7 +2200,7 @@ DrishtiPaint::openRecentFile()
       QFileInfo fileInfo(filename);
       if (! fileInfo.exists())
 	{
-	  QMessageBox::information(0, "Error",
+	  QMessageBox::information(this, "Error",
 				   QString("Cannot locate ") +
 				   filename +
 				   QString(" for loading"));
@@ -2251,7 +2251,7 @@ DrishtiPaint::loadVolumeFromProject(const char *flnm)
 	  QString vfile = direc.absoluteFilePath(str);
 
 	  if (vlist.count() > 1)
-	    QMessageBox::information(0, "Volume series",
+	    QMessageBox::information(this, "Volume series",
 	       QString("Choosing only first volume\n %1 volumes in the list").arg(vlist.count()));
 
 	  return vfile;
@@ -2510,7 +2510,7 @@ DrishtiPaint::applyMaskOperation(int tag,
   QProgressDialog progress(QString("%1 tagged(%2) region").arg(mesg).arg(tag),
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -3088,7 +3088,7 @@ DrishtiPaint::connectGraphCutMenu()
 void
 DrishtiPaint::on_actionSave_TF_triggered()
 {
-  QString tflnm = QFileDialog::getSaveFileName(0,
+  QString tflnm = QFileDialog::getSaveFileName(this,
 					       "Save Transfer Functions",
 					       Global::previousDirectory(),
 					       "Files (*.xml)",
@@ -3116,7 +3116,7 @@ DrishtiPaint::on_actionSave_TF_triggered()
 void
 DrishtiPaint::on_actionLoad_TF_triggered()
 {
-  QString tflnm = QFileDialog::getOpenFileName(0,
+  QString tflnm = QFileDialog::getOpenFileName(this,
 					       "Load Transfer Functions",
 					       Global::previousDirectory(),
 					       "Files (*.xml)",
@@ -3135,20 +3135,20 @@ DrishtiPaint::sliceZeroAtTop()
   QStringList slevels;
   slevels << "Yes - (default)";  
   slevels << "No - slice 0 is bottom slice";
-  QString option = QInputDialog::getItem(0,
-		   "Load Mask",
-		   "Slice 0 is top slice ?",
-		    slevels,
-			  0,
-		      false,
-		       &ok);
+  QString option = QInputDialog::getItem(this,
+					 "Load Labels",
+					 "Slice 0 is top slice ?",
+					 slevels,
+					 0,
+					 false,
+					 &ok);
   if (ok)
     {
       QStringList op = option.split(' ');
       if (op[0] == "No")
 	{
 	  save0attop = false;
-	  QMessageBox::information(0, "Load Mask", "First slice is now bottom slice.");
+	  QMessageBox::information(this, "Load Labels", "First slice is now bottom slice.");
 	}
     }
 
@@ -3159,13 +3159,13 @@ DrishtiPaint::sliceZeroAtTop()
 
 //-----------------------------
 void
-DrishtiPaint::on_actionLoadMask_triggered()
+DrishtiPaint::on_actionLoadLabels_triggered()
 {
   QString flnm;
-  flnm = QFileDialog::getOpenFileName(0,
+  flnm = QFileDialog::getOpenFileName(this,
 				      "Load Mask File",
 				      Global::previousDirectory(),
-				      "MASK Files (*.mask.sc | *.mask)",
+				      "Labels(MASK) Files (*.mask.sc | *.mask)",
 				      0);
 				      //QFileDialog::DontUseNativeDialog);
 
@@ -3200,11 +3200,7 @@ DrishtiPaint::on_actionLoadMask_triggered()
       mfile.read((char*)&lrw, 4);
       mfile.read((char*)&lrh, 4);
     }
-  
-  float scld = (float)m_depth/lrd;
-  float sclw = (float)m_width/lrw;
-  float sclh = (float)m_height/lrh;
-  
+    
   uchar *lmask;
   lmask = new uchar[2*(qint64)lrd*(qint64)lrw*(qint64)lrh];
 
@@ -3227,7 +3223,7 @@ DrishtiPaint::on_actionLoadMask_triggered()
 	  int bufsize = blosc_decompress(vBuf, lmask+i*mb100, mb100);
 	  if (bufsize < 0)
 	    {
-	      QMessageBox::information(0, "", "Error in decompression : .mask.sc file not read");
+	      QMessageBox::information(this, "", "Error in decompression : .mask.sc file not read");
 	      mfile.close();
 	      delete [] vBuf;
 	      return;
@@ -3239,51 +3235,12 @@ DrishtiPaint::on_actionLoadMask_triggered()
 
   VolumeOperations::upscaleMask((ushort*)lmask, lrd, lrw, lrh);
 
-  reloadAllMask();
-  
-//  uchar *maskptr = m_volume->memMaskDataPtr();
-//
-//  bool s0top = sliceZeroAtTop();
-//
-//  QProgressDialog progress("Updating voxel structure",
-//			   QString(),
-//			   0, 100,
-//			   0,
-//			   Qt::WindowStaysOnTopHint);
-//  progress.setMinimumDuration(0);
-//  int d;
-//  for(qint64 slc=0; slc<lrd; slc++)
-//    {      
-//      if (s0top)
-//	d = slc;
-//      else
-//	d = lrd-1-slc;
-//      progress.setValue((95.0*d)/lrd);
-//      for(qint64 w=0; w<lrw; w++)
-//      for(qint64 h=0; h<lrh; h++)
-//	{
-//	  if (lmask[slc*lrw*lrh + w*lrh + h] > 0)
-//	    {
-//	      int ds = qMax(0, (int)(d*scld-scld/2));
-//	      int ws = qMax(0, (int)(w*sclw-sclw/2));
-//	      int hs = qMax(0, (int)(h*sclh-sclh/2));
-//	      int de = qMin(m_depth-1, (int)((d+1)*scld-scld/2));
-//	      int we = qMin(m_width-1, (int)((w+1)*sclw-sclw/2));
-//	      int he = qMin(m_height-1,(int)((h+1)*sclh-sclh/2));
-//
-//	      uchar mv = lmask[slc*lrw*lrh + w*lrh + h];
-//	      for(qint64 d0=ds; d0<de; d0++)
-//		for(qint64 w0=ws; w0<we; w0++)
-//		  for(qint64 h0=hs; h0<he; h0++)
-//		    maskptr[d0*m_width*m_height + w0*m_height + h0] = mv;
-//	    }
-//	}
-//    }
-
   delete [] lmask;
-  //progress.setValue(100);
 
-  QMessageBox::information(0, "", "Transfer Done");
+  reloadAllMask();
+  reloadSlices();
+
+  QMessageBox::information(this, "", "Done");
 }
 //-----------------------------
 
@@ -3297,7 +3254,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   bool ok;
   //----------------
-  QString tagstr = QInputDialog::getText(0, "Extract volume data for given label",
+  QString tagstr = QInputDialog::getText(this,
+					 "Extract volume data for given label",
 	    "Label Numbers (labels should be separated by space.\n\n-1 for all labels;\nFor e.g. 1 2 5 will extract labels 1, 2 and 5\n2-5 is same as specifying  2 3 4 5)",
 					 QLineEdit::Normal,
 					 "-1",
@@ -3355,7 +3313,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
     tag << -1;
   //----------------
 
-  //  QMessageBox::information(0, "", QString("%1 : %2").arg(tag.count()).arg(tag[0]));
+  //  QMessageBox::information(this, "", QString("%1 : %2").arg(tag.count()).arg(tag[0]));
 
   //----------------
   int extractType = 1; // extract using label
@@ -3363,9 +3321,8 @@ DrishtiPaint::on_actionExtractTag_triggered()
   dtypes.clear();
   dtypes << "Label Only"
 	 << "Label + Transfer Function";
-  //dtypes << "Labels From Another Volume";
 
-  QString option = QInputDialog::getItem(0,
+  QString option = QInputDialog::getItem(this,
 					 "Extract Volume Data",
 					 "Extract Using Label + Transfer Function",
 					 dtypes,
@@ -3377,11 +3334,6 @@ DrishtiPaint::on_actionExtractTag_triggered()
       
   if (option == "Label Only") extractType = 1;
   else if (option == "Label + Transfer Function") extractType = 2;
-//  else if (option == "Labels From Another Volume")
-//    {
-//      extractFromAnotherVolume(tag);
-//      return;
-//    }
   //----------------
 
   //----------------
@@ -3390,7 +3342,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   if (Global::bytesPerVoxel() == 2)
     maxVal = 65535;
 
-  outsideVal = QInputDialog::getInt(0,
+  outsideVal = QInputDialog::getInt(this,
 				    "Outside value",
 				    QString("Set outside value (0-%1) to").arg(maxVal),
 				    0, 0, maxVal, 1);
@@ -3412,7 +3364,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   qint64 theight = maxHSlice-minHSlice+1;
   
   QString pvlFilename = m_volume->fileName();
-  QString tflnm = QFileDialog::getSaveFileName(0,
+  QString tflnm = QFileDialog::getSaveFileName(this,
 					       "Save volume",
 					       QFileInfo(pvlFilename).absolutePath(),
 					       "Volume Data Files (*.pvl.nc)",
@@ -3425,7 +3377,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   if (StaticFunctions::checkExtension(tflnm, ".pvl.nc.pvl.nc"))
     tflnm = tflnm.chopped(7);
 
-  QMessageBox::information(0, "", tflnm);
+  QMessageBox::information(this, "", tflnm);
   if (!StaticFunctions::checkExtension(tflnm, ".pvl.nc"))
     tflnm += ".pvl.nc";
   
@@ -3452,7 +3404,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
   QProgressDialog progress("Extracting labeled region from volume data",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -3612,7 +3564,7 @@ DrishtiPaint::on_actionExtractTag_triggered()
 
   
   progress.setValue(100);  
-  QMessageBox::information(0, "Save", "-----Done-----");
+  QMessageBox::information(this, "Save", "-----Done-----");
 }
 
 
@@ -3626,7 +3578,7 @@ DrishtiPaint::updateCurveMask(uchar *curveMask,
   QProgressDialog progress("Generating Curve Mask",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -3762,7 +3714,7 @@ DrishtiPaint::smoothData(uchar *gData,
   QProgressDialog progress("Applying gaussian smoothing before meshing",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -3852,7 +3804,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 {
   // get mesh file name  
   QString pvlFilename = m_volume->fileName();
-  QString tflnm = QFileDialog::getSaveFileName(0,
+  QString tflnm = QFileDialog::getSaveFileName(this,
 					       "Save mesh",
 					       QFileInfo(pvlFilename).absolutePath(),
 					       "Surface Mesh (*.ply *.obj *.stl) ;; Tetrahedral Mesh (*.msh)");
@@ -3879,7 +3831,8 @@ DrishtiPaint::on_actionMeshTag_triggered()
   QList<int> tag;
 
   bool ok;
-  QString tagstr = QInputDialog::getText(0, "Save Mesh for Label",
+  QString tagstr = QInputDialog::getText(this,
+					 "Save Mesh for Label",
 	    "Label Numbers\nlabels should be separated by space.\n-2 mesh whatever is visible.\n-1 mesh all labeled region.\n 0 mesh region that is not labeled.\n 1-254 for consecutive labels.\nFor e.g. 1 2 5 will mesh region labeled with labels 1, 2 and 5)",
 					 QLineEdit::Normal,
 					 "-2",
@@ -3937,7 +3890,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
       dtypes << "No"
 	     << "Yes";
       
-      QString option = QInputDialog::getItem(0,
+      QString option = QInputDialog::getItem(this,
 					     "Save Mesh",
 					     "Save each label independently.\nEach label will be saved in a different mesh.",
 					     dtypes,
@@ -3968,7 +3921,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		 << "Transfer Function"
 		 << "Label Color + Transfer Function";
 	  
-	  QString option = QInputDialog::getItem(0,
+	  QString option = QInputDialog::getItem(this,
 						 "Mesh Color",
 						 "Color Mesh with",
 						 dtypes,
@@ -3992,7 +3945,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
 		 << "Label Mask + Transfer Function"
 		 << "User Color";
 
-	  QString option = QInputDialog::getItem(0,
+	  QString option = QInputDialog::getItem(this,
 						 "Mesh Color",
 						 "Color Mesh with",
 						 dtypes,
@@ -4056,7 +4009,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
   QProgressDialog progress("Meshing tagged region from volume data",
 			   "",
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -4410,7 +4363,7 @@ DrishtiPaint::on_actionMeshTag_triggered()
       
     } // End Label
   
-  //QMessageBox::information(0, "Save", "-----Done-----");
+  //QMessageBox::information(this, "Save", "-----Done-----");
   QMessageBox mb;
   mb.setWindowTitle("Save");
   mb.setText("-----Done-----");
@@ -4453,7 +4406,7 @@ DrishtiPaint::colorMesh(QVector<QVector3D>& C,
   QProgressDialog progress("Colouring mesh",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   
@@ -4901,7 +4854,7 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax)
     }
 
   if (!found)
-    QMessageBox::information(0, "", "No painted region found");
+    QMessageBox::information(this, "", "No painted region found");
 }
 
 bool
@@ -4918,7 +4871,7 @@ DrishtiPaint::tagUsingSketchPad(Vec bmin, Vec bmax, int tag)
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setLabelText("Locating initial seed");
@@ -5147,7 +5100,7 @@ DrishtiPaint::updateModifiedRegion(int minD, int maxD,
   QProgressDialog progress("Update modified region in 2D slice viewer",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -5210,7 +5163,7 @@ DrishtiPaint::poreId(Vec bmin, Vec bmax, int tag1, int tag2, int holeSize, int f
 		       minW, maxW,
 		       minH, maxH);
 
-  QMessageBox::information(0, "", "Pore Identification done");
+  QMessageBox::information(this, "", "Pore Identification done");
 }
 
 void
@@ -5254,7 +5207,7 @@ DrishtiPaint::shrinkwrap(Vec bmin, Vec bmax, int tag,
 		       minW, maxW,
 		       minH, maxH);
 
-  QMessageBox::information(0, "", "Shrinkwrap done");
+  QMessageBox::information(this, "", "Shrinkwrap done");
 }
 
 void
@@ -5294,21 +5247,7 @@ DrishtiPaint::tagTubes(Vec bmin, Vec bmax, int tag,
 		       minW, maxW,
 		       minH, maxH);
 
-  QMessageBox::information(0, "", "Tag Tubes done");
-}
-
-void
-DrishtiPaint::loadRawMask(QString flnm)
-{
-  m_volume->loadRawMask(flnm);
-
-  m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
-
-  reloadAllMask();
-  //int m_depth, m_width, m_height;
-  //m_volume->gridSize(m_depth, m_width, m_height);
-  //m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
-  QMessageBox::information(0, "", "done");
+  QMessageBox::information(this, "", "Tag Tubes done");
 }
 
 void
@@ -5334,7 +5273,7 @@ DrishtiPaint::reloadMask()
 
   reloadAllMask();
 
-  QMessageBox::information(0, "", "done");
+  QMessageBox::information(this, "", "done");
 }
 
 void
@@ -6018,7 +5957,7 @@ DrishtiPaint::modifyOriginalVolume(Vec bmin, Vec bmax, int val)
 
   m_volume->saveModifiedOriginalVolume();
   
-  QMessageBox::information(0, "", "Modified Volume Saved.");
+  QMessageBox::information(this, "", "Modified Volume Saved.");
 }
 
 void
@@ -6026,13 +5965,13 @@ DrishtiPaint::bakeCurves_clicked()
 {
   if (!m_volume->isValid())
     {
-      QMessageBox::information(0, "Error", "No volume data found !");
+      QMessageBox::information(this, "Error", "No volume data found !");
       return;
     }
   
 
   bool ok;
-  int tag = QInputDialog::getInt(0,
+  int tag = QInputDialog::getInt(this,
 				 "Bake curves for Label",
 				 "Value (0-65535)\n Everything visible inside the interpolated\n curves will be labelled with given label value.",
 				 0, 0, 65535, 1,
@@ -6058,7 +5997,7 @@ DrishtiPaint::bakeCurves_clicked()
   QProgressDialog progress("Baking curves into label data",
 			   QString(),
 			   0, 100,
-			   0,
+			   this,
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -6071,7 +6010,8 @@ DrishtiPaint::bakeCurves_clicked()
     }
   catch (std::exception &e)
     {
-      QMessageBox::information(0, "", "Not enough memory : Cannot create curve mask.\nOffloading volume data and mask.");
+      QMessageBox::information(this, "",
+			       "Not enough memory : Cannot create curve mask.\nOffloading volume data and mask.");
       m_volume->offloadMemFile();
       
       curveMask = new uchar[tdepth*twidth*theight];
@@ -6121,7 +6061,7 @@ DrishtiPaint::bakeCurves_clicked()
   m_coronalCurves->sliceChanged();
 
   progress.setValue(100);  
-  QMessageBox::information(0, "Converted", "-----Done-----");
+  QMessageBox::information(this, "Converted", "-----Done-----");
 }
 
 void
@@ -6129,7 +6069,7 @@ DrishtiPaint::on_changeSliceOrdering_triggered()
 {
   if (!m_volume->isValid())
     {
-      QMessageBox::information(0, "Error", "No volume data found !");
+      QMessageBox::information(this, "Error", "No volume data found !");
       return;
     }
 
@@ -6198,7 +6138,7 @@ DrishtiPaint::showVolumeInformation()
 {
   if (!m_volume->isValid())
     {
-      QMessageBox::information(0, "Error", "No volume data found !");
+      QMessageBox::information(this, "Error", "No volume data found !");
       return;
     }
 
@@ -6215,282 +6155,58 @@ DrishtiPaint::showVolumeInformation()
   mesg += QString("Voxel Size : %1 %2 %3\n").arg(voxelSize.x).arg(voxelSize.y).arg(voxelSize.z);
   mesg += QString("Voxel Unit : %1\n").arg(pvlInfo.voxelUnitStringShort());
 
-  QMessageBox::information(0, "Volume Information", mesg);
+  QMessageBox::information(this, "Volume Information", mesg);
 }
 
 void
-DrishtiPaint::extractFromAnotherVolume(QList<int> tags)
-{
-  QString flnm;
-  flnm = QFileDialog::getOpenFileName(0,
-				      "Another Volume file to extract from",
-				      Global::previousDirectory(),
-				      "PVL Files (*.pvl.nc)",
-				      0);
-				      //QFileDialog::DontUseNativeDialog);
-  
-  
-  if (flnm.isEmpty())
-    return;
-  
-  if (!StaticFunctions::xmlHeaderFile(flnm))
-    {
-      QMessageBox::information(0, "Error",
-			       QString("%1 is not a valid preprocessed volume file").
-			       arg(flnm));
-      return;
-    }
-
-  VolumeFileManager aVolume;
-  
-  int aDepth,aWidth,aHeight;
-  StaticFunctions::getDimensionsFromHeader(flnm,
-					   aDepth, aWidth, aHeight);
-
-  int slabSize = StaticFunctions::getSlabsizeFromHeader(flnm);	  
-  int voxelType = StaticFunctions::getPvlVoxelTypeFromHeader(flnm);
-  int headerSize = StaticFunctions::getPvlHeadersizeFromHeader(flnm);
-  QStringList pvlnames = StaticFunctions::getPvlNamesFromHeader(flnm);
-  if (pvlnames.count() > 0)
-    aVolume.setFilenameList(pvlnames);
-  aVolume.setBaseFilename(flnm);
-  aVolume.setVoxelType(voxelType);
-  aVolume.setDepth(aDepth);
-  aVolume.setWidth(aWidth);
-  aVolume.setHeight(aHeight);
-  aVolume.setHeaderSize(headerSize);
-  aVolume.setSlabSize(slabSize);
-
-  int bpv = 1;
-  if (voxelType <2)
-    bpv = 1;
-  else if (voxelType < 4)
-    bpv = 2;
-  else
-    bpv = 4;
-
-
-  //----------------
-  int outsideVal = 0;
-  if (bpv == 1)
-    {
-      outsideVal = QInputDialog::getInt(0,
-					"Outside value",
-					"Set outside value (0-255) to",
-					0, 0, 255, 1);
-    }
-  else
-    {
-      outsideVal = QInputDialog::getInt(0,
-					"Outside value",
-					"Set outside value (0-65535) to",
-					0, 0, 65535, 1);
-    }
-  //----------------
-
-  //----------------
-  int clearance = QInputDialog::getInt(0,
-				       "Clearance for tight fit",
-				       "Gap from edge to first contributing voxel",
-				       0, 0, 20);
-  //----------------
-
-  
-  //----------------
-  QString pvlFilename = m_volume->fileName();
-  QString tagflnm = QFileDialog::getSaveFileName(0,
-						 "Save extracted volume into",
-						 QFileInfo(pvlFilename).absolutePath(),
-						 "Volume Data Files (*.pvl.nc)",
-						 0);
-						 //QFileDialog::DontUseNativeDialog);
-  
-  if (tagflnm.isEmpty())
-    return;
-  //----------------
-  
-  //----------------
-  // original volume
-  int depth, width, height;
-  m_volume->gridSize(depth, width, height);
-  //----------------
-
-  
-  QProgressDialog progress("Extracting tagged region from volume data",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
-      
-  // currently take only first tag
-  for (int tt=0; tt<tags.count(); tt++)
-    {
-      int tag = tags[tt];
-      
-      QString tflnm = tagflnm;
-      if (StaticFunctions::checkExtension(tflnm, ".pvl.nc"))
-	tflnm = tflnm.chopped(7);
-      tflnm += QString("-%1.pvl.nc").arg(tag);
-
-      progress.setLabelText(QString("Extracting tag %1 to %2").	\
-			    arg(tag).arg(tflnm));
-  
-      int minDSlice, maxDSlice;
-      int minWSlice, maxWSlice;
-      int minHSlice, maxHSlice;
-      m_volume->findStartEndForTag(tag,
-				   minDSlice, maxDSlice,
-				   minWSlice, maxWSlice,
-				   minHSlice, maxHSlice);
-      
-      minDSlice = qMax(0, minDSlice-clearance);
-      maxDSlice = qMin(depth-1, maxDSlice+clearance);
-      minWSlice = qMax(0, minWSlice-clearance);
-      maxWSlice = qMin(width-1, maxWSlice+clearance);
-      minHSlice = qMax(0, minHSlice-clearance);
-      maxHSlice = qMin(height-1, maxHSlice+clearance);
-      
-//      QMessageBox::information(0, "", QString("Volume Size :\n%1 %2\n%3 %4\n%5 %6"). \
-//			       arg(minD).arg(maxD).arg(minW).arg(maxW).	\
-//			       arg(minH).arg(maxH));
-      
-      float scld = (float)aDepth/(float)depth;
-      float sclw = (float)aWidth/(float)width;
-      float sclh = (float)aHeight/(float)height;
-      
-      
-      int aminD = scld*minDSlice;
-      int amaxD = scld*maxDSlice;
-      int aminW = sclw*minWSlice;
-      int amaxW = sclw*maxWSlice;
-      int aminH = sclh*minHSlice;
-      int amaxH = sclh*maxHSlice;
-      qint64 atdepth = amaxD-aminD+1;
-      qint64 atwidth = amaxW-aminW+1;
-      qint64 atheight = amaxH-aminH+1;
-      
-      
-      savePvlHeader(m_volume->fileName(),
-		    tflnm,
-		    atdepth, atwidth, atheight,
-		    bpv);
-      
-      QStringList tflnms;
-      tflnms << tflnm+".001";
-      VolumeFileManager tFile;
-      tFile.setFilenameList(tflnms);
-      if (bpv == 1)
-	      tFile.setVoxelType(VolumeFileManager::_UChar);
-      else
-	      tFile.setVoxelType(VolumeFileManager::_UShort);
-      tFile.setDepth(atdepth);
-      tFile.setWidth(atwidth);
-      tFile.setHeight(atheight);
-      tFile.setSlabSize(atdepth+1);
-      tFile.createFile(true, false);
-      
-      uchar *maskData = m_volume->memMaskDataPtr();
-      
-      int nbytes = aWidth*aHeight*bpv;
-      uchar *raw = new uchar[nbytes];
-      
-      for(int d=aminD; d<=amaxD; d++)
-	{
-	  int d2 = d/scld;
-	  
-	  int slc = d-aminD;
-	  progress.setValue((int)(100*(float)slc/(float)atdepth));
-	  qApp->processEvents();
-	  
-	  uchar *slice = aVolume.getSlice(d);
-	  ushort *sliceUS = 0;
-	  ushort *rawUS = 0;
-	  if (bpv == 2)
-	    {
-	      sliceUS = (ushort*)slice;
-	      rawUS = (ushort*)raw;
-	    }
-	  
-	  // we get value+grad from volume
-	  // we need only value part
-	  if (bpv == 1)
-	    {
-	      int i=0;
-	      for(int w=aminW; w<=amaxW; w++)
-		{
-		  int w2 = w/sclw;
-		  for(int h=aminH; h<=amaxH; h++)
-		    {
-		      int h2 = h/sclh;
-		      if (maskData[d2*width*height + w2*height + h2] == tag)
-			raw[i] = slice[w*aHeight+h];
-		      else
-			raw[i] = outsideVal;
-		      i++;
-		    }
-		}
-	    }
-	  else
-	    {
-	      int i=0;
-	      for(int w=aminW; w<=amaxW; w++)
-		{
-		  int w2 = w/sclw;
-		  for(int h=aminH; h<=amaxH; h++)
-		    {
-		      int h2 = h/sclh;
-		      if (maskData[d2*width*height + w2*height + h2] == tag)
-			rawUS[i] = sliceUS[w*aHeight+h];
-		      else
-			rawUS[i] = outsideVal;
-		      i++;
-		    }
-		}
-	    }
-	  
-	  tFile.setSlice(slc, raw);
-	} // loop on slices
-
-      delete [] raw;
-    } // loop on tags
-
-  progress.setValue(100);  
-  QMessageBox::information(0, "Save", "-----Done-----");
-}
-
-void
-DrishtiPaint::on_actionExportMask_triggered()
+DrishtiPaint::on_actionExportLabels_triggered()
 {
   m_volume->exportMask();
 }
 
 void
-DrishtiPaint::on_actionImportMask_triggered()
+DrishtiPaint::on_actionImportLabels_triggered()
 {
   QString flnm;
-  flnm = QFileDialog::getOpenFileName(0,
-				      "Raw Mask File",
+  flnm = QFileDialog::getOpenFileName(this,
+				      "Raw Labels File",
 				      Global::previousDirectory(),
-				      "Raw Mask Files (*.raw)");
+				      "Raw Labels Files (*.raw)");
   
   if (flnm.isEmpty())
     return;
+  QFile qfile;
+  qfile.setFileName(flnm);
+  qfile.open(QFile::ReadOnly);
+  uchar vt = 0;
+  int bpl, ldepth, lwidth, lheight;
+  
+  qfile.read((char*)&vt, 1);
+  bpl = 1; // 1-byte per label
+  if (vt == 2) bpl = 2; // 2-bytes per label
+  qfile.read((char*)&ldepth, 4);
+  qfile.read((char*)&lwidth, 4);
+  qfile.read((char*)&lheight, 4);
+  qint64 gsz = (qint64)ldepth*(qint64)lwidth*(qint64)lheight;
+  uchar *lmask = new uchar[2*gsz];
+  qfile.read((char*)lmask, bpl*gsz);
+  qfile.close();
 
-  m_volume->loadRawMask(flnm);
+  if (bpl == 1)
+    {
+      ushort* lmaskUS = (ushort*)lmask;
+      for(int i=gsz-1; i>=0; i--)
+	lmaskUS[i] = lmask[i];
+    }
+  
+  VolumeOperations::upscaleMask((ushort*)lmask, ldepth, lwidth, lheight);
 
-  m_viewer->setMaskDataPtr(m_volume->memMaskDataPtr());
+  delete [] lmask;
 
-  int m_depth, m_width, m_height;
-  m_volume->gridSize(m_depth, m_width, m_height);
-  m_viewer->uploadMask(0,0,0, m_depth-1,m_width-1,m_height-1);
+  reloadAllMask();
+  reloadSlices();
 
-  // update all windows
-  m_axialImage->reloadSlice();
-  m_sagitalImage->reloadSlice();
-  m_coronalImage->reloadSlice();
-
-  QMessageBox::information(0, "", "If you are happy with the restore,\nplease save it to the mask file using Save Work");
+  QMessageBox::information(this, "", "Done");
 }
 
 void
@@ -6512,7 +6228,8 @@ DrishtiPaint::on_actionLoadCheckpoint_triggered()
 
   m_viewer->updateVoxels();
 
-  QMessageBox::information(0, "Checkpoint Restored", "If you are happy with the restore,\nplease save it to the mask file using Save Work");
+  QMessageBox::information(this, "Checkpoint Restored",
+			   "If you are happy with the restore,\nplease save it to the mask file using Save Work");
 }
 void
 DrishtiPaint::loadCheckPoint(QString flnm)
@@ -6527,7 +6244,8 @@ DrishtiPaint::loadCheckPoint(QString flnm)
 
   m_viewer->updateVoxels();
 
-  QMessageBox::information(0, "Checkpoint Restored", "If you are happy with the restore,\nplease save it to the mask file using Save Work");
+  QMessageBox::information(this, "Checkpoint Restored",
+			   "If you are happy with the restore,\nplease save it to the mask file using Save Work");
 }
 void
 DrishtiPaint::on_actionDeleteCheckpoint_triggered()
@@ -6539,7 +6257,7 @@ DrishtiPaint::on_actionDeleteCheckpoint_triggered()
 void
 DrishtiPaint::on_actionROI_triggered()
 {
-  int tag = QInputDialog::getInt(0,
+  int tag = QInputDialog::getInt(this,
 				 "Save Visible/Label as Region Of Interest",
 				 "Save Visible region (-1) or Label to ROI",
 				 -1, -1, 65534, 1);
@@ -6548,7 +6266,7 @@ DrishtiPaint::on_actionROI_triggered()
 void
 DrishtiPaint::on_actionLoadROI_triggered()
 {
-  int tag = QInputDialog::getInt(0,
+  int tag = QInputDialog::getInt(this,
 				 "Load Region Of Interest",
 				 "Interact ROI with Visible(-1) or Labeled region",
 				 -1, -1, 65534, 1);
@@ -6567,7 +6285,7 @@ DrishtiPaint::undoPaint3D()
 
   reloadAllMask();
 
-  QMessageBox::information(0, "", "done");    
+  QMessageBox::information(this, "", "done");    
 }
 
 void
@@ -6603,7 +6321,7 @@ void
 DrishtiPaint::on_actionScriptFolder_triggered()
 {
   bool ok = false;
-  QString folder = QFileDialog::getExistingDirectory(0,
+  QString folder = QFileDialog::getExistingDirectory(this,
 						     "Scripts Folder",
 						     Global::scriptFolder());
   if (!folder.isEmpty())
@@ -6640,7 +6358,7 @@ DrishtiPaint::on_actionCommand_triggered()
   
   if (Global::pythonVersion().isEmpty())
      {
-       QMessageBox::information(0, "Error", "Python version not selected");
+       QMessageBox::information(this, "Error", "Python version not selected");
        return;
      }
   
@@ -6691,7 +6409,7 @@ DrishtiPaint::on_action3DBoxSize_triggered()
   bool ok = false;
   Vec bsz = Global::boxSize3D();
   QString bsztxt = QString("%1 %2 %3").arg(bsz.x).arg(bsz.y).arg(bsz.z); 
-  QString boxstr = QInputDialog::getText(0,
+  QString boxstr = QInputDialog::getText(this,
 					 "3D Box Size",
 					 "3D Box Size for creating training set",
 					 QLineEdit::Normal,
@@ -6724,7 +6442,7 @@ void
 DrishtiPaint::on_actionClear3DList_triggered()
 {
   Global::clearBoxList3D();
-  QMessageBox::information(0, "", "3D Box List Cleared");
+  QMessageBox::information(this, "", "3D Box List Cleared");
 }
 void
 DrishtiPaint::on_action3DBoxList_triggered()
@@ -6754,7 +6472,7 @@ void
 DrishtiPaint::on_actionLoad3DList_triggered()
 {
   QString boxflnm;
-  boxflnm = QFileDialog::getOpenFileName(0,
+  boxflnm = QFileDialog::getOpenFileName(this,
 					 "Load 3D Box List To Text File",
 					 QFileInfo(m_pvlFile).absolutePath(),
 					 "Text Files (*.txt)",
@@ -6779,7 +6497,7 @@ void
 DrishtiPaint::on_actionSave3DList_triggered()
 {
   QString boxflnm;
-  boxflnm = QFileDialog::getSaveFileName(0,
+  boxflnm = QFileDialog::getSaveFileName(this,
 					 "Save 3D Box List To Text File",
 					 QFileInfo(m_pvlFile).absolutePath(),
 					 "Text Files (*.txt)",
@@ -6800,7 +6518,7 @@ DrishtiPaint::on_actionSave3DList_triggered()
       for (int i=0; i<boxList.count(); i++)
 	out << QString("%1 %2 %3\n").arg(boxList[i].x).arg(boxList[i].y).arg(boxList[i].z);
     }
-  QMessageBox::information(0, "", "Saved box list");
+  QMessageBox::information(this, "", "Saved box list");
 }
 //---------------------
 
@@ -6811,7 +6529,7 @@ DrishtiPaint::on_action2DBoxSize_triggered()
   bool ok = false;
   int bsz = Global::boxSize2D();
   QString bsztxt = QString("%1").arg(bsz);
-  QString boxstr = QInputDialog::getText(0,
+  QString boxstr = QInputDialog::getText(this,
 					 "2D Box Size",
 					 "2D Box Size for creating training set",
 					 QLineEdit::Normal,
@@ -6864,7 +6582,7 @@ void
 DrishtiPaint::on_actionLoad2DList_triggered()
 {
   QString boxflnm;
-  boxflnm = QFileDialog::getOpenFileName(0,
+  boxflnm = QFileDialog::getOpenFileName(this,
 					 "Load 2D Box List To Text File",
 					 QFileInfo(m_pvlFile).absolutePath(),
 					 "Text Files (*.txt)",
@@ -6891,7 +6609,7 @@ void
 DrishtiPaint::on_actionSave2DList_triggered()
 {
   QString boxflnm;
-  boxflnm = QFileDialog::getSaveFileName(0,
+  boxflnm = QFileDialog::getSaveFileName(this,
 					 "Save 2D Box List To Text File",
 					 QFileInfo(m_pvlFile).absolutePath(),
 					 "Text Files (*.txt)",
@@ -6910,14 +6628,14 @@ DrishtiPaint::on_actionSave2DList_triggered()
       QTextStream out(&box);
       out << str;
     }
-  QMessageBox::information(0, "", "Saved 2D box list to ");
+  QMessageBox::information(this, "", "Saved 2D box list to ");
 }
 
 void
 DrishtiPaint::on_actionClear2DList_triggered()
 {
   Global::clearBoxList2D();
-  QMessageBox::information(0, "", "2D Box List Cleared");
+  QMessageBox::information(this, "", "2D Box List Cleared");
 }
 
 void
@@ -7027,7 +6745,7 @@ DrishtiPaint::getValues(float& isoValue,
   morphoRadius = 0;
   applyVoxelScaling = true;
 
-  PropertyEditor propertyEditor;
+  PropertyEditor propertyEditor(this);
   QMap<QString, QVariantList> plist;
   
   QVariantList vlist;

@@ -19,7 +19,6 @@
 #include "cc3d.h"
 
 
-
 QString VolumeOperations::m_filename;
 QString VolumeOperations::m_roifilename;
 void VolumeOperations::setFilename(QString flnm)
@@ -144,7 +143,7 @@ VolumeOperations::saveToROI(Vec bmin, Vec bmax,
   qint64 mz = de-ds+1;
 
   bool ok;
-  QString name = QInputDialog::getText(0,
+  QString name = QInputDialog::getText(Global::mainWindow(),
 				       "Save to ROI",
 				       "ROI Name",
 				       QLineEdit::Normal,
@@ -153,7 +152,8 @@ VolumeOperations::saveToROI(Vec bmin, Vec bmax,
   name = name.trimmed();
   if (!ok || name.isEmpty())
     {
-      QMessageBox::information(0, "Save To ROI", "Empty Name not allowed - ROI not saved\nPlease try again.");
+      QMessageBox::information(Global::mainWindow(),
+			       "Save To ROI", "Empty Name not allowed - ROI not saved\nPlease try again.");
       return false;
     }
   
@@ -177,7 +177,7 @@ VolumeOperations::saveToROI(Vec bmin, Vec bmax,
   maxH = he;
 
   saveRoiToFile();
-  //QMessageBox::information(0, "Save To ROI", "Done");  
+  //QMessageBox::information(Global::mainWindow(), "Save To ROI", "Done");  
   return true;
 }
 
@@ -189,7 +189,7 @@ VolumeOperations::getROIName()
   QStringList records = m_roi.keys();
 
   bool ok;
-  mask = QInputDialog::getItem(0,
+  mask = QInputDialog::getItem(Global::mainWindow(),
 			       "ROI Operation",
 			       "Select ROI to use",
 			       records,
@@ -214,14 +214,17 @@ VolumeOperations::deleteROI()
   int rid = records.indexOf(roiName);
   if (rid < 0)
     {
-      QMessageBox::information(0, "ROI Operation Error", "Cannot find ROI : "+roiName);
+      QMessageBox::information(Global::mainWindow(),
+			       "ROI Operation Error",
+			       "Cannot find ROI : "+roiName);
       return;
     }
   
   m_roi.remove(roiName);
   saveRoiToFile();
 
-  QMessageBox::information(0, "ROI Delete", "Done");	
+  QMessageBox::information(Global::mainWindow(),
+			   "ROI Delete", "Done");	
 }
 
 bool
@@ -272,7 +275,9 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
     int rid = records.indexOf(roiName);
     if (rid < 0)
       {
-	QMessageBox::information(0, "ROI Operation Error", "Cannot find ROI : "+roiName);
+	QMessageBox::information(Global::mainWindow(),
+				 "ROI Operation Error",
+				 "Cannot find ROI : "+roiName);
 	return false;
       }
 
@@ -292,7 +297,7 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
 	   << "connected to ROI";
     
     bool ok;
-    QString option = QInputDialog::getItem(0,
+    QString option = QInputDialog::getItem(Global::mainWindow(),
 					   "ROI Operation",
 					   "Select operation type",
 					   dtypes,
@@ -310,7 +315,8 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
       }
     else
       {
-	QMessageBox::information(0, "ROI Operation", "Operation not performed");	
+	QMessageBox::information(Global::mainWindow(),
+				 "ROI Operation", "Operation not performed");	
 	return false;
       }	
   }
@@ -318,7 +324,7 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
 
   {
     bool ok;
-    resultTag = QInputDialog::getInt(0,
+    resultTag = QInputDialog::getInt(Global::mainWindow(),
 				     "Save result to label",
 				     "Apply label (0-65535) to the result\n",
 				     0, 0, 65535, 1,
@@ -331,7 +337,7 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
   QProgressDialog progress("ROI Operation",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
   qApp->processEvents();
@@ -408,7 +414,8 @@ VolumeOperations::roiOperation(Vec bmin, Vec bmax,
   maxW = we;
   maxH = he;
 
-  QMessageBox::information(0, "ROI Operation", "Done");	
+  QMessageBox::information(Global::mainWindow(),
+			   "ROI Operation", "Done");	
   return true;
 }
 
@@ -668,7 +675,7 @@ VolumeOperations::resetT(int ds, int ws, int hs,
   QProgressDialog progress("Identifying visible region",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -787,7 +794,8 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
       wr > m_width-1 ||
       hr > m_height-1)
     {
-      QMessageBox::information(0, "", "No painted region found");
+      QMessageBox::information(Global::mainWindow(),
+			       "", "No painted region found");
       return;
     }
 
@@ -817,7 +825,7 @@ VolumeOperations::hatchConnectedRegion(int dr, int wr, int hr,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -1047,7 +1055,8 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
       wr > m_width-1 ||
       hr > m_height-1)
     {
-      QMessageBox::information(0, "", "No painted region found");
+      QMessageBox::information(Global::mainWindow(),
+			       "", "No painted region found");
       return;
     }
 
@@ -1077,7 +1086,7 @@ VolumeOperations::connectedRegion(int dr, int wr, int hr,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
   
@@ -1158,7 +1167,7 @@ VolumeOperations::getConnectedRegionFromBitmask(int dr, int wr, int hr,
   QProgressDialog progress("Identifying connected region from bitmask",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -1271,7 +1280,7 @@ VolumeOperations::getRegionConnectedToROI(int ds, int ws, int hs,
   QProgressDialog progress("Identifying connected region",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -1385,7 +1394,7 @@ VolumeOperations::getTransparentRegion(int ds, int ws, int hs,
   QProgressDialog progress("Identifying transparent region",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -1538,7 +1547,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
 {
   //-------------------------
   int holeSize = 0;
-  holeSize = QInputDialog::getInt(0,
+  holeSize = QInputDialog::getInt(Global::mainWindow(),
 				  "Fill Holes",
 				  "Size of holes to fill",
 				  0, 0, 5000, 1);
@@ -1597,7 +1606,7 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   QProgressDialog progress("Shrinkwrap",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -1779,7 +1788,7 @@ VolumeOperations::poreCharacterization(Vec bmin, Vec bmax,
   QProgressDialog progress("Pore Identification",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -1903,7 +1912,7 @@ VolumeOperations::openCloseBitmask(int offset1, int offset2,
   QProgressDialog progress(htype?"Open":"Close",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   qApp->processEvents();
@@ -2002,7 +2011,7 @@ VolumeOperations::dilateBitmask(int nDilate, bool htype,
   QProgressDialog progress("Dilate bitmask",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -2188,7 +2197,7 @@ VolumeOperations::stepTags(Vec bmin, Vec bmax,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -2248,7 +2257,7 @@ VolumeOperations::mergeTags(Vec bmin, Vec bmax,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -2372,13 +2381,14 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 	    ut << m_maskDataUS[idx];
 	}
 
-  QMessageBox::information(0, "Labels", QString("Total labels : %1").arg(ut.count()));
+  QMessageBox::information(Global::mainWindow(),
+			   "Labels", QString("Total labels : %1").arg(ut.count()));
 
 
   QProgressDialog progress("Growing all labels",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   qApp->processEvents();
@@ -2501,7 +2511,7 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 //  QProgressDialog progress("Dilating all labels",
 //			   QString(),
 //			   0, 100,
-//			   0,
+//			   Global::mainWindow(),
 //			   Qt::WindowStaysOnTopHint);
 //  progress.setMinimumDuration(0);
 //
@@ -2528,7 +2538,7 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 //	    ut << m_maskData[idx]; 
 //	}
 //
-//  QMessageBox::information(0, "Labels", QString("Total labels : %1").arg(ut.count()));
+//  QMessageBox::information(Global::mainWindow(), "Labels", QString("Total labels : %1").arg(ut.count()));
 //  for(int u=0; u<nDilate; u++)
 //    {
 //      for(int i=0; i<ut.count(); i++)
@@ -2688,7 +2698,7 @@ VolumeOperations::writeToMask(int ds, int ws, int hs,
   QProgressDialog progress("Identifying visible region",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -2816,7 +2826,7 @@ VolumeOperations::openAll(Vec bmin, Vec bmax, int tag,
   QProgressDialog progress("Open : Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
 
   
@@ -2897,7 +2907,7 @@ VolumeOperations::closeAll(Vec bmin, Vec bmax, int tag,
   QProgressDialog progress("Close : Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
 
   
@@ -2980,7 +2990,8 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
       wr > m_width-1 ||
       hr > m_height-1)
     {
-      QMessageBox::information(0, "", QString("No visible region found at %1 %2 %3").\
+      QMessageBox::information(Global::mainWindow(),
+			       "", QString("No visible region found at %1 %2 %3"). \
 			       arg(hr).arg(wr).arg(dr));
       return;
     }
@@ -2997,7 +3008,7 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 
     if (lut[4*val+3] == 0 || mtag != tag)
       {
-	QMessageBox::information(0, "Dilate",
+	QMessageBox::information(Global::mainWindow(), "Dilate",
 				 QString("Cannot dilate.\nYou are on voxel with tag %1, was expecting tag %2").arg(mtag).arg(tag));
 	return;
       }
@@ -3006,7 +3017,7 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -3173,7 +3184,7 @@ VolumeOperations::erodeAll(Vec bmin, Vec bmax,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -3261,7 +3272,8 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
       wr > m_width-1 ||
       hr > m_height-1)
     {
-      QMessageBox::information(0, "", QString("No visible region found at %1 %2 %3").\
+      QMessageBox::information(Global::mainWindow(), "",
+			       QString("No visible region found at %1 %2 %3"). \
 			       arg(hr).arg(wr).arg(dr));
       return;
     }
@@ -3277,7 +3289,7 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 		    
     if (lut[4*val+3] == 0 || mtag != tag)
       {
-	QMessageBox::information(0, "Erode",
+	QMessageBox::information(Global::mainWindow(), "Erode",
 				 QString("Cannot erode.\nYou are on voxel with tag %1, was expecting tag %2").arg(mtag).arg(tag));
 	return;
       }
@@ -3287,7 +3299,7 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -3461,7 +3473,7 @@ VolumeOperations::modifyOriginalVolume(Vec bmin, Vec bmax,
   QProgressDialog progress("Updating Original Volume",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -3526,13 +3538,13 @@ VolumeOperations::tagTubes(Vec bmin, Vec bmax, int tag,
 {
   //-------------------------
   int tubeSize = 0;
-  tubeSize = QInputDialog::getInt(0,
+  tubeSize = QInputDialog::getInt(Global::mainWindow(),
 				  "Tube/Sheet Size",
 				  "Size",
 				  0, 0, 100, 1);
   if (tubeSize == 0)
     {
-      QMessageBox::information(0, "", "0 size not valid");
+      QMessageBox::information(Global::mainWindow(), "", "0 size not valid");
       return;
     }
   //-------------------------
@@ -3652,7 +3664,7 @@ VolumeOperations::bakeC(int ds, int ws, int hs,
   QProgressDialog progress("Bake Curves",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
 
@@ -3790,7 +3802,7 @@ VolumeOperations::smoothConnectedRegion(int dr, int wr, int hr,
       wr > m_width-1 ||
       hr > m_height-1)
     {
-      QMessageBox::information(0, "", "No painted region found");
+      QMessageBox::information(Global::mainWindow(), "", "No painted region found");
       return;
     }
 
@@ -3894,7 +3906,7 @@ VolumeOperations::convertToVDBandSmooth(int ds, int ws, int hs,
   QProgressDialog progress("Updating voxel structure",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
   qApp->processEvents();
@@ -3992,7 +4004,7 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
   //------------------
   // ignore all components below componentThreshold
   int componentThreshold = 1000;
-  componentThreshold = QInputDialog::getInt(0,
+  componentThreshold = QInputDialog::getInt(Global::mainWindow(),
 					    "Component Threshold",
 					    "Minimum number of voxels per labeled component",
 					    1000);  
@@ -4013,7 +4025,7 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
   QProgressDialog progress("Calculating voxelcount per component",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
   qApp->processEvents();
@@ -4063,7 +4075,7 @@ VolumeOperations::removeSmallerComponents(Vec bmin, Vec bmax,
   maxW = we;
   maxH = he;
 
-  QMessageBox::information(0, "", "Done");
+  QMessageBox::information(Global::mainWindow(), "", "Done");
 }
 
 void
@@ -4103,7 +4115,7 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
   //------------------
   // ignore all components above componentThreshold
   int largestComponents = 1;
-  largestComponents = QInputDialog::getInt(0,
+  largestComponents = QInputDialog::getInt(Global::mainWindow(),
 					   "Largest Components",
 					   "How many top largest components to remove.\n1 = remove only the largest component",
 					   1);
@@ -4177,7 +4189,7 @@ VolumeOperations::removeLargestComponents(Vec bmin, Vec bmax,
   maxW = we;
   maxH = he;
 
-  QMessageBox::information(0, "", "Done");
+  QMessageBox::information(Global::mainWindow(), "", "Done");
 }
 
 
@@ -4220,7 +4232,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   //------------------
   // starting label number
   int startLabel = 0;
-  startLabel = QInputDialog::getInt(0,
+  startLabel = QInputDialog::getInt(Global::mainWindow(),
 				    "Starting Label",
 				    "Starting label number (label numbers will be offset by this value)",
 				    startLabel);
@@ -4238,7 +4250,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	   << "26";
     
     bool ok;
-    QString option = QInputDialog::getItem(0,
+    QString option = QInputDialog::getItem(Global::mainWindow(),
 					   "Connectivity Choice",
 					   "3D neighbourhood connectivity",
 					   dtypes,
@@ -4258,7 +4270,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   //------------------
   // ignore all components below componentThreshold
   int componentThreshold = 100;
-  componentThreshold = QInputDialog::getInt(0,
+  componentThreshold = QInputDialog::getInt(Global::mainWindow(),
 					    "Component Threshold",
 					    "Minimum number of voxels per labeled component",
 					    100);
@@ -4273,7 +4285,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
 	   << "highest first";
     
     bool ok;
-    QString option = QInputDialog::getItem(0,
+    QString option = QInputDialog::getItem(Global::mainWindow(),
 					   "Sort based on voxel count",
 					   "Ascending/Descending ?",
 					   dtypes,
@@ -4344,7 +4356,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   //------------------
    
 
-  //QMessageBox::information(0, "", QString("%1").arg(labelMap.keys().count()));
+  //QMessageBox::information(Global::mainWindow(), "", QString("%1").arg(labelMap.keys().count()));
 
   //------------------
   // new remap in sequential order
@@ -4423,7 +4435,7 @@ VolumeOperations::connectedComponents(Vec bmin, Vec bmax,
   maxW = we;
   maxH = he;
 
-  QMessageBox::information(0, "", "Done");
+  QMessageBox::information(Global::mainWindow(), "", "Done");
 }
 
 
@@ -4451,7 +4463,7 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
 	 << "highest first";
 
   bool ok;
-  QString option = QInputDialog::getItem(0,
+  QString option = QInputDialog::getItem(Global::mainWindow(),
 					 "Sort based on voxel count",
 					 "Ascending/Descending ?",
 					 dtypes,
@@ -4543,7 +4555,7 @@ VolumeOperations::sortLabels(Vec bmin, Vec bmax,
 	}
   //-------
 
-  QMessageBox::information(0, "Sort on voxel count", "Done sort on voxel count");
+  QMessageBox::information(Global::mainWindow(), "Sort on voxel count", "Done sort on voxel count");
 }
 
 
@@ -4557,7 +4569,7 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
   QProgressDialog progress("Distance Transform",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
   qApp->processEvents();
@@ -4626,7 +4638,7 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
   maxW = we;
   maxH = he;
 
-  QMessageBox::information(0, "", "Done");
+  QMessageBox::information(Global::mainWindow(), "", "Done");
   
 }
 
@@ -4641,7 +4653,7 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   QProgressDialog progress("Local Thickness",
 			   QString(),
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);  
   qApp->processEvents();
@@ -4761,13 +4773,15 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 
   
 
-  QMessageBox::information(0, "Max Local Thickness", QString("%1 %2").arg(maxLT).arg(pvlInfo.voxelUnitString()));
+  QMessageBox::information(Global::mainWindow(),
+			   "Max Local Thickness",
+			   QString("%1 %2").arg(maxLT).arg(pvlInfo.voxelUnitString()));
 
   
   //------------------------------
   //------------------------------
   // save local thickness to file
-  QString rawflnm = QFileDialog::getSaveFileName(0,
+  QString rawflnm = QFileDialog::getSaveFileName(Global::mainWindow(),
 						 "Save Local Thickness To RAW File",
 						 Global::previousDirectory(),
 						 "Files (*.raw)",
@@ -4819,7 +4833,8 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 					mx, my, mz);
       //----------
 
-      QMessageBox::information(0, "Local Thickness", "Saved raw, pvl.nc and pvl.nc.001 files");
+      QMessageBox::information(Global::mainWindow(),
+			       "Local Thickness", "Saved raw, pvl.nc and pvl.nc.001 files");
     }
   //------------------------------
   //------------------------------
@@ -4836,7 +4851,7 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
   maxH = he;
 
   if (rawflnm.isEmpty())
-    QMessageBox::information(0, "", "Done");  
+    QMessageBox::information(Global::mainWindow(), "", "Done");  
 }
 
 void
@@ -4866,7 +4881,7 @@ VolumeOperations::distDilate(float *vol, float *out,
 //  QProgressDialog progress(QString("Distance dilation %1 of %2").arg(r).arg(maxLT),
 //			   QString(),
 //			   0, 100,
-//			   0,
+//			   Global::mainWindow(),
 //			   Qt::WindowStaysOnTopHint);
 //  if (mz > 300)
 //    {
@@ -5046,18 +5061,19 @@ VolumeOperations::upscaleMask(ushort *lmask, int lrd, int lrw, int lrh)
   QString mesg;
   mesg += QString("Volume Size : %1 %2 %3\n").			\
 	              arg(m_height).arg(m_width).arg(m_depth);
-  mesg += QString("Input Mask Size : %1 %2 %3\n").	\
+  mesg += QString("Input Labels Size : %1 %2 %3\n").	\
 	              arg(lrh).arg(lrw).arg(lrd);
   mesg += QString("Scaling applied : %1 %2 %3").	\
 	              arg(sclh).arg(sclw).arg(scld);
-  QMessageBox::information(0, "", mesg);
+  QMessageBox::information(Global::mainWindow(), "", mesg);
 
+  // labels may need to be downsampled
   if (scld <= 1.01 && sclw <= 1.01 && sclh <= 1.01)
     {
-      QProgressDialog progress("Mask Upscale Operation",
+      QProgressDialog progress("Upscaling Labels",
 			       QString(),
 			       0, 100,
-			       0,
+			       Global::mainWindow(),
 			       Qt::WindowStaysOnTopHint);
       progress.setMinimumDuration(0);  
       qApp->processEvents();
@@ -5072,183 +5088,572 @@ VolumeOperations::upscaleMask(ushort *lmask, int lrd, int lrw, int lrh)
 	      qint64 ws = qBound(0, (int)(w*sclw), m_width-1);
 	      qint64 hs = qBound(0, (int)(h*sclh), m_height-1);
 	      qint64 idx = ds*m_width*m_height + ws*m_height + hs;
-	      m_maskDataUS[idx] = lmask[d*lrw*lrh + w*lrh + h];
+	      qint64 lidx = d*lrw*lrh + w*lrh + h;
+	      m_maskDataUS[idx] = lmask[lidx];
 	    }
 	}
+      progress.setValue(100);
+      qApp->processEvents();
       return;
     }
+
+  upscaleMaskUsingVDB(lmask, lrd, lrw, lrh);
+}
+
+void
+VolumeOperations::upscaleMaskUsingVDB(ushort *lmask, int lrd, int lrw, int lrh)
+{
+  float scld = (float)m_depth/lrd;
+  float sclw = (float)m_width/lrw;
+  float sclh = (float)m_height/lrh;
+
+  float scaleFactor = qMax(scld, qMax(sclw, sclh));
   
+  bool flip = false;
+  float dilate = scaleFactor;
+  int filterWidth = scaleFactor;
+
+  //------------------------
+  bool ok;
+  QString parm = QInputDialog::getText(Global::mainWindow(),
+				       "Upscaling Labels",
+				       "Dilate FilterWidth",
+				       QLineEdit::Normal,
+				       "2 2",
+				       &ok);
+  QStringList words = parm.split(" ", Qt::KeepEmptyParts);
+  if (ok && words.count() == 2)
+    {
+      dilate = words[0].toDouble();
+      filterWidth = words[1].toInt();
+    }
+
+  QStringList dtypes;
+  dtypes << "No" << "Yes";      
+  QString option = QInputDialog::getItem(Global::mainWindow(),
+					 "Reverse depth slices",
+					 "Reverse depth slices.",
+					 dtypes,
+					 0,
+					 false,
+					 &ok);  
+  if (ok && option == "Yes") flip = true;
+  //------------------------
+
+
   
-  int spread = 1;
+  QProgressDialog progress("Upscaling Labels",
+			   QString(),
+			   0, 100,
+			   Global::mainWindow(),
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);  
+  qApp->processEvents();
   
-  MyBitArray bitmask;
-  bitmask.resize(lrd*lrw*lrh);
   QList<int> ut;
   for(qint64 d=0; d<lrd; d++)
-    for(qint64 w=0; w<lrw; w++)
+    {
+      progress.setValue(100*d/lrd);
+      qApp->processEvents();
+      for(qint64 w=0; w<lrw; w++)
       for(qint64 h=0; h<lrh; h++)
 	{
 	  qint64 idx = ((qint64)d)*lrw*lrh + ((qint64)w)*lrh + h;
 	  if (lmask[idx] > 0 && !ut.contains(lmask[idx]))
 	    ut << lmask[idx];
 	}
-
-  QMessageBox::information(0, "", QString("Labels Used: %1").arg(ut.count()));
-
-  // ------------------
-  // calculate weights for Gaussian filter
-  float weights[100];
-  float wsum = 0.0;
-  for(int i=-spread; i<=spread; i++)
-    {
-      float wgt = qExp(-qAbs(i)/(2.0*spread*spread))/(M_PI*2*spread*spread);
-      wsum +=  wgt;
-      weights[i+spread] = wgt;
     }
-  weights[2*spread+2] = wsum;
-  // ------------------
+  
+  progress.setLabelText(QString("Labels Used: %1").arg(ut.count()));
 
-  QProgressDialog progress("Mask Upscale Operation",
-			   QString(),
-			   0, 100,
-			   0,
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);  
-  qApp->processEvents();
-
-  int nbytes = m_width*m_height;
-  uchar **val = new uchar*[2*spread+1];
-  for (int i=0; i<2*spread+1; i++)
+  for(int lbl=0; lbl<ut.count(); lbl++)
     {
-      val[i] = new uchar[nbytes];
-      memset(val[i], 0, nbytes);
-    }
-  uchar *final_val = new uchar[nbytes];
-
-  for(int i=0; i<ut.count(); i++)
-    {
-      progress.setValue(100*i/ut.count());
+      progress.setValue(100*lbl/ut.count());
       qApp->processEvents();
 
-      int label = ut[i];
-
-      MyBitArray tbitmask;
-      tbitmask.resize(((qint64)m_depth)*((qint64)m_width)*((qint64)m_height));
-      tbitmask.fill(false);
+      int label = ut[lbl];
       
-      for(qint64 d=0; d<lrd; d++)
-	for(qint64 w=0; w<lrw; w++)
-	  for(qint64 h=0; h<lrh; h++)
-	    {	  
-	      if (lmask[d*lrw*lrh + w*lrh + h] == label)
-		{
-		  int ds = qMax(0, (int)(d*scld-scld/2));
-		  int ws = qMax(0, (int)(w*sclw-sclw/2));
-		  int hs = qMax(0, (int)(h*sclh-sclh/2));
-		  int de = qMin(m_depth-1, (int)((d+1)*scld-scld/2));
-		  int we = qMin(m_width-1, (int)((w+1)*sclw-sclw/2));
-		  int he = qMin(m_height-1,(int)((h+1)*sclh-sclh/2));
-
-		  for(qint64 d0=ds; d0<de; d0++)
-		    for(qint64 w0=ws; w0<we; w0++)
-		      for(qint64 h0=hs; h0<he; h0++)
-			tbitmask.setBit(d0*nbytes + w0*m_height + h0, true);
-		}
-	    }
-
-      for (int i=0; i<2*spread+1; i++)
-	memset(val[i], 0, nbytes);
-
-      // populate val for smoothing
-      for(qint64 d=0; d<=spread; d++)
-	{	  
-	  for(qint64 w=0; w<m_width; w++)
-	  for(qint64 h=0; h<m_height; h++)
-	    {
-	      qint64 idx = d*nbytes + w*m_height + h;
-	      if (tbitmask.testBit(idx))
-		val[spread+d][idx] = 128;	      
-	    }
-	  if (d==0)
-	    {
-	      for (int i=0; i<spread; i++)
-		memcpy(val[i], val[spread], nbytes);
-	    }
-	}
+      progress.setLabelText(QString("Processing Label: %1(%2) of %3").\
+			    arg(lbl).arg(label).arg(ut.count()));
       
-      for(qint64 d=0; d<m_depth; d++)
+      VdbVolume vdb;
+      openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+      openvdb::Coord ijk;
+      int &d = ijk[0];
+      int &w = ijk[1];
+      int &h = ijk[2];
+      float dfrc = (float)lrd/(float)m_depth;
+      float wfrc = (float)lrw/(float)m_width;
+      float hfrc = (float)lrh/(float)m_height;
+      for(d=0; d<m_depth; d++)
 	{
 	  progress.setValue(100*d/m_depth);
 	  qApp->processEvents();
-
-	  memset(val[spread], 0, nbytes);
-	  
-	  for(qint64 w=0; w<m_width; w++)
-	  for(qint64 h=0; h<m_height; h++)
-	    {
-	      qint64 idx = d*nbytes + w*m_height + h;
-	      if (tbitmask.testBit(idx))
-		val[spread][w*m_height+h] = 128;	      
+	  for(w=0; w<m_width; w++)
+	  for(h=0; h<m_height; h++)
+	    {	      
+	      qint64 ld;
+	      if (!flip)
+		ld = d*(float)(lrd-1)/(float)(m_depth-1);
+	      else
+		ld = (m_depth-1-d)*(float)(lrd-1)/(float)(m_depth-1);
+	      qint64 lw = w*(float)(lrw-1)/(float)(m_width-1);
+	      qint64 lh = h*(float)(lrh-1)/(float)(m_height-1);
+	      if (lmask[ld*lrw*lrh + lw*lrh + lh] == label)
+		accessor.setValue(ijk, 255);
 	    }
+	}
 
-	  //------------
-	  // apply smoothing on slice
-	  memset(final_val, 0, nbytes);
-	  for(int i=0; i<m_height; i++)			
-	    for(int j=0; j<m_width; j++)				
-	      {							
-		float pj = 0;						
-		int jdx = 0;						
-		for(int j1=j-spread; j1<=j+spread; j1++)			
-		  {							
-		    int idx = qBound(0, j1, m_width-1)*m_height+i;	
-		     pj += weights[jdx]*val[spread][idx];			
-		    jdx ++;						
-		  }							
-		final_val[j*m_height+i] = pj/wsum;				
-	      }							
-	  
-	  for(int j=0; j<m_width; j++)					
-	    for(int i=0; i<m_height; i++)				
-	      {							
-		float pj = 0;						
-		int jdx = 0;						
-		for(int i1=i-spread; i1<=i+spread; i1++)			
-		  {							
-		    int idx = j*m_height + qBound(0, i1, m_height-1);	
-		    pj += weights[jdx]*final_val[idx];			
-		    jdx ++;						
-		  }							
-		val[spread][j*m_height+i] = pj/wsum;				
-	      }							
-	  //------------
+      vdb.convertToLevelSet(1,0);
+      progress.setValue(50);
+      qApp->processEvents();
 
-	  // apply smoothing across the slices
-	  for(int w=0; w<m_width; w++)
-	    for(int h=0; h<m_height; h++)
+      if (dilate > 0)
+	{
+	  vdb.offset(-dilate); // dilate
+	  progress.setValue(60);
+	  qApp->processEvents();}
+
+      if (filterWidth > 0)
+	{
+	  vdb.gaussian(filterWidth); // gaussian filter
+	  progress.setValue(70);
+	  qApp->processEvents();
+	}
+
+      {
+	openvdb::FloatGrid::Accessor accessor = vdb.getAccessor();
+	openvdb::Coord ijk;
+	int &d = ijk[0];
+	int &w = ijk[1];
+	int &h = ijk[2];
+	for(d=0; d<m_depth; d++)
+	  {
+	    progress.setValue(100*d/m_depth);
+	    qApp->processEvents();
+	    for(w=0; w<m_width; w++)
+	    for(h=0; h<m_height; h++)
 	      {
-		float sum = 0; 
-		for(int i=0; i<2*spread+1; i++) 
-		  sum += weights[i]*val[i][w*m_height+h]; 
-
-		if (sum/wsum > 90)
-		{
-		    qint64 idx = d*m_width*m_height + w*m_height + h;
-		    m_maskDataUS[idx] = label;
-		  }
+		qint64 midx = (qint64)d*m_width*m_height + (qint64)w*m_height + h;
+		if (accessor.getValue(ijk) <= 0)
+		  m_maskDataUS[midx] = label;
 	      }
-	  
-	  // now shift the planes
-	  uchar *tmp = val[0];
-	  for(int i=0; i<2*spread; i++)
-	    val[i] = val[i+1];
-	  val[2*spread] = tmp;	  
-	} // loop over the volume mask
-
+	  }
+      }
+      
     } // loop over labels
-  
-  delete [] final_val;
-  for (int i=0; i<2*spread+1; i++)
-    delete [] val[i];
-  delete [] val;
+
+  progress.setValue(100);
+  qApp->processEvents();
 }
+
+
+//  {
+//    float dfrc = (float)lrd/(float)m_depth;
+//      float wfrc = (float)lrw/(float)m_width;
+//      float hfrc = (float)lrh/(float)m_height;
+//      int mind, maxd, minw, maxw, minh, maxh;
+//      mind = minw = minh = 1000000;
+//      maxd = maxw = maxh = -1;
+//      qint64 idx = 0;
+//      for(int d=0; d<m_depth; d++)
+//	{
+//	  progress.setValue(100*d/m_depth);
+//	  qApp->processEvents();
+//
+//	for(int w=0; w<m_width; w++)
+//	  for(int h=0; h<m_height; h++)
+//	    {
+//	      qint64 ld = qBound(0, (int)(d*dfrc), lrd-1);
+//	      qint64 lw = qBound(0, (int)(w*wfrc), lrw-1);
+//	      qint64 lh = qBound(0, (int)(h*hfrc), lrh-1);
+//	      if (lmask[ld*lrw*lrh + lw*lrh + lh] == label)
+//		{
+//		  mind = qMin(mind, d);
+//		  minw = qMin(minw, w);
+//		  minh = qMin(minh, h);
+//		  maxd = qMax(maxd, d);
+//		  maxw = qMax(maxw, w);
+//		  maxh = qMax(maxh, h);
+//		  tbitmask.setBit(idx, true);
+//		}
+//	      idx ++;
+//	    }
+//	}
+////      QMessageBox::information(Global::mainWindow(),
+////			       "",
+////			       QString("%1 %2").arg(mind).arg(maxd));
+////      for(qint64 d=0; d<lrd; d++)
+////	for(qint64 w=0; w<lrw; w++)
+////	  for(qint64 h=0; h<lrh; h++)
+////	    {	  
+////	      if (lmask[d*lrw*lrh + w*lrh + h] == label)
+////		{
+////		  int ds = qMax(0, (int)(d*scld-scld/2));
+////		  int ws = qMax(0, (int)(w*sclw-sclw/2));
+////		  int hs = qMax(0, (int)(h*sclh-sclh/2));
+////		  int de = qMin(m_depth-1, (int)((d+1)*scld-scld/2));
+////		  int we = qMin(m_width-1, (int)((w+1)*sclw-sclw/2));
+////		  int he = qMin(m_height-1,(int)((h+1)*sclh-sclh/2));
+////
+////		  for(qint64 d0=ds; d0<de; d0++)
+////		    for(qint64 w0=ws; w0<we; w0++)
+////		      for(qint64 h0=hs; h0<he; h0++)
+////			tbitmask.setBit(d0*nbytes + w0*m_height + h0, true);
+////		}
+////	    }
+//
+//}
+//
+//{
+//  // loaded labels need to be upscaled
+//  int spread = 1;
+//  
+//  MyBitArray bitmask;
+//  bitmask.resize(lrd*lrw*lrh);
+//  QList<int> ut;
+//  for(qint64 d=0; d<lrd; d++)
+//    {
+//      progress.setValue(100*d/lrd);
+//      qApp->processEvents();
+//      for(qint64 w=0; w<lrw; w++)
+//      for(qint64 h=0; h<lrh; h++)
+//	{
+//	  qint64 idx = ((qint64)d)*lrw*lrh + ((qint64)w)*lrh + h;
+//	  if (lmask[idx] > 0 && !ut.contains(lmask[idx]))
+//	    ut << lmask[idx];
+//	}
+//    }
+//  progress.setLabelText(QString("Labels Used: %1").arg(ut.count()));
+//
+//  // ------------------
+//  // calculate weights for Gaussian filter
+//  float weights[100];
+//  float wsum = 0.0;
+//  for(int i=-spread; i<=spread; i++)
+//    {
+//      float wgt = qExp(-qAbs(i)/(2.0*spread*spread))/(M_PI*2*spread*spread);
+//      wsum +=  wgt;
+//      weights[i+spread] = wgt;
+//    }
+//  weights[2*spread+2] = wsum;
+//  // ------------------
+//
+//  int nbytes = m_width*m_height;
+//  uchar **val = new uchar*[2*spread+1];
+//  for (int i=0; i<2*spread+1; i++)
+//    {
+//      val[i] = new uchar[nbytes];
+//      memset(val[i], 0, nbytes);
+//    }
+//  uchar *final_val = new uchar[nbytes];
+//
+//  //for(int lbl=0; lbl<ut.count(); lbl++)
+//  for(int lbl=0; lbl<10; lbl++)
+//    {
+//      progress.setValue(100*lbl/ut.count());
+//      qApp->processEvents();
+//
+//      int label = ut[lbl];
+//
+//      progress.setLabelText(QString("Processing Label: %1 of %2").arg(lbl).arg(ut.count()));
+//
+//      
+//      MyBitArray tbitmask;
+//      tbitmask.resize(((qint64)m_depth)*((qint64)m_width)*((qint64)m_height));
+//      tbitmask.fill(false);
+//      
+//      float dfrc = (float)lrd/(float)m_depth;
+//      float wfrc = (float)lrw/(float)m_width;
+//      float hfrc = (float)lrh/(float)m_height;
+//      int mind, maxd, minw, maxw, minh, maxh;
+//      mind = minw = minh = 1000000;
+//      maxd = maxw = maxh = -1;
+//      qint64 idx = 0;
+//      for(int d=0; d<m_depth; d++)
+//	{
+//	  progress.setValue(100*d/m_depth);
+//	  qApp->processEvents();
+//
+//	for(int w=0; w<m_width; w++)
+//	  for(int h=0; h<m_height; h++)
+//	    {
+//	      qint64 ld = qBound(0, (int)(d*dfrc), lrd-1);
+//	      qint64 lw = qBound(0, (int)(w*wfrc), lrw-1);
+//	      qint64 lh = qBound(0, (int)(h*hfrc), lrh-1);
+//	      if (lmask[ld*lrw*lrh + lw*lrh + lh] == label)
+//		{
+//		  mind = qMin(mind, d);
+//		  minw = qMin(minw, w);
+//		  minh = qMin(minh, h);
+//		  maxd = qMax(maxd, d);
+//		  maxw = qMax(maxw, w);
+//		  maxh = qMax(maxh, h);
+//		  tbitmask.setBit(idx, true);
+//		}
+//	      idx ++;
+//	    }
+//	}
+////      QMessageBox::information(Global::mainWindow(),
+////			       "",
+////			       QString("%1 %2").arg(mind).arg(maxd));
+////      for(qint64 d=0; d<lrd; d++)
+////	for(qint64 w=0; w<lrw; w++)
+////	  for(qint64 h=0; h<lrh; h++)
+////	    {	  
+////	      if (lmask[d*lrw*lrh + w*lrh + h] == label)
+////		{
+////		  int ds = qMax(0, (int)(d*scld-scld/2));
+////		  int ws = qMax(0, (int)(w*sclw-sclw/2));
+////		  int hs = qMax(0, (int)(h*sclh-sclh/2));
+////		  int de = qMin(m_depth-1, (int)((d+1)*scld-scld/2));
+////		  int we = qMin(m_width-1, (int)((w+1)*sclw-sclw/2));
+////		  int he = qMin(m_height-1,(int)((h+1)*sclh-sclh/2));
+////
+////		  for(qint64 d0=ds; d0<de; d0++)
+////		    for(qint64 w0=ws; w0<we; w0++)
+////		      for(qint64 h0=hs; h0<he; h0++)
+////			tbitmask.setBit(d0*nbytes + w0*m_height + h0, true);
+////		}
+////	    }
+//
+//      for (int i=0; i<2*spread+1; i++)
+//	memset(val[i], 0, nbytes);
+//
+//      // populate val for smoothing
+//      for(qint64 d=0; d<=spread; d++)
+//	{
+//	  qint64 dd = qBound(0, (int)(mind+d), m_depth-1);
+//	  //qint64 dd = qBound(0, (int)d, m_depth-1);
+//	  for(qint64 w=0; w<m_width; w++)
+//	  for(qint64 h=0; h<m_height; h++)
+//	    {
+//	      qint64 idx = dd*nbytes + w*m_height + h;
+//	      if (tbitmask.testBit(idx))
+//		val[spread+d][w*m_height+h] = 128;	      
+//	    }
+//	  if (d==0)
+//	    {
+//	      for (int i=0; i<spread; i++)
+//		memcpy(val[i], val[spread], nbytes);
+//	    }
+//	}
+//      
+//      //for(qint64 d=0; d<m_depth; d++)
+//      for(qint64 d=mind; d<=maxd; d++)
+//	{
+//	  progress.setValue(100*d/m_depth);
+//	  qApp->processEvents();
+//
+//	  memset(val[spread], 0, nbytes);
+//	  
+//	  for(qint64 w=0; w<m_width; w++)
+//	  for(qint64 h=0; h<m_height; h++)
+//	    {
+//	      qint64 idx = d*nbytes + w*m_height + h;
+//	      if (tbitmask.testBit(idx))
+//		val[spread][w*m_height+h] = 128;	      
+//	    }
+//
+//	  //------------
+//	  // apply smoothing on slice
+//	  memset(final_val, 0, nbytes);
+//
+////	  {
+////	    QList<QList<QVariant>> param;
+////	    for(int i=0; i<m_height; i++) 
+////	      {
+////		QList<QVariant> plist;	
+////		plist << QVariant(i);
+////		plist << QVariant(m_height);
+////		plist << QVariant(m_width);
+////		plist << QVariant(spread);
+////		plist << QVariant(wsum);
+////		plist << QVariant::fromValue(static_cast<void*>(weights));	
+////		plist << QVariant::fromValue(static_cast<void*>(val[spread]));	
+////		plist << QVariant::fromValue(static_cast<void*>(final_val));
+////		param << plist;
+////	      }
+////	    QFutureWatcher<void> futureWatcher;
+////	    futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parSmoothH));
+////	    futureWatcher.waitForFinished();
+////	  }
+////
+////	  {
+////	    QList<QList<QVariant>> param;
+////	    for(int j=0; j<m_width; j++)					
+////	      {
+////		QList<QVariant> plist;	
+////		plist << QVariant(j);
+////		plist << QVariant(m_height);
+////		plist << QVariant(m_width);
+////		plist << QVariant(spread);
+////		plist << QVariant(wsum);
+////		plist << QVariant::fromValue(static_cast<void*>(weights));	
+////		plist << QVariant::fromValue(static_cast<void*>(val[spread]));	
+////		plist << QVariant::fromValue(static_cast<void*>(final_val));
+////		param << plist;
+////	      }
+////	    QFutureWatcher<void> futureWatcher;
+////	    futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parSmoothW));
+////	    futureWatcher.waitForFinished();
+////	  }
+////
+////	  {
+////	    QList<QList<QVariant>> param;
+////	    for(int w=0; w<m_width; w++)					
+////	      {
+////		QList<QVariant> plist;	
+////		plist << QVariant(d);
+////		plist << QVariant(m_height);
+////		plist << QVariant(m_width);
+////		plist << QVariant(spread);
+////		plist << QVariant(wsum);
+////		plist << QVariant::fromValue(static_cast<void*>(weights));	
+////		plist << QVariant::fromValue(reinterpret_cast<quintptr>(val));	
+////		plist << QVariant(label);
+////		plist << QVariant(w);
+////		param << plist;
+////	      }
+////	    QFutureWatcher<void> futureWatcher;
+////	    futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parSmoothD));
+////	    futureWatcher.waitForFinished();
+////	  }
+//	  
+//	  for(int i=0; i<m_height; i++) 
+//	    for(int j=0; j<m_width; j++)				
+//	      {							
+//		float pj = 0;						
+//		int jdx = 0;						
+//		for(int j1=j-spread; j1<=j+spread; j1++)			
+//		  {							
+//		    int idx = qBound(0, j1, m_width-1)*m_height+i;	
+//		     pj += weights[jdx]*val[spread][idx];			
+//		    jdx ++;						
+//		  }							
+//		final_val[j*m_height+i] = pj/wsum;				
+//	      }							
+//	  
+//	  for(int j=0; j<m_width; j++)					
+//	    for(int i=0; i<m_height; i++)				
+//	      {							
+//		float pj = 0;						
+//		int jdx = 0;						
+//		for(int i1=i-spread; i1<=i+spread; i1++)			
+//		  {							
+//		    int idx = j*m_height + qBound(0, i1, m_height-1);	
+//		    pj += weights[jdx]*final_val[idx];			
+//		    jdx ++;						
+//		  }							
+//		val[spread][j*m_height+i] = pj/wsum;				
+//	      }							
+//	  //------------
+//
+//	  // apply smoothing across the slices
+//	  for(int w=0; w<m_width; w++)
+//	    for(int h=0; h<m_height; h++)
+//	      {
+//		float sum = 0; 
+//		for(int i=0; i<2*spread+1; i++) 
+//		  sum += weights[i]*val[i][w*m_height+h]; 
+//
+//		if (sum/wsum > 90)
+//		{
+//		    qint64 idx = d*m_width*m_height + w*m_height + h;
+//		    m_maskDataUS[idx] = label;
+//		  }
+//	      }
+//	  
+//	  // now shift the planes
+//	  uchar *tmp = val[0];
+//	  for(int i=0; i<2*spread; i++)
+//	    val[i] = val[i+1];
+//	  val[2*spread] = tmp;	  
+//	} // loop over the volume mask
+//
+//    } // loop over labels
+//  
+//  delete [] final_val;
+//  for (int i=0; i<2*spread+1; i++)
+//    delete [] val[i];
+//  delete [] val;
+//}
+//
+//void
+//VolumeOperations::parSmoothH(QList<QVariant> plist)
+//{
+//  int i = plist[0].toInt();
+//  int height = plist[1].toInt();
+//  int width = plist[2].toInt();
+//  int spread = plist[3].toInt();
+//  float wsum = plist[4].toInt();
+//  float *weights = static_cast<float*>(plist[5].value<void*>());
+//  uchar *val = static_cast<uchar*>(plist[6].value<void*>());
+//  uchar *final_val = static_cast<uchar*>(plist[7].value<void*>());
+//
+//  for(int j=0; j<width; j++)				
+//    {							
+//      float pj = 0;						
+//      int jdx = 0;						
+//      for(int j1=j-spread; j1<=j+spread; j1++)			
+//	{							
+//	  int idx = qBound(0, j1, width-1)*height+i;	
+//	  pj += weights[jdx]*val[idx];			
+//	  jdx ++;						
+//	}							
+//      final_val[j*height+i] = pj/wsum;				
+//    }							
+//}
+//void
+//VolumeOperations::parSmoothW(QList<QVariant> plist)
+//{
+//  int j = plist[0].toInt();
+//  int height = plist[1].toInt();
+//  int width = plist[2].toInt();
+//  int spread = plist[3].toInt();
+//  float wsum = plist[4].toInt();
+//  float *weights = static_cast<float*>(plist[5].value<void*>());
+//  uchar *val = static_cast<uchar*>(plist[6].value<void*>());
+//  uchar *final_val = static_cast<uchar*>(plist[7].value<void*>());
+//
+//  for(int i=0; i<height; i++) 
+//    {							
+//      float pj = 0;						
+//      int jdx = 0;						
+//      for(int i1=i-spread; i1<=i+spread; i1++)			
+//	{							
+//	  int idx = j*height + qBound(0, i1, height-1);	
+//	  pj += weights[jdx]*final_val[idx];			
+//	  jdx ++;						
+//	}							
+//      val[j*height+i] = pj/wsum;				
+//    }							
+//}
+//void
+//VolumeOperations::parSmoothD(QList<QVariant> plist)
+//{
+//  int d = plist[0].toInt();
+//  int height = plist[1].toInt();
+//  int width = plist[2].toInt();
+//  int spread = plist[3].toInt();
+//  float wsum = plist[4].toInt();
+//  float *weights = static_cast<float*>(plist[5].value<void*>());
+//  uchar **val = reinterpret_cast<uchar**>(plist[6].value<quintptr>());
+//  int label = plist[7].toInt();
+//  int w = plist[8].toInt();
+//
+//  for(int h=0; h<height; h++)
+//    {
+//      float sum = 0; 
+//      for(int i=0; i<2*spread+1; i++) 
+//	sum += weights[i]*val[i][w*height+h]; 
+//      
+//      if (sum/wsum > 90)
+//	{
+//	  qint64 idx = (qint64)d*width*height + w*height + h;
+//	  m_maskDataUS[idx] = label;
+//	}
+//    }
+//}
+//
+  

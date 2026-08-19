@@ -76,11 +76,11 @@ class DrishtiPaint : public QMainWindow
   void on_actionAbout_triggered();
   void on_actionHelp_triggered();
   void on_saveWork_triggered();
-  void on_actionLoadMask_triggered();
+  void on_actionLoadLabels_triggered();
   void checkFileSave();
   void saveWork();
-  void on_actionExportMask_triggered();
-  void on_actionImportMask_triggered();
+  void on_actionExportLabels_triggered();
+  void on_actionImportLabels_triggered();
   void on_actionCheckpoint_triggered();
   void on_actionLoadCheckpoint_triggered();
   void on_actionDeleteCheckpoint_triggered();
@@ -188,7 +188,6 @@ class DrishtiPaint : public QMainWindow
   void resetTag(Vec, Vec, int);
   void reloadMask();
   void reloadAllMask();
-  void loadRawMask(QString);
   void modifyOriginalVolume(Vec, Vec, int);
 
   void shrinkwrap(Vec, Vec, int, bool, int);
@@ -355,8 +354,6 @@ class DrishtiPaint : public QMainWindow
 
   QSplitter* createImageWindows();
   QSplitter* createCurveWindows();
-
-  void extractFromAnotherVolume(QList<int>);
 
   void loadCheckPoint(QString);
 

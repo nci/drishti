@@ -42,45 +42,6 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-savetoroi
-savetoroi <label>
-
-Save the visible portion of region labeled with <label> is saved to a ROI (region of interest) buffer.  User is asked to name the buffer.
-If no <label> is specified, all the visible region is saved to the buffer.
-
-Currently ROI buffers are not saved at the end of the session.
-#end
-
-
-#begin
-deleteroi
-deleteroi
-
-User is asked for the name of the ROI (region of interest) buffer to remove.
-
-Currently ROI buffers are not saved at the end of the session.
-#end
-
-
-#begin
-roi
-roi <label>
-
-Apply ROI (region of interest) operation to the given visible portion of the <label> labeled region.  User is asked for the ROI buffer and operation type (intersection/union/A-B/B-A/connected_to_roi) to use.  User is asked for the label number to save the result into.
-
-If no <label> is specified, all the visible region is considered for ROI operation.
-
-intersection - take intersection of <label>/visible region with roi and set its label to the selected label number.
-union - take union of <label>/visible region with roi and set its label to the selected label number.
-A-B - remove <label>/visible region from roi and set its label to the selected label number.
-B-A - remove roi from the <label>/visible region and set its label to the selected label number.
-connected_to_roi - consider all voxels of <label>/visible reion connected to roi and set their label to the selected label number.
-
-Currently ROI buffers are not saved at the end of the session.
-#end
-
-
-#begin
 merge
 merge <label1> <label2>
 
@@ -90,8 +51,8 @@ Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin
-mergetf
-mergetf <label1> <label2>
+merge_labels
+merge_labels <label1> <label2>
 
 Similar to merge, except the operation is carried out only within the visible portion of the selected subvolume.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible labels.
 
@@ -187,8 +148,8 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-d2s
-d2s
+distance_to_surface
+distance_to_surface
 
 Distance to surface - find closest distance to surface for all visible non-zero labels.
 
@@ -196,8 +157,8 @@ Distance to surface - find closest distance to surface for all visible non-zero 
 
 
 #begin
-lt
-lt <label>
+local_thickness
+local_thickness <label>
 
 Generate local thickness profile for the given label.
 
@@ -224,9 +185,9 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-cc
-cc
-cc <label>
+connected_components
+connected_components
+connected_components <label>
 
 Segment connected components for the given visible <label> region.
 If no <label> is specified connected components for all visible region is found.
@@ -238,8 +199,8 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-dt
-dt
+distance_transform
+distance_transform
 
 Distance Transform
 #end
@@ -247,8 +208,8 @@ Distance Transform
 
 
 #begin
-removecomponents
-removecomponents <label>
+remove_small_components
+remove_small_components <label>
 
 Remove components that are smaller than threshold for the given visible labeled (i.e. non-zero) <label> region.
 
@@ -261,8 +222,8 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-removelargestcomponents
-removelargestcomponents <label>
+remove_largest_components
+remove_largest_components <label>
 
 Remove largest components for the given visible labeled (i.e. non-zero) <label> region.
 
@@ -361,8 +322,8 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-modifyoriginalvolume
-modifyoriginalvolume
+modify_original_volume
+modify_original_volume
 
 **
 ** THIS FUNCTION MODIFIES THE ORIGINAL VOXEL VALUES. **
@@ -537,5 +498,5 @@ When in Sketch Pad Mode - label with current label value all visible region unde
 
 #begin
 m
-Repeat last merge/mergetf operation using previously used label parameters.
+Repeat last merge/merge_labels operation using previously used label parameters.
 #end

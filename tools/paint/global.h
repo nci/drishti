@@ -15,7 +15,7 @@ class Global
 {
  public :
   static QString documentationPath();
-
+  
   static int lutSize();
   static void setLutSize(int);
 

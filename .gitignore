@@ -1,0 +1,41 @@
+# Local dependency, build, and packaging workspace
+/.lab-agent/
+
+# qmake / nmake generated files
+.qmake.stash
+Makefile*
+*.Makefile*
+NMakefile*
+mocinclude.opt
+
+# Build output directories
+debug/
+release/
+/bin/renderplugins/
+
+# C/C++ compiler and linker outputs
+*.obj
+*.o
+*.pch
+*.idb
+*.ilk
+*.pdb
+*.exp
+*.lib
+*.exe
+*.dll
+
+# Qt generated sources and Windows resources
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*_resource.rc
+
+# Python caches and local logs
+__pycache__/
+*.py[cod]
+*.log
+
+# Accidental linker manifest output created at the repository root
+/-

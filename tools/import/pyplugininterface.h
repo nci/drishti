@@ -5,13 +5,14 @@
 #include <QString>
 #include <QList>
 #include <QVariant>
+#include <QWidget>
 
 class PyPluginInterface
 {
   public :
     virtual ~PyPluginInterface() {}
 
-    virtual QString init(QString) = 0;
+    virtual QString init(QWidget*, QString) = 0;
 
     virtual void setFile(QStringList) = 0;
     virtual void replaceFile(QString) = 0;

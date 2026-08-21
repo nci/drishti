@@ -6,6 +6,7 @@
 #include <QString>
 #include <QHash>
 #include <QVariant>
+#include <QWidget>
 
 class PyPluginInterface
 {
@@ -13,7 +14,8 @@ class PyPluginInterface
     virtual ~PyPluginInterface() {}
 
     virtual void clear() = 0;
-    virtual void init(QString,
+    virtual void init(QWidget*,
+		      QString,
 		      uchar*, ushort*, uchar*, uchar*,
 		      int, int, int,
 		      int*, int*) = 0;

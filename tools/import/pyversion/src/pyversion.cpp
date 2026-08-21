@@ -1,13 +1,16 @@
 #include "pyversion.h"
 #include "common.h"
+#include "pydialog.h"
 
 #include <iostream>
 #include <QFileInfo>
 #include <QMessageBox>
 
 QString
-PyVersion::init(QString script)
+PyVersion::init(QWidget* parent, QString script)
 {
+    PyDialog::setParent(parent);
+
     m_fileName.clear();
     m_4dvol = false;
     m_description = "";

@@ -4,7 +4,7 @@
 #include <pybind11/functional.h>
 #include <pybind11/chrono.h>
 
-#include "pywidget.h"
+#include "pydialog.h"
 
 #include <QMessageBox>
 #include <QInputDialog>
@@ -13,38 +13,44 @@
 
 namespace py = pybind11;
 
-PyWidget pyWidget;
+PyDialog pyDialog;
 
-PYBIND11_EMBEDDED_MODULE(pywidget, pw) {
-    pw.doc() = "Drishti Paint bridge to Widgets";
+PYBIND11_EMBEDDED_MODULE(pydialog, pw) {
+    pw.doc() = "Drishti Paint bridge to Dialog";
 
-    py::class_<PyWidget>(pw, "widget")
+    py::class_<PyDialog>(pw, "dialog")
         .def(py::init<>())
 
         .def("show_message", 
-            &PyWidget::showMessage,
+            &PyDialog::showMessage,
             "show_message(title:str, label:str) -> none")
 
         .def("get_double", 
-            &PyWidget::getDouble,
+            &PyDialog::getDouble,
             "get_double(title:str, label:str, value:double, min:double, max:double, decimals:int, step:double) -> double")
 
         .def("get_int", 
-            &PyWidget::getInt,
+            &PyDialog::getInt,
             "get_double(title:str, label:str, value:int, min:int, max:int, step:int) -> int")
 
         .def("get_text", 
-            &PyWidget::getText,
+            &PyDialog::getText,
             "get_text(title:str, label:str, text:str) -> str")
 
         .def("get_item", 
-            &PyWidget::getItem,
+            &PyDialog::getItem,
             "get_item(title:str, label:str, items:list[str], current:int) -> str");
 }
 
+QWidget* PyDialog::m_parent = NULL;
+void
+PyDialog::setParent(QWidget* parent)
+{
+  m_parent = parent;
+}
 
 QStringList 
-PyWidget::toQStringList(const std::vector<std::string>& vec)
+PyDialog::toQStringList(const std::vector<std::string>& vec)
 {
     QStringList list;
     list.reserve(static_cast<int>(vec.size()));
@@ -56,18 +62,18 @@ PyWidget::toQStringList(const std::vector<std::string>& vec)
 }
 
 void
-PyWidget::showMessage(const std::string &title, const std::string &mesg)
+PyDialog::showMessage(const std::string &title, const std::string &mesg)
 {
-    QMessageBox::information(0, QString::fromStdString(title), QString::fromStdString(mesg));
+    QMessageBox::information(m_parent, QString::fromStdString(title), QString::fromStdString(mesg));
 }
 
 int
-PyWidget::getInt(const std::string &title,
+PyDialog::getInt(const std::string &title,
                  const std::string &label,
                  int value, int min, int max, int step)
 {
     bool ok;
-    int v = QInputDialog::getInt(0, 
+    int v = QInputDialog::getInt(m_parent, 
                                 QString::fromStdString(title),
                                 QString::fromStdString(label),
                                 value, min, max, step, &ok);
@@ -78,12 +84,12 @@ PyWidget::getInt(const std::string &title,
 }
 
 double
-PyWidget::getDouble(const std::string &title,
+PyDialog::getDouble(const std::string &title,
                     const std::string &label,
                     double value, double min, double max, int decimals, double step)
 {
     bool ok;
-    double v = QInputDialog::getDouble(0, 
+    double v = QInputDialog::getDouble(m_parent, 
                                         QString::fromStdString(title),
                                         QString::fromStdString(label),
                                         value, min, max, decimals, 
@@ -95,12 +101,12 @@ PyWidget::getDouble(const std::string &title,
 }
 
 std::string
-PyWidget::getText(const std::string& title, 
+PyDialog::getText(const std::string& title, 
                   const std::string& label,
                   const std::string& text)
 {
     bool ok;
-    QString t = QInputDialog::getText(0, 
+    QString t = QInputDialog::getText(m_parent, 
                                       QString::fromStdString(title),
                                       QString::fromStdString(label), 
                                       QLineEdit::Normal,
@@ -113,7 +119,7 @@ PyWidget::getText(const std::string& title,
 }
 
 std::string
-PyWidget::getItem(const std::string& title, 
+PyDialog::getItem(const std::string& title, 
                   const std::string& label,
      const std::vector<std::string>& items,
                                int current)
@@ -123,11 +129,12 @@ PyWidget::getItem(const std::string& title,
 
     bool ok{};
 
-    QStringList itemsList = PyWidget::toQStringList(items);
+    QStringList itemsList = PyDialog::toQStringList(items);
 
-    QString item = QInputDialog::getItem(0, QString::fromStdString(title),
-                                            QString::fromStdString(label), 
-                                            itemsList, current, false, &ok);
+    QString item = QInputDialog::getItem(m_parent,
+					 QString::fromStdString(title),
+					 QString::fromStdString(label), 
+					 itemsList, current, false, &ok);
     if (ok && !item.isEmpty())
         return item.toStdString();
     else

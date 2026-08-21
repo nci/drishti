@@ -1,4 +1,4 @@
-from pywidget import widget
+from pydialog import dialog
 import os
 import sys
 import numpy

@@ -267,7 +267,8 @@ PyWidget::runCommand(QString script, QHash<QString, QVariant> arguments)
   
   m_plugin = new PyPlugin();
   
-  if (m_plugin->init(m_pyversionflnm, script, 
+  if (m_plugin->init(Global::mainWindow(),
+		     m_pyversionflnm, script, 
 		     m_volume, m_mask, m_lut, m_tag,
 		     m_depth, m_width, m_height,
 		     m_boxMin, m_boxMax))

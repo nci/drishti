@@ -1,6 +1,7 @@
 #include "pythonengine.h"
 #include "pybridge.h"
 #include "pyversion.h"
+#include "pydialog.h"
 
 #include <iostream>
 #include <QFileInfo>
@@ -28,7 +29,8 @@ bool PyVersion::hasSliceProcessor() {return m_hasSliceProcessor;}
 bool PyVersion::hasVolumeProcessor() {return m_hasVolumeProcessor;}
 
 void
-PyVersion::init(QString script,
+PyVersion::init(QWidget *parent,
+		QString script,
                 uchar *vol, ushort *mask, 
                 uchar *lut, uchar *tag,
                 int depth, int width, int height,
@@ -50,7 +52,9 @@ PyVersion::init(QString script,
   PaintVolMask::global_paint_vol_mask->width = width;
   PaintVolMask::global_paint_vol_mask->height = height;
   PaintVolMask::global_paint_vol_mask->boxmin = boxmin;
-  PaintVolMask::global_paint_vol_mask->boxmax = boxmax;  
+  PaintVolMask::global_paint_vol_mask->boxmax = boxmax;
+
+  PyDialog::setParent(parent);
 }
 
 void

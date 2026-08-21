@@ -1,0 +1,17 @@
+{
+    "script" : "random_walker.py",
+    "arguments" : {
+	"beta INT" : 10,
+	"mode STR" : "cg_mg"
+    },
+    "doc" :
+    "This script uses optical flow routine from cv2
+Available in 2D and 3D.
+
+Available functions for 3D processing :
+    process_volume
+
+Modules Required : skimage, pyamg
+
+uv pip install skimage pyamg"
+}

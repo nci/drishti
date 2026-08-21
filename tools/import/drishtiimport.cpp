@@ -20,6 +20,8 @@ DrishtiImport::addMessageWindow(QDockWidget* dock)
 DrishtiImport::DrishtiImport(QWidget *parent) :
   QMainWindow(parent)
 {
+  Global::setMainWindow(this);
+
   ui.setupUi(this);
 
   resize(1280, 1024);
@@ -270,14 +272,14 @@ DrishtiImport::loadFiles()
 
   QStringList flnms;
 #ifndef Q_OS_MACX
-  flnms = QFileDialog::getOpenFileNames(0,
+  flnms = QFileDialog::getOpenFileNames(this,
 					"Load files",
 					Global::previousDirectory(),
 					QString("%1 (*)").arg(plugin),
 					0,
 					QFileDialog::DontUseNativeDialog);
 #else
-  flnms = QFileDialog::getOpenFileNames(0,
+  flnms = QFileDialog::getOpenFileNames(this,
 					"Load files",
 					Global::previousDirectory(),
 					QString("%1 (*)").arg(plugin),
@@ -316,7 +318,7 @@ DrishtiImport::loadFiles(QStringList flnms,
 	    arg(i+1).arg(m_pluginFileTypes[i]);
 	}
 
-      QString option = QInputDialog::getItem(0,
+      QString option = QInputDialog::getItem(this,
 					     "Select File Type",
 					     "File Type",
 					     ftypes,
@@ -355,7 +357,7 @@ DrishtiImport::loadDirectory()
   if (action)
     {
       QString dirname;
-      dirname = QFileDialog::getExistingDirectory(0,
+      dirname = QFileDialog::getExistingDirectory(this,
 						  "Directory",
 						  Global::previousDirectory(),
 						  QFileDialog::ShowDirsOnly |
@@ -389,7 +391,7 @@ DrishtiImport::loadDirectory(QString dirname, int pluginidx)
 	    arg(i+1).arg(m_pluginDirTypes[i]);
 	}
 
-      QString option = QInputDialog::getItem(0,
+      QString option = QInputDialog::getItem(this,
 					     "Select Directory Type",
 					     "Directory Type",
 					     dtypes,
@@ -572,7 +574,7 @@ DrishtiImport::on_actionMergeVolumes_triggered()
 	arg(i+1).arg(m_pluginFileTypes[i]);
     }
 
-  QString option = QInputDialog::getItem(0,
+  QString option = QInputDialog::getItem(this,
 					 "Select File Type",
 					 "File Type",
 					 ftypes,
@@ -602,7 +604,7 @@ DrishtiImport::on_actionTimeSeries_triggered()
 	arg(i+1).arg(m_pluginFileTypes[i]);
     }
 
-  QString option = QInputDialog::getItem(0,
+  QString option = QInputDialog::getItem(this,
 					 "Select File Type",
 					 "File Type",
 					 ftypes,
@@ -710,7 +712,7 @@ DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
 {
   if (flnms.count() > 1)
     {
-      FilesListDialog fld(flnms);
+      FilesListDialog fld(flnms, this);
       fld.exec();
       if (fld.result() == QDialog::Rejected)
 	return;
@@ -730,7 +732,7 @@ DrishtiImport::convertDirectories(QStringList flnms, int pluginidx)
 	    arg(i+1).arg(m_pluginDirTypes[i]);
 	}
 
-      QString option = QInputDialog::getItem(0,
+      QString option = QInputDialog::getItem(this,
 					     "Select Directory Type",
 					     "Directory Type",
 					     dtypes,

@@ -12,7 +12,8 @@ class PyVersion : public QObject, public PyPluginInterface
   public :
     void clear();
 
-    void init(QString,
+    void init(QWidget*,
+	      QString,
 	      uchar*, ushort*, uchar*, uchar*,
 	      int, int, int,
 	      int*, int*);

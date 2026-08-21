@@ -43,7 +43,8 @@ void PyPlugin::clear()
 }
 
 bool 
-PyPlugin::init(QString pluginflnm, QString script, 
+PyPlugin::init(QWidget *parent,
+	       QString pluginflnm, QString script, 
                uchar* data, ushort* mask, uchar* lut, uchar* tag, 
                int width, int height, int depth,
 	       int *boxMin, int *boxMax)
@@ -57,7 +58,7 @@ PyPlugin::init(QString pluginflnm, QString script,
         m_plugin = qobject_cast<PyPluginInterface*>(m_pluginInstance);
         if (m_plugin)
         {
-	    m_plugin->init(script,
+	    m_plugin->init(parent, script,
 			   data, mask, lut, tag,
 			   width, height, depth,
 			   boxMin, boxMax);

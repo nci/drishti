@@ -1,9 +1,10 @@
+from pydialog import dialog
 import paintmod
 import numpy as np
 from skimage.filters import threshold_otsu
 from skimage.feature import peak_local_max
 from skimage.morphology import label
-from skimage.segmentation import watershed
+import skimage.segmentation
 from scipy.ndimage import distance_transform_edt
 import traceback
 
@@ -48,8 +49,36 @@ def init() :
     print('init watershed')
     pd.volume = pd.volume.reshape(pd.dim)  
     pd.labels = pd.labels.reshape(pd.dim)  
+#---------------    
 
     
+#---------------    
+def expand_labels() :
+    print('expanding labels into non-labeled region without overlap')
+    try : 
+        # take only visible labels and that too in visible region
+        foreground = (
+            (pd.label_color[3::4] > 0)[pd.labels] &
+            (pd.lut[3::4] > 0)[pd.volume]
+        ) * pd.labels
+        print(pd.boxmin, pd.boxmax)
+        foreground = foreground[pd.boxmin[0]:pd.boxmax[0],
+                                pd.boxmin[1]:pd.boxmax[1],
+                                pd.boxmin[2]:pd.boxmax[2]]
+        distance = dialog.get_int("Expand Labels",
+                                  "Expand labels by distance ",
+                                  1, 1, 100, 1)
+        foreground = skimage.segmentation.expand_labels(foreground, distance=5);
+        pd.labels[pd.boxmin[0]:pd.boxmax[0],
+                  pd.boxmin[1]:pd.boxmax[1],
+                  pd.boxmin[2]:pd.boxmax[2]] = foreground.astype(np.uint16)
+    except Exception as e :
+        print('Error : ', str(e))
+        print('Full Error : ', repr(e))
+        traceback.print_exc()
+#---------------    
+    
+#---------------    
 def peaks_to_markers_3d(image, peaks):
     """Returns watershed markers from peaks data."""
     peaks_x, peaks_y, peaks_z = peaks.astype('int').T
@@ -59,8 +88,8 @@ def peaks_to_markers_3d(image, peaks):
     markers = label(seeds)    
     return markers
 
-def process_volume() :
-    print('perform 3d watershed')
+def watershed() :
+    print('perform 3d watershed ...')
     try : 
         # define foreground by visibility instead of otsu threshold
         #foreground = pd.volume >= threshold_otsu(pd.volume)
@@ -86,7 +115,7 @@ def process_volume() :
         markers = peaks_to_markers_3d(foreground, peaks)
         
         # Watershed segmentation
-        particle_labels = watershed(-distance_img, markers, mask=foreground)
+        particle_labels =  skimage.segmentation.watershed(-distance_img, markers, mask=foreground)
         #pd.labels[:] = particle_labels.astype(np.uint16)
         pd.labels[pd.boxmin[0]:pd.boxmax[0],
                   pd.boxmin[1]:pd.boxmax[1],
@@ -101,8 +130,9 @@ def process_volume() :
         print('Error : ', str(e))
         print('Full Error : ', repr(e))
         traceback.print_exc()
+#---------------    
 
-    
+#---------------            
 def peaks_to_markers_2d(image, peaks):
     """Returns watershed markers from peaks data."""
     peaks_x, peaks_y = peaks.astype('int').T
@@ -113,7 +143,7 @@ def peaks_to_markers_2d(image, peaks):
     return markers
 
 def process_slice(img, mask, width, height, tag) :
-    print('process slice image mask .. ')
+    print('process slice image mask ... ')
     try : 
         # define foreground by visibility instead of otsu threshold
         #foreground = img >= threshold_otsu(img)
@@ -128,7 +158,7 @@ def process_slice(img, mask, width, height, tag) :
         markers = peaks_to_markers_2d(foreground, peaks)
         
         # Watershed segmentation
-        particle_labels = watershed(-distance_img, markers, mask=foreground)
+        particle_labels = skimage.segmentation.watershed(-distance_img, markers, mask=foreground)
         
         markers = particle_labels.astype(np.uint16)
         markers = np.where(np.isnan(markers), 0, markers) # set nan pixels to 0
@@ -138,8 +168,7 @@ def process_slice(img, mask, width, height, tag) :
         print('Error : ', str(e))
         print('Full Error : ', repr(e))
         traceback.print_exc()
+#---------------    
         
-
-
 if __name__ == '__main__':
-    print('cv2.watershed')
+    print('skimage watershed')

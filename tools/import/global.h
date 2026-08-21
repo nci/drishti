@@ -21,6 +21,9 @@ class Global
   static void setRGBVolume(bool);
   static bool rgbVolume();
 
+  static QWidget* mainWindow();
+  static void setMainWindow(QWidget*);
+
   static QStatusBar *statusBar();
   static void setStatusBar(QStatusBar*);
 
@@ -32,6 +35,7 @@ class Global
   static QString pythonVenv();
 
  private :
+  static QWidget* m_mainWindow;
   static QString m_previousDirectory;
   static QString m_documentationPath;
   static bool m_rgbVolume;

@@ -51,8 +51,10 @@ macx {
 HEADERS += ../src/pyversion.h \
            ../src/pybridge.h \
            ../../pyplugininterface.h \
+           ../../../../common/src/pybind/pydialog.h \
            ../../../../common/src/pybind/pythonengine.h
 
 SOURCES += ../src/pyversion.cpp \
            ../src/pybridge.cpp \
+           ../../../../common/src/pybind/pydialog.cpp \
            ../../../../common/src/pybind/pythonengine.cpp

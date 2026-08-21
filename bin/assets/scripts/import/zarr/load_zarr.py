@@ -1,4 +1,4 @@
-from pywidget import widget
+from pydialog import dialog
 import os
 import sys
 import numpy
@@ -64,7 +64,7 @@ class Volume :
     def getSubsamplingLevel(self, sslevels) :
         print(sslevels)
         try :
-            sslevel = widget.get_item("Load Subsampling Level",
+            sslevel = dialog.get_item("Load Subsampling Level",
                                       "Subsampling Level",
                                       sslevels,
                                       0)

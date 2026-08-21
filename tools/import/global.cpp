@@ -1,5 +1,9 @@
 #include "global.h"
 
+QWidget* Global::m_mainWindow = 0;
+QWidget* Global::mainWindow() { return m_mainWindow; }
+void Global::setMainWindow(QWidget *w) { m_mainWindow = w; }
+
 QString Global::m_previousDirectory = "";
 QString Global::previousDirectory() {return m_previousDirectory;}
 void Global::setPreviousDirectory(QString d) {m_previousDirectory = d;}

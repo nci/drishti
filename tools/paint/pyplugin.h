@@ -15,7 +15,8 @@ class PyPlugin : public QObject
     ~PyPlugin();
 
     void clear();
-    bool init(QString, QString,
+    bool init(QWidget*,
+	      QString, QString,
 	      uchar*, ushort*, uchar*, uchar*,
 	      int, int, int,
 	      int*, int*);

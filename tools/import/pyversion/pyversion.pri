@@ -51,9 +51,9 @@ macx {
 
 HEADERS += ../src/pyversion.h \
            ../../pyplugininterface.h \
-           ../../../../common/src/pybind/pywidget.h \
+           ../../../../common/src/pybind/pydialog.h \
            ../../../../common/src/pybind/pythonengine.h
 
 SOURCES += ../src/pyversion.cpp \
-           ../../../../common/src/pybind/pywidget.cpp \
+           ../../../../common/src/pybind/pydialog.cpp \
            ../../../../common/src/pybind/pythonengine.cpp

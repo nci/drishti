@@ -199,7 +199,7 @@ class VolumeOperations
 		       int&, int&,
 		       int&, int&);
   
-  static void mergeTags(Vec bmin, Vec bmax,
+  static void renameTags(Vec bmin, Vec bmax,
 			int tag1, int tag2, bool useTF,
 			int&, int&,
 			int&, int&,

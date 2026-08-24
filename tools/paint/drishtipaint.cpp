@@ -5671,7 +5671,7 @@ DrishtiPaint::stepTags(Vec bmin, Vec bmax, int tagStep, int tagVal)
 		       minH, maxH);
 }
 void
-DrishtiPaint::mergeTags(Vec bmin, Vec bmax, int tag1, int tag2, bool useTF)
+DrishtiPaint::renameTags(Vec bmin, Vec bmax, int tag1, int tag2, bool useTF)
 {
   int minD,maxD, minW,maxW, minH,maxH;
 
@@ -5679,7 +5679,7 @@ DrishtiPaint::mergeTags(Vec bmin, Vec bmax, int tag1, int tag2, bool useTF)
   QList<Vec> cNorm = m_viewer->clipNorm();
 
   VolumeOperations::setClip(cPos, cNorm);
-  VolumeOperations::mergeTags(bmin, bmax,
+  VolumeOperations::renameTags(bmin, bmax,
 			      tag1, tag2, useTF,
 			      minD, maxD,
 			      minW, maxW,

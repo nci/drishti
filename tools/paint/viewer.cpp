@@ -277,7 +277,7 @@ Viewer::init()
   m_savingImages = 0;
 
   m_tag1 = m_tag2 = -1;
-  m_mergeTagTF = false;
+  m_renameTagTF = false;
 
   m_skipLayers = 0;
   m_dragMode = true;
@@ -833,7 +833,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
       bmax = VECDIVIDE(bmax, voxelScaling);
 
       if (m_tag1 > -1 && m_tag2 >= -1)
-	emit mergeTags(bmin, bmax, m_tag1, m_tag2, m_mergeTagTF);      
+	emit renameTags(bmin, bmax, m_tag1, m_tag2, m_renameTagTF);      
       else
 	QMessageBox::information(0, "", "No previous tags specified");
       return;
@@ -1584,7 +1584,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
 
-  if (list[0] == "merge_labels")
+  if (list[0] == "rename_visible")
     {
       if (list.size() == 3)
 	{
@@ -1597,13 +1597,13 @@ Viewer::processCommand(QString cmd)
 				       arg(tag1).arg(tag2));
 	      return;
 	    }
-	  emit mergeTags(bmin, bmax, tag1, tag2, true);
+	  emit renameTags(bmin, bmax, tag1, tag2, true);
 	  m_tag1 = tag1;
 	  m_tag2 = tag2;
-	  m_mergeTagTF = true;
+	  m_renameTagTF = true;
 	}
       else
-	QMessageBox::information(0, "", "Incorrect parameters : merge <label1> <label2>");
+	QMessageBox::information(0, "", "Incorrect parameters : rename_visible <label1> <label2>");
 
       return;
     }
@@ -1633,7 +1633,7 @@ Viewer::processCommand(QString cmd)
       return;
     }
   
-  if (list[0] == "merge")
+  if (list[0] == "rename")
     {
       if (list.size() == 3)
 	{
@@ -1646,13 +1646,13 @@ Viewer::processCommand(QString cmd)
 				       arg(tag1).arg(tag2));
 	      return;
 	    }
-	  emit mergeTags(bmin, bmax, tag1, tag2, false);
+	  emit renameTags(bmin, bmax, tag1, tag2, false);
 	  m_tag1 = tag1;
 	  m_tag2 = tag2;
-	  m_mergeTagTF = false;
+	  m_renameTagTF = false;
 	}
       else
-	QMessageBox::information(0, "", "Incorrect parameters : merge <label1> <label2>");
+	QMessageBox::information(0, "", "Incorrect parameters : rename <label1> <label2>");
 
       return;
     }

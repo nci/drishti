@@ -173,7 +173,7 @@ class DrishtiPaint : public QMainWindow
   void sortLabels(Vec, Vec);
   
   void tagUsingSketchPad(Vec, Vec);
-  void mergeTags(Vec, Vec, int, int, bool);
+  void renameTags(Vec, Vec, int, int, bool);
   void stepTags(Vec, Vec, int, int);
 
   void updateSliceBounds(Vec, Vec);

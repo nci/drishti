@@ -156,7 +156,7 @@ class Viewer : public QGLViewer
   
     void tagUsingSketchPad(Vec, Vec);
 
-    void mergeTags(Vec, Vec, int, int, bool);
+    void renameTags(Vec, Vec, int, int, bool);
     void stepTag(Vec, Vec, int, int);
 
     void sortLabels(Vec, Vec);
@@ -244,7 +244,7 @@ class Viewer : public QGLViewer
 
   
   int m_tag1, m_tag2;
-  bool m_mergeTagTF;
+  bool m_renameTagTF;
 
   int m_voxChoice;
   bool m_showBox;

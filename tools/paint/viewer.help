@@ -42,19 +42,19 @@ Clipping planes are obeyed - clipped region is not taken into account.
 
 
 #begin
-merge
-merge <label1> <label2>
+rename
+rename <label1> <label2>
 
-Merge label2 into label1 when two parameters are specified.  Replace label2 with label1 in the selected subvolume.  If label2 value is -1, then all the labels (even 0) are replaced with label1 within the selected subvolume.
+Rename label2 into label1 when two parameters are specified.  Replace label2 with label1 in the selected subvolume.  If label2 value is -1, then all the labels (even 0) are replaced with label1 within the selected subvolume.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end
 
 #begin
-merge_labels
-merge_labels <label1> <label2>
+rename_visible
+rename_visible <label1> <label2>
 
-Similar to merge, except the operation is carried out only within the visible portion of the selected subvolume.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible labels.
+Similar to rename, except the operation is carried out only within the visible portion of the selected subvolume.  Visible portion is that region where opacity is greater than 0 as defined by transfer functions and visible labels.
 
 Clipping planes are obeyed - clipped region is not taken into account.
 #end

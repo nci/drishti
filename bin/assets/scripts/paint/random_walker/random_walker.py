@@ -56,7 +56,7 @@ def process_slice(img, mask, width, height, tag) :
     try : 
         foreground = np.where(img > 0, img, 0)
         foregound = np.where(mask == 65535, 0, foreground)  # set masked background pixels to 0
-
+        
         # 0 = unlabeled, 1 = foreground, 2 = background
         labels = np.where(foreground == 0, 2, 0)
         labels = np.where((mask==tag), 1, labels)
@@ -85,21 +85,23 @@ def process_volume() :
                              1, 1, 65535, 1)
         
         # take only visible labels and that too in visible region
-        segmentation = (
-            (pd.label_color[3::4] > 0)[pd.labels] &
-            (pd.lut[3::4] > 0)[pd.volume]
-        ) * pd.labels
+        #segmentation = (
+        #    (pd.label_color[3::4] > 0)[pd.labels] &
+        #    (pd.lut[3::4] > 0)[pd.volume]
+        #) * pd.labels
 
         foreground = (pd.lut[3::4] > 0)[pd.volume]
-        foregound = np.where((pd.label_color[3::4] > 0)[pd.labels], foreground, 0)  # set masked background pixels to 0
+        # set labels that are set to 0 as 0
+        foregound = np.where((pd.label_color[3::4] > 0)[pd.labels], foreground, 0)
+        foreground = np.where(foreground, pd.volume, 0)
 
+        
         # 0 = unlabeled, 1 = foreground, 2 = background
         labels = np.where(foreground == 0, 2, 0)
         labels = np.where((pd.labels==tag), 1, labels)
         labels = np.where((pd.labels>0) & (pd.labels!=tag), 2, labels)
 
-        print(foreground.dtype)
-
+        
         beta = pd.paint_obj.script_args["beta"]
         mode = pd.paint_obj.script_args["mode"]
         

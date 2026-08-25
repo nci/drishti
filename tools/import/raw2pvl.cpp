@@ -1045,7 +1045,8 @@ Raw2Pvl::savePvl(VolumeData* volData,
   progress.setMinimumDuration(0);
   progress.resize(500, 100);
   progress.move(QCursor::pos());
-  
+
+
   //------------------------------------------------------
   int tsfcount = qMax(1, timeseriesFiles.count());
   for (int tsf=0; tsf<tsfcount; tsf++)
@@ -1160,7 +1161,9 @@ Raw2Pvl::savePvl(VolumeData* volData,
       weights[2*spread+2] = wsum;
       // ------------------
       
-      
+      float dratio = (float)(dsz-1)/(float)(dsz2-1);
+      float wratio = (float)(wsz-1)/(float)(wsz2-1);
+      float hratio = (float)(hsz-1)/(float)(hsz2-1);
       for(int dd=0; dd<dsz2; dd++)
 	{
 
@@ -1171,15 +1174,17 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	      break;
 	    }
 
-	  //int d0 = dmin + dd*svslz;
-	  int d0 = dmin + ((float)dd/(float)(dsz2-1))*(dmax-dmin);
-	  int d1 = d0 + svslz-1;
+	  int d0, d1;
 
-	  if (spread == 0) // No Filter - Nearest Neighbour
+	  if (spread == 0)
 	    {
-	      //d0 = dmin + dd*svslz;
-	      d0 = dmin + ((float)dd/(float)(dsz2-1))*(dmax-dmin);
+	      d0 = dmin + dd*dratio;
 	      d1 = d0;
+	    }
+	  else
+	    {
+	      d0 = dmin + dd*svslz;
+	      d1 = d0 + svslz-1;
 	    }
 	  
 	  progress.setValue((int)(100*(float)dd/(float)dsz2));
@@ -1260,14 +1265,31 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		  int fi = 0;
 		  for(int j=0; j<wsz2; j++)
 		    {
-		      //int y0 = wmin+j*svsl;
-		      int y0 = wmin + ((float)j/(float)(wsz2-1))*(wmax-wmin);
-		      int y1 = y0+svsl-1;
+		      int y0,y1;
+		      if (spread == 0)
+			{
+			  y0 = wmin + j*wratio;
+			  y1 = y0;
+			}
+		      else
+			{
+			  y0 = wmin + j*svsl;
+			  y1 = y0+svsl-1;
+			}
 		      for(int i=0; i<hsz2; i++)
 			{
-			  //int x0 = hmin+i*svsl;
-			  int x0 = hmin + ((float)i/(float)(hsz2-1))*(hmax-hmin);
-			  int x1 = x0+svsl-1;
+			  int x0,x1;
+			  if (spread == 0)
+			    {
+			      x0 = hmin + i*hratio;
+			      x1 = x0;
+			    }
+			  else
+			    {
+			      x0 = hmin + i*svsl;
+			      x1 = x0+svsl-1;
+			    }
+
 			  for(int y=y0; y<=y1; y++)
 			    for(int x=x0; x<=x1; x++)
 			      {
@@ -1302,11 +1324,13 @@ Raw2Pvl::savePvl(VolumeData* volData,
 				      { float *ptr = (float*)raw; filtervol[fi] = ptr[y*rvheight+x]; }
 				  }
 			      }
+			  
 			  fi++;
 			}
 		    }
 		} // trim || subsample
-	    }
+	    } // d = d0 to d1
+
 	  
 	  if (trim || subsample)
 	    {
@@ -1375,6 +1399,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		    ptr[fi] = 65535-ptr[fi];
 		}
 	    }
+
 	  
 	  if (sfw == 0 && sfh == 0)
 	    pvlFileManager.setSlice(sfd+dd, pvlslice);
@@ -1639,7 +1664,6 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   int width = wsz2;
   int height = hsz2;
   //------------------------------
-
   
   //------------------------------------------------------
   int tsfcount = qMax(1, timeseriesFiles.count());
@@ -1712,23 +1736,25 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 		    slabSize);
 
       progress.setLabelText(pvlflnm);
-      
+
       // ------------------
       // calculate weights for Gaussian filter
       float weights[100];
       float wsum = 0.0;
-      for(int i=-spread; i<=spread; i++)
+      if (spread > 0)
 	{
-	  float wgt = qExp(-i/(2.0*spread*spread))/(M_PI*2*spread*spread);
-	  wsum +=  wgt;
-	  weights[i+spread] = wgt;
+	  for(int i=-spread; i<=spread; i++)
+	    {
+	      float wgt = qExp(-i/(2.0*spread*spread))/(M_PI*2*spread*spread);
+	      wsum +=  wgt;
+	      weights[i+spread] = wgt;
+	    }
+	  weights[2*spread+2] = wsum;
 	}
-      weights[2*spread+2] = wsum;
       // ------------------
       
       for(int dd=0; dd<dsz2; dd++)
 	{
-
 	  if (progress.wasCanceled())
 	    {
 	      progress.setValue(100);  
@@ -1738,11 +1764,14 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 
 	  int d0 = dmin + dd*svslz; 
 	  int d1 = d0 + svslz-1;
-	  
+
 	  progress.setValue((int)(100*(float)dd/(float)dsz2));
 	  qApp->processEvents();
+	  if (spread == 0) // no smoothing
+	    d1 = d0 = (d0 + svslz/2);
 	  
 	  memset(filtervol, 0, 8*wsz2*hsz2);
+
 	  for (int d=d0; d<=d1; d++)
 	    {
 	      if (spread > 0)
@@ -1792,7 +1821,7 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 					     voxelType, rvwidth, rvheight,
 					     spread, dilateFilter, weights);
 		    }
-		}
+		} // spread > 0
 	      else
 		volData->getDepthSlice(d, raw);
 	      
@@ -1840,7 +1869,7 @@ Raw2Pvl::batchProcess(VolumeData* volData,
 			}
 		    }
 		} // trim || subsample
-	    }
+	    } // d=d0 to d1
 	  
 	  if (trim || subsample)
 	    {

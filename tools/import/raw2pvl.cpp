@@ -187,7 +187,7 @@ Raw2Pvl::applyMapping(uchar *raw, int voxelType,
 QString
 getPvlNcFilename()
 {
-  QFileDialog fdialog(0,
+  QFileDialog fdialog(Global::mainWindow(),
 		      "Save processed volume",
 		      Global::previousDirectory(),
 		      "Drishti (*.pvl.nc) ;; MetaImage (*.mhd) ;; VDB (*.vdb)");
@@ -230,7 +230,7 @@ checkParIsoGen()
   QStringList type;
   type << "No (default) - Do one after another";
   type << "Yes - Try to cram as many as possible";  
-  QString option = QInputDialog::getItem(0,
+  QString option = QInputDialog::getItem(Global::mainWindow(),
 		   "Parallel Isosurface generation",
 		   "Fire multiple isosurface generation threads ?\nFor large surfaces or NetCDF files you might be better off sequential",
 		    type,
@@ -250,7 +250,7 @@ checkParIsoGen()
 	  pariso = true;
 	  QMessageBox::information(0, "Isosurface generation", "Will generate multiple surfaces in parallel");
 
-//	  int maxThreads = QInputDialog::getInt(0, "Max Thread Count",
+//	  int maxThreads = QInputDialog::getInt(Global::mainWindow(), "Max Thread Count",
 //						QString("Maximum threads (%1)\nthat can be used").\
 //						arg(QThread::idealThreadCount()),
 //						QThread::idealThreadCount(),
@@ -277,7 +277,7 @@ saveSliceZeroAtTop()
   QStringList slevels;
   slevels << "Yes - (default)";  
   slevels << "No - save slice 0 as bottom slice";
-  QString option = QInputDialog::getItem(0,
+  QString option = QInputDialog::getItem(Global::mainWindow(),
 		   "Save Data",
 		   "Save slice 0 as top slice ?",
 		    slevels,
@@ -305,7 +305,7 @@ getSaveRawFile()
   QStringList slevels;
   slevels << "Yes - save raw file";
   slevels << "No";  
-  QString option = QInputDialog::getItem(0,
+  QString option = QInputDialog::getItem(Global::mainWindow(),
 		   "Save Processed Volume",
 		   "Save RAW file along with preprocessed volume ?",
 		    slevels,
@@ -327,7 +327,7 @@ getSaveRawFile()
 QString
 getRawFilename(QString pvlFilename)
 {
-  QString rawfile = QFileDialog::getSaveFileName(0,
+  QString rawfile = QFileDialog::getSaveFileName(Global::mainWindow(),
 						 "Save processed volume",
 						 QFileInfo(pvlFilename).absolutePath(),
 						 "RAW Files (*.raw)");
@@ -349,7 +349,7 @@ getZSubsampling(int dsz, int wsz, int hsz)
   slevels << QString("4 [Z(%1) %2 %3]").arg(dsz/4).arg(wsz).arg(hsz);
   slevels << QString("5 [Z(%1) %2 %3]").arg(dsz/5).arg(wsz).arg(hsz);
   slevels << QString("6 [Z(%1) %2 %3]").arg(dsz/6).arg(wsz).arg(hsz);
-  QString option = QInputDialog::getItem(0,
+  QString option = QInputDialog::getItem(Global::mainWindow(),
 					 "Volume Size",
 					 "Z subsampling",
 					 slevels,
@@ -378,7 +378,7 @@ getXYSubsampling(int svslz, int dsz, int wsz, int hsz)
   slevels << QString("4 [%1 Y(%2) X(%3)]").arg(dsz/svslz).arg(wsz/4).arg(hsz/4);
   slevels << QString("5 [%1 Y(%2) X(%3)]").arg(dsz/svslz).arg(wsz/5).arg(hsz/5);
   slevels << QString("6 [%1 Y(%2) X(%3)]").arg(dsz/svslz).arg(wsz/6).arg(hsz/6);
-  QString option = QInputDialog::getItem(0,
+  QString option = QInputDialog::getItem(Global::mainWindow(),
 					 "Volume Size",
 					 "XY subsampling",
 					 slevels,
@@ -779,17 +779,6 @@ Raw2Pvl::savePvl(VolumeData* volData,
 		 QStringList timeseriesFiles)
 {
 
-  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
-  QWidget *mainWidget = 0;
-  for(QWidget *w : topLevelWidgets)
-    {
-      if (w->isWindow())
-	{
-	  mainWidget = w;
-	  break;
-	}
-    }
-
   //------------------------------------------------------
   int rvdepth, rvwidth, rvheight;    
   volData->gridSize(rvdepth, rvwidth, rvheight);
@@ -814,7 +803,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 //    {  
 //      QStringList items;
 //      items << "no" << "yes";
-//      QString yn = QInputDialog::getItem(0, "Split Volume",
+//      QString yn = QInputDialog::getItem(Global::mainWindow(), "Split Volume",
 //					 "Split volume larger than 1Gb into multiple files ?",
 //					 items,
 //					 0,
@@ -909,7 +898,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
   {
     bool ok;
     QString text;
-    text = QInputDialog::getText(0,
+    text = QInputDialog::getText(Global::mainWindow(),
 				 "Final Volume Grid Size With Padding",
 				 "Final Volume Grid Size With Padding",
 				 QLineEdit::Normal,
@@ -943,7 +932,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 	    if (td != 0 || tw != 0 || th != 0)
 	      {
 		QString text;
-		text = QInputDialog::getText(0,
+		text = QInputDialog::getText(Global::mainWindow(),
 					     "Pad volume With Value",
 					     "Pad Volume With Value",
 					     QLineEdit::Normal,
@@ -961,7 +950,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
 
   //------------------------------------------------------
   // -- get saving parameters for processed file
-  SavePvlDialog savePvlDialog;
+  SavePvlDialog savePvlDialog(Global::mainWindow());
   float vx, vy, vz;
   volData->voxelSize(vx, vy, vz);
   QString desc = volData->description();
@@ -1001,7 +990,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
       QStringList items;
       items << "Tri-Linear Interpolation";
       items << "No Interpolation";
-      QString item = QInputDialog::getItem(0,
+      QString item = QInputDialog::getItem(Global::mainWindow(),
 					   QString("Subsampling Filter (%1)").arg(spread),
 					   "FOR SEGMENTED DATA USE - NO INTERPOLATION",
 					   items,
@@ -1051,7 +1040,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
   QProgressDialog progress("Saving processed volume",
 			   "Cancel",
 			   0, 100,
-			   mainWidget,
+			   Global::mainWindow(),
 			   Qt::Dialog|Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.resize(500, 100);
@@ -1583,22 +1572,11 @@ Raw2Pvl::batchProcess(VolumeData* volData,
   bool subsample = (svsl > 1 || svslz > 1);
   bool trim = false;
 
-
-  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
-  QWidget *mainWidget = 0;
-  for(QWidget *w : topLevelWidgets)
-    {
-      if (w->isWindow())
-	{
-	  mainWidget = w;
-	  break;
-	}
-    }
   
   QProgressDialog progress("Saving processed volume",
 			   "Cancel",
 			   0, 100,
-			   mainWidget,
+			   Global::mainWindow(),
 			   Qt::Dialog|Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.resize(500, 100);
@@ -2110,23 +2088,12 @@ Raw2Pvl::saveMHD(QString mhdFilename,
     QList<int> pvlMap = volData->pvlMap();
     int rawSize = rawMap.size()-1;
 
-    
-    QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
-    QWidget *mainWidget = 0;
-    for(QWidget *w : topLevelWidgets)
-      {
-	if (w->isWindow())
-	  {
-	    mainWidget = w;
-	    break;
-	  }
-      }
-  
+      
 
     QProgressDialog progress("Saving MetaImage volume",
 			     "Cancel",
 			     0, 100,
-			     mainWidget,
+			     Global::mainWindow(),
 			     Qt::Dialog|Qt::WindowStaysOnTopHint);
     progress.setMinimumDuration(0);
     progress.resize(500, 100);
@@ -2451,23 +2418,11 @@ Raw2Pvl::mergeVolumes(VolumeData* volData,
   VolumeFileManager rawFileManager;
   VolumeFileManager pvlFileManager;
 
-
-
-  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
-  QWidget *mainWidget = 0;
-  for(QWidget *w : topLevelWidgets)
-    {
-      if (w->isWindow())
-	{
-	  mainWidget = w;
-	  break;
-	}
-    }
   
   QProgressDialog progress("Saving processed volume",
 			   "Cancel",
 			   0, 100,
-			   mainWidget,
+			   Global::mainWindow(),
 			   Qt::Dialog|Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.resize(500, 100);
@@ -2675,22 +2630,11 @@ Raw2Pvl::quickRaw(VolumeData* volData,
   m_qfile.write((char*)&wsz, 4);
   m_qfile.write((char*)&hsz, 4);
 
-
-  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
-  QWidget *mainWidget = 0;
-  for(QWidget *w : topLevelWidgets)
-    {
-      if (w->isWindow())
-	{
-	  mainWidget = w;
-	  break;
-	}
-    }
   
   QProgressDialog progress("Saving "+rawflnm,
 			   "Cancel",
 			   0, 100,
-			   mainWidget,
+			   Global::mainWindow(),
 			   Qt::Dialog|Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.resize(500, 100);
@@ -2881,22 +2825,11 @@ Raw2Pvl::saveVDB(int volIdx,
 
   unsigned short *rawUS = (unsigned short*)raw;
   
-  
-  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
-  QWidget *mainWidget = 0;
-  for(QWidget *w : topLevelWidgets)
-    {
-      if (w->isWindow())
-	{
-	  mainWidget = w;
-	  break;
-	}
-    }
-  
+    
   QProgressDialog progress("Saving "+vdbFileName,
 			   "Cancel",
 			   0, 100,
-			   mainWidget,
+			   Global::mainWindow(),
 			   Qt::Dialog|Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.resize(500, 100);
@@ -3055,21 +2988,11 @@ Raw2Pvl::saveIsosurface(VolumeData* volData,
 	       hsz != rvheight);
 
 
-  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
-  QWidget *mainWidget = 0;
-  for(QWidget *w : topLevelWidgets)
-    {
-      if (w->isWindow())
-	{
-	  mainWidget = w;
-	  break;
-	}
-    }
 
   QProgressDialog progress("Exporting Mesh",
 			   "Cancel",
 			   0, 100,
-			   mainWidget,
+			   Global::mainWindow(),
 			   Qt::Dialog|Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.resize(500, 100);
@@ -3612,20 +3535,6 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
 			     QColor meshColor,
 			     bool applyVoxelScaling)
 {
-  //--------------------
-  QWidgetList topLevelWidgets = QApplication::topLevelWidgets();
-  QWidget *mainWidget = 0;
-  for(QWidget *w : topLevelWidgets)
-    {
-      if (w->isWindow())
-	{
-	  mainWidget = w;
-	  break;
-	}
-    }
-  //--------------------
-
-  
   int rvdepth, rvwidth, rvheight;
   volData->gridSize(rvdepth, rvwidth, rvheight);
 
@@ -3740,7 +3649,7 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
 	  QProgressDialog progress("Exporting Mesh",
 				   "Cancel",
 				   0, 100,
-				   mainWidget,
+				   Global::mainWindow(),
 				   Qt::Dialog|Qt::WindowStaysOnTopHint);
 	  progress.setMinimumDuration(0);
 	  progress.resize(500, 100);
@@ -3776,7 +3685,7 @@ Raw2Pvl::saveIsosurfaceRange(VolumeData* volData,
       
     } // loop timeseries
       
-  QMessageBox::information(mainWidget, "Export Mesh", "Save Done");
+  QMessageBox::information(Global::mainWindow(), "Export Mesh", "Save Done");
 }
 
 

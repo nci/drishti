@@ -1,3 +1,4 @@
+from pydialog import dialog
 import paintmod
 import numpy as np
 import porespy as ps
@@ -48,7 +49,7 @@ def init() :
 
     
 def process_slice(img, mask, width, height, tag) :
-    print('process slice image mask .. ')
+    dialog.print_message('process slice image mask .. ')
     try : 
         # define foreground by visibility
         foreground = img > 0
@@ -71,7 +72,7 @@ def process_slice(img, mask, width, height, tag) :
 
 
 def process_volume() :
-    print('perform 3d watershed')
+    dialog.print_message('perform 3d watershed')
     try : 
         # define foreground by visibility
         #foreground = np.take(pd.lut[3::4]>0, pd.volume)        
@@ -83,7 +84,7 @@ def process_volume() :
             0
         )
         
-        print(pd.boxmin, pd.boxmax)
+        dialog.print_message(str((pd.boxmin, pd.boxmax)))
 
         foreground = foreground[pd.boxmin[0]:pd.boxmax[0],
                                 pd.boxmin[1]:pd.boxmax[1],

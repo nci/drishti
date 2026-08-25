@@ -22,7 +22,7 @@ class paint_data :
         self.height = 0
         self.dim = np.zeros(3, np.int32)
 
-print('paint_data declared')
+dialog.print_message('paint_data declared')
 pd = paint_data()
 
 
@@ -40,13 +40,13 @@ def set_paint_data(py_obj) :
     pd.dim[0] = pd.depth
     pd.dim[1] = pd.width
     pd.dim[2] = pd.height
-    print(pd.depth*pd.width*pd.height)
-    print(pd.depth, pd.width, pd.height)
-    print(pd.volume.shape)
+    dialog.print_message(str(pd.depth*pd.width*pd.height))
+    dialog.print_message(str((pd.depth, pd.width, pd.height)))
+    dialog.print_message(str(pd.volume.shape))
 
     
 def init() :
-    print('init watershed')
+    dialog.print_message('init watershed')
     pd.volume = pd.volume.reshape(pd.dim)  
     pd.labels = pd.labels.reshape(pd.dim)  
 #---------------    
@@ -54,14 +54,14 @@ def init() :
     
 #---------------    
 def expand_labels() :
-    print('expanding labels into non-labeled region without overlap')
+    dialog.print_message('expanding labels into non-labeled region without overlap')
     try : 
         # take only visible labels and that too in visible region
         foreground = (
             (pd.label_color[3::4] > 0)[pd.labels] &
             (pd.lut[3::4] > 0)[pd.volume]
         ) * pd.labels
-        print(pd.boxmin, pd.boxmax)
+        dialog.print_message(str((pd.boxmin, pd.boxmax)))
         foreground = foreground[pd.boxmin[0]:pd.boxmax[0],
                                 pd.boxmin[1]:pd.boxmax[1],
                                 pd.boxmin[2]:pd.boxmax[2]]
@@ -89,7 +89,7 @@ def peaks_to_markers_3d(image, peaks):
     return markers
 
 def watershed() :
-    print('perform 3d watershed ...')
+    dialog.print_message('perform 3d watershed ...')
     try : 
         # define foreground by visibility instead of otsu threshold
         #foreground = pd.volume >= threshold_otsu(pd.volume)
@@ -102,7 +102,7 @@ def watershed() :
             0
         )
         
-        print(pd.boxmin, pd.boxmax)
+        dialog.print_message(str((pd.boxmin, pd.boxmax)))
         foreground = foreground[pd.boxmin[0]:pd.boxmax[0],
                                 pd.boxmin[1]:pd.boxmax[1],
                                 pd.boxmin[2]:pd.boxmax[2]]
@@ -124,8 +124,8 @@ def watershed() :
         pd.paint_obj.update_slice_view()
 
         num_particles = len(np.unique(pd.labels)) - (1 if 0 in pd.labels else 0)
-        print('Number of Labels : ', num_particles)
-        print('done')
+        dialog.print_message('Number of Labels : '+' '+str(num_particles))
+        dialog.print_message('done')
     except Exception as e :
         print('Error : ', str(e))
         print('Full Error : ', repr(e))

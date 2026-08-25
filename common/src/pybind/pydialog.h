@@ -14,6 +14,8 @@ public :
   static void showMessage(const std::string&, 
 			  const std::string&);
   
+  static void printMessage(const std::string&);
+  
   static int getInt(const std::string&,
 		    const std::string&,
 		    int, int, int, int);

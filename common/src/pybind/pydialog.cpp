@@ -6,10 +6,12 @@
 
 #include "pydialog.h"
 
+#include <QApplication>
 #include <QMessageBox>
 #include <QInputDialog>
 #include <vector>
 #include <string>
+#include <iostream>
 
 namespace py = pybind11;
 
@@ -24,6 +26,10 @@ PYBIND11_EMBEDDED_MODULE(pydialog, pw) {
         .def("show_message", 
             &PyDialog::showMessage,
             "show_message(title:str, label:str) -> none")
+
+        .def("print_message", 
+            &PyDialog::printMessage,
+            "print_message(text:str) -> none")
 
         .def("get_double", 
             &PyDialog::getDouble,
@@ -65,6 +71,13 @@ void
 PyDialog::showMessage(const std::string &title, const std::string &mesg)
 {
     QMessageBox::information(m_parent, QString::fromStdString(title), QString::fromStdString(mesg));
+}
+
+void
+PyDialog::printMessage(const std::string &text)
+{
+  std::cout << text << "\n";
+  qApp->processEvents();
 }
 
 int

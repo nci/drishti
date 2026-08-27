@@ -15,7 +15,7 @@ class PyWidgetMenu : public QWidget
   PyWidgetMenu(QWidget *parent=NULL);
   ~PyWidgetMenu();
 
-  void addRow(QString, QString, QString);
+  void addRow(QString, QString, QString, QString);
 
   void loadScripts(QString);    
   void genArgumentsFromTable();
@@ -38,6 +38,9 @@ class PyWidgetMenu : public QWidget
     QString m_script;
     QString m_doc;
     QHash<QString, QVariant> m_arguments;
+    QHash<QString, QString> m_desc;
+
+  QVariant getArg(QJsonValue val, QString&, QString&);
 
 };
 

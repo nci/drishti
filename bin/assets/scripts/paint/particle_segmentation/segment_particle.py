@@ -1,3 +1,4 @@
+from pydialog import dialog
 import paintmod
 import os
 import numpy as np
@@ -90,7 +91,7 @@ def process_slice(img, mask, width, height, tag) :
     
     
 def process_volume() :
-    print('volume processing using biomedisa particle segmentation')
+    dialog.print('volume processing using biomedisa particle segmentation')
     try :
         script_path = os.path.abspath(__file__)
         script_dir = os.path.dirname(script_path)
@@ -101,6 +102,8 @@ def process_volume() :
         min_particle_size = pd.paint_obj.script_args["min_particle_size"]
         downsample = pd.paint_obj.script_args["downsample"]
         model = path_to_models + pd.paint_obj.script_args["model"]
+        optimizer = pd.paint_obj.script_args["optimizer"]
+        learning_rate = pd.paint_obj.script_args["learning_rate"]
 
         # define mask by visibility
         mask = np.take(pd.lut[3::4]>0, pd.volume)
@@ -117,11 +120,13 @@ def process_volume() :
                                     #mask_data=pd.labels,
                                     mask_data=mask,
                                     path_to_model=model,
+                                    optimizer=optimizer,
+                                    learning_rate=learning_rate,
                                     predict=True,
                                     epochs=epochs,
                                     min_particle_size=min_particle_size,
                                     downsample=downsample,
-                                    batch_size=512)        
+                                    batch_size=batch_size)        
             pd.labels[:] = results['regular'].astype(np.uint16)
         else :
             roi = pd.volume[pd.boxmin[0]:pd.boxmax[0],
@@ -152,4 +157,4 @@ def process_volume() :
 
     
 if __name__ == '__main__':
-    print('biomedisa.interpolation')
+    print('biomedisa.particle_separation')

@@ -1,17 +1,19 @@
 {
     "script" : "segment_particle.py",
     "arguments" : {
-	"batch_size INT" : 512,
-	"epochs INT" : 10,
-	"min_particle_size INT" : 1000,
-	"separation BOOL" : "False",
-	"refinement BOOL" : "False",
-	"ignore_mask BOOL" : "False",
-	"normalization BOOL" : "False",
-	"downsample BOOL" : "False",
-	"model STR" : "model_svl_step=2.h5",
-	"network_filters STR" : "32-64-128-256-512",
-	"optimizer STR" : "sgd"
+	"batch_size" : ["INT", "Number of samples processed in a batch. If not specified, it will be adjusted to the available GPU memory, with a minimum of 6 and a maximum of 24", 64],
+	"epochs" : ["INT", "Epochs the network is trained", 10],
+	"min_particle_size" : ["INT", "Minimum size (in pixels) for connected components. Objects smaller than this threshold are removed", 1000],
+	"separation" : ["BOOL", "Instance segmentation of objects such as cells or rock particles", "False"],
+	"refinement" : ["BOOL", "Refine segmentation on full resolution data", "False"],
+	"ignore_mask" : ["BOOL", "Use a binary mask in the second channel of the label file to define ignored (0) and considered (1) areas during training", "False"],
+	"normalization" : ["BOOL", "Normalization of the data", "False"],
+	"downsample" : ["BOOL", "Downsampling to the smaller group when using balance", "False"],
+	"model" : ["STR", "Pretrained model", "model_svl_step=2.h5"],
+	"network_filters" : ["STR", "Number of filters per layer up to the deepest", "32-64-128-256-512"],
+	"optimizer" : ["STR", "Optimizer used for training. If adam is used, please reduce learning_rate to 0.0001", "sgd"],
+	"learning_rate" : ["FLOAT", "Learning rate", 0.01]
+	
     },
     "doc" :
 "This script uses Biomedisa tool from https://biomedisa.info/
@@ -23,6 +25,8 @@ Available functions for 3D processing :
 Modules Required : biomedisa, zarr, torch, torchvision, scikit_image,
                    medpy, numba, importlib_metadata, cv2, matplotlib,
                    mpi4py, keras, pycuda/pyopencl (depending on your gpu)
+
+Models are assumed to be stored under assets/models directory.
 
 To install biomedisa on Windows -
 Have a look at https://biomedisa.info/

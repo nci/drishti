@@ -1,11 +1,11 @@
 {
     "script" : "random_walker.py",
     "arguments" : {
-	"beta INT" : 10,
-	"mode STR" : "cg_mg"
+	"beta" : ["INT", "Penalization coefficient for the random walker motion (the greater beta, the more difficult the diffusion)", 10],
+	"mode" : ["STR", "Mode for solving the linear system in the random walker algorithm. Available options {‘cg’, ‘cg_j’, ‘cg_mg’, ‘bf’}", "cg_mg"]
     },
     "doc" :
-    "This script uses optical flow routine from cv2
+    "This script uses random_walker routine from skimage.
 Available in 2D and 3D.
 
 Available functions for 3D processing :

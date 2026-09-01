@@ -4,6 +4,8 @@ Graph Cut option allows the user to divide the image into "object" and "backgrou
 
 To seed the object pixels user first selects a tag value using "Tag" parameter box and then paints using Left mouse drag.  Background seeds are painted using Shift+Left mouse drag, this will paint the region red with value 255.  Pure black/transparent region is automatically considered part of the background.
 
+Shift+Mouse wheel to change the size brush.
+
 Users can change the tag colors via "Tag Color Editor".  Selecting the tag in the editor also changes the tag value in the "Tag" parameter box.
 
 #end

@@ -90,6 +90,7 @@ Slices::createMenu(QHBoxLayout *hl,
 	  m_imageWidget, SLOT(userRangeChanged(int, int)));
 
 
+  connect(m_imageWidget, SIGNAL(brushRadiusChanged(int)), this, SIGNAL(brushRadiusChanged(int)));
   connect(m_imageWidget, SIGNAL(xPos(int)), this, SIGNAL(xPos(int)));
   connect(m_imageWidget, SIGNAL(yPos(int)), this, SIGNAL(yPos(int)));
   connect(m_imageWidget, SIGNAL(sliceChanged(int)), this, SIGNAL(sliceChanged(int)));

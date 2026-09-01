@@ -54,6 +54,7 @@ class Slices : public QWidget
  signals :
   void changeLayout();
   void sliceChanged(int);
+  void brushRadiusChanged(int);
   void xPos(int);
   void yPos(int);
   void saveWork();

@@ -12,7 +12,7 @@ class PyVersion : public QObject, public PyPluginInterface
   public :
     void clear();
 
-    void init(QWidget*,
+    void init(QWidget*, QString,
 	      QString,
 	      uchar*, ushort*, uchar*, uchar*,
 	      int, int, int,

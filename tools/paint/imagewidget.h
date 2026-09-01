@@ -102,6 +102,7 @@ class ImageWidget : public QWidget
   void restartRecursive();
   
  signals :
+  void brushRadiusChanged(int);
   void xPos(int);
   void yPos(int);
   void sliceChanged(int);

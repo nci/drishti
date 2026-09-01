@@ -14,7 +14,7 @@ class PyPluginInterface
     virtual ~PyPluginInterface() {}
 
     virtual void clear() = 0;
-    virtual void init(QWidget*,
+    virtual void init(QWidget*, QString,
 		      QString,
 		      uchar*, ushort*, uchar*, uchar*,
 		      int, int, int,

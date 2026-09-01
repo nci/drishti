@@ -11,8 +11,8 @@ class PyVersion : public QObject, public PyPluginInterface
   Q_INTERFACES(PyPluginInterface)
 
   public :
-    QString init(QWidget*, QString);
-
+    QString init(QWidget*, QString, QString);
+  
     void setFile(QStringList);
     void replaceFile(QString);
     QString description() { return m_description; }

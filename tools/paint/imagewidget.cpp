@@ -2206,9 +2206,17 @@ void
 ImageWidget::wheelEvent(QWheelEvent *event)
 {
   event->setAccepted(true);
-  
+
+  int shiftModifier = QGuiApplication::keyboardModifiers() & Qt::ShiftModifier;
   int numSteps = event->delta()/8.0f/15.0f;
-  doAnother(numSteps);
+  if (!shiftModifier)
+    doAnother(numSteps);
+  else // change the dot spread size
+    {
+      int s = qBound(1, Global::spread()+numSteps, 100);
+      Global::setSpread(s);
+      emit brushRadiusChanged(s);
+    }
 }
 
 void

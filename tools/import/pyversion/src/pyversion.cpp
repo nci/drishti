@@ -7,9 +7,10 @@
 #include <QMessageBox>
 
 QString
-PyVersion::init(QWidget* parent, QString script)
+PyVersion::init(QWidget* parent, QString dataDir, QString script)
 {
     PyDialog::setParent(parent);
+    PyDialog::setDataDirectory(dataDir);
 
     m_fileName.clear();
     m_4dvol = false;

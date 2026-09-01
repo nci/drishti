@@ -21,6 +21,7 @@
 #include "volumefilemanager.h"
 #include "propertyeditor.h"
 #include "meshtools.h"
+#include "zarrwriter.h"
 
 
 // To jointly use QT and OpenVDB use the following preprocessor instruction
@@ -190,13 +191,19 @@ getPvlNcFilename()
   QFileDialog fdialog(Global::mainWindow(),
 		      "Save processed volume",
 		      Global::previousDirectory(),
-		      "Drishti (*.pvl.nc) ;; MetaImage (*.mhd) ;; VDB (*.vdb)");
+		      "Drishti (*.pvl.nc) ;; MetaImage (*.mhd) ;; VDB (*.vdb) ;; ZARR (*.zarr)");
   fdialog.setAcceptMode(QFileDialog::AcceptSave);
 
   if (!fdialog.exec() == QFileDialog::Accepted)
     return "";
 
   QString pvlFilename = fdialog.selectedFiles().value(0);
+  if (fdialog.selectedNameFilter() == "ZARR (*.zarr)")
+    {
+      if (!pvlFilename.endsWith(".zarr"))
+	pvlFilename += ".zarr";
+      return pvlFilename;
+    }
   if (fdialog.selectedNameFilter() == "VDB (*.vdb)")
     {
       if (!pvlFilename.endsWith(".vdb"))
@@ -816,6 +823,18 @@ Raw2Pvl::savePvl(VolumeData* volData,
   //------------------------------------------------------
 
   QString pvlFilename = getPvlNcFilename();
+
+  if (pvlFilename.endsWith(".zarr"))
+    {
+      ZarrWriter::saveZarr(Global::mainWindow(),
+			   pvlFilename,
+			   volData,
+			   dmin, dmax,
+			   wmin, wmax,
+			   hmin, hmax);
+      return;
+    }
+
   if (pvlFilename.endsWith(".mhd"))
     {
       saveMHD(pvlFilename,
@@ -826,7 +845,7 @@ Raw2Pvl::savePvl(VolumeData* volData,
       return;
     }
 
-    if (pvlFilename.endsWith(".vdb"))
+  if (pvlFilename.endsWith(".vdb"))
     {
       int tsfcount = qMax(1, timeseriesFiles.count());
       if (tsfcount == 1)

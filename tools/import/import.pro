@@ -27,7 +27,7 @@ win32 {
   # /std:c++17 added because openvdb requires this
   QMAKE_CXXFLAGS*=/std:c++17
   
-  LIBS += Imath-3_2.lib openvdb.lib vdb.lib gmsh.dll.lib
+  LIBS += Imath-3_2.lib openvdb.lib vdb.lib gmsh.dll.lib blosc.lib
 
 
   RC_ICONS += images/drishtiimport.ico
@@ -65,8 +65,8 @@ HEADERS += global.h \
 	    staticfunctions.h \
 	    fileslistdialog.h \
 	    remapwidget.h \
-      remaphistogramline.h \
-      remaphistogramwidget.h \
+            remaphistogramline.h \
+            remaphistogramwidget.h \
 	    remapimage.h \
 	    drishtiimport.h \
 	    myslider.h \
@@ -76,37 +76,39 @@ HEADERS += global.h \
 	    volumedata.h \ 
 	    volinterface.h \
  	    lookuptable.h \
-      scriptsplugin.h \
-      pyplugininterface.h \
-      ../../common/src/widgets/streamredirect.h \
-      ../../common/src/widgets/propertyeditor.h \
-      ../../common/src/widgets/dcolordialog.h \
-      ../../common/src/widgets/dcolorwheel.h \
-	    ../../common/src/widgets/gradienteditor.h \
-	    ../../common/src/widgets/gradienteditorwidget.h \
-      ../../common/src/mesh/meshtools.h \
-      ../../common/src/mesh/ply.h
+            scriptsplugin.h \
+            pyplugininterface.h \
+            ../../common/src/widgets/streamredirect.h \
+            ../../common/src/widgets/propertyeditor.h \
+            ../../common/src/widgets/dcolordialog.h \
+            ../../common/src/widgets/dcolorwheel.h \
+            ../../common/src/widgets/gradienteditor.h \
+            ../../common/src/widgets/gradienteditorwidget.h \
+            ../../common/src/mesh/meshtools.h \
+            ../../common/src/mesh/ply.h \
+            zarrwriter.h
 
 SOURCES += global.cpp \
 	    staticfunctions.cpp \
 	    fileslistdialog.cpp \
 	    main.cpp \
-      remapwidget.cpp \
-      remaphistogramline.cpp \
-      remaphistogramwidget.cpp \
-	    remapimage.cpp \
-	    drishtiimport.cpp \
-	    myslider.cpp \
-	    raw2pvl.cpp \
-	    savepvldialog.cpp \
-	    volumedata.cpp \
-	    volumefilemanager.cpp \
-      scriptsplugin.cpp \
-      ../../common/src/widgets/propertyeditor.cpp \
-      ../../common/src/widgets/dcolordialog.cpp \
-	    ../../common/src/widgets/dcolorwheel.cpp \
-	    ../../common/src/widgets/gradienteditor.cpp \
-	    ../../common/src/widgets/gradienteditorwidget.cpp \
-      ../../common/src/mesh/meshtools.cpp \
-      ../../common/src/mesh/ply.c
-
+            remapwidget.cpp \
+            remaphistogramline.cpp \
+            remaphistogramwidget.cpp \
+            remapimage.cpp \
+            drishtiimport.cpp \
+            myslider.cpp \
+            raw2pvl.cpp \
+            savepvldialog.cpp \
+            volumedata.cpp \
+            volumefilemanager.cpp \
+            scriptsplugin.cpp \
+            ../../common/src/widgets/propertyeditor.cpp \
+            ../../common/src/widgets/dcolordialog.cpp \
+            ../../common/src/widgets/dcolorwheel.cpp \
+            ../../common/src/widgets/gradienteditor.cpp \
+            ../../common/src/widgets/gradienteditorwidget.cpp \
+            ../../common/src/mesh/meshtools.cpp \
+            ../../common/src/mesh/ply.c \
+            zarrwriter.cpp
+            

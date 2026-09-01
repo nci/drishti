@@ -8,6 +8,7 @@ struct PyDialog
 {
 public :
   static void setParent(QWidget*);
+  static void setDataDirectory(QString);
   
   static QStringList toQStringList(const std::vector<std::string>&);
   
@@ -32,8 +33,12 @@ public :
 			     const std::string&,
 			     const std::vector<std::string>&,
 			     int);
+
+  static std::string saveFile(const std::string&,
+			      const std::string&);
 private :
   static QWidget *m_parent;
+  static QString m_dataDir;
 };
 
 #endif // PYDIALOG_H

@@ -467,7 +467,6 @@ DrishtiPaint::createCurveWindows()
     m_coronalFrameC->setLayout(layout);
     m_coronalFrameC->layout()->addWidget(m_coronalCurves);
   }
-
   connect(m_axialCurves,  SIGNAL(changeLayout()), this, SLOT(axialCurvesLayout_triggered()));
   connect(m_sagitalCurves,SIGNAL(changeLayout()), this, SLOT(sagitalCurvesLayout_triggered()));
   connect(m_coronalCurves,SIGNAL(changeLayout()), this, SLOT(coronalCurvesLayout_triggered()));
@@ -782,6 +781,11 @@ DrishtiPaint::createImageWindows()
     m_coronalFrame->setLayout(layout);
     m_coronalFrame->layout()->addWidget(m_coronalImage);
   }
+
+  connect(m_axialImage,   &Slices::brushRadiusChanged, this, [this](int radius) {ui.radius->setValue(radius);});
+  connect(m_sagitalImage, &Slices::brushRadiusChanged, this, [this](int radius) {ui.radius->setValue(radius);});
+  connect(m_coronalImage, &Slices::brushRadiusChanged, this, [this](int radius) {ui.radius->setValue(radius);});
+
 
   connect(m_axialImage, SIGNAL(changeLayout()), this, SLOT(on_actionZ_triggered()));
   connect(m_sagitalImage, SIGNAL(changeLayout()), this, SLOT(on_actionY_triggered()));

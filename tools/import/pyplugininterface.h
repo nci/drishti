@@ -12,7 +12,7 @@ class PyPluginInterface
   public :
     virtual ~PyPluginInterface() {}
 
-    virtual QString init(QWidget*, QString) = 0;
+    virtual QString init(QWidget*, QString, QString) = 0;
 
     virtual void setFile(QStringList) = 0;
     virtual void replaceFile(QString) = 0;

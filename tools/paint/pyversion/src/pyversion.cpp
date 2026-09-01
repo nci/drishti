@@ -29,7 +29,7 @@ bool PyVersion::hasSliceProcessor() {return m_hasSliceProcessor;}
 bool PyVersion::hasVolumeProcessor() {return m_hasVolumeProcessor;}
 
 void
-PyVersion::init(QWidget *parent,
+PyVersion::init(QWidget *parent, QString dataDir,
 		QString script,
                 uchar *vol, ushort *mask, 
                 uchar *lut, uchar *tag,
@@ -55,6 +55,7 @@ PyVersion::init(QWidget *parent,
   PaintVolMask::global_paint_vol_mask->boxmax = boxmax;
 
   PyDialog::setParent(parent);
+  PyDialog::setDataDirectory(dataDir);
 }
 
 void

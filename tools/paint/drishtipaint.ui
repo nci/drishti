@@ -198,8 +198,11 @@
                     <verstretch>0</verstretch>
                    </sizepolicy>
                   </property>
+                  <property name="toolTip">
+                   <string extracomment="Shift+Mouse Wheel to change size"/>
+                  </property>
                   <property name="text">
-                   <string>Radius</string>
+                   <string>Brush Radius</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignTrailing|Qt::AlignmentFlag::AlignVCenter</set>
@@ -213,6 +216,9 @@
                     <horstretch>0</horstretch>
                     <verstretch>0</verstretch>
                    </sizepolicy>
+                  </property>
+                  <property name="toolTip">
+                   <string extracomment="Shift+Mouse Wheel to change size"/>
                   </property>
                   <property name="layoutDirection">
                    <enum>Qt::LayoutDirection::LeftToRight</enum>

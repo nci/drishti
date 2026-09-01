@@ -3,17 +3,18 @@ TEMPLATE = subdirs
 SUBDIRS = analyze \
           dicom \
           grd \
-	      imagestack \
+          imagestack \
           jp2 \
           metaimage \
           nc4 \
           raw \
-	      rawslabs \
-	      rawslices \
-	      tiff \
-	      tom \
-	      txm \
-          vgi
+          rawslabs \
+          rawslices \
+          tiff \
+          tom \
+          txm \
+          vgi \
+          zarr
           
 win32 {
 SUBDIRS += nifti \

@@ -133,7 +133,7 @@ ScriptsPlugin::start(QString pyver, QString pydir, QString pyvenv, QString jsonf
         m_plugin = qobject_cast<PyPluginInterface*>(m_pluginInstance);
         if (m_plugin)
         {
-          QString mesg = m_plugin->init(Global::mainWindow(), m_script);
+          QString mesg = m_plugin->init(Global::mainWindow(), Global::previousDirectory(), m_script);
           if (mesg != "true")
             {
               QMessageBox::information(0, "Error", "Failed to import module: " + mesg);

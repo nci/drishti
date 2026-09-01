@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QMessageBox>
 #include <QInputDialog>
+#include <QFileDialog>
 #include <vector>
 #include <string>
 #include <iostream>
@@ -42,14 +43,25 @@ PYBIND11_EMBEDDED_MODULE(pydialog, pw) {
 
         .def("get_item", 
             &PyDialog::getItem,
-            "get_item(title:str, label:str, items:list[str], current:int) -> str");
+            "get_item(title:str, label:str, items:list[str], current:int) -> str")
+
+        .def("get_save_filename", 
+            &PyDialog::saveFile,
+            "get_save_filename(caption:str, filter:str) -> str");
 }
 
 QWidget* PyDialog::m_parent = NULL;
+QString PyDialog::m_dataDir;
 void
 PyDialog::setParent(QWidget* parent)
 {
   m_parent = parent;
+}
+
+void
+PyDialog::setDataDirectory(QString d)
+{
+  m_dataDir = d;
 }
 
 QStringList 
@@ -152,4 +164,16 @@ PyDialog::getItem(const std::string& title,
             current = qBound(0, current, (int)items.size());
             return items[current];
         }
+}
+
+
+std::string
+PyDialog::saveFile(const std::string& caption,
+		   const std::string& filter)
+{
+  QString flnm = QFileDialog::getSaveFileName(m_parent,
+					      QString::fromStdString(caption),
+					      m_dataDir,
+					      QString::fromStdString(filter));
+  return flnm.toStdString();
 }

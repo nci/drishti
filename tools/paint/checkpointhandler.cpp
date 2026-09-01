@@ -1,5 +1,6 @@
 #include "checkpointhandler.h"
 #include "blosc.h"
+#include "global.h"
 
 #include <QMessageBox>
 #include <QInputDialog>
@@ -61,7 +62,7 @@ CheckpointHandler::saveCheckpoint(QString flnm,
 			       mb100); // destination size
       if (bufsize < 0)
 	{
-	  QMessageBox::information(0, "", "Error in compression : .mask.sc file not saved");
+	  QMessageBox::information(Global::mainWindow(), "", "Error in compression : .mask.sc file not saved");
 	  buffer.close();
 	  return;
 	}
@@ -100,7 +101,8 @@ CheckpointHandler::saveCheckpoint(QString flnm,
 
   if (nrecords > 9998)
     {
-      QMessageBox::information(0, "Checkpoint", QString("Number of checkpoint records in this file : %1\nPlease rename this checkpoint file to start a new checkpoint file.").arg(nrecords));
+      QMessageBox::information(Global::mainWindow(), "Checkpoint",
+			       QString("Number of checkpoint records in this file : %1\nPlease rename this checkpoint file to start a new checkpoint file.").arg(nrecords));
       return;
     }
 
@@ -134,7 +136,8 @@ CheckpointHandler::saveCheckpoint(QString flnm,
   qfile.close();
   // -----
 
-  QMessageBox::information(0, "Checkpoint", QString("Saved checkpoint information to\n%1").arg(flnm));
+  QMessageBox::information(Global::mainWindow(), "Checkpoint",
+			   QString("Saved checkpoint information to\n%1").arg(flnm));
 }
 
 
@@ -152,17 +155,17 @@ CheckpointHandler::loadCheckpoint(QString flnm,
   qfile.setFileName(flnm);
   if (!qfile.open(QFile::ReadOnly))
     {
-      QMessageBox::information(0, "Checkpoint Error", "Cannot read checkpoint file "+flnm);
+      QMessageBox::information(Global::mainWindow(), "Checkpoint Error", "Cannot read checkpoint file "+flnm);
       return false;
     }
     
   int nrecords;
   qfile.read((char*)&nrecords, 4);
-//  QMessageBox::information(0, "", QString("Number of checkpoint records : %1").arg(nrecords));
+//  QMessageBox::information(Global::mainWindow(), "", QString("Number of checkpoint records : %1").arg(nrecords));
 
   if (nrecords == 0)
     {
-      QMessageBox::information(0, "Load checkpoint", "No checkpoint records found");
+      QMessageBox::information(Global::mainWindow(), "Load checkpoint", "No checkpoint records found");
       qfile.close();
       return false;
     }
@@ -186,7 +189,7 @@ CheckpointHandler::loadCheckpoint(QString flnm,
     }
 
   bool ok;
-  QString item = QInputDialog::getItem(0,
+  QString item = QInputDialog::getItem(Global::mainWindow(),
 				       "Checkpoint Records",
 				       "Select record",
 				       records,
@@ -199,7 +202,7 @@ CheckpointHandler::loadCheckpoint(QString flnm,
   int rid = records.indexOf(item);
   if (rid < 0)
     {
-      QMessageBox::information(0, "Checkpoint Error", "Cannot find record : "+item);
+      QMessageBox::information(Global::mainWindow(), "Checkpoint Error", "Cannot find record : "+item);
       return false;
     }
 
@@ -209,7 +212,7 @@ CheckpointHandler::loadCheckpoint(QString flnm,
   QProgressDialog progress("Restoring checkpoint "+item,
 			   "Cancel",
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
@@ -229,7 +232,7 @@ CheckpointHandler::loadCheckpoint(QString flnm,
       wdt != width ||
       ht != height)
     {
-      QMessageBox::information(0, "Error",
+      QMessageBox::information(Global::mainWindow(), "Error",
 			       QString("Cannot load checkpoint file : Grid sizes do not match - %1 %2 %3").arg(ht).arg(wdt).arg(dpt));
       qfile.close();
       return false;
@@ -253,7 +256,7 @@ CheckpointHandler::loadCheckpoint(QString flnm,
       int bufsize = blosc_decompress(vBuf, volData+i*mb100, mb100);
       if (bufsize < 0)
 	{
-	  QMessageBox::information(0, "", "Error in decompression : .mask.sc file not read");
+	  QMessageBox::information(Global::mainWindow(), "", "Error in decompression : .mask.sc file not read");
 	  qfile.close();
 	  return false;
 	}
@@ -282,17 +285,17 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
   qfile.setFileName(flnm);
   if (!qfile.open(QFile::ReadWrite))
     {
-      QMessageBox::information(0, "Checkpoint Error", "Cannot read checkpoint file "+flnm);
+      QMessageBox::information(Global::mainWindow(), "Checkpoint Error", "Cannot read checkpoint file "+flnm);
       return false;
     }
     
   int nrecords;
   qfile.read((char*)&nrecords, 4);
-//  QMessageBox::information(0, "", QString("Number of checkpoint records : %1").arg(nrecords));
+//  QMessageBox::information(Global::mainWindow(), "", QString("Number of checkpoint records : %1").arg(nrecords));
 
   if (nrecords == 0)
     {
-      QMessageBox::information(0, "Delete checkpoint", "No checkpoint records found");
+      QMessageBox::information(Global::mainWindow(), "Delete checkpoint", "No checkpoint records found");
       qfile.close();
       return false;
     }
@@ -314,12 +317,12 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
       rbufsize << bufsize;
       records << QString(desc);
 
-//      QMessageBox::information(0, "", QString("%1 %2 %3").	\
+//      QMessageBox::information(Global::mainWindow(), "", QString("%1 %2 %3").	\
 //			       arg(rfpos[r]).arg(rbufsize[r]).arg(records[r]));
     }
 
   bool ok;
-  QString item = QInputDialog::getItem(0,
+  QString item = QInputDialog::getItem(Global::mainWindow(),
 				       "Checkpoint Records",
 				       "Select record to delete",
 				       records,
@@ -332,7 +335,7 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
   int rid = records.indexOf(item);
   if (rid < 0)
     {
-      QMessageBox::information(0, "Checkpoint Error", "Cannot find record : "+item);
+      QMessageBox::information(Global::mainWindow(), "Checkpoint Error", "Cannot find record : "+item);
       return false;
     }
 
@@ -341,7 +344,7 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
   QProgressDialog progress("Deleting checkpoint "+item,
 			   "Cancel",
 			   0, 100,
-			   0,
+			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
   progress.setMinimumDuration(0);
   progress.setCancelButton(0);
@@ -349,7 +352,7 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
   qint64 fpos = rfpos[rid];
   qint64 bufsize = rbufsize[rid];
 
-//  QMessageBox::information(0, QString("%1").arg(nrecords), QString("%1 %2 %3").	\
+//  QMessageBox::information(Global::mainWindow(), QString("%1").arg(nrecords), QString("%1 %2 %3").	\
 //			   arg(rid).arg(fpos).arg(bufsize));
 			   
   qint64 fpos1 = 0;
@@ -368,7 +371,7 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
   for(int r=rid; r<nrecords; r++)
     rfpos[r] -= bufsize;
 
-//  QMessageBox::information(0, "", QString("%1 : %2 %3").arg(nrecords).	\
+//  QMessageBox::information(Global::mainWindow(), "", QString("%1 : %2 %3").arg(nrecords).	\
 //			   arg(rfpos[nrecords-1]).
 //			   arg(rbufsize[nrecords-1]));
   
@@ -414,7 +417,7 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
       if (ntimes*mb100 < totBytesToShift)
 	ntimes++;
       
-//      QMessageBox::information(0, "", QString("fsize %1 : shift %2 %3").\
+//      QMessageBox::information(Global::mainWindow(), "", QString("fsize %1 : shift %2 %3").\
 //			       arg(fsize).arg(ntimes).arg(totBytesToShift));
       for(int n=0; n<ntimes; n++)
 	{
@@ -435,7 +438,7 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
       fsize = qfile.pos();
       qfile.resize(fsize);
       qfile.close();
-//      QMessageBox::information(0, "", QString("end fsize  %1").arg(fsize));
+//      QMessageBox::information(Global::mainWindow(), "", QString("end fsize  %1").arg(fsize));
     }
 
 
@@ -443,7 +446,7 @@ CheckpointHandler::deleteCheckpoint(QString flnm,
   qApp->processEvents();
 
 
-  QMessageBox::information(0, "Delete checkpoint", "Removed checkpoint "+item);
+  QMessageBox::information(Global::mainWindow(), "Delete checkpoint", "Removed checkpoint "+item);
 
   return true;
 }

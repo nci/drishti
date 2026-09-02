@@ -5,17 +5,25 @@
 #include <QStringList>
 #include <QVector>
 #include <QMap>
+#include <memory>
 #include "volinterface.h"
 
-// Zarr (v3) directory reader plugin.
+#include <libzarr/libzarr.hpp>
+#include <libzarr/adapters/filesystem_store.hpp>
+
+// Zarr (v2/v3) directory reader plugin.
 //
-// Reads a multiscale zarr v3 directory (as written by toZarrStreaming /
-// toZarrStreaming.cpp / zarrwriter.cpp, i.e. a group whose metadata describes
+// Reads a multiscale zarr directory, a group whose metadata describes
 // arrays named by pyramid level "0", "1", ...).  On setFile() the available
 // levels are listed and the user picks one; the chosen level's shape/type/
-// chunk metadata is parsed and its voxels are served on demand (per
-// depth/width/height slice or single raw value), decompressing per-chunk as
-// needed, so the whole volume is never held in memory.
+// chunk metadata is read through libzarr and its voxels are served on demand
+// (per depth/width/height slice or single raw value), so the whole volume is
+// never held in memory.
+//
+// All zarr v2/v3 decoding — compression (blosc/gzip/zstd), sharding,
+// byte order and block layout — is handled by the libzarr library
+// (https://github.com/kharchenkolab/libzarr); this plugin only maps slices
+// onto libzarr reads.
 //
 // Supports unsigned 8-bit (uint8) and unsigned 16-bit (uint16) voxels.
 class ZarrPlugin : public QObject, public VolInterface
@@ -59,14 +67,20 @@ class ZarrPlugin : public QObject, public VolInterface
   QVariant rawValue(int, int, int);
 
  private :
-  bool parseRoot();                  // parse <dir>/zarr.json group metadata
-  bool parseLevel();                 // parse <dir>/<level>/zarr.json array meta
-  bool readChunk(qint64 kz, qint64 ky, qint64 kx, QByteArray& out) const;
-                                   // decompress one full (padded) chunk block
+  bool parseRoot();                  // open <dir> group; read attrs + levels
+  bool parseLevel();                 // open <dir>/<level> array; read metadata
+  bool readChunk(int kz, int ky, int kx, QByteArray& out) const;
+                       // decompress one full (fill-padded) block
+  void readSliceRegion(std::vector<uint64_t> origin, std::vector<uint64_t> shape,
+                       uchar* slice) const;  // hyperslab via libzarr
 
   QString m_dir;                     // zarr directory
   QString m_level;                   // chosen pyramid level ("0","1",...)
   QString m_description;
+
+  std::shared_ptr<zarr::FilesystemStore> m_store;  // store bound to m_dir
+  std::shared_ptr<zarr::Group> m_root;             // root group
+  std::shared_ptr<zarr::Array> m_array;            // chosen level's array
 
   float m_voxelSizeX, m_voxelSizeY, m_voxelSizeZ;
   int m_depth, m_width, m_height;    // (Z, Y, X) of the chosen level
@@ -81,18 +95,10 @@ class ZarrPlugin : public QObject, public VolInterface
 
   QMap<QString, QVector<float> > m_levelScales;  // level -> scale transform
 
-  qint64 m_chunkZ, m_chunkY, m_chunkX;  // chunk shape of the chosen level
-  QList<QString> m_levels;              // pyramid level paths (e.g. "0","1")
+  std::vector<uint64_t> m_chunkShape;          // chunk shape of chosen level
+  QList<QString> m_levels;                     // pyramid level paths ("0","1")
 
-  // zarr v3 sharding (sharding_indexed codec) parameters.  When enabled the
-  // chunk files are shard containers: inner chunks packed concentively
-  // followed/preceded by an index of (offset,nbytes) pairs.
-  bool m_sharded;
-  qint64 m_innerZ, m_innerY, m_innerX;  // inner (shard) chunk shape
-  bool m_indexCrc;                      // index has a trailing crc32c
-  int  m_indexLocation;                 // 0 = end, 1 = start
-
-  bool m_haveRoot;                  // root zarr.json parsed ok
+  bool m_haveRoot;                  // root group opened ok
 };
 
 #endif

@@ -15,10 +15,16 @@ TARGET = drishtiimport
 
 DESTDIR = ../../bin
 
+# libzarr (https://github.com/kharchenkolab/libzarr) is a header-only C++17
+# library used by zarrwriter.cpp (and the tools/import/plugins/zarr reader).
+LIBZARR_INCLUDE_PATH = C:/Apps/libzarr
+
 win32 {
   INCLUDEPATH += ../../common/src/vdb \
                  ../../common/src/widgets \      
                  ../../common/src/mesh
+  INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/third_party   # vendored nlohmann/json (first)
+  INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/include       # libzarr core headers
   INCLUDEPATH += $$VCPKG_INCLUDE_PATH
 
   QMAKE_LIBDIR += ..\..\common\lib
@@ -26,8 +32,12 @@ win32 {
 
   # /std:c++17 added because openvdb requires this
   QMAKE_CXXFLAGS*=/std:c++17
-  
-  LIBS += Imath-3_2.lib openvdb.lib vdb.lib gmsh.dll.lib blosc.lib
+
+  DEFINES += LIBZARR_HAS_ZLIB LIBZARR_HAS_BLOSC LIBZARR_HAS_ZSTD
+  DEFINES += NOMINMAX  # windows.h min/max macros clobber libzarr's std::min/std::max
+
+  LIBS += Imath-3_2.lib openvdb.lib vdb.lib gmsh.dll.lib \
+          blosc.lib zlib.lib zstd.lib
 
 
   RC_ICONS += images/drishtiimport.ico
@@ -38,6 +48,8 @@ unix {
   INCLUDEPATH += ../../common/src/vdb \
                  ../../common/src/widgets \
                  ../../common/src/mesh \
+                 $$LIBZARR_INCLUDE_PATH/third_party \
+                 $$LIBZARR_INCLUDE_PATH/include \
                  /home/acl900/drishtilib/openvdb/openvdb \
                  /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
                  /home/acl900/drishtilib/openvdb/build/openvdb/openvdb/openvdb \
@@ -47,8 +59,9 @@ unix {
                    /home/acl900/drishtilib/openvdb/build/openvdb/openvdb \
                    /home/acl900/drishtilib/oneTBB/build/gnu_11.3_cxx11_64_relwithdebinfo
 
+  DEFINES += LIBZARR_HAS_ZLIB LIBZARR_HAS_BLOSC LIBZARR_HAS_ZSTD
 
-  LIBS += -lvdb -lopenvdb -ltbb -lImath
+  LIBS += -lvdb -lopenvdb -ltbb -lImath -lblosc -lz -lzstd
   }
 }
 

@@ -2,6 +2,7 @@
 #include "staticfunctions.h"
 #include "global.h"
 #include "getmemorysize.h"
+#include "zarrmetareader.h"
 
 void
 Volume::checkFileSave()
@@ -149,26 +150,50 @@ Volume::setFile(QString volfile)
 {
   reset();
 
-  if (!StaticFunctions::xmlHeaderFile(volfile))
+  int slabSize = 0;
+  int headerSize=0;
+  int voxelType=0;
+  
+  if (StaticFunctions::checkExtension(volfile, ".pvl.nc"))
     {
-      QMessageBox::information(0, "Error",
-	QString("%1 is not a valid preprocessed volume file").
-			       arg(volfile));
-      return false;
+      if (!StaticFunctions::xmlHeaderFile(volfile))
+	{
+	  QMessageBox::information(0, "Error",
+				   QString("%1 is not a valid preprocessed volume file").
+				   arg(volfile));
+	  return false;
+	}
+
+      StaticFunctions::getDimensionsFromHeader(volfile,
+					       m_depth, m_width, m_height);
+      
+      slabSize = StaticFunctions::getSlabsizeFromHeader(volfile);
     }
-
-  StaticFunctions::getDimensionsFromHeader(volfile,
-					   m_depth, m_width, m_height);
-
-  int slabSize = StaticFunctions::getSlabsizeFromHeader(volfile);
-
+  else
+    {
+      m_depth = ZarrMetaReader::zarrInfo.depth;
+      m_width = ZarrMetaReader::zarrInfo.width;
+      m_height = ZarrMetaReader::zarrInfo.height;
+      voxelType = ZarrMetaReader::zarrInfo.voxelType;
+      slabSize = m_depth+1;
+    }
+  
   m_fileName = volfile;
 
-  int voxelType = StaticFunctions::getPvlVoxelTypeFromHeader(volfile);
-  int headerSize = StaticFunctions::getPvlHeadersizeFromHeader(volfile);
-  QStringList pvlnames = StaticFunctions::getPvlNamesFromHeader(volfile);
-  if (pvlnames.count() > 0)
-    m_pvlFileManager.setFilenameList(pvlnames);
+  //int voxelType = StaticFunctions::getPvlVoxelTypeFromHeader(volfile);
+  //int headerSize = StaticFunctions::getPvlHeadersizeFromHeader(volfile);
+  if (StaticFunctions::checkExtension(volfile, ".pvl.nc"))
+    {
+      QStringList pvlnames = StaticFunctions::getPvlNamesFromHeader(volfile);
+      if (pvlnames.count() > 0)
+	m_pvlFileManager.setFilenameList(pvlnames);
+    }
+  else
+    {
+      QStringList zarrnames;
+      zarrnames << volfile;
+      m_pvlFileManager.setFilenameList(zarrnames);
+    }
   m_pvlFileManager.setBaseFilename(m_fileName);
   m_pvlFileManager.setVoxelType(voxelType);
   m_pvlFileManager.setDepth(m_depth);
@@ -218,7 +243,12 @@ Volume::setFile(QString volfile)
   m_pvlFileManager.loadMemFile();
   
   QString mfile = m_fileName;
-  mfile.chop(6);
+  if (mfile.endsWith("pvl.nc")) mfile.chop(6);
+  if (mfile.endsWith("zarr"))
+    {
+      mfile.chop(4);
+      mfile = mfile + ZarrMetaReader::zarrInfo.level + ".";
+    }
   mfile += QString("mask");
   m_mask.setFile(mfile, inMem);
   m_mask.setVoxelType(Global::bytesPerMask());
@@ -244,7 +274,8 @@ Volume::genHistogram(bool forceHistogram)
 
   // if available read histogram from file
   QString hfilename = m_fileName;
-  hfilename.chop(6);
+  if (hfilename.endsWith("pvl.nc")) hfilename.chop(6);
+  if (hfilename.endsWith("zarr")) hfilename.chop(4);
   hfilename += QString("hist");
   QFile hfile;
   hfile.setFileName(hfilename);

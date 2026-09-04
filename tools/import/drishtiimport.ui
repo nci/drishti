@@ -260,6 +260,11 @@
     <string>Python venv</string>
    </property>
   </action>
+  <action name="actionLoad_Zarr">
+   <property name="text">
+    <string>Load Zarr</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>

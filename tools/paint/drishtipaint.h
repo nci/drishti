@@ -92,6 +92,7 @@ class DrishtiPaint : public QMainWindow
   void on_saveImage_triggered();
   void on_saveImageSequence_triggered();
   void on_actionLoad_triggered();
+  void on_actionLoad_Zarr_triggered();
   void bakeCurves_clicked();
   void on_actionExit_triggered();
   void on_actionExtractTag_triggered();

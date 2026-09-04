@@ -1,4 +1,5 @@
 #include "volumeinformation.h"
+#include "staticfunctions.h"
 
 #include <QMessageBox>
 
@@ -227,7 +228,20 @@ VolumeInformation::checkRGBA(QString volfile)
 bool
 VolumeInformation::volInfo(QString volfile,
 			   VolumeInformation& pvlInfo)
-{  
+{
+  if (StaticFunctions::checkExtension(volfile, ".zarr"))
+    {
+      pvlInfo.pvlFile = volfile;
+      pvlInfo.rawFile = volfile;
+      pvlInfo.description;
+      pvlInfo.voxelType;
+      pvlInfo.voxelUnit;
+      pvlInfo.voxelSize;
+      pvlInfo.dimensions;
+      
+      return true;
+    }
+  
   if (!xmlHeaderFile(volfile))
     {
       QMessageBox::information(0, "Error",

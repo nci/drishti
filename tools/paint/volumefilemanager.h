@@ -9,6 +9,7 @@
 #include <QThread>
 
 #include "filehandler.h"
+#include "zarrhandler.h"
 
 
 typedef QList<int> IntList;
@@ -72,7 +73,6 @@ class VolumeFileManager : public QObject
   int height();
 
   int voxelType();
-  int readVoxelType();
   int bytesPerVoxel();
 
   void removeFile();
@@ -163,6 +163,8 @@ class VolumeFileManager : public QObject
 
   QThread* m_thread;
   FileHandler *m_handler;
+
+  ZarrHandler *m_zarrhandler;
 };
 
 #endif

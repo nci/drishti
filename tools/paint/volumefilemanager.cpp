@@ -9,11 +9,13 @@
 #include <QInputDialog>
 
 #include "blosc.h"
+#include "zarrmetareader.h"
 
 VolumeFileManager::VolumeFileManager()
 {
   m_thread = 0;
   m_handler = 0;
+  m_zarrhandler = 0;
   m_slice = 0;
   m_block = 0;
   m_blockSlices = 10;
@@ -202,6 +204,10 @@ VolumeFileManager::reset()
     delete [] m_volData;
   m_volData = 0;
 
+  if (m_zarrhandler)
+    delete m_zarrhandler;
+  m_zarrhandler = 0;
+  
   if (m_qfile.isOpen())
     m_qfile.close();
 
@@ -264,32 +270,13 @@ VolumeFileManager::removeFile()
 
 int VolumeFileManager::voxelType() { return m_voxelType; }
 
-int
-VolumeFileManager::readVoxelType()
-{
-  uchar vt = 0;
-  if (m_qfile.isOpen())
-    {
-      m_qfile.read((char*)&vt, 1);
-      m_qfile.close();
-    }
-  else
-    {
-      if (m_filenames.count() > 0)
-	m_qfile.setFileName(m_filenames[0]);
-      else
-	m_qfile.setFileName(m_baseFilename + ".001");
-
-      m_qfile.open(QFile::ReadWrite);	
-      m_qfile.read((char*)&vt, 1);
-      m_qfile.close();
-    }
-  return vt;
-}
 
 bool
 VolumeFileManager::exists()
 {
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    return true;
+      
   int bps = m_width*m_height*m_bytesPerVoxel;
   int nslabs = m_depth/m_slabSize;
   if (nslabs*m_slabSize < m_depth) nslabs++;
@@ -496,6 +483,14 @@ VolumeFileManager::getSlice(int d)
       m_slice = new uchar[a*a*m_bytesPerVoxel];
     }
 
+  
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler->getDepthSlice(d, m_slice);
+      return m_slice;
+    }
+  
+
   m_slabno = d/m_slabSize;
 
   if (m_slabno < m_filenames.count())
@@ -532,6 +527,14 @@ VolumeFileManager::getWidthSlice(int w)
       int a = qMax(m_width, qMax(m_height, m_depth));
       m_slice = new uchar[a*a*m_bytesPerVoxel];
     }
+
+  
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler->getWidthSlice(w, m_slice);
+      return m_slice;
+    }
+  
 
   int pslab = -1;
   for(int d=0; d<m_depth; d++)
@@ -572,6 +575,15 @@ VolumeFileManager::getHeightSlice(int h)
       m_slice = new uchar[a*a*m_bytesPerVoxel];
     }
 
+  
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler->getHeightSlice(h, m_slice);
+      return m_slice;
+    }
+  
+
+
   int it = 0;
   int pslab = -1;
   for(int d=0; d<m_depth; d++)
@@ -608,6 +620,14 @@ VolumeFileManager::getHeightSlice(int h)
 void
 VolumeFileManager::setSlice(int d, uchar *tmp)
 {
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler->setDepthSlice(d, tmp);
+      return;
+    }
+  
+
+
   QString pflnm = m_filename;
 
   int bps = m_width*m_height*m_bytesPerVoxel;
@@ -634,6 +654,12 @@ VolumeFileManager::setSlice(int d, uchar *tmp)
 void
 VolumeFileManager::setWidthSlice(int w, uchar *tmp)
 {
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler->setWidthSlice(w, tmp);
+      return;
+    }
+  
   int bps = m_width*m_height*m_bytesPerVoxel;
 
   if (m_qfile.isOpen())
@@ -669,6 +695,12 @@ VolumeFileManager::setWidthSlice(int w, uchar *tmp)
 void
 VolumeFileManager::setHeightSlice(int h, uchar *tmp)
 {
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler->setHeightSlice(h, tmp);
+      return;
+    }
+  
   int bps = m_width*m_height*m_bytesPerVoxel;
 
   if (m_qfile.isOpen())
@@ -724,6 +756,17 @@ VolumeFileManager::rawValue(int d, int w, int h)
       h < 0 || h >= m_height)
     return m_slice;
 
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      QVariant v = m_zarrhandler->rawValue(d, w, h);
+      if (v.type() == QVariant::UInt)
+	{
+	  uint val = v.toUInt();
+	  memcpy(m_slice, &val, 4);
+	}
+      return m_slice;
+    }
+  
   QString pflnm = m_filename;
 
   m_slabno = d/m_slabSize;
@@ -1390,6 +1433,16 @@ VolumeFileManager::loadMemFile()
     }
   // --------------------
 
+
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler = new ZarrHandler();
+      m_zarrhandler->init();
+      m_zarrhandler->setFile(m_baseFilename, ZarrMetaReader::zarrInfo.level);
+      m_zarrhandler->getRegion(0, 0, 0, m_depth-1, m_width-1, m_height-1, m_volData);
+      return;
+    }
+  
   QProgressDialog progress(QString("Loading %1").\
 			   arg(m_baseFilename),
 			   "Cancel",
@@ -1467,7 +1520,7 @@ VolumeFileManager::createMemFile()
   
   m_volData = new uchar[vsize];
   memset(m_volData, 0, vsize);
-
+  
   if (m_handler)
     m_handler->setVolData(m_volData);
 }

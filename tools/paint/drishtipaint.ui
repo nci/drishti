@@ -335,6 +335,7 @@
      <string>File</string>
     </property>
     <addaction name="actionLoad"/>
+    <addaction name="actionLoad_Zarr"/>
     <addaction name="actionLoadLabels"/>
     <addaction name="separator"/>
     <addaction name="actionExportLabels"/>
@@ -763,6 +764,11 @@
   <action name="actionPyVenv">
    <property name="text">
     <string>Python venv</string>
+   </property>
+  </action>
+  <action name="actionLoad_Zarr">
+   <property name="text">
+    <string>Load Zarr</string>
    </property>
   </action>
  </widget>

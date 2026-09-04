@@ -22,6 +22,7 @@
 #include "volumemeasure.h"
 
 #include "blosc.h"
+#include "zarrmetareader.h"
 
 #include <exception>
 
@@ -1686,7 +1687,7 @@ DrishtiPaint::on_actionLoad_triggered()
   flnm = QFileDialog::getOpenFileName(this,
 				      "Load Processed Volume File",
 				      Global::previousDirectory(),
-				      "PVL Files (*.pvl.nc)",
+				      "PVL Files (*.pvl.nc) ; ZARR (*.zarr)",
 				      0);
 				      //QFileDialog::DontUseNativeDialog);
 
@@ -1695,6 +1696,24 @@ DrishtiPaint::on_actionLoad_triggered()
     return;
 
   setFile(flnm);
+}
+
+void
+DrishtiPaint::on_actionLoad_Zarr_triggered()
+{
+  QString dirname;
+  dirname = QFileDialog::getExistingDirectory(this,
+					   "Load Processed Volume File",
+					   Global::previousDirectory(),
+					   QFileDialog::ShowDirsOnly
+					   | QFileDialog::DontResolveSymlinks);
+                                           //QFileDialog::DontUseNativeDialog);
+
+  
+  if (dirname.isEmpty())
+    return;
+
+  setFile(dirname);
 }
 
 void
@@ -1797,6 +1816,8 @@ DrishtiPaint::dropEvent(QDropEvent *event)
       if (data->hasUrls())
 	{
 	  QUrl url = data->urls()[0];
+	  QMessageBox::information(0,"", url.path());
+	  
 	  QFileInfo info(url.toLocalFile());
 	  if (info.exists() && info.isFile())
 	    {
@@ -1808,7 +1829,7 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 		  m_coronalCurves->loadCurves(flnm);
 		}
 	      else if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc") ||
-		  StaticFunctions::checkExtension(url.toLocalFile(), ".xml"))
+		       StaticFunctions::checkExtension(url.toLocalFile(), ".xml"))
 		{
 		  QString flnm = (data->urls())[0].toLocalFile();
 		  setFile(flnm);
@@ -1826,11 +1847,14 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 
 void
 DrishtiPaint::setFile(QString filename)
-{
+{  
   if (m_volume->isValid())
     {
       QString curvesfile = m_pvlFile;
-      curvesfile.replace(".pvl.nc", ".curves");
+      if (StaticFunctions::checkExtension(filename, "zarr"))
+	curvesfile.replace(".zarr", ".curves");
+      else
+	curvesfile.replace(".pvl.nc", ".curves");
       m_axialCurves->saveCurves(curvesfile);
       m_sagitalCurves->saveCurves(curvesfile);
       m_coronalCurves->saveCurves(curvesfile);
@@ -1840,7 +1864,13 @@ DrishtiPaint::setFile(QString filename)
 
   QString flnm;
 
-  if (StaticFunctions::checkExtension(filename, "mask.pvl.nc"))
+  if (StaticFunctions::checkExtension(filename, ".zarr"))
+    {
+      flnm = filename;
+      m_tfEditor->setTransferFunction(NULL);
+      m_tfManager->clearManager();
+    }
+  else if (StaticFunctions::checkExtension(filename, "mask.pvl.nc"))
     {
       QString fnm = filename;
       fnm.replace("mask.pvl.nc", "pvl.nc");
@@ -1882,25 +1912,55 @@ DrishtiPaint::setFile(QString filename)
 
   //----------------------------
   // save volume information from .pvl.nc file
-  VolumeInformation pvlinfo;
-  VolumeInformation::volInfo(flnm.toUtf8().data(),
-			     pvlinfo);
-  VolumeInformation::setVolumeInformation(pvlinfo);
-
-  if (StaticFunctions::checkExtension(filename, ".xml"))
+  if (StaticFunctions::checkExtension(flnm, ".pvl.nc"))
     {
-      m_tfManager->load(filename.toUtf8().data());
-      m_pvlFile = flnm;
-      m_xmlFile = filename;
+      VolumeInformation pvlinfo;
+      VolumeInformation::volInfo(flnm.toUtf8().data(),
+				 pvlinfo);
+      VolumeInformation::setVolumeInformation(pvlinfo);
+      
+      if (StaticFunctions::checkExtension(filename, ".xml"))
+	{
+	  m_tfManager->load(filename.toUtf8().data());
+	  m_pvlFile = flnm;
+	  m_xmlFile = filename;
+	}
+      else
+	{
+	  m_pvlFile = flnm;
+	  m_xmlFile.clear();
+	}
+      
+      Global::setVoxelScaling(StaticFunctions::getVoxelSizeFromHeader(m_pvlFile));
+      Global::setVoxelUnit(StaticFunctions::getVoxelUnitFromHeader(m_pvlFile));
     }
   else
     {
       m_pvlFile = flnm;
       m_xmlFile.clear();
-    }
+      ZarrVolumeInfo zinfo = ZarrMetaReader::getInfo(m_pvlFile);
+      
+      VolumeInformation pvlinfo;
+      pvlinfo.voxelUnit = zinfo.voxelUnit;
+      pvlinfo.voxelType = zinfo.voxelType;
+      pvlinfo.description = zinfo.description;
+      pvlinfo.pvlFile = flnm;
+      pvlinfo.rawFile = "";
+      pvlinfo.voxelSize = Vec(zinfo.voxelSizeX,zinfo.voxelSizeY,zinfo.voxelSizeZ);
+      pvlinfo.dimensions = Vec(zinfo.depth, zinfo.width, zinfo.height);
+      VolumeInformation::setVolumeInformation(pvlinfo);      
+      Global::setVoxelScaling(Vec(1,1,1));
+      Global::setVoxelUnit(pvlinfo.voxelUnitString());
 
-  Global::setVoxelScaling(StaticFunctions::getVoxelSizeFromHeader(m_pvlFile));
-  Global::setVoxelUnit(StaticFunctions::getVoxelUnitFromHeader(m_pvlFile));
+      std::cout << "Voxel Unit : " << pvlinfo.voxelUnitString().toStdString() << "\n";
+      std::cout << "Voxel Type : " << pvlinfo.voxelType << "\n";
+      std::cout << "Description : " << pvlinfo.description.toStdString() << "\n";
+      std::cout << "pvlflnm : " << flnm.toStdString() << "\n";      
+      std::cout << "Voxel Size : " << zinfo.voxelSizeX << ","
+		<< zinfo.voxelSizeY << "," << zinfo.voxelSizeZ  << "\n";
+      std::cout << "Dimensions : " << zinfo.depth << ","
+		<< zinfo.width << "," << zinfo.height  << "\n";
+    }
   //----------------------------
 
   ((QMainWindow *)Global::mainWindow())->statusBar()->showMessage(QString("loading %1").arg(flnm));
@@ -2212,7 +2272,8 @@ DrishtiPaint::openRecentFile()
 	}
 
       if (StaticFunctions::checkExtension(filename, ".pvl.nc") ||
-	  StaticFunctions::checkExtension(filename, ".xml"))
+	  StaticFunctions::checkExtension(filename, ".xml") ||
+	  StaticFunctions::checkExtension(filename, ".zarr"))
 	setFile(filename);
     }
 }

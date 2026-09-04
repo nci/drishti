@@ -196,7 +196,7 @@ StaticFunctions::checkURLs(QList<QUrl> urls, const char *ext)
 
   for(int i=0; i<urls.count(); i++)
     {
-      QUrl url = urls[i];
+      QUrl url = urls[i];      
       QFileInfo info(url.toLocalFile());
       if (info.exists() && info.isFile())
 	{

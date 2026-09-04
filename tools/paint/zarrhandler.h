@@ -7,6 +7,24 @@
 #include <QMap>
 #include <memory>
 
+// Qt's <QtGui> pulls in <windows.h> -> minwindef.h, which #defines the
+// lowercase keyword-like macro `far` (empty, and `FAR` as `far`).  libzarr's
+// zip.hpp uses `far` as a member name (PackEntry::far), so we must undo the
+// Windows macros before pulling in libzarr, or zip.hpp fails to parse:
+//   error C2059: syntax error: '='   (zip.hpp:115  "bool far = false;")
+//   error C2039: 'far'/'e' is not a member of 'PackEntry'   (cascade)
+// We also keep `FAR` as an empty macro because zlib's zconf.h (used by
+// libzarr's gzip codec) typedefs `Byte FAR Bytef` etc. via `FAR`.
+#ifdef far
+#undef far
+#endif
+#ifdef FAR
+#undef FAR
+#endif
+#ifndef FAR
+#define FAR
+#endif
+
 #include <libzarr/libzarr.hpp>
 #include <libzarr/adapters/filesystem_store.hpp>
 

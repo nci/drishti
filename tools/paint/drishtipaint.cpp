@@ -1938,7 +1938,7 @@ DrishtiPaint::setFile(QString filename)
     {
       m_pvlFile = flnm;
       m_xmlFile.clear();
-      ZarrVolumeInfo zinfo = ZarrMetaReader::getInfo(m_pvlFile);
+      ZarrVolumeInfo zinfo = ZarrMetaReader::getInfo(this, m_pvlFile);
       
       VolumeInformation pvlinfo;
       pvlinfo.voxelUnit = zinfo.voxelUnit;
@@ -1960,6 +1960,7 @@ DrishtiPaint::setFile(QString filename)
 		<< zinfo.voxelSizeY << "," << zinfo.voxelSizeZ  << "\n";
       std::cout << "Dimensions : " << zinfo.depth << ","
 		<< zinfo.width << "," << zinfo.height  << "\n";
+      qApp->processEvents();
     }
   //----------------------------
 

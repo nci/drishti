@@ -6,6 +6,7 @@
 #include <QStringList>
 #include <QMap>
 #include <QVector>
+#include <QWidget>
 
 struct ZarrVolumeInfo
 {
@@ -27,7 +28,7 @@ struct ZarrVolumeInfo
 class ZarrMetaReader
 {
  public:
-  static ZarrVolumeInfo getInfo(const QString& zarrDir);
+  static ZarrVolumeInfo getInfo(QWidget*, const QString& zarrDir);
   static ZarrVolumeInfo zarrInfo;
 };
 

@@ -3,6 +3,25 @@
 #include <QDir>
 #include <vector>
 #include <stdexcept>
+
+// Qt's <QtGui> pulls in <windows.h> -> minwindef.h, which #defines the
+// lowercase keyword-like macro `far` (empty, and `FAR` as `far`).  libzarr's
+// zip.hpp uses `far` as a member name (PackEntry::far), so we must undo the
+// Windows macros before pulling in libzarr, or zip.hpp fails to parse:
+//   error C2059: syntax error: '='   (zip.hpp:115  "bool far = false;")
+//   error C2039: 'far'/'e' is not a member of 'PackEntry'   (cascade)
+// We also keep `FAR` as an empty macro because zlib's zconf.h (used by
+// libzarr's gzip codec) typedefs `Byte FAR Bytef` etc. via `FAR`.
+#ifdef far
+#undef far
+#endif
+#ifdef FAR
+#undef FAR
+#endif
+#ifndef FAR
+#define FAR
+#endif
+
 #include "common.h"
 #include "zarrplugin.h"
 
@@ -141,15 +160,42 @@ ZarrPlugin::setFile(QStringList files)
         }
       else
         {
+          // build option labels including each level's dimensions
+          QStringList labels;
+          for (const QString& lv : m_levels)
+            {
+              QString dims = "? x ? x ?";
+              try
+                {
+                  zarr::Array arr = m_root->open_array(lv.toStdString());
+                  const zarr::ArrayMeta& meta = arr.meta();
+                  const std::vector<std::uint64_t>& shape = meta.shape;
+                  if (shape.size() >= 3)
+                    dims = QString("%1 x %2 x %3")
+                             .arg(shape[2]).arg(shape[1]).arg(shape[0]);
+                }
+              catch (const std::exception&)
+                {
+                }
+              labels << QString("%1  (%2)").arg(lv).arg(dims);
+            }
+
           bool ok;
-          QString lv = QInputDialog::getItem(0,
-                                             "Choose a pyramid level",
-                                             "Levels",
-                                             m_levels,
-                                             0,
-                                             false,
-                                             &ok);
-          m_level = ok ? lv : m_levels[0];
+          QString choice = QInputDialog::getItem(0,
+                                                 "Choose a pyramid level",
+                                                 "Levels",
+                                                 labels,
+                                                 0,
+                                                 false,
+                                                 &ok);
+          if (!ok)
+            choice = labels[0];
+
+          // map the chosen label back to its level path
+          int idx = labels.indexOf(choice);
+          if (idx < 0)
+            idx = 0;
+          m_level = m_levels[idx];
         }
     }
 

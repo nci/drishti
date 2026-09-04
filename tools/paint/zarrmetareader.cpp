@@ -12,7 +12,7 @@
 ZarrVolumeInfo ZarrMetaReader::zarrInfo;
 
 ZarrVolumeInfo
-ZarrMetaReader::getInfo(const QString& zarrDir)
+ZarrMetaReader::getInfo(QWidget *parent, const QString& zarrDir)
 {
   zarrInfo.m_levels.clear();
   
@@ -138,15 +138,42 @@ ZarrMetaReader::getInfo(const QString& zarrDir)
     }
   else
     {
+      // build option labels including each level's dimensions
+      QStringList labels;
+      for (const QString& lv : zarrInfo.m_levels)
+        {
+          QString dims = "? x ? x ?";
+          try
+            {
+              zarr::Array arr = root->open_array(lv.toStdString());
+              const zarr::ArrayMeta& meta = arr.meta();
+              const std::vector<std::uint64_t>& shape = meta.shape;
+              if (shape.size() >= 3)
+                dims = QString("%1 x %2 x %3")
+                         .arg(shape[2]).arg(shape[1]).arg(shape[0]);
+            }
+          catch (const std::exception&)
+            {
+            }
+          labels << QString("%1  (%2)").arg(lv).arg(dims);
+        }
+
       bool ok;
-      QString lv = QInputDialog::getItem(0,
-					 "Choose a pyramid level",
-					 "Levels",
-					 zarrInfo.m_levels,
-					 0,
-					 false,
-					 &ok);
-      zarrInfo.level = ok ? lv : zarrInfo.m_levels[0];
+      QString choice = QInputDialog::getItem(parent,
+					     "Choose a pyramid level",
+					     "Levels",
+					     labels,
+					     0,
+					     false,
+					     &ok);
+      if (!ok)
+        choice = labels[0];
+
+      // map the chosen label back to its level path
+      int idx = labels.indexOf(choice);
+      if (idx < 0)
+        idx = 0;
+      zarrInfo.level = zarrInfo.m_levels[idx];
     }
 
   // apply the selected level's scale transform to the base (level-0) voxel

@@ -14,6 +14,8 @@
 
 #include <QMessageBox>
 #include <QProgressDialog>
+#include <QInputDialog>
+#include <QStringList>
 
 using byte = std::uint8_t;
 
@@ -151,6 +153,50 @@ ZarrWriter::saveZarr(QWidget* parent,
   Z = dmax-dmin+1;
   Y = wmax-wmin+1;
   X = hmax-hmin+1;
+
+  // ---- ask for smoothing mode and the number of pyramid levels ---------
+  // Halving rule used by the pyramid loop below (each subsampled level is
+  // produced from the previous one).
+  const auto next_dims = [](const Dims& p, const std::string& m) {
+      return Dims{ m == "nearest" ? (p.z + 1) / 2 : p.z / 2,
+                   m == "nearest" ? (p.y + 1) / 2 : p.y / 2,
+                   m == "nearest" ? (p.x + 1) / 2 : p.x / 2 };
+  };
+
+  // smoothing mode: nearest (no averaging) vs average (2x2x2 mean)
+  QStringList modes; modes << "nearest" << "average";
+  {
+    bool ok;
+    QString m = QInputDialog::getItem(parent, "Pyramid smoothing",
+                                      "Downsampling mode", modes,
+                                      0, false, &ok);
+    mode = (ok && m == "average") ? "average" : "nearest";
+  }
+
+  // maximum number of levels such that the smallest (last) level still has
+  // each dimension > 128 voxels.
+  std::int64_t maxLevels = 0;
+  {
+    Dims cur{ Z, Y, X };
+    for (std::int64_t lv = 1; ; ++lv) {
+        Dims n = next_dims(cur, mode);
+        if (!(n.z > 128 && n.y > 128 && n.x > 128)) break;
+        maxLevels = lv;
+        cur = n;
+    }
+  }
+
+  {
+    bool ok;
+    int levels = QInputDialog::getInt(parent, "Number of levels",
+                                      QString("Number of pyramid levels "
+                                              "to save (max %1; smallest "
+                                              "level > 128^3):")
+                                      .arg(maxLevels),
+                                      (int)maxLevels, 0, (int)maxLevels, 1,
+                                      &ok);
+    nLevels = ok ? std::clamp<std::int64_t>(levels, 0, maxLevels) : maxLevels;
+  }
 
   std::vector<zarr::CodecSpec> codecs = make_codecs(comp);
 

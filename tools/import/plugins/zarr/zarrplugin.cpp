@@ -3,6 +3,7 @@
 #include <QDir>
 #include <vector>
 #include <stdexcept>
+#include <algorithm>
 
 // Qt's <QtGui> pulls in <windows.h> -> minwindef.h, which #defines the
 // lowercase keyword-like macro `far` (empty, and `FAR` as `far`).  libzarr's
@@ -427,6 +428,7 @@ ZarrPlugin::generateHistogram()
 
   const bool ushort = (m_voxelType == _UShort);
   const qint64 bin = ushort ? 65536 : 256;
+  const size_t binSize = (size_t)bin;
 
   QProgressDialog progress("Scanning Zarr volume",
                            QString(),
@@ -434,14 +436,13 @@ ZarrPlugin::generateHistogram()
                            0);
   progress.setMinimumDuration(0);
 
-  // preallocate the full-range histogram, then increment in place
-  // (mirrors the nc4 plugin's _UChar/_UShort handling).
   m_histogram.clear();
   m_histogram.reserve((int)bin);
   for (qint64 i = 0; i < bin; ++i)
     m_histogram.append(0);
 
-  int minv = 10000000, maxv = -10000000;
+  // local raw histogram (cache-friendly qint64 bins) + tight min/max
+  std::vector<qint64> hist(binSize, 0);
 
   const qint64 chunkZ = m_chunkShape.size() > 0 ? (qint64)m_chunkShape[0] : 1;
   const qint64 chunkY = m_chunkShape.size() > 1 ? (qint64)m_chunkShape[1] : 1;
@@ -451,18 +452,22 @@ ZarrPlugin::generateHistogram()
   const qint64 nky = (m_width  + chunkY - 1) / chunkY;
   const qint64 nkx = (m_height + chunkX - 1) / chunkX;
   const qint64 total = nkz * nky * nkx;
+  if (total <= 0)
+    return;
+
+  int minv = 10000000, maxv = -10000000;
 
   QByteArray chunk;
   qint64 idx = 0;
   for (qint64 kz = 0; kz < nkz; ++kz)
     {
+      progress.setValue((int)(100.0 * (double)kz / (double)nkz));
+      qApp->processEvents();
+
       for (qint64 ky = 0; ky < nky; ++ky)
         {
           for (qint64 kx = 0; kx < nkx; ++kx, ++idx)
             {
-              progress.setValue((int)(100.0 * (double)idx / (double)total));
-              qApp->processEvents();
-
               chunk.clear();
               if (!readChunk((int)kz, (int)ky, (int)kx, chunk))
                 continue;
@@ -471,24 +476,26 @@ ZarrPlugin::generateHistogram()
               const qint64 nbytes = (qint64)chunk.size();
               if (ushort)
                 {
-                  const qint64 n = nbytes / m_bytesPerVoxel;
-                  for (qint64 i = 0; i < n; ++i)
+                  const size_t n = (size_t)(nbytes / m_bytesPerVoxel);
+                  qint64* h = hist.data();
+                  for (size_t i = 0; i < n; ++i)
                     {
-                      int v = (int)p[(size_t)i * 2]
-                              | ((int)p[(size_t)i * 2 + 1] << 8);
-                      if ((size_t)v >= (size_t)m_histogram.size())
-                        continue;
-                      m_histogram[v]++;
-                      if (v < minv) minv = v;
-                      if (v > maxv) maxv = v;
+                      int v = (int)p[i * 2] | ((int)p[i * 2 + 1] << 8);
+                      if ((size_t)v < binSize)
+                        {
+                          h[(size_t)v]++;
+                          if (v < minv) minv = v;
+                          if (v > maxv) maxv = v;
+                        }
                     }
                 }
               else
                 {
+                  qint64* h = hist.data();
                   for (qint64 i = 0; i < nbytes; ++i)
                     {
-                      int v = p[i];
-                      m_histogram[v]++;
+                      const int v = p[i];
+                      h[(size_t)v]++;
                       if (v < minv) minv = v;
                       if (v > maxv) maxv = v;
                     }
@@ -496,6 +503,10 @@ ZarrPlugin::generateHistogram()
             }
         }
     }
+
+  // convert the local bins into the plugin's QList<uint>
+  for (qint64 v = 0; v < bin; ++v)
+    m_histogram[(int)v] = (uint)hist[(size_t)v];
 
   if (minv > maxv) { minv = 0; maxv = 0; }
 

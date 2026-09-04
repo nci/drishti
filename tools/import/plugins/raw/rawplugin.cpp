@@ -3,6 +3,10 @@
 #include "rawplugin.h"
 #include "loadrawdialog.h"
 #include <math.h>
+#include <vector>
+#include <thread>
+#include <atomic>
+#include <algorithm>
 
 #if defined(Q_OS_WIN32)
 #define isnan _isnan
@@ -212,21 +216,6 @@ RawPlugin::setFile(QStringList files)
   return true;
 }
 
-
-#define MINMAXANDHISTOGRAM()				\
-  {							\
-    for(int j=0; j<nY*nZ; j++)				\
-      {							\
-	int val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, (float)val);		\
-	m_rawMax = qMax(m_rawMax, (float)val);		\
-							\
-	int idx = val-rMin;				\
-	m_histogram[idx]++;				\
-      }							\
-  }
-
-
 void
 RawPlugin::findMinMaxandGenerateHistogram()
 {
@@ -311,61 +300,139 @@ RawPlugin::findMinMaxandGenerateHistogram()
   nY = m_width;
   nZ = m_height;
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  qint64 nbytes = (qint64)nY*nZ*m_bytesPerVoxel;
 
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes);
+  const int histBins = (int)m_histogram.size();
 
-  m_rawMin = 10000000;
-  m_rawMax = -10000000;
-  for(int i=0; i<nX; i++)
-    {
-      progress.setValue((int)(100.0*(float)i/(float)nX));
-      qApp->processEvents();
+  // Raw file: parallel read + tally + min/max, each worker with its own
+  // QFile and private cache-friendly buckets (see generateHistogram()).
+  const unsigned hw = std::thread::hardware_concurrency();
+  const unsigned numThreads = std::max(1u, std::min(hw ? hw : 1u, (unsigned)nX));
 
-      fin.read((char*)tmp, nbytes);
+  std::vector<std::vector<qint64> > local(numThreads,
+                                          std::vector<qint64>((size_t)histBins, 0));
+  std::vector<float> localMin(numThreads, 10000000.0f);
+  std::vector<float> localMax(numThreads, -10000000.0f);
 
+  auto countPlane = [&](std::vector<qint64>& bins, float& mn, float& mx,
+                        const uchar* tmp) {
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
-	  MINMAXANDHISTOGRAM();
+	  const uchar *ptr = tmp;
+	  const int N = nY*nZ;
+	  for (int j = 0; j < N; j++)
+	    {
+	      int val = (int)ptr[j];
+	      if (val < mn) mn = (float)val;
+	      if (val > mx) mx = (float)val;
+	      int idx = val - (int)rMin;
+	      if (idx < 0) idx = 0; else if (idx >= histBins) idx = histBins-1;
+	      bins[(size_t)idx]++;
+	    }
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
-	  MINMAXANDHISTOGRAM();
+	  const char *ptr = (const char*) tmp;
+	  const int N = nY*nZ;
+	  for (int j = 0; j < N; j++)
+	    {
+	      int val = (int)ptr[j];
+	      if (val < mn) mn = (float)val;
+	      if (val > mx) mx = (float)val;
+	      int idx = val - (int)rMin;
+	      if (idx < 0) idx = 0; else if (idx >= histBins) idx = histBins-1;
+	      bins[(size_t)idx]++;
+	    }
 	}
-      if (m_voxelType == _UShort)
+      else if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
-	  MINMAXANDHISTOGRAM();
+	  const ushort *ptr = (const ushort*) tmp;
+	  const int N = nY*nZ;
+	  for (int j = 0; j < N; j++)
+	    {
+	      int val = (int)ptr[j];
+	      if (val < mn) mn = (float)val;
+	      if (val > mx) mx = (float)val;
+	      int idx = val - (int)rMin;
+	      if (idx < 0) idx = 0; else if (idx >= histBins) idx = histBins-1;
+	      bins[(size_t)idx]++;
+	    }
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
-	  MINMAXANDHISTOGRAM();
+	  const short *ptr = (const short*) tmp;
+	  const int N = nY*nZ;
+	  for (int j = 0; j < N; j++)
+	    {
+	      int val = (int)ptr[j];
+	      if (val < mn) mn = (float)val;
+	      if (val > mx) mx = (float)val;
+	      int idx = val - (int)rMin;
+	      if (idx < 0) idx = 0; else if (idx >= histBins) idx = histBins-1;
+	      bins[(size_t)idx]++;
+	    }
 	}
-      else if (m_voxelType == _Int)
-	{
-	  int *ptr = (int*) tmp;
-	  MINMAXANDHISTOGRAM();
-	}
-      else if (m_voxelType == _Float)
-	{
-	  float *ptr = (float*) tmp;
-	  MINMAXANDHISTOGRAM();
-	}
+  };
+
+  std::vector<std::thread> pool;
+  pool.reserve(numThreads);
+  std::atomic<qint64> done((qint64)0);
+  for (unsigned t = 0; t < numThreads; t++)
+    {
+      pool.emplace_back([&, t]() {
+          const int plane0 = (int)((qint64)nX * t / numThreads);
+          const int plane1 = (int)((qint64)nX * (t + 1) / numThreads);
+          const int nplanes = plane1 - plane0;
+          if (nplanes <= 0)
+            return;
+
+          std::vector<uchar> tmp((size_t)nbytes);
+          QFile fin(m_fileName[0]);
+          fin.open(QFile::ReadOnly);
+          fin.seek((qint64)m_skipBytes + (qint64)plane0 * nbytes);
+          std::vector<qint64>& bins = local[(size_t)t];
+          float mn = 10000000.0f, mx = -10000000.0f;
+          for (int p = 0; p < nplanes; p++)
+            {
+              fin.read((char*)tmp.data(), nbytes);
+              countPlane(bins, mn, mx, tmp.data());
+              done.fetch_add(1, std::memory_order_relaxed);
+            }
+          fin.close();
+          localMin[(size_t)t] = mn;
+          localMax[(size_t)t] = mx;
+        });
     }
-  fin.close();
 
-  delete [] tmp;
+  // Poll for progress on the GUI thread while workers run; no Qt calls
+  // are made off the main thread.
+  while (done.load(std::memory_order_relaxed) < nX)
+    {
+      progress.setValue((int)(100.0 *
+         (double)done.load(std::memory_order_relaxed) / (double)nX));
+      qApp->processEvents();
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+  for (auto& th : pool)
+    th.join();
 
-//  while(m_histogram.last() == 0)
-//    m_histogram.removeLast();
-//  while(m_histogram.first() == 0)
-//    m_histogram.removeFirst();
+  // merge per-thread buckets and min/max
+  float gMin = 10000000.0f, gMax = -10000000.0f;
+  for (int b = 0; b < histBins; b++)
+    {
+      uint total = 0;
+      for (unsigned t = 0; t < numThreads; t++)
+        total += (uint)local[(size_t)t][(size_t)b];
+      m_histogram[b] = total;
+    }
+  for (unsigned t = 0; t < numThreads; t++)
+    {
+      if (localMin[(size_t)t] < gMin) gMin = localMin[(size_t)t];
+      if (localMax[(size_t)t] > gMax) gMax = localMax[(size_t)t];
+    }
+
+  m_rawMin = gMin;
+  m_rawMax = gMax;
 
   progress.setValue(100);
   qApp->processEvents();
@@ -453,19 +520,6 @@ RawPlugin::findMinMax()
   qApp->processEvents();
 }
 
-#define GENHISTOGRAM()					\
-  {							\
-    for(int j=0; j<nY*nZ; j++)				\
-      {							\
-	float val = ptr[j];				\
-	if (isnan(val)) val = 0;			\
-	float fidx = (val-m_rawMin)/rSize;		\
-	fidx = qBound(0.0f, fidx, 1.0f);		\
-	int idx = fidx*histogramSize;			\
-	m_histogram[idx]+=1;				\
-      }							\
-  }
-
 void
 RawPlugin::generateHistogram()
 {
@@ -482,79 +536,169 @@ RawPlugin::generateHistogram()
   nY = m_width;
   nZ = m_height;
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  QFile fin(m_fileName[0]);
-  fin.open(QFile::ReadOnly);
-  fin.seek(m_skipBytes);
+  qint64 nbytes = (qint64)nY*nZ*m_bytesPerVoxel;
 
   m_histogram.clear();
+  int binCount;
   if (m_voxelType == _UChar ||
       m_voxelType == _Char ||
       m_voxelType == _UShort ||
       m_voxelType == _Short)
-    {
-      for(int i=0; i<rSize+1; i++)
-	m_histogram.append(0);
-    }
+    binCount = (int)rSize+1;
   else
-    {      
-      for(int i=0; i<65536; i++)
-	m_histogram.append(0);
-    }
+    binCount = 65536;
+  for(int i=0; i<binCount; i++)
+    m_histogram.append(0);
 
-  int histogramSize = m_histogram.size()-1;
-  for(int i=0; i<nX; i++)
-    {
-      progress.setValue((int)(100.0*(float)i/(float)nX));
-      qApp->processEvents();
+  const int histogramSize = m_histogram.size()-1;
+  const int histBins = (int)m_histogram.size();
+  const float omin = m_rawMin;
+  const float demonom = rSize;
 
+  // Raw file: planes are independent and there is no shared store, so we can
+  // read + tally in parallel, each worker opening its own QFile and using a
+  // private cache-friendly bucket array, then merge the per-thread bins.
+  const unsigned hw = std::thread::hardware_concurrency();
+  const unsigned numThreads = std::max(1u, std::min(hw ? hw : 1u, (unsigned)nX));
+  QMessageBox::information(0, "", QString("%1 : %2").arg(hw).arg(numThreads));
+  
+  std::vector<std::vector<qint64> > local(numThreads,
+                                          std::vector<qint64>((size_t)histBins, 0));
 
-      fin.read((char*)tmp, nbytes);
-
+  auto countPlane = [&](std::vector<qint64>& bins, const uchar* tmp) {
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
-	  GENHISTOGRAM();
+	  const uchar *ptr = tmp;
+	  const int N = nY*nZ;
+	  for (int j = 0; j < N; j++)
+	    {
+	      float val = (float)ptr[j];
+	      if (isnan(val)) val = 0;
+	      float fidx = (val-omin)/demonom;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = fidx*histogramSize;
+	      bins[(size_t)idx]+=1;
+	    }
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
-	  GENHISTOGRAM();
+	  const char *ptr = (const char*) tmp;
+	  const int N = nY*nZ;
+	  for (int j = 0; j < N; j++)
+	    {
+	      float val = (float)ptr[j];
+	      if (isnan(val)) val = 0;
+	      float fidx = (val-omin)/demonom;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = fidx*histogramSize;
+	      bins[(size_t)idx]+=1;
+	    }
 	}
-      if (m_voxelType == _UShort)
+      else if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
-	  GENHISTOGRAM();
+	  const ushort *ptr = (const ushort*) tmp;
+	  const int N = nY*nZ;
+	  for (int j = 0; j < N; j++)
+	    {
+	      float val = (float)ptr[j];
+	      if (isnan(val)) val = 0;
+	      float fidx = (val-omin)/demonom;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = fidx*histogramSize;
+	      bins[(size_t)idx]+=1;
+	    }
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
-	  GENHISTOGRAM();
+	  const short *ptr = (const short*) tmp;
+	  const int N = nY*nZ;
+	  for (int j = 0; j < N; j++)
+	    {
+	      float val = (float)ptr[j];
+	      if (isnan(val)) val = 0;
+	      float fidx = (val-omin)/demonom;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = fidx*histogramSize;
+	      bins[(size_t)idx]+=1;
+	    }
 	}
       else if (m_voxelType == _Int)
 	{
-	  int *ptr = (int*) tmp;
-	  GENHISTOGRAM();
+	  const int *ptr = (const int*) tmp;
+	  const int N = nY*nZ;
+	  for (int j = 0; j < N; j++)
+	    {
+	      float val = (float)ptr[j];
+	      if (isnan(val)) val = 0;
+	      float fidx = (val-omin)/demonom;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = fidx*histogramSize;
+	      bins[(size_t)idx]+=1;
+	    }
 	}
       else if (m_voxelType == _Float)
 	{
-	  float *ptr = (float*) tmp;
-	  GENHISTOGRAM();
+	  const float *ptr = (const float*) tmp;
+	  const int N = nY*nZ;
+	  for (int j = 0; j < N; j++)
+	    {
+	      float val = ptr[j];
+	      if (isnan(val)) val = 0;
+	      float fidx = (val-omin)/demonom;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = fidx*histogramSize;
+	      bins[(size_t)idx]+=1;
+	    }
 	}
+  };
+
+  std::vector<std::thread> pool;
+  pool.reserve(numThreads);
+  std::atomic<qint64> done((qint64)0);
+  for (unsigned t = 0; t < numThreads; t++)
+    {
+      pool.emplace_back([&, t]() {
+          const int plane0 = (int)((qint64)nX * t / numThreads);
+          const int plane1 = (int)((qint64)nX * (t + 1) / numThreads);
+          const int nplanes = plane1 - plane0;
+          if (nplanes <= 0)
+            return;
+
+          std::vector<uchar> tmp((size_t)nbytes);
+          QFile fin(m_fileName[0]);
+          fin.open(QFile::ReadOnly);
+          fin.seek((qint64)m_skipBytes + (qint64)plane0 * nbytes);
+          std::vector<qint64>& bins = local[(size_t)t];
+          for (int p = 0; p < nplanes; p++)
+            {
+              fin.read((char*)tmp.data(), nbytes);
+              countPlane(bins, tmp.data());
+              done.fetch_add(1, std::memory_order_relaxed);
+            }
+          fin.close();
+        });
     }
-  fin.close();
 
-  delete [] tmp;
+  // Poll for progress on the GUI thread while workers run; no Qt calls
+  // are made off the main thread.
+  while (done.load(std::memory_order_relaxed) < nX)
+    {
+      progress.setValue((int)(100.0 *
+         (double)done.load(std::memory_order_relaxed) / (double)nX));
+      qApp->processEvents();
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+  for (auto& th : pool)
+    th.join();
 
-//  while(m_histogram.last() == 0)
-//    m_histogram.removeLast();
-//  while(m_histogram.first() == 0)
-//    m_histogram.removeFirst();
-
-//  QMessageBox::information(0, "",  QString("%1 %2 : %3").\
-//			   arg(m_rawMin).arg(m_rawMax).arg(rSize));
+  // merge per-thread buckets into the plugin's QList<uint>
+  for (int b = 0; b < histBins; b++)
+    {
+      uint total = 0;
+      for (unsigned t = 0; t < numThreads; t++)
+        total += (uint)local[(size_t)t][(size_t)b];
+      m_histogram[b] = total;
+    }
 
   progress.setValue(100);
   qApp->processEvents();

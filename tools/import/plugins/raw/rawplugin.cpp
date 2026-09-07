@@ -560,7 +560,6 @@ RawPlugin::generateHistogram()
   // private cache-friendly bucket array, then merge the per-thread bins.
   const unsigned hw = std::thread::hardware_concurrency();
   const unsigned numThreads = std::max(1u, std::min(hw ? hw : 1u, (unsigned)nX));
-  QMessageBox::information(0, "", QString("%1 : %2").arg(hw).arg(numThreads));
   
   std::vector<std::vector<qint64> > local(numThreads,
                                           std::vector<qint64>((size_t)histBins, 0));

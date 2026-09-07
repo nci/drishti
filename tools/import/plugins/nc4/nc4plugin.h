@@ -2,10 +2,13 @@
 #define NCPLUGIN_H
 
 #include <QObject>
+#include <QVector>
 #include "volinterface.h"
 #include <ncVar.h>
 
 using namespace netCDF;
+
+class QProgressDialog;
 
 class NcPlugin : public QObject, VolInterface
 {
@@ -75,6 +78,17 @@ class NcPlugin : public QObject, VolInterface
   void findMinMaxandGenerateHistogram();
 
   void getSlice(int, int, int, NcVar, int, uchar*);
+
+  struct NcFileResult
+  {
+    bool ok;
+    QString errorFile;
+    float rmin, rmax;
+    QVector<uint> hist;
+  };
+
+  void processAllFiles(int mode, float rMin, float rSize, int histogramSize,
+                       QProgressDialog& progress, QVector<NcFileResult>& results);
 };
 
 #endif

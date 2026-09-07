@@ -6,6 +6,10 @@
 #include "xmlheaderfunctions.h"
 #include "volumeinformation.h"
 
+#include <QtConcurrent/QtConcurrent>
+#include <QThread>
+#include <QAtomicInt>
+
 int VolumeBase::pvlVoxelType() { return m_pvlVoxelType; }
 Vec VolumeBase::getFullVolumeSize() { return m_fullVolumeSize; }
 Vec VolumeBase::getLowresVolumeSize() { return m_lowresVolumeSize; }
@@ -164,10 +168,6 @@ VolumeBase::createLowresVolume(bool redo)
   jend = width;
   kend = depth;
 
-  unsigned char *tmp;
-  tmp = new unsigned char [bpv*m_width*m_height];
-  
-  
   VolumeFileManager pvlFileManager;
   int slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFile);
   int headerSize = XmlHeaderFunctions::getPvlHeadersizeFromHeader(m_volumeFile);
@@ -190,59 +190,90 @@ VolumeBase::createLowresVolume(bool redo)
   MainWindowUI::mainWindowUI()->statusBar->showMessage("Loading data for Lowres mode");
   Global::progressBar()->show();
 
-  int nbytes = bpv*m_width*m_height;
-  for(int kslc=0; kslc<kend; kslc++)
+  int nthreads = qBound(1, QThread::idealThreadCount(), kend);
+
+  QAtomicInt nextSlice(0);
+  QAtomicInt doneSlices(0);
+  QAtomicInt fileProblem(0);
+
+  QVector<QFuture<void> > workers;
+  for(int t=0; t<nthreads; t++)
     {
-      int k = kslc*m_subSamplingLevel;
+      workers << QtConcurrent::run([&]() {
+	VolumeFileManager fm;
+	if (pvlnames.count() > 0)
+	  fm.setFilenameList(pvlnames);
+	fm.setBaseFilename(m_volumeFile);
+	fm.setVoxelType(m_pvlVoxelType);
+	fm.setDepth(m_depth);
+	fm.setWidth(m_width);
+	fm.setHeight(m_height);
+	fm.setHeaderSize(headerSize);
+	fm.setSlabSize(slabSize);
+	if (!fm.exists())
+	  fileProblem.fetchAndAddOrdered(1);
 
-      Global::progressBar()->setValue((int)(100.0*(float)k/(float)m_depth));
-      if (k%10==0) qApp->processEvents();
+	while (true)
+	  {
+	    int kslc = nextSlice.fetchAndAddOrdered(1);
+	    if (kslc >= kend) break;
 
-      uchar *vslice = pvlFileManager.getSlice(k);
-      memcpy(tmp, vslice, nbytes);
+	    int k = kslc*m_subSamplingLevel;
+	    uchar *vslice = fm.getSlice(k);
 
-	
-      if (m_subSamplingLevel > 1)
-	{
-	  int ji=0;
-	  if (bpv == 1)
-	    {
-	      for(int j=0; j<jend; j++)
-		{ 
-		  int y = j*m_subSamplingLevel;
-		  for(int i=0; i<iend; i++) 
-		    { 
-		      int x = i*m_subSamplingLevel; 
-		      tmp[ji] = tmp[y*m_height+x];
-		      ji++;
-		    } 
-		}
-	    }
-	  else
-	    {
-	      for(int j=0; j<jend; j++)
-		{ 
-		  int y = j*m_subSamplingLevel;
-		  for(int i=0; i<iend; i++) 
-		    { 
-		      int x = i*m_subSamplingLevel; 
-		      ((ushort*)tmp)[ji] = ((ushort*)tmp)[y*m_height+x];
-		      ji++;
-		    } 
-		}
-	    }
-	  memcpy(m_lowresVolume + bpv*kslc*jend*iend,
-		 tmp,
-		 bpv*jend*iend);
-	}	  
-      else
-	memcpy(m_lowresVolume + bpv*kslc*jend*iend,
-	       tmp,
-	       bpv*jend*iend);
+	    if (m_subSamplingLevel > 1)
+	      {
+		int ssl = m_subSamplingLevel;
+		if (bpv == 1)
+		  {
+		    uchar *dst = m_lowresVolume + kslc*jend*iend;
+		    for(int j=0; j<jend; j++)
+		      {
+			uchar *srow = vslice + (j*ssl)*m_height;
+			uchar *drow = dst + j*iend;
+			int x = 0;
+			for(int i=0; i<iend; i++, x += ssl)
+			  drow[i] = srow[x];
+		      }
+		  }
+		else
+		  {
+		    ushort *dst = (ushort*)(m_lowresVolume + 2*kslc*jend*iend);
+		    ushort *src = (ushort*)vslice;
+		    for(int j=0; j<jend; j++)
+		      {
+			ushort *srow = src + (j*ssl)*m_height;
+			ushort *drow = dst + j*iend;
+			int x = 0;
+			for(int i=0; i<iend; i++, x += ssl)
+			  drow[i] = srow[x];
+		      }
+		  }
+	      }
+	    else
+	      memcpy(m_lowresVolume + bpv*kslc*jend*iend,
+		     vslice,
+		     bpv*jend*iend);
+
+	    doneSlices.fetchAndAddOrdered(1);
+	  }
+      });
     }
 
-  delete [] tmp;
+  while ((int)doneSlices < kend)
+    {
+      Global::progressBar()->setValue((int)(100.0*(float)(int)doneSlices/(float)kend));
+      qApp->processEvents();
+      QThread::msleep(25);
+    }
 
+  for(int t=0; t<nthreads; t++)
+    workers[t].waitForFinished();
+
+  pvlFileManager.closeQFile();
+
+  if ((int)fileProblem > 0)
+    QMessageBox::information(0, "", "Some problem with pvl.nc files");
 
   generateHistograms();
    

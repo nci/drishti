@@ -7,6 +7,11 @@
 #include <map>
 #include "nc4plugin.h"
 
+#include <QtConcurrent/QtConcurrent>
+#include <QThread>
+#include <QAtomicInt>
+#include <QMutex>
+
 using namespace std;
 using namespace netCDF;
 using namespace netCDF::exceptions;
@@ -400,18 +405,161 @@ NcPlugin::setFile(QStringList files)
 }
 
 
-#define MINMAXANDHISTOGRAM()				\
-  {							\
-    for(int j=0; j<nY*nZ; j++)				\
-      {							\
-	int val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, (float)val);		\
-	m_rawMax = qMax(m_rawMax, (float)val);		\
-							\
-	int idx = val-rMin;				\
-	m_histogram[idx]++;				\
-      }							\
-  }
+namespace {
+static QMutex g_netcdfMutex;
+
+template <typename T>
+void
+accumulateTyped(const T* ptr, long n, int mode,
+		float rMin, float rSize, long histogramSize,
+		float& rmin, float& rmax, QVector<uint>& hist)
+{
+  if (mode == 0)
+    {
+      for(long j=0; j<n; j++)
+	{
+	  int val = (int)ptr[j];
+	  rmin = qMin(rmin, (float)val);
+	  rmax = qMax(rmax, (float)val);
+
+	  int idx = val-(int)rMin;
+	  if (idx < 0 || idx >= (int)hist.size())
+	    idx = 0;
+	  hist[idx]++;
+	}
+    }
+  else if (mode == 1)
+    {
+      for(long j=0; j<n; j++)
+	{
+	  float val = (float)ptr[j];
+	  rmin = qMin(rmin, val);
+	  rmax = qMax(rmax, val);
+	}
+    }
+  else
+    {
+      for(long j=0; j<n; j++)
+	{
+	  float fidx = ((float)ptr[j]-rMin)/rSize;
+	  fidx = qBound(0.0f, fidx, 1.0f);
+	  long idx = (long)(fidx*histogramSize);
+	  if (idx < 0 || idx >= (long)hist.size())
+	    idx = 0;
+	  hist[(uint)idx]++;
+	}
+    }
+}
+}
+
+void
+NcPlugin::processAllFiles(int mode, float rMin, float rSize, int histogramSize,
+			  QProgressDialog& progress, QVector<NcFileResult>& results)
+{
+  int nfls = m_fileName.size();
+  if (m_4dvol) nfls = 1;
+
+  results.clear();
+  if (nfls < 1)
+    return;
+
+  int nbytes = m_width*m_height*m_bytesPerVoxel;
+
+  int nthreads = qMin(8, qBound(1, QThread::idealThreadCount(), nfls));
+  results.resize(nthreads);
+
+  QAtomicInt nextFile(0);
+  QAtomicInt doneFiles(0);
+  QAtomicInt active(0);
+
+  QVector<QFuture<void> > workers;
+  for(int t=0; t<nthreads; t++)
+    {
+      active.fetchAndAddOrdered(1);
+      workers << QtConcurrent::run([&, t]() {
+	  NcFileResult &res = results[t];
+	  res.ok = true;
+	  res.rmin = 10000000;
+	  res.rmax = -10000000;
+	  if (mode != 1)
+	    res.hist = QVector<uint>(histogramSize+1, uint(0));
+
+	  uchar *tmp = new uchar[nbytes];
+	  long n = m_width*m_height;
+
+	  while (true)
+	    {
+	      int nf = nextFile.fetchAndAddOrdered(1);
+	      if (nf >= nfls) break;
+
+	      QString flnm = m_fileName[nf];
+
+	      try
+		{
+		  NcFile dataFile;
+		  NcVar ncvar;
+		  uint iEnd = 0;
+		  {
+		    QMutexLocker locker(&g_netcdfMutex);
+		    dataFile.open(flnm.toStdString(),
+				NcFile::read);
+		    ncvar = dataFile.getVar(m_varName.toStdString());
+		    iEnd = ncvar.getDim(0).getSize();
+		  }
+
+		  for(uint i=0; i<iEnd; i++)
+		    {
+		      {
+			QMutexLocker locker(&g_netcdfMutex);
+			getSlice(0, m_width, m_height, ncvar, i, tmp);
+		      }
+
+		      if (m_voxelType == _UChar)
+			accumulateTyped((const uchar*)tmp, n, mode, rMin, rSize, histogramSize, res.rmin, res.rmax, res.hist);
+		      else if (m_voxelType == _Char)
+			accumulateTyped((const char*)tmp, n, mode, rMin, rSize, histogramSize, res.rmin, res.rmax, res.hist);
+		      else if (m_voxelType == _UShort)
+			accumulateTyped((const ushort*)tmp, n, mode, rMin, rSize, histogramSize, res.rmin, res.rmax, res.hist);
+		      else if (m_voxelType == _Short)
+			accumulateTyped((const short*)tmp, n, mode, rMin, rSize, histogramSize, res.rmin, res.rmax, res.hist);
+		      else if (m_voxelType == _Int)
+			accumulateTyped((const int*)tmp, n, mode, rMin, rSize, histogramSize, res.rmin, res.rmax, res.hist);
+		      else if (m_voxelType == _Float)
+			accumulateTyped((const float*)tmp, n, mode, rMin, rSize, histogramSize, res.rmin, res.rmax, res.hist);
+		    }
+
+		  {
+		    QMutexLocker locker(&g_netcdfMutex);
+		    dataFile.close();
+		  }
+		}
+	      catch(NcException &e)
+		{
+		  res.ok = false;
+		  res.errorFile = flnm;
+		  doneFiles.fetchAndAddOrdered(1);
+		  break;
+		}
+
+	      doneFiles.fetchAndAddOrdered(1);
+	    }
+
+	  delete [] tmp;
+	  active.fetchAndAddOrdered(-1);
+	});
+    }
+
+  progress.setLabelText("Processing NetCDF files");
+  while ((int)doneFiles < nfls && (int)active > 0)
+    {
+      progress.setValue((int)(100.0*(float)(int)doneFiles/(float)nfls));
+      qApp->processEvents();
+      QThread::msleep(25);
+    }
+
+  for(int t=0; t<nthreads; t++)
+    workers[t].waitForFinished();
+}
 
 void
 NcPlugin::getSlice(int sliceType, int a, int b, NcVar ncvar, int slc, uchar *tmp)
@@ -421,7 +569,7 @@ NcPlugin::getSlice(int sliceType, int a, int b, NcVar ncvar, int slc, uchar *tmp
   start[1] = 0;
   start[2] = 0;
   start[sliceType] = slc;
-  
+
   std::vector<size_t> count(3);
   if (sliceType == 0)
     {
@@ -440,8 +588,8 @@ NcPlugin::getSlice(int sliceType, int a, int b, NcVar ncvar, int slc, uchar *tmp
       count[0] = a;
       count[1] = b;
       count[2] = 1;
-    }  
-  
+    }
+
   if (ncvar.getType() == ncUbyte)
     ncvar.getVar(start, count, (unsigned char*)tmp);
   else if (ncvar.getType() == ncByte || ncvar.getType() == ncChar)
@@ -453,9 +601,8 @@ NcPlugin::getSlice(int sliceType, int a, int b, NcVar ncvar, int slc, uchar *tmp
   else if (ncvar.getType() == ncFloat)
     ncvar.getVar(start, count, (float*)tmp);
   else if (ncvar.getType() == ncDouble)
-    ncvar.getVar(start, count, (double*)tmp);  
+    ncvar.getVar(start, count, (double*)tmp);
 }
-
 
 void
 NcPlugin::findMinMaxandGenerateHistogram()
@@ -465,7 +612,8 @@ NcPlugin::findMinMaxandGenerateHistogram()
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
-
+  qApp->processEvents();
+  
   float rSize;
   float rMin;
   m_histogram.clear();
@@ -493,103 +641,29 @@ NcPlugin::findMinMaxandGenerateHistogram()
       return;
     }
 
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
+  QVector<NcFileResult> results;
+  processAllFiles(0, rMin, rSize, (int)m_histogram.size()-1, progress, results);
 
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  
   m_rawMin = 10000000;
   m_rawMax = -10000000;
-
-  int nfls = m_fileName.size();
-  if (m_4dvol) nfls = 1;
-  for(uint nf=0; nf<nfls; nf++)
+  for(int t=0; t<results.size(); t++)
     {
-      QFileInfo finfo(m_fileName[nf]);
-      progress.setLabelText(finfo.fileName());
-      //progress.setLabelText(m_fileName[nf]);
-
-      NcFile dataFile;
-      try
-	{
-	  dataFile.open(m_fileName[nf].toStdString(),
-			NcFile::read);
-	}
-      catch(NcException &e)
+      if (!results[t].ok)
 	{
 	  QMessageBox::information(0, "Error",
 				   QString("%1 is not a valid NetCDF file"). \
-				   arg(m_fileName[nf]));
+				   arg(results[t].errorFile));
 	  return;
 	}
-      
-      NcVar ncvar;
-      ncvar = dataFile.getVar(m_varName.toStdString());
-      
-      int iEnd = ncvar.getDim(0).getSize();
-      for(uint i=0; i<iEnd; i++)
-	{
-	  progress.setValue((int)(100.0*(float)i/(float)iEnd));
-	  qApp->processEvents();
-
-	  getSlice(0, m_width, m_height, ncvar, i, tmp);	  
-	  
-	  if (m_voxelType == _UChar)
-	    {
-	      uchar *ptr = tmp;
-	      MINMAXANDHISTOGRAM();
-	    }
-	  else if (m_voxelType == _Char)
-	    {
-	      char *ptr = (char*) tmp;
-	      MINMAXANDHISTOGRAM();
-	    }
-	  if (m_voxelType == _UShort)
-	    {
-	      ushort *ptr = (ushort*) tmp;
-	      MINMAXANDHISTOGRAM();
-	    }
-	  else if (m_voxelType == _Short)
-	    {
-	      short *ptr = (short*) tmp;
-	      MINMAXANDHISTOGRAM();
-	    }
-	  else if (m_voxelType == _Int)
-	    {
-	      int *ptr = (int*) tmp;
-	      MINMAXANDHISTOGRAM();
-	    }
-	  else if (m_voxelType == _Float)
-	    {
-	      float *ptr = (float*) tmp;
-	      MINMAXANDHISTOGRAM();
-	    }
-	}
-
-      dataFile.close();
+      m_rawMin = qMin(m_rawMin, results[t].rmin);
+      m_rawMax = qMax(m_rawMax, results[t].rmax);
+      for(uint i=0; i<m_histogram.size(); i++)
+	m_histogram[i] += results[t].hist[i];
     }
-
-  delete [] tmp;
 
   progress.setValue(100);
   qApp->processEvents();
 }
-
-
-#define FINDMINMAX()					\
-  {							\
-    for(uint j=0; j<nY*nZ; j++)				\
-      {							\
-	float val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, val);			\
-	m_rawMax = qMax(m_rawMax, val);			\
-      }							\
-  }
 
 void
 NcPlugin::findMinMax()
@@ -599,98 +673,29 @@ NcPlugin::findMinMax()
 			   0, 100,
 			   0);
   progress.setMinimumDuration(0);
+  qApp->processEvents();
 
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
-
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  QVector<NcFileResult> results;
+  processAllFiles(1, 0, 0, 0, progress, results);
 
   m_rawMin = 10000000;
   m_rawMax = -10000000;
-
-  int nfls = m_fileName.size();
-  if (m_4dvol) nfls = 1;
-  for(uint nf=0; nf<nfls; nf++)
+  for(int t=0; t<results.size(); t++)
     {
-      NcFile dataFile;
-      try
-	{
-	  dataFile.open(m_fileName[nf].toStdString(),
-			NcFile::read);
-	}
-      catch(NcException &e)
+      if (!results[t].ok)
 	{
 	  QMessageBox::information(0, "Error",
 				   QString("%1 is not a valid NetCDF file"). \
-				   arg(m_fileName[nf]));
+				   arg(results[t].errorFile));
 	  return;
 	}
-      
-      NcVar ncvar;
-      ncvar = dataFile.getVar(m_varName.toStdString());
-
-      int iEnd = ncvar.getDim(0).getSize();
-      for(uint i=0; i<iEnd; i++)
-	{
-	  progress.setValue((int)(100.0*(float)i/(float)iEnd));
-	  qApp->processEvents();
-	  
-	  getSlice(0, m_width, m_height, ncvar, i, tmp);
-	  
-	  
-	  if (m_voxelType == _UChar)
-	    {
-	      uchar *ptr = tmp;
-	      FINDMINMAX();
-	    }
-	  else if (m_voxelType == _Char)
-	    {
-	      char *ptr = (char*) tmp;
-	      FINDMINMAX();
-	}
-	  if (m_voxelType == _UShort)
-	    {
-	      ushort *ptr = (ushort*) tmp;
-	      FINDMINMAX();
-	    }
-	  else if (m_voxelType == _Short)
-	    {
-	      short *ptr = (short*) tmp;
-	      FINDMINMAX();
-	    }
-	  else if (m_voxelType == _Int)
-	    {
-	      int *ptr = (int*) tmp;
-	      FINDMINMAX();
-	    }
-	  else if (m_voxelType == _Float)
-	    {
-	      float *ptr = (float*) tmp;
-	      FINDMINMAX();
-	    }
-	}
-      dataFile.close();
+      m_rawMin = qMin(m_rawMin, results[t].rmin);
+      m_rawMax = qMax(m_rawMax, results[t].rmax);
     }
-
-  delete [] tmp;
 
   progress.setValue(100);
   qApp->processEvents();
 }
-
-#define GENHISTOGRAM()					\
-  {							\
-    for(uint j=0; j<nY*nZ; j++)				\
-      {							\
-	float fidx = (ptr[j]-m_rawMin)/rSize;		\
-	fidx = qBound(0.0f, fidx, 1.0f);		\
-	int idx = fidx*histogramSize;			\
-	m_histogram[idx]+=1;				\
-      }							\
-  }
 
 void
 NcPlugin::generateHistogram()
@@ -712,87 +717,26 @@ NcPlugin::generateHistogram()
 	m_histogram.append(0);
     }
   else
-    {      
+    {
       for(uint i=0; i<65536; i++)
 	m_histogram.append(0);
     }
 
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
+  QVector<NcFileResult> results;
+  processAllFiles(2, m_rawMin, rSize, (int)m_histogram.size()-1, progress, results);
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
-
-  int histogramSize = m_histogram.size()-1;
-
-  int nfls = m_fileName.size();
-  if (m_4dvol) nfls = 1;
-  for(uint nf=0; nf<nfls; nf++)
+  for(int t=0; t<results.size(); t++)
     {
-
-      NcFile dataFile;
-      try
-	{
-	  dataFile.open(m_fileName[nf].toStdString(),
-			NcFile::read);
-	}
-      catch(NcException &e)
+      if (!results[t].ok)
 	{
 	  QMessageBox::information(0, "Error",
 				   QString("%1 is not a valid NetCDF file"). \
-				   arg(m_fileName[nf]));
+				   arg(results[t].errorFile));
 	  return;
 	}
-      
-      NcVar ncvar;
-      ncvar = dataFile.getVar(m_varName.toStdString());
-      
-      int iEnd = ncvar.getDim(0).getSize();
-      for(uint i=0; i<iEnd; i++)
-	{
-	  progress.setValue((int)(100.0*(float)i/(float)iEnd));
-	  qApp->processEvents();
-	  
-	  getSlice(0, m_width, m_height, ncvar, i, tmp);
-	  
-	  
-	  if (m_voxelType == _UChar)
-	    {
-	      uchar *ptr = tmp;
-	      GENHISTOGRAM();
-	    }
-	  else if (m_voxelType == _Char)
-	    {
-	      char *ptr = (char*) tmp;
-	      GENHISTOGRAM();
-	    }
-	  if (m_voxelType == _UShort)
-	    {
-	      ushort *ptr = (ushort*) tmp;
-	      GENHISTOGRAM();
-	    }
-	  else if (m_voxelType == _Short)
-	    {
-	      short *ptr = (short*) tmp;
-	      GENHISTOGRAM();
-	    }
-	  else if (m_voxelType == _Int)
-	    {
-	      int *ptr = (int*) tmp;
-	      GENHISTOGRAM();
-	    }
-	  else if (m_voxelType == _Float)
-	    {
-	      float *ptr = (float*) tmp;
-	      GENHISTOGRAM();
-	    }
-	}
-      dataFile.close();
+      for(uint i=0; i<m_histogram.size(); i++)
+	m_histogram[i] += results[t].hist[i];
     }
-
-  delete [] tmp;
 
   progress.setValue(100);
   qApp->processEvents();

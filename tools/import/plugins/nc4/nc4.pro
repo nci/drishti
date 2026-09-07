@@ -15,6 +15,8 @@ SOURCES = nc4plugin.cpp
 
 include(../plugins.pri)
 
+QT += concurrent
+
 win32 {
   INCLUDEPATH += ../../
 

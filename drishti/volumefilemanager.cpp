@@ -270,6 +270,7 @@ VolumeFileManager::getSlice(int d)
     m_filename = m_baseFilename +
 	         QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));
 
+  
   if (pflnm != m_filename ||
       !m_qfile.isOpen() ||
       !m_qfile.isReadable())
@@ -284,7 +285,9 @@ VolumeFileManager::getSlice(int d)
     }
   m_qfile.seek((qint64)(m_header + (d-m_slabno*m_slabSize)*bps));
   m_qfile.read((char*)m_slice, bps);
-  m_qfile.close();
+
+  if (m_filenames.count() > 1) // otherwise keep the file open
+    m_qfile.close();
 
   return m_slice;
 }

@@ -632,7 +632,7 @@ VolumeSingle::createBitmask(int minx, int maxx,
 	  }
     }
   
-  delete [] vg;
+  delete [] vg;
 
   MainWindowUI::mainWindowUI()->menubar->parentWidget()->\
     setWindowTitle(QString("Drishti"));
@@ -2503,6 +2503,11 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
   int dtleny2 = leny/dtlod;
   int dtlenz2 = lenz/dtlod;
   float stp = (float)dtlod/(float)m_subvolumeSubsamplingLevel;
+
+  int *dragY = new int[dtleny2];
+  for(int j=0; j<dtleny2; j++) dragY[j] = (int)(j*stp);
+  int *dragX = new int[dtlenx2];
+  for(int i=0; i<dtlenx2; i++) dragX[i] = (int)(i*stp);
   uchar *tmp = new uchar[bpv*dtlenx2*dtleny2];
   //---------------------------------------
 
@@ -2525,8 +2530,6 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
       int offW = m_offW/m_subvolumeSubsamplingLevel;
       int offH = m_offH/m_subvolumeSubsamplingLevel;
 
-      int maxHsl = m_maxHeight/m_subvolumeSubsamplingLevel;
-      int maxWsl = m_maxWidth/m_subvolumeSubsamplingLevel;
 
       Vec relDataPos = Global::relDataPos();
       if (relDataPos.x < -0.5) offH = 0;
@@ -2537,7 +2540,6 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
       if (relDataPos.y > 0.5) offW = (m_maxWidth-m_width)/m_subvolumeSubsamplingLevel;
       if (relDataPos.z > 0.5) offD = (m_maxDepth-m_depth)/m_subvolumeSubsamplingLevel;
       
-      uchar *sliceTemp1 = new uchar [bpv*maxWsl*maxHsl];
 
       int kmin = startZSlice/m_subvolumeSubsamplingLevel;
       int kmax = endZSlice/m_subvolumeSubsamplingLevel;
@@ -2548,84 +2550,89 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
       
 	      int k = k0 - offD; // shift slice by given depth offset
       
-	      if (k >= 0 && k<lenk2)
-	        {
-	          uchar *vslice = m_lodFileManager.getSlice(k);
-	          memcpy(m_sliceTemp, vslice, kbytes);
-	        }
-	      else
-	        {
-	          memset(m_sliceTemp, 0, kbytes);
-	        }
+      uchar *vslice = 0;
+      if (k >= 0 && k<lenk2)
+        vslice = m_lodFileManager.getSlice(k);
+      else
+        memset(m_sliceTemp, 0, kbytes);
         
-	      //---
-	      memset(sliceTemp1, 0, bpv*maxWsl*maxHsl);
-	      for(int j=0; j<lenj2; j++)
-	        memcpy(sliceTemp1 + bpv*((j+offW)*maxHsl + offH),
-	    	   m_sliceTemp + bpv*j*leni2,
-	    	   bpv*leni2);
-        
-	      for(int j=0; j<leny2; j++)
-	        memcpy(m_sliceTemp + bpv*j*lenx2,
-	    	   sliceTemp1 + bpv*((j+jmin)*maxHsl + imin),
-	    	   bpv*lenx2);
-          
-	      // copy into array texture
-	      memcpy(m_subvolumeTexture + bpv*kslc*lenx2*leny2,
-	    	 m_sliceTemp,
-	    	 bpv*lenx2*leny2);
-	      //---
-        
-        
-	      memset(tmp, 0, bpv*dtlenx2*dtleny2);
-        
-	      //-------- form dragSubvolumeTexure ---------------
-	      if (k >= (int)(m_dataMin.z/m_subvolumeSubsamplingLevel) &&
-	          k <= (int)(m_dataMax.z/m_subvolumeSubsamplingLevel))
-	        {
-	          int ji=0;
-	          if (bpv == 1)
-	    	    {
-	    	      for(int j=0; j<dtleny2; j++)
-	    	        { 
-	    	          int y = j*stp;
-	    	          for(int i=0; i<dtlenx2; i++) 
-	    	    	{ 
-	    	    	  int x = i*stp; 
-	    	    	  tmp[ji] = m_sliceTemp[y*lenx2+x];
-	    	    	  ji++;
-	    	    	}
-	    	        }
-	    	    }
-	          else
-	    	    {
-	    	      for(int j=0; j<dtleny2; j++)
-	    	        { 
-	    	          int y = j*stp;
-	    	        for(int i=0; i<dtlenx2; i++) 
-	    	          { 
-	    	    	      int x = i*stp; 
-	    	    	      ((ushort*)tmp)[ji] = ((ushort*)m_sliceTemp)[y*lenx2+x];
-	    	    	      ji++;
-	    	          }
-	    	      }
-	    	    }
-          
-	          // copy into array texture
-	          int dtkslc = qBound(0, (int)((k0*m_subvolumeSubsamplingLevel-minz)/dtlod), dtlenz2-1);
-	          memcpy(m_dragSubvolumeTexture + bpv*dtkslc*dtlenx2*dtleny2,
-	    	           tmp, bpv*dtlenx2*dtleny2);
-	        }
-	      //---------------------------------------
+      //--- direct shifted+clipped row copy from the source slice into
+      //    the texture rectangle; output row j = source row (j+jmin-offW),
+      //    columns shifted by (imin-offH), zero outside the slice.
+      if (vslice)
+	{
+	  for(int j=0; j<leny2; j++)
+	    {
+	      uchar *dst = m_sliceTemp + (qint64)j*lenx2*bpv;
+	      int s = j + jmin - offW;
+	      if (s < 0 || s >= lenj2)
+		{ memset(dst, 0, (qint64)lenx2*bpv); continue; }
+	      int d = imin - offH;
+	      int c0 = qMax(0, -d);
+	      int c1 = qMin((int)lenx2, leni2 - d);
+	      if (c1 <= c0)
+		{ memset(dst, 0, (qint64)lenx2*bpv); continue; }
+	      if (c0 > 0)
+		memset(dst, 0, (size_t)c0*bpv);
+	      memcpy(dst + (size_t)c0*bpv,
+		     vslice + ((qint64)s*leni2 + (c0+d))*bpv,
+		     (size_t)(c1-c0)*bpv);
+	      if (c1 < lenx2)
+		memset(dst + (size_t)c1*bpv, 0, (size_t)(lenx2-c1)*bpv);
+	    }
+	}
+      //---
+      // copy into array texture
+      memcpy(m_subvolumeTexture + bpv*kslc*lenx2*leny2,
+	     m_sliceTemp,
+	     bpv*lenx2*leny2);
+      //---
+      
+      //-------- form dragSubvolumeTexure ---------------
+      if (k >= (int)(m_dataMin.z/m_subvolumeSubsamplingLevel) &&
+	  k <= (int)(m_dataMax.z/m_subvolumeSubsamplingLevel))
+	{
+	  int ji=0;
+	  if (bpv == 1)
+	    {
+	      for(int j=0; j<dtleny2; j++)
+		{ 
+		  const uchar *srow = m_sliceTemp + (qint64)dragY[j]*lenx2;
+		  for(int i=0; i<dtlenx2; i++) 
+		    { 
+		      tmp[ji] = srow[dragX[i]];
+		      ji++;
+		    }
+		}
+	    }
+	  else
+	    {
+	      for(int j=0; j<dtleny2; j++)
+		{ 
+		  const ushort *srow = (const ushort*)m_sliceTemp + (qint64)dragY[j]*lenx2;
+		  for(int i=0; i<dtlenx2; i++) 
+		    { 
+		      ((ushort*)tmp)[ji] = srow[dragX[i]];
+		      ji++;
+		    }
+		}
+	    }
+	    
+	  // copy into array texture
+	  int dtkslc = qBound(0, (int)((k0*m_subvolumeSubsamplingLevel-minz)/dtlod), dtlenz2-1);
+	  memcpy(m_dragSubvolumeTexture + bpv*dtkslc*dtlenx2*dtleny2,
+		   tmp, bpv*dtlenx2*dtleny2);
+	}
+      //---------------------------------------
         
 	      kslc ++;
 	    }
 
       delete [] tmp;
-      delete [] sliceTemp1;
+      delete [] dragY;
+      delete [] dragX;
 
       tmp = 0;
-      sliceTemp1 = 0;
 
   
       if (!Global::histogramDisabled())
@@ -2665,7 +2672,6 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
   quick = quick && (m_maxWidth==m_width);
 
   
-  uchar *sliceTemp1 = new uchar [bpv*m_maxWidth*m_maxHeight];
 
   //-------------------------------------------------------
   for(int k0=startZSlice; k0<=endZSlice; k0++)
@@ -2677,90 +2683,99 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
 
       int k = k0 - offD; // shift slice by given depth offset
       
+      uchar *vslice = 0;
       if (k >= 0 && k < m_depth)
-	    {
-	      uchar *vslice = m_pvlFileManager.getSlice(k);
-	      memcpy(m_sliceTemp, vslice, nbytes);
-	    }
+        vslice = m_pvlFileManager.getSlice(k);
       else
-	    {
-	      memset(m_sliceTemp, 0, nbytes);
-	    }
+        memset(m_sliceTemp, 0, nbytes);
       
 
       if (quick)
-	    {
-	      // copy into array texture
-	      memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,
-	    	 m_sliceTemp,
-	    	 bpv*lenx2*leny2);
-	    }
+	{
+	  // copy into array texture
+	  if (vslice) memcpy(m_sliceTemp, vslice, nbytes);
+	  memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,
+		 m_sliceTemp,
+		 bpv*lenx2*leny2);
+	}
       else
-	    { // extract rectangle from the slice
-	      //---
-	      memset(sliceTemp1, 0, bpv*m_maxWidth*m_maxHeight);
-	      for(int j=0; j<m_width; j++)
-	        memcpy(sliceTemp1 + bpv*((j+offW)*m_maxHeight + offH),
-	    	         m_sliceTemp + bpv*j*m_height,
-	    	         bpv*m_height);
-      
+	{ // extract rectangle from the slice
+	  // direct shifted+clipped row copy from the source slice into
+	  // the texture rectangle; output row j = source row (j+miny-offW),
+	  // columns shifted by (minx-offH), zero outside the slice.
+	  if (vslice)
+	    {
 	      for(int j=0; j<leny2; j++)
-	        memcpy(m_sliceTemp + bpv*j*lenx2,
-	    	         sliceTemp1 + bpv*((j+miny)*m_maxHeight + minx),
-	    	         bpv*lenx2);
-          
-	      // copy into array texture
-	      memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,
-	    	       m_sliceTemp, bpv*lenx2*leny2);
-	      //---
+		{
+		  uchar *dst = m_sliceTemp + (qint64)j*lenx2*bpv;
+		  int s = j + miny - offW;
+		  if (s < 0 || s >= m_width)
+		    { memset(dst, 0, (qint64)lenx2*bpv); continue; }
+		  int d = minx - offH;
+		  int c0 = qMax(0, -d);
+		  int c1 = qMin((int)lenx2, m_height - d);
+		  if (c1 <= c0)
+		    { memset(dst, 0, (qint64)lenx2*bpv); continue; }
+		  if (c0 > 0)
+		    memset(dst, 0, (size_t)c0*bpv);
+		  memcpy(dst + (size_t)c0*bpv,
+			 vslice + ((qint64)s*m_height + (c0+d))*bpv,
+			 (size_t)(c1-c0)*bpv);
+		  if (c1 < lenx2)
+		    memset(dst + (size_t)c1*bpv, 0, (size_t)(lenx2-c1)*bpv);
+		}
 	    }
+	  //---
+	  // copy into array texture
+	  memcpy(m_subvolumeTexture + kslc*bpv*lenx2*leny2,
+		   m_sliceTemp, bpv*lenx2*leny2);
+	  //---
+	}
 
       //-------- form dragTexure ---------------
       if (k >= (int)m_dataMin.z && k <= (int)m_dataMax.z)
+	{
+	  int ji=0;
+	  if (bpv == 1)
 	    {
-	      int ji=0;
-	      if (bpv == 1)
-	        {
-	          for(int j=0; j<dtleny2; j++)
-	    	    { 
-	    	      int y = j*stp;
-	    	      for(int i=0; i<dtlenx2; i++) 
-	    	        { 
-	    	          int x = i*stp; 
-	    	          tmp[ji] = m_sliceTemp[y*lenx2+x];
-	    	          ji++;
-	    	        }
-	    	    }
-	        }
-	      else
-	        {
-	          for(int j=0; j<dtleny2; j++)
-	    	    { 
-	    	      int y = j*stp;
-	    	      for(int i=0; i<dtlenx2; i++) 
-	    	        { 
-	    	          int x = i*stp; 
-	    	          ((ushort*)tmp)[ji] = ((ushort*)m_sliceTemp)[y*lenx2+x];
-	    	          ji++;
-	    	        }
-	    	    }
-	        }
-        
-	      // copy into array texture
-	      int dtkslc = qBound(0, (int)((k0-minz)/stp), dtlenz2-1);
-	      memcpy(m_dragSubvolumeTexture + bpv*dtkslc*dtlenx2*dtleny2,
-	    	       tmp, bpv*dtlenx2*dtleny2);
+	      for(int j=0; j<dtleny2; j++)
+		{ 
+		  const uchar *srow = m_sliceTemp + (qint64)dragY[j]*lenx2;
+		  for(int i=0; i<dtlenx2; i++) 
+		    { 
+		      tmp[ji] = srow[dragX[i]];
+		      ji++;
+		    }
+		}
 	    }
+	  else
+	    {
+	      for(int j=0; j<dtleny2; j++)
+		{ 
+		  const ushort *srow = (const ushort*)m_sliceTemp + (qint64)dragY[j]*lenx2;
+		  for(int i=0; i<dtlenx2; i++) 
+		    { 
+		      ((ushort*)tmp)[ji] = srow[dragX[i]];
+		      ji++;
+		    }
+		}
+	    }
+	 
+	  // copy into array texture
+	  int dtkslc = qBound(0, (int)((k0-minz)/stp), dtlenz2-1);
+	  memcpy(m_dragSubvolumeTexture + bpv*dtkslc*dtlenx2*dtleny2,
+		   tmp, bpv*dtlenx2*dtleny2);
+	}
       //---------------------------------------
 
       kslc ++;
     }
 
   delete [] tmp;
-  delete [] sliceTemp1;
+  delete [] dragY;
+  delete [] dragX;
 
   tmp = 0;
-  sliceTemp1 = 0;
   
   if (!Global::histogramDisabled())
     generateHistograms(endZSlice-startZSlice+1, leny2, lenx2);

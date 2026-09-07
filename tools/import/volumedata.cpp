@@ -393,7 +393,7 @@ VolumeData::printVolumeInfo()
     mesg += QString("bytes per voxel : %1\n").arg(m_bytesPerVoxel);
     mesg += QString("header : %1\n").arg(headerBytes());
     mesg += QString("dim : %1 %2 %3\n").arg(m_depth).arg(m_width).arg(m_height);		    
-    mesg += QString("raw min max : %1 %2\n").arg(m_rawMin).arg(m_rawMax);		      
+    mesg += QString("data min max : %1 %2\n").arg(m_rawMin).arg(m_rawMax);		      
 
     cout << "\nVolume Data Information:" << endl;
     cout << mesg.toStdString() << endl;
@@ -486,12 +486,12 @@ VolumeData::getDepthSliceImage(int slc)
 	      for(int m=0; m<rawSize; m++)
 	        {
 	          if (v >= m_rawMap[m] &&
-	    	  v <= m_rawMap[m+1])
-	    	{
-	    	  idx = m;
-	    	  frc = ((float)v-(float)m_rawMap[m])/
-	    	    ((float)m_rawMap[m+1]-(float)m_rawMap[m]);
-	    	}
+		      v <= m_rawMap[m+1])
+		    {
+		      idx = m;
+		      frc = ((float)v-(float)m_rawMap[m])/
+			((float)m_rawMap[m+1]-(float)m_rawMap[m]);
+		    }
 	        }
 	    }
 

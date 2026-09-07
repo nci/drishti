@@ -10,6 +10,11 @@
 #include <float.h>
 #include <limits.h>
 
+#include <limits>
+#include <type_traits>
+#include <cstdint>
+#include <vector>
+
 #include <QtXml>
 #include <QFile>
 
@@ -53,40 +58,82 @@ using namespace std;
 #define ISNAN(v) isnan(v)
 #endif
 
-#define REMAPVOLUME()							\
-  {									\
-    for(uint j=0; j<width*height; j++)					\
-      {									\
-	float v = ptr[j];						\
-	int idx;							\
-	float frc;							\
-	if (v <= rawMap[0] || ISNAN(v))					\
-	  {								\
-	    idx = 0;							\
-	    frc = 0;							\
-	  }								\
-	else if (v >= rawMap[rawSize])					\
-	  {								\
-	    idx = rawSize-1;						\
-	    frc = 1;							\
-	  }								\
-	else								\
-	  {								\
-	    for(uint m=0; m<rawSize; m++)				\
-	      {								\
-		if (v >= rawMap[m] &&					\
-		    v <= rawMap[m+1])					\
-		  {							\
-		    idx = m;						\
-		    frc = ((float)v-rawMap[m])/				\
-		      (rawMap[m+1]-rawMap[m]);				\
-		  }							\
-	      }								\
-	  }								\
-									\
-	int pv = pvlMap[idx] + frc*(pvlMap[idx+1]-pvlMap[idx]);		\
-	pvl[j] = pv;							\
-      }									\
+// Per-voxel remap via a binary search over the (sorted) rawMap breakpoints;
+// rawMap and pvlMap both hold rawSize+1 entries.
+static inline int
+remapValueBinary(float v,
+		 const QList<float> &rawMap, int rawSize,
+		 const QList<int> &pvlMap)
+{
+  int idx;
+  float frc;
+  if (v <= rawMap.at(0) || ISNAN(v))
+    {
+      idx = 0;
+      frc = 0.0f;
+    }
+  else if (v >= rawMap.at(rawSize))
+    {
+      idx = rawSize-1;
+      frc = 1.0f;
+    }
+  else
+    {
+      // first breakpoint strictly greater than v (upper_bound over indices
+      // 0..rawSize), so rawMap[idx] <= v < rawMap[idx+1]
+      int lo = 0;
+      int hi = rawSize + 1;
+      while (lo < hi)
+	{
+	  int mid = (lo + hi) / 2;
+	  if (rawMap.at(mid) > v)
+	    hi = mid;
+	  else
+	    lo = mid + 1;
+	}
+      idx = lo - 1;
+      float span = rawMap.at(idx+1) - rawMap.at(idx);
+      frc = (span != 0.0f) ? ((v - rawMap.at(idx)) / span) : 0.0f;
+    }
+  return int(pvlMap.at(idx) + frc*(pvlMap.at(idx+1) - pvlMap.at(idx)));
+}
+
+// Remap one slice.  Bounded integral input types (uchar/char/ushort/short)
+// get a dense 256/65536-entry lookup table built once, then the slice is
+// filled in O(1) per voxel; the table pays off only when the slice is at
+// least as large as its range, otherwise the per-voxel binary-search path
+// below is cheaper.  _Int (32-bit range) and _Float always use the
+// binary-search path.
+template <typename Tin, typename Tout>
+static void
+remapVolumeSlice(const Tin *ptr, Tout *pvl, int count,
+		 const QList<float> &rawMap, int rawSize,
+		 const QList<int> &pvlMap)
+{
+  if constexpr (std::is_integral<Tin>::value)
+    {
+      const std::int64_t lo = (std::int64_t)std::numeric_limits<Tin>::lowest();
+      const std::int64_t hi = (std::int64_t)std::numeric_limits<Tin>::max();
+      const std::int64_t n = hi - lo + 1;
+      if (n <= 65536 && (std::int64_t)count >= n)
+	{
+	  std::vector<Tout> lut((std::size_t)n);
+	  for (std::int64_t v = lo; v <= hi; ++v)
+	    lut[(std::size_t)(v - lo)] =
+	      (Tout)remapValueBinary((float)v, rawMap, rawSize, pvlMap);
+	  for (std::int64_t j = 0; j < (std::int64_t)count; ++j)
+	    pvl[j] = lut[(std::size_t)((std::int64_t)ptr[j] - lo)];
+	  return;
+	}
+    }
+  for (std::int64_t j = 0; j < (std::int64_t)count; ++j)
+    pvl[j] = (Tout)remapValueBinary((float)ptr[j], rawMap, rawSize, pvlMap);
+}
+
+#define REMAPVOLUME()						\
+  {								\
+    remapVolumeSlice(ptr, pvl, (int)(width*height),		\
+		     rawMap, rawSize, pvlMap);			\
   }
 
 
@@ -826,12 +873,15 @@ Raw2Pvl::savePvl(VolumeData* volData,
 
   if (pvlFilename.endsWith(".zarr"))
     {
+      QList<float> rawMap = volData->rawMap();
+      QList<int> pvlMap = volData->pvlMap();
       ZarrWriter::saveZarr(Global::mainWindow(),
 			   pvlFilename,
 			   volData,
 			   dmin, dmax,
 			   wmin, wmax,
-			   hmin, hmax);
+			   hmin, hmax,
+			   rawMap, pvlMap);
       return;
     }
 

@@ -2,6 +2,7 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -15,6 +16,8 @@
 
 #include "savepvldialog.h"
 #include "zarrwriter.h"
+#include "raw2pvl.h"
+#include "common.h"
 
 #include <QMessageBox>
 #include <QProgressDialog>
@@ -97,8 +100,8 @@ static Dims make_shard(const Dims& c)
 // Root group user attributes (drishti + multiscales), consumed by the
 // drishtiimport zarr reader plugin.
 static zarr::json make_group_attributes(std::int64_t nLevels,
-                                        std::int64_t dataMin,
-                                        std::int64_t dataMax,
+					int pvlMin, int pvlMax,
+                                        float rawMin, float rawMax,
                                         const std::string& voxelUnit,
 					float vx, float vy, float vz,
                                         const std::string& desc)
@@ -116,7 +119,8 @@ static zarr::json make_group_attributes(std::int64_t nLevels,
     return zarr::json{
         {"drishti",
          {{"description", desc},
-          {"data_min_max", zarr::json::array({double(dataMin), double(dataMax)})},
+          {"raw_min_max", zarr::json::array({double(rawMin), double(rawMax)})},
+          {"data_min_max", zarr::json::array({double(pvlMin), double(pvlMax)})},
           {"voxel_size_xyz", zarr::json::array({vx, vy, vz})},
           {"voxel_unit", voxelUnit}}},
         {"multiscales", zarr::json::array({{{"datasets", datasets}}})}
@@ -130,7 +134,9 @@ ZarrWriter::saveZarr(QWidget* parent,
 		     VolumeData* volData,
 		     int dmin, int dmax,
 		     int wmin, int wmax,
-		     int hmin, int hmax)
+		     int hmin, int hmax,
+		     QList<float> rawMap,
+		     QList<int> pvlMap)
 {
   //------------------------------------------------------
   // -- get saving parameters for processed file
@@ -149,6 +155,29 @@ ZarrWriter::saveZarr(QWidget* parent,
   QString description = savePvlDialog.description();
   savePvlDialog.voxelSize(vx, vy, vz);
   //------------------------------------------------------
+
+  // dtype support: the zarr reader ecosystem (and the drishti zarr plugin)
+  // handles unsigned 8-bit and 16-bit voxels.  getDepthSlice always returns a
+  // full slice of width*height*bpv bytes, so everything downstream must know
+  // the voxel size (bpv).
+  int pvlbpv = 1;
+  if (pvlMap[pvlMap.count()-1] > 255)
+    pvlbpv = 2;
+  
+  int vtype = volData->voxelType();
+  int bpv = volData->bytesPerVoxel();
+  zarr::DType voxelDType;
+  if (pvlbpv == 1)
+    voxelDType = zarr::DType::uint8;
+  else if (pvlbpv == 2)
+    voxelDType = zarr::DType::uint16;
+  else
+    {
+      QMessageBox::information(parent, "Zarr",
+			       "Only unsigned 8-bit and 16-bit volumes "
+			       "can be saved to Zarr");
+      return;
+    }
 
   QString voxelUnitString = "no unit";
   if (voxelUnit == 1) voxelUnitString = "angstrom";
@@ -169,6 +198,16 @@ ZarrWriter::saveZarr(QWidget* parent,
     std::make_shared<zarr::FilesystemStore>(outDir.toStdString(), true);
   zarr::Group root =
     zarr::Group::create(store, "", zarr::ZarrFormat::v3);
+
+  int depth, width, height;    
+  volData->gridSize(depth, width, height);
+
+  // one full source depth-slice (width rows x height cols, bpv bytes per
+  // voxel, voxel at [w*height+h]); the requested region
+  // [dmin..dmax][wmin..wmax][hmin..hmax] is cropped from it below, since
+  // getDepthSlice always returns the full-volume plane.
+  std::vector<byte> fullPlane(std::size_t(width) * std::size_t(height) * bpv);
+  std::vector<byte> pvlPlane(std::size_t(width) * std::size_t(height) * pvlbpv);
 
   std::int64_t X,Y,Z;
   Z = dmax-dmin+1;
@@ -224,14 +263,14 @@ ZarrWriter::saveZarr(QWidget* parent,
 
   std::vector<zarr::CodecSpec> codecs = make_codecs(comp);
 
-  const auto make_spec = [&](const Dims& d, const Dims& c) {
+  const auto make_spec = [&](const Dims& d, const Dims& c, zarr::DType dt) {
       const Dims sh = make_shard(c);
       zarr::ArraySpec spec;
       spec.format = zarr::ZarrFormat::v3;
       spec.shape = { (std::uint64_t)d.z, (std::uint64_t)d.y, (std::uint64_t)d.x };
       spec.chunks = { (std::uint64_t)c.z, (std::uint64_t)c.y, (std::uint64_t)c.x };
       spec.shards = { (std::uint64_t)sh.z, (std::uint64_t)sh.y, (std::uint64_t)sh.x };
-      spec.dtype = zarr::DataType::of(zarr::DType::uint8);
+      spec.dtype = zarr::DataType::of(dt);
       spec.codecs = codecs;
       return spec;
   };
@@ -246,7 +285,7 @@ ZarrWriter::saveZarr(QWidget* parent,
   progress.move(QCursor::pos());
 
   // ---- level 0 ------------------------------------------------------
-  const std::int64_t planeBytes = Y * X;
+  const std::int64_t planeBytes = Y * X * pvlbpv;
   const Dims cd0{std::min(CHUNK_Z, Z), std::min(CHUNK_Y, Y),
 		 std::min(CHUNK_X, X)};
   std::int64_t batch = (cd0.z > 1) ? cd0.z : 64;               // 16 | 64
@@ -257,13 +296,12 @@ ZarrWriter::saveZarr(QWidget* parent,
 	    << batch << " (ram_budget=8 GB)\n";
 
   zarr::Array arr0 =
-    root.create_array("0", make_spec(Dims{Z, Y, X}, cd0));
+    root.create_array("0", make_spec(Dims{Z, Y, X}, cd0, voxelDType));
 
-  // data_min_max from the source volume metadata instead of re-scanning all
-  // voxels (uint8 => range 0..255, clipped to the observed byte min/max).
-  std::int64_t dataMin = std::int64_t(std::max(0.0f, volData->rawMin()));
-  std::int64_t dataMax = std::int64_t(std::min(255.0f, volData->rawMax()));
-  if (dataMax < dataMin) { std::int64_t t = dataMin; dataMin = dataMax; dataMax = t; }
+  int pvlMin = pvlMap[0];
+  int pvlMax = pvlMap[pvlMap.size()-1];
+  float rawMin = volData->rawMin();
+  float rawMax = volData->rawMax();
 
   // Pipeline the gather (producer: getDepthSlice, main thread) with the
   // costly encode+write (consumer thread). A small fixed pool of buffers is
@@ -309,7 +347,19 @@ ZarrWriter::saveZarr(QWidget* parent,
       j.z0 = z0; j.nz = nz;
       j.data.assign(std::size_t(nz * planeBytes), 0);
       for (std::int64_t z = z0; z < z1; z++)
-	volData->getDepthSlice(int(z), (uchar*)j.data.data() + (z-z0)*planeBytes);
+	{
+	  volData->getDepthSlice(int(dmin + z), fullPlane.data());
+	  const byte* src = fullPlane.data();
+	  const byte* pvl = pvlPlane.data();
+	  Raw2Pvl::applyMapping((uchar*)src, vtype, rawMap,
+				(uchar*)pvl, pvlbpv, pvlMap,
+				width, height);
+	  byte* dst = j.data.data() + (z - z0) * planeBytes;
+	  for (std::int64_t y = 0; y < Y; ++y)
+	    std::memcpy(dst + (y * X) * pvlbpv,
+			pvl + ((wmin + y) * height + hmin) * pvlbpv,
+			std::size_t(X) * pvlbpv);
+	}
 
       if (nblk > 1) {
         // hand off to the consumer, blocking while in-flight jobs are full
@@ -358,12 +408,12 @@ ZarrWriter::saveZarr(QWidget* parent,
                   << "x" << cur.x << " (" << mode << ", cached subsample)\n";
 
         zarr::Array curArr =
-          root.create_array(std::to_string(lv), make_spec(cur, cc));
+          root.create_array(std::to_string(lv), make_spec(cur, cc, voxelDType));
 
         const std::int64_t nkz = (cur.z + cc.z - 1) / cc.z;
         // one cached read of the previous-level block covering each output
         // z-chunk, then subsample in memory (no per-plane read_region).
-        const std::int64_t srcPlaneBytes = prev.plane();
+        const std::int64_t srcPlaneBytes = prev.plane() * pvlbpv;
         std::vector<byte> src;
         std::vector<byte> obuf;
         for (std::int64_t kz = 0; kz < nkz; ++kz) {
@@ -384,18 +434,19 @@ ZarrWriter::saveZarr(QWidget* parent,
                                   (std::uint64_t)prev.x },
                                 src.data(), src.size());
 
-            obuf.assign(std::size_t(nzo * cur.plane()), 0);
+            obuf.assign(std::size_t(nzo * cur.plane()) * pvlbpv, 0);
             byte* oplane = obuf.data();
             for (std::int64_t o = 0; o < nzo; ++o) {
                 const std::int64_t srow = 2 * o;      // index into src planes
                 const byte* p0 = src.data() + std::size_t(srow) * srcPlaneBytes;
-                byte* dst = oplane + std::size_t(o * cur.plane());
+                byte* dst = oplane + std::size_t(o * cur.plane()) * pvlbpv;
                 if (mode == "nearest") {
                     for (std::int64_t y2 = 0; y2 < cur.y; ++y2)
                         for (std::int64_t x2 = 0; x2 < cur.x; ++x2)
-                            dst[std::size_t(y2 * cur.x + x2)] =
-                                p0[std::size_t((2 * y2) * prev.x + 2 * x2)];
-                } else {
+                            std::memcpy(dst + std::size_t(y2 * cur.x + x2) * pvlbpv,
+                                        p0 + std::size_t((2 * y2) * prev.x + 2 * x2) * pvlbpv,
+                                        std::size_t(pvlbpv));
+                } else if (pvlbpv == 1) {
                     const byte* p1 = (srow + 1 < nsrc)
                         ? (src.data() + std::size_t(srow + 1) * srcPlaneBytes)
                         : p0;
@@ -416,6 +467,38 @@ ZarrWriter::saveZarr(QWidget* parent,
                                  double(p1[std::size_t(r1 + c1)])) * 0.125);
                         }
                     }
+                } else {
+                    // 16-bit 2x2x2 mean: the slice words are stored in native
+                    // (host, little-endian) byte order, so average them as
+                    // 16-bit values.
+                    const std::uint16_t* base =
+                        reinterpret_cast<const std::uint16_t*>(src.data());
+                    const std::uint16_t* q0 =
+                        base + std::size_t(srow) * prev.plane();
+                    const std::uint16_t* q1 = (srow + 1 < nsrc)
+                        ? (base + std::size_t(srow + 1) * prev.plane())
+                        : q0;
+                    std::uint16_t* o16 =
+                        reinterpret_cast<std::uint16_t*>(dst);
+                    for (std::int64_t y2 = 0; y2 < cur.y; ++y2) {
+                        const std::int64_t r0 = (2 * y2) * prev.x;
+                        const std::int64_t r1 = std::min(prev.y - 1, 2 * y2 + 1) * prev.x;
+                        for (std::int64_t x2 = 0; x2 < cur.x; ++x2) {
+                            const std::int64_t c0 = 2 * x2;
+                            const std::int64_t c1 = std::min(prev.x - 1, 2 * x2 + 1);
+                            std::uint32_t sum =
+                                std::uint32_t(q0[std::size_t(r0 + c0)]) +
+                                std::uint32_t(q0[std::size_t(r0 + c1)]) +
+                                std::uint32_t(q0[std::size_t(r1 + c0)]) +
+                                std::uint32_t(q0[std::size_t(r1 + c1)]) +
+                                std::uint32_t(q1[std::size_t(r0 + c0)]) +
+                                std::uint32_t(q1[std::size_t(r0 + c1)]) +
+                                std::uint32_t(q1[std::size_t(r1 + c0)]) +
+                                std::uint32_t(q1[std::size_t(r1 + c1)]);
+                            o16[std::size_t(y2 * cur.x + x2)] =
+                                std::uint16_t(sum / 8);
+                        }
+                    }
                 }
             }
             curArr.write_region({ (std::uint64_t)zo0, 0, 0 },
@@ -428,12 +511,14 @@ ZarrWriter::saveZarr(QWidget* parent,
     }
 
     // ---- root zarr.json (drishti + multiscales attributes) -----------
-    root.set_attributes(make_group_attributes(nLevels, dataMin, dataMax,
+    root.set_attributes(make_group_attributes(nLevels,
+					      pvlMin, pvlMax,
+					      rawMin, rawMax,
 					      voxelUnitString.toStdString(),
 					      vx, vy, vz,
 					      description.toStdString()));
 
-    std::cout << "min/max: " << dataMin << " " << dataMax << "\n";
+    std::cout << "min/max: " << rawMin << " " << rawMax << "\n";
     std::cout << "done " << outDir.toStdString() << "\n";
 
     QMessageBox::information(parent, "Zarr", "Saved to "+outDir);

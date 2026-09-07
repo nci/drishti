@@ -41,6 +41,7 @@ NcPlugin::init()
   m_voxelSizeX = m_voxelSizeY = m_voxelSizeZ = 1;
   m_skipBytes = 0;
   m_bytesPerVoxel = 1;
+  m_headerBytes = 0;
   m_rawMin = m_rawMax = 0;
   m_histogram.clear();
   m_4dvol = false;

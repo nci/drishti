@@ -13,7 +13,9 @@ class ZarrWriter
 		       VolumeData*,
 		       int, int,
 		       int, int,
-		       int, int);
+		       int, int,
+		       QList<float> rawMap,
+		       QList<int> pvlMap);
 };
 
 #endif

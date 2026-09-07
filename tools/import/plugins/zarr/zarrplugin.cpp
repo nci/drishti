@@ -1,9 +1,13 @@
 #include <QtGui>
 #include <QFileInfo>
 #include <QDir>
+#include <QThread>
 #include <vector>
 #include <stdexcept>
 #include <algorithm>
+#include <atomic>
+#include <mutex>
+#include <thread>
 
 // Qt's <QtGui> pulls in <windows.h> -> minwindef.h, which #defines the
 // lowercase keyword-like macro `far` (empty, and `FAR` as `far`).  libzarr's
@@ -441,9 +445,6 @@ ZarrPlugin::generateHistogram()
   for (qint64 i = 0; i < bin; ++i)
     m_histogram.append(0);
 
-  // local raw histogram (cache-friendly qint64 bins) + tight min/max
-  std::vector<qint64> hist(binSize, 0);
-
   const qint64 chunkZ = m_chunkShape.size() > 0 ? (qint64)m_chunkShape[0] : 1;
   const qint64 chunkY = m_chunkShape.size() > 1 ? (qint64)m_chunkShape[1] : 1;
   const qint64 chunkX = m_chunkShape.size() > 2 ? (qint64)m_chunkShape[2] : 1;
@@ -455,60 +456,102 @@ ZarrPlugin::generateHistogram()
   if (total <= 0)
     return;
 
-  int minv = 10000000, maxv = -10000000;
+  // Parallel scan: the chunks are shared across a bounded set of workers and
+  // each worker accumulates into its own histogram (merged below), so the
+  // binning stays parallel.  libzarr documents its core as single-threaded
+  // by design ("implementations are not required to be thread-safe"), so the
+  // actual reads/decompression are serialized with readMutex; the aggregation
+  // on the decoded bytes still overlaps it.  min/max are recovered from the
+  // merged bins (smallest/largest bin with a non-zero count).
+  const int nthreads = qMin(8, qBound(1, QThread::idealThreadCount(), (int)total));
+  std::mutex readMutex;
+  std::atomic<int> next(0);
+  std::atomic<int> done(0);
 
-  QByteArray chunk;
-  qint64 idx = 0;
-  for (qint64 kz = 0; kz < nkz; ++kz)
+  std::vector<std::vector<qint64> > hists((size_t)nthreads,
+                                          std::vector<qint64>(binSize, 0));
+
+  std::vector<std::thread> workers;
+  workers.reserve((size_t)nthreads);
+  for (int t = 0; t < nthreads; ++t)
     {
-      progress.setValue((int)(100.0 * (double)kz / (double)nkz));
-      qApp->processEvents();
-
-      for (qint64 ky = 0; ky < nky; ++ky)
+      workers.emplace_back([&, t]()
         {
-          for (qint64 kx = 0; kx < nkx; ++kx, ++idx)
+          qint64* h = hists[(size_t)t].data();
+          for (;;)
             {
-              chunk.clear();
-              if (!readChunk((int)kz, (int)ky, (int)kx, chunk))
-                continue;
+              const int c = next.fetch_add(1);
+              if (c >= total)
+                break;
 
-              const unsigned char* p = (const unsigned char*)chunk.constData();
+              const qint64 cc = c;
+              QByteArray chunk;
+              {
+                std::lock_guard<std::mutex> lock(readMutex);
+                if (!readChunk((int)(cc / (nky * nkx)),
+                               (int)((cc / nkx) % nky),
+                               (int)(cc % nkx), chunk))
+                  {
+                    done.fetch_add(1);
+                    continue;
+                  }
+              }
+
+              const unsigned char* p =
+                (const unsigned char*)chunk.constData();
               const qint64 nbytes = (qint64)chunk.size();
               if (ushort)
                 {
-                  const size_t n = (size_t)(nbytes / m_bytesPerVoxel);
-                  qint64* h = hist.data();
+                  const unsigned short* sp = (const unsigned short*)p;
+                  const size_t n = (size_t)(nbytes / 2);
                   for (size_t i = 0; i < n; ++i)
-                    {
-                      int v = (int)p[i * 2] | ((int)p[i * 2 + 1] << 8);
-                      if ((size_t)v < binSize)
-                        {
-                          h[(size_t)v]++;
-                          if (v < minv) minv = v;
-                          if (v > maxv) maxv = v;
-                        }
-                    }
+                    h[sp[i]]++;
                 }
               else
                 {
-                  qint64* h = hist.data();
                   for (qint64 i = 0; i < nbytes; ++i)
-                    {
-                      const int v = p[i];
-                      h[(size_t)v]++;
-                      if (v < minv) minv = v;
-                      if (v > maxv) maxv = v;
-                    }
+                    h[p[i]]++;
                 }
+              done.fetch_add(1);
             }
+        });
+    }
+
+  while (done != total)
+    {
+      progress.setValue((int)(100.0 * (double)done.load() /
+                              (double)total));
+      qApp->processEvents();
+      QThread::msleep(10);
+    }
+  for (size_t t = 0; t < workers.size(); ++t)
+    workers[t].join();
+
+  // merge the per-thread bins
+  std::vector<qint64> hist(binSize, 0);
+  for (size_t t = 0; t < hists.size(); ++t)
+    for (size_t v = 0; v < binSize; ++v)
+      hist[v] += hists[t][v];
+
+  int minv = -1, maxv = -1;
+  for (size_t v = 0; v < binSize; ++v)
+    {
+      if (hist[v] > 0)
+        {
+          if (minv < 0)
+            minv = (int)v;
+          maxv = (int)v;
         }
     }
 
-  // convert the local bins into the plugin's QList<uint>
   for (qint64 v = 0; v < bin; ++v)
     m_histogram[(int)v] = (uint)hist[(size_t)v];
 
-  if (minv > maxv) { minv = 0; maxv = 0; }
+  if (minv < 0)
+    {
+      minv = 0;
+      maxv = 0;
+    }
 
   // prefer the range given by the store metadata (data_min_max) when
   // present, since a scan-based min includes fabric padding zeros.

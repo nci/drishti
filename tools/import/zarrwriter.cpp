@@ -97,8 +97,11 @@ static Dims make_shard(const Dims& c)
 }
 
 // ---------------------------------------------------------------------
-// Root group user attributes (drishti + multiscales), consumed by the
-// drishtiimport zarr reader plugin.
+// Root group user attributes, consumed by the drishtiimport zarr reader
+// plugin.  Emits OME-Zarr (v0.5, since the arrays are stored as Zarr v3)
+// 'multiscales' (per-level paths, axes, relative scale transforms) and an
+// 'omero' block, plus the custom 'drishti' block Drishti reads for the
+// physical voxel size / data ranges.
 static zarr::json make_group_attributes(std::int64_t nLevels,
 					int pvlMin, int pvlMax,
                                         float rawMin, float rawMax,
@@ -106,6 +109,22 @@ static zarr::json make_group_attributes(std::int64_t nLevels,
 					float vx, float vy, float vz,
                                         const std::string& desc)
 {
+    // OME-Zarr axis order mirrors the array layout (slowest axis first):
+    // every level has shape {z, y, x}.  The 'scale' coordinateTransformations
+    // express the relative downsampling per level (level 0 = 1:1) so the
+    // Drishti reader (which multiplies this onto voxel_size_xyz) keeps the
+    // physical spacing correct.
+    zarr::json axes = zarr::json::array();
+    const char* axisNames[3] = { "z", "y", "x" };
+    for (const char* name : axisNames) {
+        zarr::json axis = {{"name", name}, {"type", "space"}};
+        if (!voxelUnit.empty() && voxelUnit != "no unit") {
+            // OME-Zarr uses UCUM axis units ("micron" is not a UCUM string).
+            axis["unit"] = (voxelUnit == "micron") ? "micrometer" : voxelUnit;
+        }
+        axes.push_back(std::move(axis));
+    }
+
     zarr::json datasets = zarr::json::array();
     for (std::int64_t lv = 0; lv <= nLevels; ++lv) {
         const std::int64_t s = 1LL << lv;
@@ -116,6 +135,23 @@ static zarr::json make_group_attributes(std::int64_t nLevels,
                                  {"scale", zarr::json::array({double(s), double(s), double(s)})}}})}
         });
     }
+
+    zarr::json channels = zarr::json::array();
+    channels.push_back({
+        {"color", "FFFFFF"},
+        {"label", "intensity"},
+        {"window",
+         {{"min", double(pvlMin)}, {"max", double(pvlMax)},
+          {"start", double(pvlMin)}, {"end", double(pvlMax)}}}
+    });
+    zarr::json omero{
+        {"id", 1},
+        {"name", desc.empty() ? "image" : desc},
+        {"version", "0.4"},
+        {"channels", std::move(channels)},
+        {"rdefs", {{"defaultT", 0}, {"defaultZ", 0}, {"model", "color"}}}
+    };
+
     return zarr::json{
         {"drishti",
          {{"description", desc},
@@ -123,7 +159,12 @@ static zarr::json make_group_attributes(std::int64_t nLevels,
           {"data_min_max", zarr::json::array({double(pvlMin), double(pvlMax)})},
           {"voxel_size_xyz", zarr::json::array({vx, vy, vz})},
           {"voxel_unit", voxelUnit}}},
-        {"multiscales", zarr::json::array({{{"datasets", datasets}}})}
+        {"multiscales", zarr::json::array({{
+            {"name", desc.empty() ? "image" : desc},
+            {"axes", std::move(axes)},
+            {"datasets", std::move(datasets)},
+            {"version", "0.5"}}})},
+        {"omero", std::move(omero)}
     };
 }
 

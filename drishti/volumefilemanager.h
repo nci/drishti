@@ -6,6 +6,7 @@
 #include <QProgressDialog>
 #include <QStringList>
 #include <QFile>
+#include "zarrhandler.h"
 
 class VolumeFileManager
 {
@@ -94,6 +95,9 @@ class VolumeFileManager
 
   bool changeSliceOrdering();
 
+  void loadSlab(int, int);
+  void resetSlab();
+  
  private :
   bool m_memmapped;
   bool m_memChanged;
@@ -109,9 +113,11 @@ class VolumeFileManager
 
   QFile m_qfile;
   QString m_filename;
-  int m_slabno, m_prevslabno;  
+  int m_slabno, m_prevslabno;
 
   uchar *m_volData;
+
+  ZarrHandler *m_zarrhandler;
 
   void readBlocks(int);
 

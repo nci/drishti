@@ -26,7 +26,7 @@
      <x>0</x>
      <y>0</y>
      <width>1000</width>
-     <height>22</height>
+     <height>33</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -53,6 +53,7 @@
      <addaction name="actionLandmarks"/>
     </widget>
     <addaction name="menuLoad_Volume"/>
+    <addaction name="actionLoad_Zarr"/>
     <addaction name="actionLoad_Project"/>
     <addaction name="menuLoad_Geometry"/>
     <addaction name="actionLoad_TFfromproject"/>
@@ -631,6 +632,11 @@
    </property>
    <property name="text">
     <string>Responsive Rendering (r)</string>
+   </property>
+  </action>
+  <action name="actionLoad_Zarr">
+   <property name="text">
+    <string>Load Zarr</string>
    </property>
   </action>
  </widget>

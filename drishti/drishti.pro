@@ -41,6 +41,11 @@ include( ../drishti.pri )
 win32 {
   RC_ICONS += images/drishti-256.ico
 
+  # libzarr (https://github.com/kharchenkolab/libzarr) is a header-only C++17
+  # library used by zarrwriter.cpp (and the tools/import/plugins/zarr reader).
+  LIBZARR_INCLUDE_PATH = C:/Apps/libzarr
+  
+
   contains(Windows_Setup, Win64) {
     message(drishti.exe : Win64 setup)
     DEFINES += _CRT_SECURE_NO_WARNINGS
@@ -48,15 +53,25 @@ win32 {
     INCLUDEPATH += 16bit \
                    ..\common\src\widgets \
                    ..\common\src\videoencoder
+    INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/third_party   # vendored nlohmann/json (first)
+    INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/include       # libzarr core headers
+
+    DEFINES += LIBZARR_HAS_ZLIB LIBZARR_HAS_BLOSC LIBZARR_HAS_ZSTD
+    DEFINES += NOMINMAX  # windows.h min/max macros clobber libzarr's std::min/std::max
+
+
+    QMAKE_CXXFLAGS*=/std:c++17
 	               
     LIBS += -lQGLViewer2 \
             -lnetcdf-cxx4 \
             -lnetcdf \
-  	    	-lglew32 \
-  	    	-lfreeglut \
+  	    -lglew32 \
+  	    -lfreeglut \
             -lopengl32 \
             -lglu32 \
             -lassimp-vc145-mt
+
+     LIBS += blosc.lib zlib.lib zstd.lib
 
      # Set list of required FFmpeg libraries
      LIBS += -lavutil \
@@ -98,155 +113,157 @@ LIBS += -lGLEW -lnetcdf -lnetcdf_c++ -framework QGLViewer -framework GLUT
 
 # Input
 HEADERS += launcher.h \
-    	boundingbox.h \
-        blendshaderfactory.h \
-	   	brickinformation.h \
-	   	bricks.h \
-	   	brickswidget.h \
-        camerapathnode.h \
-	   	captions.h \
-	   	captiondialog.h \
-	   	captiongrabber.h \
-	   	captionobject.h \
-	   	colorbar.h \
-	   	colorbargrabber.h \
-	   	colorbarobject.h \
-        classes.h \
-        clipinformation.h \
-        clipplane.h \
-	   	clipobject.h \
-	   	clipgrabber.h \
-	   	coloreditor.h \
-	   	connectbricks.h \
-	   	connectbrickswidget.h \	
-	   	connectclipplanes.h \
-	   	connectgeometryobjects.h \
-	   	connecthires.h \
-	   	connectkeyframe.h \
-	   	connectkeyframeeditor.h \
-	   	connectlightingwidget.h \
-	   	connectpreferences.h \
-	   	connectshowmessage.h \
-	   	connecttfeditor.h \
-	   	connecttfmanager.h \
-	   	connectviewer.h \
-	   	connectvolinfowidget.h \
-	   	crops.h \
-	   	cropobject.h \
-	   	cropgrabber.h \
-        cropshaderfactory.h \
-        cube2sphere.h \
-	   	doublespinboxdelegate.h \
-	   	dialogs.h \
-	   	directionvectorwidget.h \
-        drawhiresvolume.h \
-        drawlowresvolume.h \
-        enums.h \
-	   	fileslistdialog.h \	   
-	   	geometryobjects.h \
-	   	geoshaderfactory.h \
-        glewinitialisation.h \
-        global.h \
-        glowshaderfactory.h \
-        gradienteditor.h \
-        gradienteditorwidget.h \
-	   	grids.h \
-	   	gridgrabber.h \
-	   	gridobject.h \
-	   	hitpoints.h \
-	   	hitpointgrabber.h \
-	   	imagecaptions.h \
-	   	imagecaptiongrabber.h \
-	   	imagecaptionobject.h \
-        imglistdialog.h \
-        keyframe.h \
-        keyframeeditor.h \
-        keyframeinformation.h \
-	   	landmarks.h \
-	   	landmarkinformation.h \
-        lightdisc.h \
-	   	lightinginformation.h \
-        lightingwidget.h \
-	   	load2volumes.h \
-	   	load3volumes.h \
-	   	load4volumes.h \
-        mainwindow.h \
-		mainwindowui.h \
-	   	matrix.h \
-	   	messagedisplayer.h \
-	   	mymanipulatedframe.h \
-	   	networkinformation.h \
-	   	networks.h \
-	   	networkgrabber.h \
-	   	networkobject.h \
-	   	opacityeditor.h \
-	   	paintball.h \
-	   	propertyeditor.h \
-	   	pathobject.h \
-	   	pathgrabber.h \
-	   	paths.h \
-	   	pathgroups.h \
-	   	pathgroupobject.h \
-	   	pathgroupgrabber.h \
-	   	pathshaderfactory.h \
-	   	ply.h \
-	   	plugininterface.h \
-	   	pluginthread.h \
-	   	preferenceswidget.h \
-	   	profileviewer.h \
-        prunehandler.h \
-        pruneshaderfactory.h \
-	   	rawvolume.h \
-	   	scalebar.h \
-	   	scalebargrabber.h \
-	   	scalebarobject.h \
-        shaderfactory.h \
-        shaderfactory2.h \
-        shaderfactoryrgb.h \
-        splineeditor.h \
-        splineeditorwidget.h \
-	   	splineinformation.h \
-        splinetransferfunction.h \
-        staticfunctions.h \
-	   	tagcoloreditor.h \
-        tearshaderfactory.h \
-	   	tick.h \
-        transferfunctioncontainer.h \
-        transferfunctioneditorwidget.h \
-        transferfunctionmanager.h \
-	   	trisetinformation.h \
-	   	trisets.h \
-	   	trisetgrabber.h \
-	   	trisetobject.h \
-        viewer.h \
-	   	volume.h \
-        volumebase.h \
-	   	volumeinformation.h \
-	   	volumeinformationwidget.h \
-        volumefilemanager.h \
-        volumesingle.h \
-	   	volumergbbase.h \
-	   	volumergb.h \
-	   	xmlheaderfunctions.h \
-	   	16bit/remaphistogramline.h \
-	   	16bit/remaphistogramwidget.h \
-	   	mopplugininterface.h \
-	   	itksegmentation.h \
-        lighthandler.h \
-        lightshaderfactory.h \
-	   	gilights.h \
-	   	gilightgrabber.h \
-	   	gilightobject.h \
-	   	gilightinfo.h \
-	   	gilightobjectinfo.h \
-	   	videoplayer.h \
-	   	mybitarray.h \
-        popupslider.h \
-        ../common/src/widgets/dcolordialog.h \
-        ../common/src/widgets/dcolorwheel.h \
-	   	../common/src/widgets/saveimageseqdialog.h \
-        ../common/src/widgets/savemoviedialog.h \
-        ../common/src/videoencoder/videoencoder.h
+           boundingbox.h \
+           blendshaderfactory.h \
+	   brickinformation.h \
+	   bricks.h \
+	   brickswidget.h \
+           camerapathnode.h \
+	   captions.h \
+	   captiondialog.h \
+	   captiongrabber.h \
+	   captionobject.h \
+	   colorbar.h \
+	   colorbargrabber.h \
+	   colorbarobject.h \
+           classes.h \
+           clipinformation.h \
+           clipplane.h \
+	   clipobject.h \
+	   clipgrabber.h \
+	   coloreditor.h \
+	   connectbricks.h \
+	   connectbrickswidget.h \	
+	   connectclipplanes.h \
+	   connectgeometryobjects.h \
+	   connecthires.h \
+	   connectkeyframe.h \
+	   connectkeyframeeditor.h \
+	   connectlightingwidget.h \
+	   connectpreferences.h \
+	   connectshowmessage.h \
+	   connecttfeditor.h \
+	   connecttfmanager.h \
+	   connectviewer.h \
+	   connectvolinfowidget.h \
+	   crops.h \
+	   cropobject.h \
+	   cropgrabber.h \
+           cropshaderfactory.h \
+           cube2sphere.h \
+	   doublespinboxdelegate.h \
+	   dialogs.h \
+	   directionvectorwidget.h \
+           drawhiresvolume.h \
+           drawlowresvolume.h \
+           enums.h \
+	   fileslistdialog.h \	   
+	   geometryobjects.h \
+	   geoshaderfactory.h \
+           glewinitialisation.h \
+           global.h \
+           glowshaderfactory.h \
+           gradienteditor.h \
+           gradienteditorwidget.h \
+	   grids.h \
+	   gridgrabber.h \
+	   gridobject.h \
+	   hitpoints.h \
+	   hitpointgrabber.h \
+	   imagecaptions.h \
+	   imagecaptiongrabber.h \
+	   imagecaptionobject.h \
+           imglistdialog.h \
+           keyframe.h \
+           keyframeeditor.h \
+           keyframeinformation.h \
+	   landmarks.h \
+	   landmarkinformation.h \
+           lightdisc.h \
+	   lightinginformation.h \
+           lightingwidget.h \
+	   load2volumes.h \
+	   load3volumes.h \
+	   load4volumes.h \
+           mainwindow.h \
+	   mainwindowui.h \
+	   matrix.h \
+	   messagedisplayer.h \
+	   mymanipulatedframe.h \
+	   networkinformation.h \
+	   networks.h \
+	   networkgrabber.h \
+	   networkobject.h \
+	   opacityeditor.h \
+	   paintball.h \
+	   propertyeditor.h \
+	   pathobject.h \
+	   pathgrabber.h \
+	   paths.h \
+	   pathgroups.h \
+	   pathgroupobject.h \
+	   pathgroupgrabber.h \
+	   pathshaderfactory.h \
+	   ply.h \
+	   plugininterface.h \
+	   pluginthread.h \
+	   preferenceswidget.h \
+	   profileviewer.h \
+           prunehandler.h \
+           pruneshaderfactory.h \
+	   rawvolume.h \
+	   scalebar.h \
+	   scalebargrabber.h \
+	   scalebarobject.h \
+           shaderfactory.h \
+           shaderfactory2.h \
+           shaderfactoryrgb.h \
+           splineeditor.h \
+           splineeditorwidget.h \
+	   splineinformation.h \
+           splinetransferfunction.h \
+           staticfunctions.h \
+	   tagcoloreditor.h \
+           tearshaderfactory.h \
+	   tick.h \
+           transferfunctioncontainer.h \
+           transferfunctioneditorwidget.h \
+           transferfunctionmanager.h \
+	   trisetinformation.h \
+	   trisets.h \
+	   trisetgrabber.h \
+	   trisetobject.h \
+           viewer.h \
+	   volume.h \
+           volumebase.h \
+	   volumeinformation.h \
+	   volumeinformationwidget.h \
+           volumefilemanager.h \
+           volumesingle.h \
+	   volumergbbase.h \
+	   volumergb.h \
+	   xmlheaderfunctions.h \
+	   16bit/remaphistogramline.h \
+	   16bit/remaphistogramwidget.h \
+	   mopplugininterface.h \
+	   itksegmentation.h \
+           lighthandler.h \
+           lightshaderfactory.h \
+	   gilights.h \
+	   gilightgrabber.h \
+	   gilightobject.h \
+	   gilightinfo.h \
+	   gilightobjectinfo.h \
+	   videoplayer.h \
+	   mybitarray.h \
+           popupslider.h \
+           ../common/src/widgets/dcolordialog.h \
+           ../common/src/widgets/dcolorwheel.h \
+	   ../common/src/widgets/saveimageseqdialog.h \
+           ../common/src/widgets/savemoviedialog.h \
+           ../common/src/videoencoder/videoencoder.h \
+           zarrmetareader.h \
+           zarrhandler.h
 
 
  SOURCES +=launcher.cpp \
@@ -383,4 +400,6 @@ HEADERS += launcher.h \
            ../common/src/widgets/dcolorwheel.cpp \
 	   ../common/src/widgets/saveimageseqdialog.cpp \
            ../common/src/widgets/savemoviedialog.cpp \
-           ../common/src/videoencoder/videoencoder.cpp
+           ../common/src/videoencoder/videoencoder.cpp \
+           zarrmetareader.cpp \
+           zarrhandler.cpp

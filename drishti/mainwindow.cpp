@@ -1796,10 +1796,15 @@ MainWindow::loadSingleVolume(QStringList flnm)
 
   createHiresLowresWindows();
 
-  if (VolumeInformation::checkRGB(flnm[0]))
-    loadVolumeRGB(flnm[0].toUtf8().data());
-  else
+  if (StaticFunctions::checkExtension(flnm[0], ".zarr"))
     loadVolumeList(flnm, false);
+  else
+    {
+      if (VolumeInformation::checkRGB(flnm[0]))
+	loadVolumeRGB(flnm[0].toUtf8().data());
+      else
+	loadVolumeList(flnm, false);
+    }
 
   // reset
   m_bricks->reset();
@@ -1811,6 +1816,27 @@ MainWindow::loadSingleVolume(QStringList flnm)
   m_keyFrame->clear();
   m_keyFrameEditor->clear();
   m_lightingWidget->setLightInfo(LightingInformation());
+}
+
+void
+MainWindow::on_actionLoad_Zarr_triggered()
+{
+  QString dirname;
+  dirname = QFileDialog::getExistingDirectory(this,
+					   "Load Processed Volume File",
+					   Global::previousDirectory(),
+					   QFileDialog::ShowDirsOnly
+					   | QFileDialog::DontResolveSymlinks);
+                                           //QFileDialog::DontUseNativeDialog);
+
+  
+  if (dirname.isEmpty())
+    return;
+
+  QStringList flnm;
+  flnm << dirname;
+  
+  loadSingleVolume(flnm);
 }
 
 void
@@ -2061,7 +2087,8 @@ MainWindow::openRecentFile()
 	  return;
 	}
 
-      if (StaticFunctions::checkExtension(filename, ".pvl.nc"))
+      if (StaticFunctions::checkExtension(filename, ".pvl.nc") ||
+	  StaticFunctions::checkExtension(filename, ".zarr"))
 	{
 	  QStringList flist;
 	  flist << filename;
@@ -2096,7 +2123,8 @@ MainWindow::dropEvent(QDropEvent *event)
 	  QFileInfo info(url.toLocalFile());
 	  if (info.exists() && info.isFile())
 	    {
-	      if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc"))
+	      if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc") ||
+		  StaticFunctions::checkExtension(url.toLocalFile(), ".zarr"))
 		{
 		  QStringList flist;
 		  QList<QUrl> urls = data->urls();

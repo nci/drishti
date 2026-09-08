@@ -7,6 +7,7 @@
 #include "prunehandler.h"
 #include "mainwindowui.h"
 #include "xmlheaderfunctions.h"
+#include "zarrmetareader.h"
 
 #include <QFileDialog>
 #include <QInputDialog>
@@ -50,15 +51,26 @@ VolumeSingle::getFullVolumeSize()
     }
 
   Vec vsize = Vec(0,0,0);
-  for(int i=0; i<m_volumeFiles.count(); i++)
+  if (StaticFunctions::checkExtension(m_volumeFiles[0], ".zarr"))
     {
-      int d, w, h;
-      XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[i],
-						  d, w, h);
-
-      Vec vsz = Vec(h, w, d);
-      vsize = StaticFunctions::maxVec(vsize, vsz);
+      int d = ZarrMetaReader::zarrInfo.depth;
+      int w = ZarrMetaReader::zarrInfo.width;
+      int h = ZarrMetaReader::zarrInfo.height;
+      vsize = Vec(h, w, d);
     }
+  else
+    {
+      for(int i=0; i<m_volumeFiles.count(); i++)
+	{
+	  int d, w, h;
+	  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[i],
+						      d, w, h);
+	  
+	  Vec vsz = Vec(h, w, d);
+	  vsize = StaticFunctions::maxVec(vsize, vsz);
+	}
+    }
+  
   return vsize;
 }
 
@@ -191,15 +203,26 @@ VolumeSingle::setBasicInformation(int volnum)
   // --- set the information for pvl.nc file manager
   //---------------------------------------------------------
   int n_depth, n_width, n_height;
-  int slabSize;
-  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[volnum],
-					      n_depth, n_width, n_height);
-  slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFiles[volnum]);
+  int headerSize, slabSize;
+  if (StaticFunctions::checkExtension(m_volumeFiles[volnum], ".pvl.nc"))
+    {
+      XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[volnum],
+						  n_depth, n_width, n_height);
+      slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFiles[volnum]);
 
-  int headerSize = XmlHeaderFunctions::getPvlHeadersizeFromHeader(m_volumeFiles[volnum]);
-  QStringList pvlnames = XmlHeaderFunctions::getPvlNamesFromHeader(m_volumeFiles[volnum]);
-  if (pvlnames.count() > 0)
-    m_pvlFileManager.setFilenameList(pvlnames);
+      headerSize = XmlHeaderFunctions::getPvlHeadersizeFromHeader(m_volumeFiles[volnum]);
+      QStringList pvlnames = XmlHeaderFunctions::getPvlNamesFromHeader(m_volumeFiles[volnum]);
+      if (pvlnames.count() > 0)
+	m_pvlFileManager.setFilenameList(pvlnames);
+    }
+  else
+    {
+      n_depth = ZarrMetaReader::zarrInfo.depth;
+      n_width = ZarrMetaReader::zarrInfo.width;
+      n_height = ZarrMetaReader::zarrInfo.height;
+      headerSize = 0;
+      slabSize = n_depth+1;
+    }
   m_pvlFileManager.setBaseFilename(m_volumeFiles[volnum]);
   m_pvlFileManager.setDepth(n_depth);
   m_pvlFileManager.setWidth(n_width);
@@ -289,9 +312,15 @@ VolumeSingle::setSubvolume(Vec boxMin, Vec boxMax,
   m_dataMin = boxMin;
   m_dataMax = boxMax;
 
-  int cd, cw, ch;
-  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[m_volnum],
-					      m_depth, m_width, m_height);
+  if (StaticFunctions::checkExtension(m_volumeFiles[volnum], ".pvl.nc"))
+    XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFiles[m_volnum],
+						m_depth, m_width, m_height);
+  else
+    {
+      m_depth = ZarrMetaReader::zarrInfo.depth;
+      m_width = ZarrMetaReader::zarrInfo.width;
+      m_height = ZarrMetaReader::zarrInfo.height;
+    }
 //  m_offH = (m_maxHeight- m_height)/2;
 //  m_offW = (m_maxWidth - m_width)/2;
 //  m_offD = (m_maxDepth - m_depth)/2;
@@ -393,11 +422,32 @@ VolumeSingle::volInfo(int vnum1)
       return pvlInfo;
     }
 
-  if (VolumeInformation::volInfo(m_volumeFiles[vnum].toUtf8().data(),
-			       pvlInfo) == false)
+  if (StaticFunctions::checkExtension(m_volumeFiles[vnum], ".zarr"))
+    {
+      ZarrVolumeInfo zinfo = ZarrMetaReader::zarrInfo;
+      pvlInfo.rawFile = "";
+      pvlInfo.pvlFile = m_volumeFiles[vnum];
+      pvlInfo.description = zinfo.description;
+      pvlInfo.voxelType = zinfo.voxelType;
+      pvlInfo.voxelUnit = zinfo.voxelUnit;
+      pvlInfo.voxelSize = Vec(zinfo.voxelSizeX,zinfo.voxelSizeY,zinfo.voxelSizeZ);
+      float minval = qMin(zinfo.voxelSizeX, qMin(zinfo.voxelSizeY, zinfo.voxelSizeZ));
+      if (minval > 0.00000001)
+	pvlInfo.relativeVoxelScaling = pvlInfo.voxelSize/minval;
+      else
+	pvlInfo.relativeVoxelScaling = Vec(1,1,1);
+      pvlInfo.dimensions = Vec(zinfo.depth, zinfo.width, zinfo.height);
+      pvlInfo.slabSize = zinfo.depth+1;
+      QPolygonF mapping;
+      pvlInfo.mapping << QPointF(0, 0);
+      pvlInfo.mapping << QPointF(1, 255);
+      VolumeInformation::setVolumeInformation(pvlInfo);      
+    }
+  else if (VolumeInformation::volInfo(m_volumeFiles[vnum].toUtf8().data(),
+				      pvlInfo) == false)
     {
       QMessageBox::information(0, "Volume Information",
-			       QString("Invalid netCDF file %1").\
+			       QString("Invalid netCDF file %1").	\
 			       arg(m_volumeFiles[vnum]));
     }
   else
@@ -1764,6 +1814,12 @@ VolumeSingle::resliceVolume(Vec pos,
 			    float scalex, float scaley,
 			    int step1, int step2)
 {
+  if (StaticFunctions::checkExtension(m_volumeFiles[m_volnum], ".zarr"))
+    {
+      QMessageBox::information(0, "Error", "Not implemented for Zarr files");
+      return;
+    }
+  
   int bpv = 1;
   if (m_pvlVoxelType > 0) bpv = 2;
 
@@ -2511,6 +2567,9 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
   uchar *tmp = new uchar[bpv*dtlenx2*dtleny2];
   //---------------------------------------
 
+
+  m_pvlFileManager.loadSlab(startZSlice, endZSlice);
+
     
   //---------------------------------------------------------
   if (m_subvolumeSubsamplingLevel > 1)
@@ -2639,6 +2698,7 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
 	      generateHistograms(kmax-kmin+1, leny2, lenx2);
       
       Global::progressBar()->setValue(100);
+      m_pvlFileManager.resetSlab();
       return m_subvolumeTexture;
     }
   //---------------------------------------------------------
@@ -2672,7 +2732,6 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
   quick = quick && (m_maxWidth==m_width);
 
   
-
   //-------------------------------------------------------
   for(int k0=startZSlice; k0<=endZSlice; k0++)
     {
@@ -2783,6 +2842,7 @@ VolumeSingle::getSlab(int startZSlice, int endZSlice)
   Global::progressBar()->setValue(100);
   MainWindowUI::mainWindowUI()->statusBar->showMessage("Ready");
 
+  m_pvlFileManager.resetSlab();
   return m_subvolumeTexture;
 }
 

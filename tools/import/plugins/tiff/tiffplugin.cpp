@@ -1,4 +1,8 @@
 #include <QtGui>
+#include <vector>
+#include <thread>
+#include <atomic>
+#include <chrono>
 #include "common.h"
 #include "tiffplugin.h"
 
@@ -266,19 +270,6 @@ TiffPlugin::setFile(QStringList files)
   return true;
 }
 
-#define MINMAXANDHISTOGRAM()				\
-  {							\
-    for(uint j=0; j<m_width*m_height; j++)		\
-      {							\
-	int val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, (float)val);		\
-	m_rawMax = qMax(m_rawMax, (float)val);		\
-							\
-	int idx = val-rMin;				\
-	m_histogram[idx]++;				\
-      }							\
-  }
-
 void
 TiffPlugin::loadTiffImage(int i, uchar* tmp)
 {
@@ -356,7 +347,6 @@ TiffPlugin::findMinMaxandGenerateHistogram()
 			   0);
   progress.setMinimumDuration(0);
 
-  float rSize;
   float rMin;
   m_histogram.clear();
   if (m_voxelType == _UChar ||
@@ -364,7 +354,6 @@ TiffPlugin::findMinMaxandGenerateHistogram()
     {
       if (m_voxelType == _UChar) rMin = 0;
       if (m_voxelType == _Char) rMin = -127;
-      rSize = 255;
       for(uint i=0; i<256; i++)
 	m_histogram.append(0);
     }
@@ -373,7 +362,6 @@ TiffPlugin::findMinMaxandGenerateHistogram()
     {
       if (m_voxelType == _UShort) rMin = 0;
       if (m_voxelType == _Short) rMin = -32767;
-      rSize = 65535;
       for(uint i=0; i<65536; i++)
 	m_histogram.append(0);
     }
@@ -383,72 +371,137 @@ TiffPlugin::findMinMaxandGenerateHistogram()
       return;
     }
 
-  int nbytes = m_width*m_height*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  const int nX = m_depth;
+  const int nY = m_width;
+  const int nZ = m_height;
+  const int histBins = m_histogram.size();
+  const int rMinBin = (int)rMin;
+  const int nbytes = nY*nZ*m_bytesPerVoxel;
 
   m_rawMin = 10000000;
   m_rawMax = -10000000;
 
-  for(uint i=0; i<m_depth; i++)
-    {
-      progress.setValue((int)(100.0*(float)i/(float)m_depth));
-      progress.setLabelText(QString("%1 of %2").arg(i).arg(m_depth-1));
-      qApp->processEvents();
+  const unsigned hw = std::thread::hardware_concurrency();
+  unsigned numThreads = hw ? hw : 1u;
+  if (numThreads > (unsigned)nX) numThreads = (unsigned)nX;
+  if (numThreads < 1u) numThreads = 1u;
 
-      loadTiffImage(i, tmp);
+  std::vector<std::vector<qint64> > local((size_t)numThreads,
+                                          std::vector<qint64>((size_t)histBins, 0));
+  std::vector<float> localMin((size_t)numThreads, 10000000.0f);
+  std::vector<float> localMax((size_t)numThreads, -10000000.0f);
 
+  auto countPlane = [&](std::vector<qint64>& bins, float& mn, float& mx,
+                        const uchar* tmp) {
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
-	  MINMAXANDHISTOGRAM();
+	  const uchar *ptr = tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      int val = (int)ptr[j];
+	      if (val < mn) mn = (float)val;
+	      if (val > mx) mx = (float)val;
+	      int idx = val - rMinBin;
+	      if (idx < 0) idx = 0; else if (idx >= histBins) idx = histBins-1;
+	      bins[(size_t)idx]++;
+	    }
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
-	  MINMAXANDHISTOGRAM();
+	  const char *ptr = (const char*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      int val = (int)ptr[j];
+	      if (val < mn) mn = (float)val;
+	      if (val > mx) mx = (float)val;
+	      int idx = val - rMinBin;
+	      if (idx < 0) idx = 0; else if (idx >= histBins) idx = histBins-1;
+	      bins[(size_t)idx]++;
+	    }
 	}
-      if (m_voxelType == _UShort)
+      else if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
-	  MINMAXANDHISTOGRAM();
+	  const ushort *ptr = (const ushort*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      int val = (int)ptr[j];
+	      if (val < mn) mn = (float)val;
+	      if (val > mx) mx = (float)val;
+	      int idx = val - rMinBin;
+	      if (idx < 0) idx = 0; else if (idx >= histBins) idx = histBins-1;
+	      bins[(size_t)idx]++;
+	    }
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
-	  MINMAXANDHISTOGRAM();
+	  const short *ptr = (const short*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      int val = (int)ptr[j];
+	      if (val < mn) mn = (float)val;
+	      if (val > mx) mx = (float)val;
+	      int idx = val - rMinBin;
+	      if (idx < 0) idx = 0; else if (idx >= histBins) idx = histBins-1;
+	      bins[(size_t)idx]++;
+	    }
 	}
-      else if (m_voxelType == _Int)
-	{
-	  int *ptr = (int*) tmp;
-	  MINMAXANDHISTOGRAM();
-	}
-      else if (m_voxelType == _Float)
-	{
-	  float *ptr = (float*) tmp;
-	  MINMAXANDHISTOGRAM();
-	}
+    };
+
+  std::vector<std::thread> pool;
+  pool.reserve(numThreads);
+  std::atomic<qint64> done((qint64)0);
+  for (unsigned t = 0; t < numThreads; t++)
+    {
+      pool.emplace_back([&, t]() {
+          const int plane0 = (int)((qint64)nX * t / numThreads);
+          const int plane1 = (int)((qint64)nX * (t + 1) / numThreads);
+          if (plane1 <= plane0)
+            return;
+
+          std::vector<uchar> tmp((size_t)nbytes);
+          std::vector<qint64>& bins = local[(size_t)t];
+          float mn = 10000000.0f, mx = -10000000.0f;
+          for (int p = plane0; p < plane1; p++)
+            {
+              loadTiffImage(p, tmp.data());
+              countPlane(bins, mn, mx, tmp.data());
+              done.fetch_add(1, std::memory_order_relaxed);
+            }
+          localMin[(size_t)t] = mn;
+          localMax[(size_t)t] = mx;
+        });
     }
 
-  delete [] tmp;
+  while (done.load(std::memory_order_relaxed) < nX)
+    {
+      progress.setValue((int)(100.0 *
+         (double)done.load(std::memory_order_relaxed) / (double)nX));
+      qApp->processEvents();
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+  for (auto& th : pool)
+    th.join();
 
-//  while(m_histogram.last() == 0)
-//    m_histogram.removeLast();
-//  while(m_histogram.first() == 0)
-//    m_histogram.removeFirst();
+  float gMin = 10000000.0f, gMax = -10000000.0f;
+  for (int b = 0; b < histBins; b++)
+    {
+      uint total = 0;
+      for (unsigned t = 0; t < numThreads; t++)
+        total += (uint)local[(size_t)t][(size_t)b];
+      m_histogram[b] = total;
+    }
+  for (unsigned t = 0; t < numThreads; t++)
+    {
+      if (localMin[(size_t)t] < gMin) gMin = localMin[(size_t)t];
+      if (localMax[(size_t)t] > gMax) gMax = localMax[(size_t)t];
+    }
+
+  m_rawMin = gMin;
+  m_rawMax = gMax;
 
   progress.setValue(100);
   qApp->processEvents();
 }
-
-#define FINDMINMAX()					\
-  {							\
-    for(int j=0; j<nY*nZ; j++)				\
-      {							\
-	float val = ptr[j];				\
-	m_rawMin = qMin(m_rawMin, val);			\
-	m_rawMax = qMax(m_rawMax, val);			\
-      }							\
-  }
 
 void
 TiffPlugin::findMinMax()
@@ -460,71 +513,133 @@ TiffPlugin::findMinMax()
   progress.setMinimumDuration(0);
 
 
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
+  const int nX = m_depth;
+  const int nY = m_width;
+  const int nZ = m_height;
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  const int nbytes = nY*nZ*m_bytesPerVoxel;
 
   m_rawMin = 10000000;
   m_rawMax = -10000000;
-  for(int i=0; i<nX; i++)
-    {
-      progress.setValue((int)(100.0*(float)i/(float)nX));
-      qApp->processEvents();
 
-      loadTiffImage(i, tmp);
+  const unsigned hw = std::thread::hardware_concurrency();
+  unsigned numThreads = hw ? hw : 1u;
+  if (numThreads > (unsigned)nX) numThreads = (unsigned)nX;
+  if (numThreads < 1u) numThreads = 1u;
 
+  std::vector<float> localMin((size_t)numThreads, 10000000.0f);
+  std::vector<float> localMax((size_t)numThreads, -10000000.0f);
+
+  auto findPlane = [&](float& mn, float& mx, const uchar* tmp) {
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
-	  FINDMINMAX();
+	  const uchar *ptr = tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = (float)ptr[j];
+	      if (val < mn) mn = val;
+	      if (val > mx) mx = val;
+	    }
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
-	  FINDMINMAX();
+	  const char *ptr = (const char*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = (float)ptr[j];
+	      if (val < mn) mn = val;
+	      if (val > mx) mx = val;
+	    }
 	}
-      if (m_voxelType == _UShort)
+      else if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
-	  FINDMINMAX();
+	  const ushort *ptr = (const ushort*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = (float)ptr[j];
+	      if (val < mn) mn = val;
+	      if (val > mx) mx = val;
+	    }
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
-	  FINDMINMAX();
+	  const short *ptr = (const short*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = (float)ptr[j];
+	      if (val < mn) mn = val;
+	      if (val > mx) mx = val;
+	    }
 	}
       else if (m_voxelType == _Int)
 	{
-	  int *ptr = (int*) tmp;
-	  FINDMINMAX();
+	  const int *ptr = (const int*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = (float)ptr[j];
+	      if (val < mn) mn = val;
+	      if (val > mx) mx = val;
+	    }
 	}
       else if (m_voxelType == _Float)
 	{
-	  float *ptr = (float*) tmp;
-	  FINDMINMAX();
+	  const float *ptr = (const float*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = ptr[j];
+	      if (val < mn) mn = val;
+	      if (val > mx) mx = val;
+	    }
 	}
+    };
+
+  std::vector<std::thread> pool;
+  pool.reserve(numThreads);
+  std::atomic<qint64> done((qint64)0);
+  for (unsigned t = 0; t < numThreads; t++)
+    {
+      pool.emplace_back([&, t]() {
+          const int plane0 = (int)((qint64)nX * t / numThreads);
+          const int plane1 = (int)((qint64)nX * (t + 1) / numThreads);
+          if (plane1 <= plane0)
+            return;
+
+          std::vector<uchar> tmp((size_t)nbytes);
+          float mn = 10000000.0f, mx = -10000000.0f;
+          for (int p = plane0; p < plane1; p++)
+            {
+              loadTiffImage(p, tmp.data());
+              findPlane(mn, mx, tmp.data());
+              done.fetch_add(1, std::memory_order_relaxed);
+            }
+          localMin[(size_t)t] = mn;
+          localMax[(size_t)t] = mx;
+        });
     }
 
-  delete [] tmp;
+  while (done.load(std::memory_order_relaxed) < nX)
+    {
+      progress.setValue((int)(100.0 *
+         (double)done.load(std::memory_order_relaxed) / (double)nX));
+      qApp->processEvents();
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+  for (auto& th : pool)
+    th.join();
+
+  float gMin = 10000000.0f, gMax = -10000000.0f;
+  for (unsigned t = 0; t < numThreads; t++)
+    {
+      if (localMin[(size_t)t] < gMin) gMin = localMin[(size_t)t];
+      if (localMax[(size_t)t] > gMax) gMax = localMax[(size_t)t];
+    }
+
+  m_rawMin = gMin;
+  m_rawMax = gMax;
 
   progress.setValue(100);
   qApp->processEvents();
 }
-
-#define GENHISTOGRAM()					\
-  {							\
-    for(int j=0; j<nY*nZ; j++)				\
-      {							\
-	float fidx = (ptr[j]-m_rawMin)/rSize;		\
-	fidx = qBound(0.0f, fidx, 1.0f);		\
-	int idx = fidx*histogramSize;			\
-	m_histogram[idx]+=1;				\
-      }							\
-  }
 
 void
 TiffPlugin::generateHistogram()
@@ -537,13 +652,11 @@ TiffPlugin::generateHistogram()
 
 
   float rSize = m_rawMax-m_rawMin;
-  int nX, nY, nZ;
-  nX = m_depth;
-  nY = m_width;
-  nZ = m_height;
+  const int nX = m_depth;
+  const int nY = m_width;
+  const int nZ = m_height;
 
-  int nbytes = nY*nZ*m_bytesPerVoxel;
-  uchar *tmp = new uchar[nbytes];
+  const int nbytes = nY*nZ*m_bytesPerVoxel;
 
   m_histogram.clear();
   if (m_voxelType == _UChar ||
@@ -560,55 +673,133 @@ TiffPlugin::generateHistogram()
 	m_histogram.append(0);
     }
 
-  int histogramSize = m_histogram.size()-1;
-  for(int i=0; i<nX; i++)
-    {
-      progress.setValue((int)(100.0*(float)i/(float)nX));
-      qApp->processEvents();
+  const int histogramSize = m_histogram.size()-1;
+  const int histBins = m_histogram.size();
+  const float omin = m_rawMin;
+  const float denomin = rSize;
 
-      loadTiffImage(i, tmp);
+  const unsigned hw = std::thread::hardware_concurrency();
+  unsigned numThreads = hw ? hw : 1u;
+  if (numThreads > (unsigned)nX) numThreads = (unsigned)nX;
+  if (numThreads < 1u) numThreads = 1u;
 
+  std::vector<std::vector<qint64> > local((size_t)numThreads,
+                                          std::vector<qint64>((size_t)histBins, 0));
+
+  auto countPlane = [&](std::vector<qint64>& bins, const uchar* tmp) {
       if (m_voxelType == _UChar)
 	{
-	  uchar *ptr = tmp;
-	  GENHISTOGRAM();
+	  const uchar *ptr = tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = (float)ptr[j];
+	      float fidx = (val-omin)/denomin;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = (int)(fidx*histogramSize);
+	      bins[(size_t)idx] += 1;
+	    }
 	}
       else if (m_voxelType == _Char)
 	{
-	  char *ptr = (char*) tmp;
-	  GENHISTOGRAM();
+	  const char *ptr = (const char*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = (float)ptr[j];
+	      float fidx = (val-omin)/denomin;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = (int)(fidx*histogramSize);
+	      bins[(size_t)idx] += 1;
+	    }
 	}
-      if (m_voxelType == _UShort)
+      else if (m_voxelType == _UShort)
 	{
-	  ushort *ptr = (ushort*) tmp;
-	  GENHISTOGRAM();
+	  const ushort *ptr = (const ushort*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = (float)ptr[j];
+	      float fidx = (val-omin)/denomin;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = (int)(fidx*histogramSize);
+	      bins[(size_t)idx] += 1;
+	    }
 	}
       else if (m_voxelType == _Short)
 	{
-	  short *ptr = (short*) tmp;
-	  GENHISTOGRAM();
+	  const short *ptr = (const short*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = (float)ptr[j];
+	      float fidx = (val-omin)/denomin;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = (int)(fidx*histogramSize);
+	      bins[(size_t)idx] += 1;
+	    }
 	}
       else if (m_voxelType == _Int)
 	{
-	  int *ptr = (int*) tmp;
-	  GENHISTOGRAM();
+	  const int *ptr = (const int*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = (float)ptr[j];
+	      float fidx = (val-omin)/denomin;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = (int)(fidx*histogramSize);
+	      bins[(size_t)idx] += 1;
+	    }
 	}
       else if (m_voxelType == _Float)
 	{
-	  float *ptr = (float*) tmp;
-	  GENHISTOGRAM();
+	  const float *ptr = (const float*) tmp;
+	  for (int j = 0; j < nY*nZ; j++)
+	    {
+	      float val = ptr[j];
+	      float fidx = (val-omin)/denomin;
+	      fidx = qBound(0.0f, fidx, 1.0f);
+	      int idx = (int)(fidx*histogramSize);
+	      bins[(size_t)idx] += 1;
+	    }
 	}
+    };
+
+  std::vector<std::thread> pool;
+  pool.reserve(numThreads);
+  std::atomic<qint64> done((qint64)0);
+  for (unsigned t = 0; t < numThreads; t++)
+    {
+      pool.emplace_back([&, t]() {
+          const int plane0 = (int)((qint64)nX * t / numThreads);
+          const int plane1 = (int)((qint64)nX * (t + 1) / numThreads);
+          if (plane1 <= plane0)
+            return;
+
+          std::vector<uchar> tmp((size_t)nbytes);
+          std::vector<qint64>& bins = local[(size_t)t];
+          for (int p = plane0; p < plane1; p++)
+            {
+              loadTiffImage(p, tmp.data());
+              countPlane(bins, tmp.data());
+              done.fetch_add(1, std::memory_order_relaxed);
+            }
+        });
     }
 
-  delete [] tmp;
+  while (done.load(std::memory_order_relaxed) < nX)
+    {
+      progress.setValue((int)(100.0 *
+         (double)done.load(std::memory_order_relaxed) / (double)nX));
+      qApp->processEvents();
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+  for (auto& th : pool)
+    th.join();
 
-//  while(m_histogram.last() == 0)
-//    m_histogram.removeLast();
-//  while(m_histogram.first() == 0)
-//    m_histogram.removeFirst();
-
-//  QMessageBox::information(0, "",  QString("%1 %2 : %3").\
-//			   arg(m_rawMin).arg(m_rawMax).arg(rSize));
+  for (int b = 0; b < histBins; b++)
+    {
+      uint total = 0;
+      for (unsigned t = 0; t < numThreads; t++)
+        total += (uint)local[(size_t)t][(size_t)b];
+      m_histogram[b] = total;
+    }
 
   progress.setValue(100);
   qApp->processEvents();

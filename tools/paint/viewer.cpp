@@ -4088,7 +4088,7 @@ Viewer::updateTF()
 void
 Viewer::markValidBoxes()
 {  
-  QProgressDialog progress("Marking valid boxes - (1/2)",
+  QProgressDialog progress("Marking valid boxes",
 			   QString(),
 			   0, 100,
 			   this,
@@ -4248,6 +4248,7 @@ Viewer::updateFilledBoxes()
     return;
 
   markValidBoxes();
+  //QMessageBox::information(0, "", "marking validBoxes done");
 
   generateDrawBoxes();
 }
@@ -4255,7 +4256,7 @@ Viewer::updateFilledBoxes()
 void
 Viewer::generateDrawBoxes()
 { 
-  QProgressDialog progress("Marking valid boxes - (2/2)",
+  QProgressDialog progress("Generate draw boxes",
 			   QString(),
 			   0, 100,
 			   this,

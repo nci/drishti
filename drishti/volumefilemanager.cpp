@@ -1,8 +1,12 @@
 #include "volumefilemanager.h"
+#include "staticfunctions.h"
+#include "zarrmetareader.h"
+
 #include <QtGui>
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QFileDialog>
+
 
 VolumeFileManager::VolumeFileManager()
 {
@@ -13,6 +17,7 @@ VolumeFileManager::VolumeFileManager()
   m_filenames.clear();
   m_volData = 0;
   m_memmapped = false;
+  m_zarrhandler = 0;
   reset();
 }
 
@@ -62,6 +67,11 @@ VolumeFileManager::reset()
   if (m_qfile.isOpen())
     m_qfile.close();
 
+  if (m_zarrhandler)
+    delete m_zarrhandler;
+  m_zarrhandler = 0;
+  
+
   m_memmapped = false;
   m_memChanged = false;
 }
@@ -77,7 +87,19 @@ int VolumeFileManager::width() { return m_width; }
 int VolumeFileManager::height() { return m_height; }
 
 void VolumeFileManager::setFilenameList(QStringList flist) { m_filenames = flist; }
-void VolumeFileManager::setBaseFilename(QString bfn) { m_baseFilename = bfn; }
+void VolumeFileManager::setBaseFilename(QString bfn)
+{
+  m_baseFilename = bfn;
+
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      if (m_zarrhandler)
+	delete m_zarrhandler;
+      m_zarrhandler = new ZarrHandler();
+      m_zarrhandler->init();
+      m_zarrhandler->setFile(m_baseFilename, ZarrMetaReader::zarrInfo.level);
+    }
+}
 void VolumeFileManager::setDepth(int d) { m_depth = d; }
 void VolumeFileManager::setWidth(int w) { m_width = w; }
 void VolumeFileManager::setHeight(int h) { m_height = h; }
@@ -145,6 +167,9 @@ VolumeFileManager::readVoxelType()
 bool
 VolumeFileManager::exists()
 {
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    return true;
+
   int bps = m_width*m_height*m_bytesPerVoxel;
   int nslabs = m_depth/m_slabSize;
   if (nslabs*m_slabSize < m_depth) nslabs++;
@@ -250,6 +275,36 @@ VolumeFileManager::createFile(bool writeHeader, bool writeData)
     createMemFile();
 }
 
+void
+VolumeFileManager::resetSlab()
+{
+  m_startBlock = m_endBlock = 0;
+  m_blockSlices = 0;
+  if (m_block)
+    delete [] m_block;
+  m_block = 0;
+}
+void
+VolumeFileManager::loadSlab(int startZ, int endZ)
+{
+  m_startBlock = startZ;
+  m_endBlock = endZ;
+  m_blockSlices = endZ-startZ+1;
+  
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      if (m_block)
+	delete [] m_block;
+      
+      qint64 bps = m_width*m_height*m_bytesPerVoxel;
+      m_block = new uchar[m_blockSlices*bps];
+
+      m_zarrhandler->getRegion(m_startBlock, 0, 0,
+			       m_endBlock, m_width-1, m_height-1,
+			       m_block);
+    }  
+}
+
 uchar*
 VolumeFileManager::getSlice(int d)
 {
@@ -260,6 +315,16 @@ VolumeFileManager::getSlice(int d)
     {
       int a = qMax(m_width, qMax(m_height, m_depth));
       m_slice = new uchar[a*a*m_bytesPerVoxel];
+    }
+
+  
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      if (!m_block)
+	m_zarrhandler->getDepthSlice(d, m_slice);
+      else
+	memcpy(m_slice, m_block+(d-m_startBlock)*bps, bps);
+      return m_slice;
     }
 
   m_slabno = d/m_slabSize;
@@ -301,6 +366,13 @@ VolumeFileManager::getWidthSlice(int w)
       int a = qMax(m_width, qMax(m_height, m_depth));
       m_slice = new uchar[a*a*m_bytesPerVoxel];
     }
+  
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler->getWidthSlice(w, m_slice);
+      return m_slice;
+    }
+  
 
   int pslab = -1;
   for(int d=0; d<m_depth; d++)
@@ -340,6 +412,13 @@ VolumeFileManager::getHeightSlice(int h)
       int a = qMax(m_width, qMax(m_height, m_depth));
       m_slice = new uchar[a*a*m_bytesPerVoxel];
     }
+  
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler->getHeightSlice(h, m_slice);
+      return m_slice;
+    }
+  
 
   int it = 0;
   int pslab = -1;
@@ -377,6 +456,12 @@ VolumeFileManager::getHeightSlice(int h)
 void
 VolumeFileManager::setSlice(int d, uchar *tmp)
 {
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler->setDepthSlice(d, tmp);
+      return;
+    }
+  
   QString pflnm = m_filename;
 
   int bps = m_width*m_height*m_bytesPerVoxel;
@@ -403,6 +488,12 @@ VolumeFileManager::setSlice(int d, uchar *tmp)
 void
 VolumeFileManager::setWidthSlice(int w, uchar *tmp)
 {
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler->setWidthSlice(w, tmp);
+      return;
+    }
+  
   int bps = m_width*m_height*m_bytesPerVoxel;
 
   if (m_qfile.isOpen())
@@ -438,6 +529,12 @@ VolumeFileManager::setWidthSlice(int w, uchar *tmp)
 void
 VolumeFileManager::setHeightSlice(int h, uchar *tmp)
 {
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      m_zarrhandler->setHeightSlice(h, tmp);
+      return;
+    }
+  
   int bps = m_width*m_height*m_bytesPerVoxel;
 
   if (m_qfile.isOpen())
@@ -492,6 +589,17 @@ VolumeFileManager::rawValue(int d, int w, int h)
       w < 0 || w >= m_width ||
       h < 0 || h >= m_height)
     return m_slice;
+
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      QVariant v = m_zarrhandler->rawValue(d, w, h);
+      if (v.type() == QVariant::UInt)
+	{
+	  uint val = v.toUInt();
+	  memcpy(m_slice, &val, 4);
+	}
+      return m_slice;
+    }
 
   QString pflnm = m_filename;
 
@@ -563,6 +671,13 @@ VolumeFileManager::interpolatedRawValue(float dv, float wv, float hv)
       h < 0 || h1 >= m_height)
     return m_slice;
 
+  //-----------------------
+  // not implemented for zarr files
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    return m_slice;
+  //-----------------------
+
+  
   int da[8], wa[8], ha[8];
   da[0]=d;  wa[0]=w;  ha[0]=h;
   da[1]=d;  wa[1]=w;  ha[1]=h1;
@@ -669,6 +784,12 @@ VolumeFileManager::readBlocks(int d)
   if (!m_block)
       m_block = new uchar[m_blockSlices*bps];
 
+  //-----------------------
+  // not implemented for zarr files
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    return;
+  //-----------------------
+
   int dstart = d;
   int dend = d+m_blockSlices;
 
@@ -765,6 +886,12 @@ VolumeFileManager::blockInterpolatedRawValue(float dv, float wv, float hv)
       w < 0 || w1 >= m_width ||
       h < 0 || h1 >= m_height)
     return m_slice;
+
+  //-----------------------
+  // not implemented for zarr files
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    return m_slice;
+  //-----------------------
 
   int da[8], wa[8], ha[8];
   da[0]=d;  wa[0]=w;  ha[0]=h;
@@ -1214,6 +1341,15 @@ VolumeFileManager::changeSliceOrdering()
       QMessageBox::information(0, "", "Cannot change ordering : slices spread across multiple files.");
       return false;
     }
+
+  //-----------------------
+  // not implemented for zarr files
+  if (StaticFunctions::checkExtension(m_baseFilename, ".zarr"))
+    {
+      QMessageBox::information(0, "", "Not implemented for Zarr files.");
+      return false;
+    }
+  //-----------------------
 
   QStringList items;
   items << "Yes" << "No";

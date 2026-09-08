@@ -5,6 +5,7 @@
 #include "mainwindowui.h"
 #include "xmlheaderfunctions.h"
 #include "volumeinformation.h"
+#include "zarrmetareader.h"
 
 #include <QtConcurrent/QtConcurrent>
 #include <QThread>
@@ -85,17 +86,29 @@ VolumeBase::loadVolume(const char* volfile, bool redo)
 {
   m_volumeFile = volfile;
 
-  if (!VolumeInformation::xmlHeaderFile(volfile))
+  if (StaticFunctions::checkExtension(volfile, ".zarr"))
     {
-      QMessageBox::information(0, "Error",
-	QString("%1 is not a valid preprocessed volume file").arg(m_volumeFile));
-      return false;
+      ZarrVolumeInfo zinfo = ZarrMetaReader::getInfo(0, volfile);
+      m_pvlVoxelType = zinfo.voxelType;
+      m_depth = zinfo.depth;
+      m_width = zinfo.width;
+      m_height = zinfo.height;
+    }
+  else
+    {
+      if (!VolumeInformation::xmlHeaderFile(volfile))
+	{
+	  QMessageBox::information(0, "Error",
+				   QString("%1 is not a valid preprocessed volume file").arg(m_volumeFile));
+	  return false;
+	}
+
+      XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFile, m_depth, m_width, m_height);
+      m_pvlVoxelType = XmlHeaderFunctions::getPvlVoxelTypeFromHeader(m_volumeFile);
     }
 
-  XmlHeaderFunctions::getDimensionsFromHeader(m_volumeFile, m_depth, m_width, m_height);
   m_fullVolumeSize = Vec(m_height, m_width, m_depth);
 
-  m_pvlVoxelType = XmlHeaderFunctions::getPvlVoxelTypeFromHeader(m_volumeFile);
   Global::setPvlVoxelType(m_pvlVoxelType);
 
   createLowresVolume(redo);
@@ -169,11 +182,23 @@ VolumeBase::createLowresVolume(bool redo)
   kend = depth;
 
   VolumeFileManager pvlFileManager;
-  int slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFile);
-  int headerSize = XmlHeaderFunctions::getPvlHeadersizeFromHeader(m_volumeFile);
-  QStringList pvlnames = XmlHeaderFunctions::getPvlNamesFromHeader(m_volumeFile);
-  if (pvlnames.count() > 0)
-    pvlFileManager.setFilenameList(pvlnames);
+  int slabSize, headerSize;
+  QStringList pvlnames;
+
+  if (StaticFunctions::checkExtension(m_volumeFile, ".zarr"))
+    {
+      slabSize = m_depth+1;
+      headerSize = 0;
+    }
+  else
+    {
+      slabSize = XmlHeaderFunctions::getSlabsizeFromHeader(m_volumeFile);
+      headerSize = XmlHeaderFunctions::getPvlHeadersizeFromHeader(m_volumeFile);
+      pvlnames = XmlHeaderFunctions::getPvlNamesFromHeader(m_volumeFile);
+      if (pvlnames.count() > 0)
+	pvlFileManager.setFilenameList(pvlnames);
+    }
+  
   pvlFileManager.setBaseFilename(m_volumeFile);
   pvlFileManager.setVoxelType(m_pvlVoxelType);
   pvlFileManager.setDepth(m_depth);

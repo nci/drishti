@@ -1,49 +1,37 @@
 #include <QtGui>
 #include <QFileInfo>
 #include <QDir>
-#include <QThread>
 #include <vector>
 #include <stdexcept>
-#include <algorithm>
-#include <atomic>
-#include <mutex>
-#include <thread>
+#include "zarrhandler.h"
 
-// Qt's <QtGui> pulls in <windows.h> -> minwindef.h, which #defines the
-// lowercase keyword-like macro `far` (empty, and `FAR` as `far`).  libzarr's
-// zip.hpp uses `far` as a member name (PackEntry::far), so we must undo the
-// Windows macros before pulling in libzarr, or zip.hpp fails to parse:
-//   error C2059: syntax error: '='   (zip.hpp:115  "bool far = false;")
-//   error C2039: 'far'/'e' is not a member of 'PackEntry'   (cascade)
-// We also keep `FAR` as an empty macro because zlib's zconf.h (used by
-// libzarr's gzip codec) typedefs `Byte FAR Bytef` etc. via `FAR`.
-#ifdef far
-#undef far
-#endif
-#ifdef FAR
-#undef FAR
-#endif
-#ifndef FAR
-#define FAR
-#endif
-
-#include "common.h"
-#include "zarrplugin.h"
+#include <QProgressDialog>
+#include <QMessageBox>
+#include <QInputDialog>
 
 using namespace std;
 
-QStringList
-ZarrPlugin::registerPlugin()
-{
-  QStringList regString;
-  regString << "directory";
-  regString << "Zarr Directory";
+enum VoxelType {
+  _UChar,
+  _Char,
+  _UShort,
+  _Short,
+  _Int,
+  _Float
+};
+enum VoxelUnit {
+  Nounit = 0,
+  _Angstrom,
+  _Nanometer,
+  _Micron,
+  _Millimeter,
+  _Centimeter,
+  _Meter
+};
 
-  return regString;
-}
 
 void
-ZarrPlugin::init()
+ZarrHandler::init()
 {
   m_dir.clear();
   m_level.clear();
@@ -72,19 +60,14 @@ ZarrPlugin::init()
 }
 
 void
-ZarrPlugin::clear()
+ZarrHandler::clear()
 {
   init();
 }
 
-void
-ZarrPlugin::replaceFile(QString flnm)
-{
-  m_dir = flnm;
-}
 
 void
-ZarrPlugin::gridSize(int& d, int& w, int& h)
+ZarrHandler::gridSize(int& d, int& w, int& h)
 {
   d = m_depth;
   w = m_width;
@@ -92,22 +75,22 @@ ZarrPlugin::gridSize(int& d, int& w, int& h)
 }
 
 void
-ZarrPlugin::voxelSize(float& vx, float& vy, float& vz)
+ZarrHandler::voxelSize(float& vx, float& vy, float& vz)
 {
   vx = m_voxelSizeX;
   vy = m_voxelSizeY;
   vz = m_voxelSizeZ;
 }
 
-QString ZarrPlugin::description() { return m_description; }
-int ZarrPlugin::voxelUnit() { return m_voxelUnit; }
-int ZarrPlugin::voxelType() { return m_voxelType; }
-int ZarrPlugin::headerBytes() { return m_headerBytes; }
+QString ZarrHandler::description() { return m_description; }
+int ZarrHandler::voxelUnit() { return m_voxelUnit; }
+int ZarrHandler::voxelType() { return m_voxelType; }
+int ZarrHandler::headerBytes() { return m_headerBytes; }
 
-QList<uint> ZarrPlugin::histogram() { return m_histogram; }
+QList<uint> ZarrHandler::histogram() { return m_histogram; }
 
 void
-ZarrPlugin::setMinMax(float rmin, float rmax)
+ZarrHandler::setMinMax(float rmin, float rmax)
 {
   m_rawMin = rmin;
   m_rawMax = rmax;
@@ -117,17 +100,16 @@ ZarrPlugin::setMinMax(float rmin, float rmax)
   generateHistogram();
 }
 
-float ZarrPlugin::rawMin() { return m_rawMin; }
-float ZarrPlugin::rawMax() { return m_rawMax; }
+float ZarrHandler::rawMin() { return m_rawMin; }
+float ZarrHandler::rawMax() { return m_rawMax; }
 
 // ---------------------------------------------------------------------
+// setFile(QStringList) -> the first entry is the zarr directory (or a file
+// inside it, whose directory is then used).
 bool
-ZarrPlugin::setFile(QStringList files)
+ZarrHandler::setFile(QString filename, QString level)
 {
-  if (files.size() == 0)
-    return false;
-
-  QFileInfo f(files[0]);
+  QFileInfo f(filename);
   if (f.isDir())
     m_dir = f.absoluteFilePath();
   else
@@ -148,59 +130,34 @@ ZarrPlugin::setFile(QStringList files)
       return false;
     }
 
-  if (m_levels.size() == 1)
-    {
-      m_level = m_levels[0];
-    }
-  else
-    {
-      // override for headless testing / scripts
-      QByteArray forced = qgetenv("ZARR_FORCE_LEVEL");
-      QString tf = QString::fromLocal8Bit(forced).trimmed();
-      if (forced.size() && m_levels.contains(tf))
-        {
-          m_level = tf;
-        }
-      else
-        {
-          // build option labels including each level's dimensions
-          QStringList labels;
-          for (const QString& lv : m_levels)
-            {
-              QString dims = "? x ? x ?";
-              try
-                {
-                  zarr::Array arr = m_root->open_array(lv.toStdString());
-                  const zarr::ArrayMeta& meta = arr.meta();
-                  const std::vector<std::uint64_t>& shape = meta.shape;
-                  if (shape.size() >= 3)
-                    dims = QString("%1 x %2 x %3")
-                             .arg(shape[2]).arg(shape[1]).arg(shape[0]);
-                }
-              catch (const std::exception&)
-                {
-                }
-              labels << QString("%1  (%2)").arg(lv).arg(dims);
-            }
-
-          bool ok;
-          QString choice = QInputDialog::getItem(0,
-                                                 "Choose a pyramid level",
-                                                 "Levels",
-                                                 labels,
-                                                 0,
-                                                 false,
-                                                 &ok);
-          if (!ok)
-            choice = labels[0];
-
-          // map the chosen label back to its level path
-          int idx = labels.indexOf(choice);
-          if (idx < 0)
-            idx = 0;
-          m_level = m_levels[idx];
-        }
-    }
+  m_level = level;
+  
+//  if (m_levels.size() == 1)
+//    {
+//      m_level = m_levels[0];
+//    }
+//  else
+//    {
+//      // override for headless testing / scripts
+//      QByteArray forced = qgetenv("ZARR_FORCE_LEVEL");
+//      QString tf = QString::fromLocal8Bit(forced).trimmed();
+//      if (forced.size() && m_levels.contains(tf))
+//        {
+//          m_level = tf;
+//        }
+//      else
+//        {
+//          bool ok;
+//          QString lv = QInputDialog::getItem(0,
+//                                             "Choose a pyramid level",
+//                                             "Levels",
+//                                             m_levels,
+//                                             0,
+//                                             false,
+//                                             &ok);
+//          m_level = ok ? lv : m_levels[0];
+//        }
+//    }
 
   if (!parseLevel())
     {
@@ -220,7 +177,7 @@ ZarrPlugin::setFile(QStringList files)
       if (sc[2] > 0) m_voxelSizeZ *= sc[2];
     }
 
-  generateHistogram();
+  //generateHistogram();
 
   return true;
 }
@@ -230,7 +187,7 @@ ZarrPlugin::setFile(QStringList files)
 // (multiscales[0].datasets[].path) plus the drishti attributes, from the
 // group's metadata (libzarr exposes them on the Group/attributes).
 bool
-ZarrPlugin::parseRoot()
+ZarrHandler::parseRoot()
 {
   m_haveRoot = false;
   m_levels.clear();
@@ -349,7 +306,7 @@ ZarrPlugin::parseRoot()
 // Open <dir>/<level> as a zarr array and read its shape/type/chunks from
 // the normalized metadata exposed by libzarr.
 bool
-ZarrPlugin::parseLevel()
+ZarrHandler::parseLevel()
 {
   try
     {
@@ -383,7 +340,7 @@ ZarrPlugin::parseLevel()
 // Decompress one full (fill-padded to chunk shape) block into out.
 // All decoding is delegated to libzarr (compression, sharding, byte order).
 bool
-ZarrPlugin::readChunk(int kz, int ky, int kx, QByteArray& out) const
+ZarrHandler::readChunk(int kz, int ky, int kx, QByteArray& out) const
 {
   try
     {
@@ -402,8 +359,8 @@ ZarrPlugin::readChunk(int kz, int ky, int kx, QByteArray& out) const
 // Read an axis-aligned hyperslab (a full plane or a single voxel) into
 // `slice`, which must hold product(shape)*bytesPerVoxel bytes, C order.
 void
-ZarrPlugin::readSliceRegion(vector<uint64_t> origin, vector<uint64_t> shape,
-                            uchar* slice) const
+ZarrHandler::readSliceRegion(vector<uint64_t> origin, vector<uint64_t> shape,
+                             uchar* slice) const
 {
   size_t n = 1;
   for (size_t i = 0; i < shape.size(); ++i)
@@ -422,15 +379,37 @@ ZarrPlugin::readSliceRegion(vector<uint64_t> origin, vector<uint64_t> shape,
 }
 
 // ---------------------------------------------------------------------
+// Store an axis-aligned hyperslab into the array. `slice` must hold
+// product(shape)*bytesPerVoxel bytes, C order. libzarr read-modify-writes
+// any chunk that the slab only partially covers.
 void
-ZarrPlugin::generateHistogram()
+ZarrHandler::writeSliceRegion(vector<uint64_t> origin, vector<uint64_t> shape,
+                              const uchar* slice) const
+{
+  size_t n = 1;
+  for (size_t i = 0; i < shape.size(); ++i)
+    n *= (size_t)shape[i];
+  const size_t nbytes = n * (size_t)m_bytesPerVoxel;
+  if (nbytes == 0)
+    return;
+  try
+    {
+      m_array->write_region(origin, shape, slice, nbytes);
+    }
+  catch (const std::exception&)
+    {
+    }
+}
+
+// ---------------------------------------------------------------------
+void
+ZarrHandler::generateHistogram()
 {
   if (m_depth <= 0 || m_width <= 0 || m_height <= 0)
     return;
 
   const bool ushort = (m_voxelType == _UShort);
   const qint64 bin = ushort ? 65536 : 256;
-  const size_t binSize = (size_t)bin;
 
   QProgressDialog progress("Scanning Zarr volume",
                            QString(),
@@ -438,10 +417,14 @@ ZarrPlugin::generateHistogram()
                            0);
   progress.setMinimumDuration(0);
 
+  // preallocate the full-range histogram, then increment in place
+  // (mirrors the nc4 plugin's _UChar/_UShort handling).
   m_histogram.clear();
   m_histogram.reserve((int)bin);
   for (qint64 i = 0; i < bin; ++i)
     m_histogram.append(0);
+
+  int minv = 10000000, maxv = -10000000;
 
   const qint64 chunkZ = m_chunkShape.size() > 0 ? (qint64)m_chunkShape[0] : 1;
   const qint64 chunkY = m_chunkShape.size() > 1 ? (qint64)m_chunkShape[1] : 1;
@@ -451,105 +434,53 @@ ZarrPlugin::generateHistogram()
   const qint64 nky = (m_width  + chunkY - 1) / chunkY;
   const qint64 nkx = (m_height + chunkX - 1) / chunkX;
   const qint64 total = nkz * nky * nkx;
-  if (total <= 0)
-    return;
 
-  // Parallel scan: the chunks are shared across a bounded set of workers and
-  // each worker accumulates into its own histogram (merged below), so the
-  // binning stays parallel.  libzarr documents its core as single-threaded
-  // by design ("implementations are not required to be thread-safe"), so the
-  // actual reads/decompression are serialized with readMutex; the aggregation
-  // on the decoded bytes still overlaps it.  min/max are recovered from the
-  // merged bins (smallest/largest bin with a non-zero count).
-  const int nthreads = qMin(8, qBound(1, QThread::idealThreadCount(), (int)total));
-  std::mutex readMutex;
-  std::atomic<int> next(0);
-  std::atomic<int> done(0);
-
-  std::vector<std::vector<qint64> > hists((size_t)nthreads,
-                                          std::vector<qint64>(binSize, 0));
-
-  std::vector<std::thread> workers;
-  workers.reserve((size_t)nthreads);
-  for (int t = 0; t < nthreads; ++t)
+  QByteArray chunk;
+  qint64 idx = 0;
+  for (qint64 kz = 0; kz < nkz; ++kz)
     {
-      workers.emplace_back([&, t]()
+      for (qint64 ky = 0; ky < nky; ++ky)
         {
-          qint64* h = hists[(size_t)t].data();
-          for (;;)
+          for (qint64 kx = 0; kx < nkx; ++kx, ++idx)
             {
-              const int c = next.fetch_add(1);
-              if (c >= total)
-                break;
+              progress.setValue((int)(100.0 * (double)idx / (double)total));
+              qApp->processEvents();
 
-              const qint64 cc = c;
-              QByteArray chunk;
-              {
-                std::lock_guard<std::mutex> lock(readMutex);
-                if (!readChunk((int)(cc / (nky * nkx)),
-                               (int)((cc / nkx) % nky),
-                               (int)(cc % nkx), chunk))
-                  {
-                    done.fetch_add(1);
-                    continue;
-                  }
-              }
+              chunk.clear();
+              if (!readChunk((int)kz, (int)ky, (int)kx, chunk))
+                continue;
 
-              const unsigned char* p =
-                (const unsigned char*)chunk.constData();
+              const unsigned char* p = (const unsigned char*)chunk.constData();
               const qint64 nbytes = (qint64)chunk.size();
               if (ushort)
                 {
-                  const unsigned short* sp = (const unsigned short*)p;
-                  const size_t n = (size_t)(nbytes / 2);
-                  for (size_t i = 0; i < n; ++i)
-                    h[sp[i]]++;
+                  const qint64 n = nbytes / m_bytesPerVoxel;
+                  for (qint64 i = 0; i < n; ++i)
+                    {
+                      int v = (int)p[(size_t)i * 2]
+                              | ((int)p[(size_t)i * 2 + 1] << 8);
+                      if ((size_t)v >= (size_t)m_histogram.size())
+                        continue;
+                      m_histogram[v]++;
+                      if (v < minv) minv = v;
+                      if (v > maxv) maxv = v;
+                    }
                 }
               else
                 {
                   for (qint64 i = 0; i < nbytes; ++i)
-                    h[p[i]]++;
+                    {
+                      int v = p[i];
+                      m_histogram[v]++;
+                      if (v < minv) minv = v;
+                      if (v > maxv) maxv = v;
+                    }
                 }
-              done.fetch_add(1);
             }
-        });
-    }
-
-  while (done != total)
-    {
-      progress.setValue((int)(100.0 * (double)done.load() /
-                              (double)total));
-      qApp->processEvents();
-      QThread::msleep(10);
-    }
-  for (size_t t = 0; t < workers.size(); ++t)
-    workers[t].join();
-
-  // merge the per-thread bins
-  std::vector<qint64> hist(binSize, 0);
-  for (size_t t = 0; t < hists.size(); ++t)
-    for (size_t v = 0; v < binSize; ++v)
-      hist[v] += hists[t][v];
-
-  int minv = -1, maxv = -1;
-  for (size_t v = 0; v < binSize; ++v)
-    {
-      if (hist[v] > 0)
-        {
-          if (minv < 0)
-            minv = (int)v;
-          maxv = (int)v;
         }
     }
 
-  for (qint64 v = 0; v < bin; ++v)
-    m_histogram[(int)v] = (uint)hist[(size_t)v];
-
-  if (minv < 0)
-    {
-      minv = 0;
-      maxv = 0;
-    }
+  if (minv > maxv) { minv = 0; maxv = 0; }
 
   // prefer the range given by the store metadata (data_min_max) when
   // present, since a scan-based min includes fabric padding zeros.
@@ -564,9 +495,40 @@ ZarrPlugin::generateHistogram()
 }
 
 // ---------------------------------------------------------------------
+// Read an axis-aligned block: inclusive start (d0,w0,h0) and inclusive end
+// (d1,w1,h1) indices, stored into `data` as a contiguous Z, Y, X cube.
+void
+ZarrHandler::getRegion(int d0, int w0, int h0, int d1, int w1, int h1,
+                       uchar* data)
+{
+  if (!data)
+    return;
+
+  // clamp to the array bounds
+  if (d0 < 0) d0 = 0;
+  if (w0 < 0) w0 = 0;
+  if (h0 < 0) h0 = 0;
+  if (d1 >= m_depth)  d1 = m_depth  - 1;
+  if (w1 >= m_width)  w1 = m_width  - 1;
+  if (h1 >= m_height) h1 = m_height - 1;
+
+  if (d1 < d0 || w1 < w0 || h1 < h0)
+    {
+      memset(data, 0, (size_t)m_bytesPerVoxel);
+      return;
+    }
+
+  vector<uint64_t> origin = { (uint64_t)d0, (uint64_t)w0, (uint64_t)h0 };
+  vector<uint64_t> shape  = { (uint64_t)(d1 - d0 + 1),
+                              (uint64_t)(w1 - w0 + 1),
+                              (uint64_t)(h1 - h0 + 1) };
+  readSliceRegion(origin, shape, data);
+}
+
+// ---------------------------------------------------------------------
 // Depth slice: plane (Y, X) at depth slc.
 void
-ZarrPlugin::getDepthSlice(int slc, uchar* slice)
+ZarrHandler::getDepthSlice(int slc, uchar* slice)
 {
   readSliceRegion({ (uint64_t)slc, 0, 0 },
                   { 1, (uint64_t)m_width, (uint64_t)m_height },
@@ -576,7 +538,7 @@ ZarrPlugin::getDepthSlice(int slc, uchar* slice)
 // ---------------------------------------------------------------------
 // Width slice: plane (Z, X) at width slc (along Y).
 void
-ZarrPlugin::getWidthSlice(int slc, uchar* slice)
+ZarrHandler::getWidthSlice(int slc, uchar* slice)
 {
   readSliceRegion({ 0, (uint64_t)slc, 0 },
                   { (uint64_t)m_depth, 1, (uint64_t)m_height },
@@ -586,7 +548,7 @@ ZarrPlugin::getWidthSlice(int slc, uchar* slice)
 // ---------------------------------------------------------------------
 // Height slice: plane (Z, Y) at height slc (along X).
 void
-ZarrPlugin::getHeightSlice(int slc, uchar* slice)
+ZarrHandler::getHeightSlice(int slc, uchar* slice)
 {
   readSliceRegion({ 0, 0, (uint64_t)slc },
                   { (uint64_t)m_depth, (uint64_t)m_width, 1 },
@@ -594,8 +556,38 @@ ZarrPlugin::getHeightSlice(int slc, uchar* slice)
 }
 
 // ---------------------------------------------------------------------
+// Store a depth slice: plane (Y, X) at depth slc back into the array.
+void
+ZarrHandler::setDepthSlice(int slc, uchar* slice)
+{
+  writeSliceRegion({ (uint64_t)slc, 0, 0 },
+                   { 1, (uint64_t)m_width, (uint64_t)m_height },
+                   slice);
+}
+
+// ---------------------------------------------------------------------
+// Store a width slice: plane (Z, X) at width slc back into the array.
+void
+ZarrHandler::setWidthSlice(int slc, uchar* slice)
+{
+  writeSliceRegion({ 0, (uint64_t)slc, 0 },
+                   { (uint64_t)m_depth, 1, (uint64_t)m_height },
+                   slice);
+}
+
+// ---------------------------------------------------------------------
+// Store a height slice: plane (Z, Y) at height slc back into the array.
+void
+ZarrHandler::setHeightSlice(int slc, uchar* slice)
+{
+  writeSliceRegion({ 0, 0, (uint64_t)slc },
+                   { (uint64_t)m_depth, (uint64_t)m_width, 1 },
+                   slice);
+}
+
+// ---------------------------------------------------------------------
 QVariant
-ZarrPlugin::rawValue(int d, int w, int h)
+ZarrHandler::rawValue(int d, int w, int h)
 {
   QVariant v;
 

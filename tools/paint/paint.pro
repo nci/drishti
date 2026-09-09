@@ -30,12 +30,7 @@ FORMS += drishtipaint.ui viewermenu.ui \
 
 #----------------------------------------------------------------
 # Windows setup for 64-bit system
-#contains(Windows_Setup, Win64) {
-  win32 {
-        # libzarr (https://github.com/kharchenkolab/libzarr) is a header-only C++17
-        # library used by zarrwriter.cpp (and the tools/import/plugins/zarr reader).
-        LIBZARR_INCLUDE_PATH = C:/Apps/libzarr
-  
+win32 {
         RC_ICONS += images/drishtipaint.ico
 
         INCLUDEPATH += ../../common/src/vdb \
@@ -43,8 +38,6 @@ FORMS += drishtipaint.ui viewermenu.ui \
                        ../../common/src/mesh \
                        ..\..\common\src\videoencoder
         INCLUDEPATH += $$VCPKG_INCLUDE_PATH
-        INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/third_party   # vendored nlohmann/json (first)
-        INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/include       # libzarr core headers
 
         QMAKE_LIBDIR += ..\..\common\lib     
         QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
@@ -52,9 +45,6 @@ FORMS += drishtipaint.ui viewermenu.ui \
 
         ## /std:c++17 added because openvdb requires this
         QMAKE_CXXFLAGS*=/std:c++17
-
-        DEFINES += LIBZARR_HAS_ZLIB LIBZARR_HAS_BLOSC LIBZARR_HAS_ZSTD
-        DEFINES += NOMINMAX  # windows.h min/max macros clobber libzarr's std::min/std::max
 
 
         LIBS += QGLViewer2.lib glew32.lib blosc.lib opengl32.lib glu32.lib
@@ -68,9 +58,8 @@ FORMS += drishtipaint.ui viewermenu.ui \
                 -lavformat \
                 -lswresample \
                 -lswscale 
-
-        }
-#}
+}
+                
 
 unix {
  !macx {

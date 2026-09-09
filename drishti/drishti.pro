@@ -11,7 +11,7 @@ CONFIG += no_batch
 TRANSLATIONS = drishtitr_ch.ts
 
 FORMS += launcher.ui \
-     mainwindow.ui \
+         mainwindow.ui \
 	 brickswidget.ui \
 	 captiondialog.ui \
 	 directionvectorwidget.ui \
@@ -24,7 +24,7 @@ FORMS += launcher.ui \
 	 propertyeditor.ui \
 	 profileviewer.ui \
 	 volumeinformation.ui \
-     raycastmenu.ui \
+         raycastmenu.ui \
 	 ../common/src/widgets/saveimgseq.ui \
 	 ../common/src/widgets/savemovie.ui
 
@@ -41,11 +41,6 @@ include( ../drishti.pri )
 win32 {
   RC_ICONS += images/drishti-256.ico
 
-  # libzarr (https://github.com/kharchenkolab/libzarr) is a header-only C++17
-  # library used by zarrwriter.cpp (and the tools/import/plugins/zarr reader).
-  LIBZARR_INCLUDE_PATH = C:/Apps/libzarr
-  
-
   contains(Windows_Setup, Win64) {
     message(drishti.exe : Win64 setup)
     DEFINES += _CRT_SECURE_NO_WARNINGS
@@ -53,12 +48,6 @@ win32 {
     INCLUDEPATH += 16bit \
                    ..\common\src\widgets \
                    ..\common\src\videoencoder
-    INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/third_party   # vendored nlohmann/json (first)
-    INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/include       # libzarr core headers
-
-    DEFINES += LIBZARR_HAS_ZLIB LIBZARR_HAS_BLOSC LIBZARR_HAS_ZSTD
-    DEFINES += NOMINMAX  # windows.h min/max macros clobber libzarr's std::min/std::max
-
 
     QMAKE_CXXFLAGS*=/std:c++17
 	               

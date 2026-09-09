@@ -1,4 +1,5 @@
 win32 {
+    QMAKE_CXXFLAGS*=/std:c++17  # libzarr (filter.h -> volumefilemanager.h -> zarrhandler) needs C++17
     INCLUDEPATH += ../../../ \
 	$$InsightToolkit\Modules\Segmentation\Watersheds\include \
 	$$InsightToolkit\Modules\Video\IO\include \
@@ -285,7 +286,10 @@ LIBS += common.lib \
 	$$ITK\lib\Release\itkgdcmjpeg16-5.0.lib \
 	$$ITK\lib\Release\itkgdcmopenjp2-5.0.lib \
 	$$ITK\lib\Release\itkgdcmcharls-5.0.lib \
-	$$ITK\lib\Release\ITKVNLInstantiation-5.0.lib        
+	$$ITK\lib\Release\ITKVNLInstantiation-5.0.lib
+
+  ### blosc/zlib/zstd: common.lib -> volumefilemanager.obj -> zarrhandler.obj (libzarr codecs)
+  LIBS += blosc.lib zlib.lib zstd.lib
 }
 
 unix {

@@ -12,11 +12,18 @@ contains(Windows_Setup, Win64) {
   win32 {
     message(Win64 setup)
 
+    LIBZARR_INCLUDE_PATH = C:/Apps/libzarr
+    INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/third_party   # vendored nlohmann/json (first)
+    INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/include       # libzarr core headers
+
     VCPKG_INCLUDE_PATH = C:\Apps\vcpkg\installed\x64-windows\include
     VCPKG_LIBRARY_PATH = C:\Apps\vcpkg\installed\x64-windows\lib
-
     INCLUDEPATH += $$VCPKG_INCLUDE_PATH
     QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
+
+    DEFINES += LIBZARR_HAS_ZLIB LIBZARR_HAS_BLOSC LIBZARR_HAS_ZSTD
+    DEFINES += NOMINMAX  # windows.h min/max macros clobber libzarr's std::min/std::max
+    DEFINES += WIN32_LEAN_AND_MEAN  # keep rpcndr.h's 'byte' typedef out so it can't clash with std::byte (C++17)
 
     contains(DRISHTI_DEFINES, RENDERER) {
       INCLUDEPATH += C:\Qt\Qt-5\libQGLViewer\libQGLViewer-2.6.4

@@ -27,9 +27,16 @@ win32 {
 
  contains(Windows_Setup, Win64) {
   INCLUDEPATH += ../../
+  INCLUDEPATH += ../../../common/src/widgets   # dcolordialog.h
   QMAKE_LIBDIR += ..\common ..\..\..\glmedia-64
+
+  ### libzarr (meshgenerator.h -> volumefilemanager.h -> zarrhandler) needs C++17
+  QMAKE_CXXFLAGS*=/std:c++17
   LIBS += netcdfcpp.lib \
 	  freeglut.lib
+
+  ### blosc/zlib/zstd: common.lib -> volumefilemanager.obj -> zarrhandler.obj (libzarr codecs)
+  LIBS += blosc.lib zlib.lib zstd.lib
  }
 }
 

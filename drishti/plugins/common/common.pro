@@ -15,20 +15,19 @@ FORMS += ../../propertyeditor.ui
 win32 {
   DESTDIR = ../common
 
- contains(Windows_Setup, Win64) {
-	message(drishti.exe : Win64 setup)
-	
-	DEFINES += _CRT_SECURE_NO_WARNINGS
-	INCLUDEPATH +=../../ \
-                  ..\..\..\common\src\widgets	
-				 
-	INCLUDEPATH += $$VCPKG_INCLUDE_PATH	
-	QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
+  QMAKE_CXXFLAGS*=/std:c++17  # libzarr (via volumefilemanager/zarrhandler) needs C++17
 
-  	LIBS += QGLViewer2.lib \
-			netcdfcpp.lib \
-	  		glew32.lib
- }
+  DEFINES += _CRT_SECURE_NO_WARNINGS
+  INCLUDEPATH +=../../ \
+                ..\..\..\common\src\widgets	
+				 
+  INCLUDEPATH += $$VCPKG_INCLUDE_PATH	
+  QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
+
+  LIBS += QGLViewer2.lib \
+          netcdfcpp.lib \
+	  glew32.lib
+  LIBS += blosc.lib zlib.lib zstd.lib
 }
 
 unix {
@@ -69,6 +68,8 @@ HEADERS = ..\..\mainwindowui.h \
 	..\..\propertyeditor.h \
 	..\..\staticfunctions.h \
 	..\..\volumefilemanager.h \
+	..\..\zarrhandler.h \
+	..\..\zarrmetareader.h \
 	..\..\volumeinformation.h \
 	..\..\gradienteditorwidget.h \
 	..\..\gradienteditor.h \
@@ -86,6 +87,8 @@ SOURCES = ../../mainwindowui.cpp \
 	../../propertyeditor.cpp \
 	../../staticfunctions.cpp \
 	../../volumefilemanager.cpp \
+	../../zarrhandler.cpp \
+	../../zarrmetareader.cpp \
 	../../volumeinformation.cpp \
 	../../gradienteditorwidget.cpp \
 	../../gradienteditor.cpp \

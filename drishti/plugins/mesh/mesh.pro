@@ -44,6 +44,9 @@ win32 {
      QMAKE_CXXFLAGS*=/std:c++17
   
      LIBS += Imath-3_2.lib openvdb.lib gmsh.dll.lib
+
+     ### blosc/zlib/zstd: common.lib -> volumefilemanager.obj -> zarrhandler.obj (libzarr codecs)
+     LIBS += blosc.lib zlib.lib zstd.lib
  }
 }
 

@@ -15,26 +15,16 @@ TARGET = drishtiimport
 
 DESTDIR = ../../bin
 
-# libzarr (https://github.com/kharchenkolab/libzarr) is a header-only C++17
-# library used by zarrwriter.cpp (and the tools/import/plugins/zarr reader).
-LIBZARR_INCLUDE_PATH = C:/Apps/libzarr
-
 win32 {
   INCLUDEPATH += ../../common/src/vdb \
                  ../../common/src/widgets \      
                  ../../common/src/mesh
-  INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/third_party   # vendored nlohmann/json (first)
-  INCLUDEPATH += $$LIBZARR_INCLUDE_PATH/include       # libzarr core headers
-  INCLUDEPATH += $$VCPKG_INCLUDE_PATH
 
   QMAKE_LIBDIR += ..\..\common\lib
   QMAKE_LIBDIR += $$VCPKG_LIBRARY_PATH
 
   # /std:c++17 added because openvdb requires this
   QMAKE_CXXFLAGS*=/std:c++17
-
-  DEFINES += LIBZARR_HAS_ZLIB LIBZARR_HAS_BLOSC LIBZARR_HAS_ZSTD
-  DEFINES += NOMINMAX  # windows.h min/max macros clobber libzarr's std::min/std::max
 
   LIBS += Imath-3_2.lib openvdb.lib vdb.lib gmsh.dll.lib \
           blosc.lib zlib.lib zstd.lib

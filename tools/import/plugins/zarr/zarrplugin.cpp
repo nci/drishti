@@ -69,6 +69,14 @@ ZarrPlugin::init()
   m_chunkShape.clear();
   m_levels.clear();
 
+  {
+    QMutexLocker lock(&m_sliceMutex);
+    m_depthCache.clear();
+    m_cacheZ0 = -1;
+    m_cacheZCount = 0;
+    m_cacheBlockZ = 0;
+  }
+
   m_haveRoot = false;
 }
 
@@ -892,13 +900,54 @@ ZarrPlugin::generateHistogram()
 }
 
 // ---------------------------------------------------------------------
-// Depth slice: plane (Y, X) at depth slc.
+// Depth slice: plane (Y, X) at depth slc.  Planes are served from a cached
+// z-block of depth planes (multiple planes per read_region call), so a
+// sharded store decompresses each on-disk 64^3 sub-block once per block
+// instead of once per requested plane (the same idea as findFloatMinMax).
+// The block extent is the innermost chunk z-extent, halved to fit a <=512MB
+// buffer; consecutive slices that stay inside the block are served from
+// memory.
 void
 ZarrPlugin::getDepthSlice(int slc, uchar* slice)
 {
-  readSliceRegion({ (uint64_t)slc, 0, 0 },
-                  { 1, (uint64_t)m_width, (uint64_t)m_height },
-                  slice);
+  const size_t planeBytes = (size_t)m_width * (size_t)m_height *
+                            (size_t)m_bytesPerVoxel;
+  if (slc < 0 || slc >= m_depth || planeBytes == 0)
+    {
+      memset(slice, 0, planeBytes);
+      return;
+    }
+
+  QMutexLocker lock(&m_sliceMutex);
+
+  // Lazily size the cache on first use, choosing the block extent exactly
+  // like the min/max and histogram scans.
+  if (m_depthCache.empty())
+    {
+      const qint64 planeBytes64 = (qint64)planeBytes;
+      const qint64 maxBlockBytes = 512LL * 1024 * 1024;
+      qint64 blockZ = m_chunkShape.size() > 0 ? (qint64)m_chunkShape[0] : 1;
+      blockZ = qBound<qint64>(1, blockZ, m_depth);
+      while (blockZ > 1 && blockZ * planeBytes64 > maxBlockBytes)
+        blockZ /= 2;
+      m_cacheBlockZ = (int)blockZ;
+      m_depthCache.resize((size_t)blockZ * planeBytes);
+      m_cacheZ0 = -1;
+      m_cacheZCount = 0;
+    }
+
+  // Cache miss: read the block that contains slc, aligned to the block size.
+  if (slc < m_cacheZ0 || slc >= m_cacheZ0 + m_cacheZCount)
+    {
+      const int z0 = (int)((qint64)slc / m_cacheBlockZ) * m_cacheBlockZ;
+      const int zc = qMin(m_cacheBlockZ, m_depth - z0);
+      readDepthBlock(*m_array, z0, zc, m_depthCache.data());
+      m_cacheZ0 = z0;
+      m_cacheZCount = zc;
+    }
+
+  memcpy(slice, m_depthCache.data() + (size_t)(slc - m_cacheZ0) * planeBytes,
+         planeBytes);
 }
 
 // ---------------------------------------------------------------------

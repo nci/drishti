@@ -5,7 +5,9 @@
 #include <QStringList>
 #include <QVector>
 #include <QMap>
+#include <QMutex>
 #include <memory>
+#include <vector>
 #include "volinterface.h"
 
 #include <libzarr/libzarr.hpp>
@@ -106,6 +108,12 @@ class ZarrPlugin : public QObject, public VolInterface
 
   std::vector<uint64_t> m_chunkShape;          // chunk shape of chosen level
   QList<QString> m_levels;                     // pyramid level paths ("0","1")
+
+  QMutex m_sliceMutex;                         // guards the depth-slice cache
+  std::vector<uchar> m_depthCache;             // cached z-block of planes
+  int m_cacheZ0 = -1;                          // first plane in the cache
+  int m_cacheZCount = 0;                       // planes valid in the cache
+  int m_cacheBlockZ = 0;                       // planes per cached block
 
   bool m_haveRoot;                  // root group opened ok
 };

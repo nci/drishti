@@ -25,7 +25,7 @@
 // (https://github.com/kharchenkolab/libzarr); this plugin only maps slices
 // onto libzarr reads.
 //
-// Supports unsigned 8-bit (uint8) and unsigned 16-bit (uint16) voxels.
+// Supports unsigned/signed 8/16-bit integer voxels and 32-bit float voxels.
 class ZarrPlugin : public QObject, public VolInterface
 {
   Q_OBJECT
@@ -59,6 +59,7 @@ class ZarrPlugin : public QObject, public VolInterface
   float rawMax();
 
   void generateHistogram();
+  void findFloatMinMax();
 
   void getDepthSlice(int, uchar*);
   void getWidthSlice(int, uchar*);
@@ -73,6 +74,14 @@ class ZarrPlugin : public QObject, public VolInterface
                        // decompress one full (fill-padded) block
   void readSliceRegion(std::vector<uint64_t> origin, std::vector<uint64_t> shape,
                        uchar* slice) const;  // hyperslab via libzarr
+  std::shared_ptr<zarr::Array> openArrayReader() const;
+                       // fresh, independent array handle for a worker thread
+                       // (libzarr is not thread-safe, so each histogram /
+                       // min-max worker opens its own store+array)
+  void readDepthBlock(zarr::Array& arr, int z0, int zcount, uchar* buffer) const;
+                       // read zcount depth planes (Y,X) starting at z0 through
+                       // a given handle into buffer
+                       // (zcount*width*height*bpv bytes)
 
   QString m_dir;                     // zarr directory
   QString m_level;                   // chosen pyramid level ("0","1",...)
@@ -84,10 +93,10 @@ class ZarrPlugin : public QObject, public VolInterface
 
   float m_voxelSizeX, m_voxelSizeY, m_voxelSizeZ;
   int m_depth, m_width, m_height;    // (Z, Y, X) of the chosen level
-  int m_voxelType;                   // _UChar or _UShort
+  int m_voxelType;                   // _UChar/_UShort/... or _Float
   int m_voxelUnit;
   int m_headerBytes;
-  int m_bytesPerVoxel;               // 1 (uint8) or 2 (uint16)
+  int m_bytesPerVoxel;               // 1 (uint8) / 2 (uint16) / 4 (float32)
 
   float m_rawMin, m_rawMax;
   bool m_haveDataMinMax;             // data_min_max present in the metadata

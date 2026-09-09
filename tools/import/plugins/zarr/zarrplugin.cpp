@@ -8,6 +8,7 @@
 #include <atomic>
 #include <mutex>
 #include <thread>
+#include <cmath>
 
 // Qt's <QtGui> pulls in <windows.h> -> minwindef.h, which #defines the
 // lowercase keyword-like macro `far` (empty, and `FAR` as `far`).  libzarr's
@@ -220,6 +221,12 @@ ZarrPlugin::setFile(QStringList files)
       if (sc[2] > 0) m_voxelSizeZ *= sc[2];
     }
 
+  // float32/int32 need their value range before the histogram can be binned
+  // (see generateHistogram); do that scan once here unless the store metadata
+  // already gave us data_min_max.
+  if ((m_voxelType == _Float || m_voxelType == _Int) && !m_haveDataMinMax)
+    findFloatMinMax();
+
   generateHistogram();
 
   return true;
@@ -298,14 +305,24 @@ ZarrPlugin::parseRoot()
     }
 
   // harvest level paths from multiscales[0].datasets[].path and the
-  // per-level scale transform.
+  // per-level scale transform.  The multiscales metadata may live at the
+  // top level ("multiscales") or, for NGFF/OME datasets (e.g. the Zeiss
+  // TIMA output), nested under "ome.multiscales".
+  zarr::json multiscales = zarr::json::array();
   if (attr.contains("multiscales") && attr.at("multiscales").is_array())
+    multiscales = attr.at("multiscales");
+  else if (attr.contains("ome") && attr.at("ome").is_object())
     {
-      const zarr::json& multiscales = attr.at("multiscales");
-      if (multiscales.size() > 0)
+      const zarr::json& ome = attr.at("ome");
+      if (ome.contains("multiscales") && ome.at("multiscales").is_array())
+        multiscales = ome.at("multiscales");
+    }
+  if (multiscales.is_array() && multiscales.size() > 0)
+    {
+      if (multiscales[0].is_object())
         {
           const zarr::json& datasets =
-            multiscales[0].contains("datasets") && multiscales[0].is_object()
+            multiscales[0].contains("datasets")
             ? multiscales[0].at("datasets") : zarr::json::array();
           if (datasets.is_array())
             {
@@ -370,9 +387,37 @@ ZarrPlugin::parseLevel()
   m_width = (int)shape[1];   // Y
   m_height = (int)shape[2];  // X
 
-  bool isU16 = (meta.dtype.kind == zarr::DType::uint16);
-  m_voxelType = isU16 ? _UShort : _UChar;
-  m_bytesPerVoxel = isU16 ? 2 : 1;
+  switch (meta.dtype.kind)
+    {
+    case zarr::DType::uint8:
+      m_voxelType = _UChar;
+      m_bytesPerVoxel = 1;
+      break;
+    case zarr::DType::int8:
+      m_voxelType = _Char;
+      m_bytesPerVoxel = 1;
+      break;
+    case zarr::DType::uint16:
+      m_voxelType = _UShort;
+      m_bytesPerVoxel = 2;
+      break;
+    case zarr::DType::int16:
+      m_voxelType = _Short;
+      m_bytesPerVoxel = 2;
+      break;
+    case zarr::DType::int32:
+      m_voxelType = _Int;
+      m_bytesPerVoxel = 4;
+      break;
+    case zarr::DType::float32:
+      m_voxelType = _Float;
+      m_bytesPerVoxel = 4;
+      break;
+    default:
+      // other dtypes (float16/float64/{u,}int64/{u}int32/boolean) are not
+      // representable in drishti's VoxelType set (no double / 4-byte uints).
+      return false;
+    }
 
   m_chunkShape = meta.chunk_shape;
 
@@ -422,15 +467,313 @@ ZarrPlugin::readSliceRegion(vector<uint64_t> origin, vector<uint64_t> shape,
 }
 
 // ---------------------------------------------------------------------
+// Open a fresh, independent read handle for a worker thread.  libzarr
+// documents its core as single-threaded ("implementations are not required
+// to be thread-safe"), so concurrent read_region() calls must go through
+// separate Store/Group/Array instances; the underlying files are opened
+// read-only, which is safe to share across threads.  Throws zarr::error on
+// failure.
+std::shared_ptr<zarr::Array>
+ZarrPlugin::openArrayReader() const
+{
+  auto store = std::make_shared<zarr::FilesystemStore>(
+                 m_dir.toStdString(), false);
+  auto root = std::make_shared<zarr::Group>(
+                zarr::Group::open(store, "", zarr::OpenOptions{}));
+  return std::make_shared<zarr::Array>(
+           root->open_array(m_level.toStdString()));
+}
+
+// ---------------------------------------------------------------------
+// Read zcount depth planes (Y, X), starting at depth z0, through a
+// caller-supplied array handle into buffer, which must hold
+// zcount*width*height*bytesPerVoxel bytes.  Reading a z-block instead of
+// one plane at a time lets a sharded store decompress each on-disk 64^3
+// sub-block once for all the planes it covers, instead of once per plane.
+void
+ZarrPlugin::readDepthBlock(zarr::Array& arr, int z0, int zcount,
+                           uchar* buffer) const
+{
+  const size_t nbytes = (size_t)zcount * (size_t)m_width *
+                        (size_t)m_height * (size_t)m_bytesPerVoxel;
+  try
+    {
+      arr.read_region({ (uint64_t)z0, 0, 0 },
+                      { (uint64_t)zcount, (uint64_t)m_width,
+                        (uint64_t)m_height },
+                      buffer, nbytes);
+    }
+  catch (const std::exception&)
+    {
+      memset(buffer, 0, nbytes);   // missing/corrupt data -> fill (zero)
+    }
+}
+
+// ---------------------------------------------------------------------
+// Scan the whole volume for its raw min/max.  Reads z-blocks of depth
+// planes (Y,X) so every on-disk sharded sub-block is decompressed once per
+// sweep instead of once per plane, and splits the block sweep across worker
+// threads, each with its own libzarr read handle, so the decompression runs
+// in parallel.  Used for float32/int32 voxels whose value range must be
+// known before the histogram can be binned, mirroring RawPlugin::findMinMax.
+void
+ZarrPlugin::findFloatMinMax()
+{
+  QProgressDialog progress("Finding Min and Max",
+                           QString(),
+                           0, 100,
+                           0);
+  progress.setMinimumDuration(0);
+
+  const size_t planeBytes = (size_t)m_width * (size_t)m_height *
+                            (size_t)m_bytesPerVoxel;
+  const size_t n = (size_t)m_width * (size_t)m_height;
+  const bool isFloat = (m_voxelType == _Float);
+
+  // z-planes per read: start from the innermost chunk z-extent (64^3 for
+  // sharded stores) so each sub-block is decompressed once, and halve it
+  // until a single read fits within the per-read memory budget.
+  const qint64 planeBytes64 = (qint64)planeBytes;
+  const qint64 maxBlockBytes = 512LL * 1024 * 1024;
+  qint64 blockZ = m_chunkShape.size() > 0 ? (qint64)m_chunkShape[0] : 1;
+  blockZ = qBound<qint64>(1, blockZ, m_depth);
+  while (blockZ > 1 && blockZ * planeBytes64 > maxBlockBytes)
+    blockZ /= 2;
+  const qint64 nlayers = (m_depth + blockZ - 1) / blockZ;
+
+  const int hw = QThread::idealThreadCount();
+  int nthreads = qMin(24, qBound(1, hw, (int)nlayers));
+  // keep the total buffer memory of live workers within a budget
+  const qint64 maxTotalBytes = 4LL * 1024 * 1024 * 1024;
+  while (nthreads > 1 &&
+         (qint64)nthreads * blockZ * planeBytes64 > maxTotalBytes)
+    --nthreads;
+
+  std::vector<float> localMin((size_t)nthreads, 10000000.0f);
+  std::vector<float> localMax((size_t)nthreads, -10000000.0f);
+  std::atomic<qint64> next(0);
+  std::atomic<qint64> done(0);
+
+  std::vector<std::thread> pool;
+  pool.reserve((size_t)nthreads);
+  for (int t = 0; t < nthreads; ++t)
+    {
+      pool.emplace_back([&, t]()
+        {
+          std::shared_ptr<zarr::Array> arr;
+          try { arr = openArrayReader(); }
+          catch (const std::exception&) { return; }
+
+          std::vector<uchar> buf((size_t)(blockZ * planeBytes64));
+          float mn = 10000000.0f, mx = -10000000.0f;
+          for (;;)
+            {
+              const qint64 layer = next.fetch_add(1);
+              if (layer >= nlayers)
+                break;
+
+              const int z0 = (int)(layer * blockZ);
+              const int zc = qMin((int)blockZ, m_depth - z0);
+              readDepthBlock(*arr, z0, zc, buf.data());
+
+              const size_t ne = (size_t)zc * n;
+              if (isFloat)
+                {
+                  const float* p = (const float*)buf.data();
+                  for (size_t i = 0; i < ne; ++i)
+                    {
+                      float v = p[i];
+                      if (std::isnan(v)) v = 0;
+                      if (v < mn) mn = v;
+                      if (v > mx) mx = v;
+                    }
+                }
+              else // _Int
+                {
+                  const int* p = (const int*)buf.data();
+                  for (size_t i = 0; i < ne; ++i)
+                    {
+                      float v = (float)p[i];
+                      if (v < mn) mn = v;
+                      if (v > mx) mx = v;
+                    }
+                }
+              done.fetch_add(zc, std::memory_order_relaxed);
+            }
+          localMin[(size_t)t] = mn;
+          localMax[(size_t)t] = mx;
+        });
+    }
+
+  // Poll for progress on the GUI thread while the workers run; no Qt calls
+  // are made off the main thread.
+  while (done.load(std::memory_order_relaxed) < m_depth)
+    {
+      progress.setValue((int)(100.0 *
+        (double)done.load(std::memory_order_relaxed) / (double)m_depth));
+      qApp->processEvents();
+      QThread::msleep(20);
+    }
+  for (size_t t = 0; t < pool.size(); ++t)
+    pool[t].join();
+
+  float mn = 10000000.0f, mx = -10000000.0f;
+  for (size_t t = 0; t < localMin.size(); ++t)
+    {
+      if (localMin[t] < mn) mn = localMin[t];
+      if (localMax[t] > mx) mx = localMax[t];
+    }
+  m_rawMin = mn;
+  m_rawMax = mx;
+
+  progress.setValue(100);
+  qApp->processEvents();
+}
+
+// ---------------------------------------------------------------------
+// Build the histogram (and raw min/max).  Reads z-blocks of depth planes
+// (Y,X) via libzarr's read_region so each on-disk sharded sub-block is
+// decompressed once per sweep instead of once per plane, and splits the
+// block sweep across worker threads, each with its own libzarr read handle
+// and a private cache-friendly bucket array, then merges the per-thread
+// buckets (the same parallel pattern as RawPlugin::generateHistogram).
 void
 ZarrPlugin::generateHistogram()
 {
   if (m_depth <= 0 || m_width <= 0 || m_height <= 0)
     return;
 
-  const bool ushort = (m_voxelType == _UShort);
-  const qint64 bin = ushort ? 65536 : 256;
+  const size_t planeBytes = (size_t)m_width * (size_t)m_height *
+                            (size_t)m_bytesPerVoxel;
+  const size_t n = (size_t)m_width * (size_t)m_height;
+
+  // z-planes per read: start from the innermost chunk z-extent (64^3 for
+  // sharded stores) so each sub-block is decompressed once, and halve it
+  // until a single read fits within the per-read memory budget.
+  const qint64 planeBytes64 = (qint64)planeBytes;
+  const qint64 maxBlockBytes = 512LL * 1024 * 1024;
+  qint64 blockZ = m_chunkShape.size() > 0 ? (qint64)m_chunkShape[0] : 1;
+  blockZ = qBound<qint64>(1, blockZ, m_depth);
+  while (blockZ > 1 && blockZ * planeBytes64 > maxBlockBytes)
+    blockZ /= 2;
+  const qint64 nlayers = (m_depth + blockZ - 1) / blockZ;
+
+  const int hw = QThread::idealThreadCount();
+  int nthreads = qMin(24, qBound(1, hw, (int)nlayers));
+  // keep the total buffer memory of live workers within a budget
+  const qint64 maxTotalBytes = 4LL * 1024 * 1024 * 1024;
+  while (nthreads > 1 &&
+         (qint64)nthreads * blockZ * planeBytes64 > maxTotalBytes)
+    --nthreads;
+
+  // ---- float32 / int32: no natural bin index, so min/max are computed
+  // first (findFloatMinMax, called from setFile) and the value range is
+  // scaled into 64K bins (see RawPlugin::generateHistogram).
+  if (m_voxelType == _Float || m_voxelType == _Int)
+    {
+      const qint64 binCount = 65536;
+      const qint64 histMax = binCount - 1;
+      const float omin = m_rawMin;
+      const float range = m_rawMax - m_rawMin;
+      const bool isFloat = (m_voxelType == _Float);
+
+      QProgressDialog progress("Generating Histogram",
+                               QString(),
+                               0, 100,
+                               0);
+      progress.setMinimumDuration(0);
+
+      m_histogram.clear();
+      m_histogram.reserve((int)binCount);
+      for (qint64 i = 0; i < binCount; ++i)
+        m_histogram.append(0);
+
+      std::vector<std::vector<qint64> > local(
+        (size_t)nthreads, std::vector<qint64>((size_t)binCount, 0));
+      std::atomic<qint64> next(0);
+      std::atomic<qint64> done(0);
+
+      std::vector<std::thread> pool;
+      pool.reserve((size_t)nthreads);
+      for (int t = 0; t < nthreads; ++t)
+        {
+          pool.emplace_back([&, t]()
+            {
+              std::shared_ptr<zarr::Array> arr;
+              try { arr = openArrayReader(); }
+              catch (const std::exception&) { return; }
+
+              std::vector<uchar> buf((size_t)(blockZ * planeBytes64));
+              qint64* h = local[(size_t)t].data();
+              for (;;)
+                {
+                  const qint64 layer = next.fetch_add(1);
+                  if (layer >= nlayers)
+                    break;
+
+                  const int z0 = (int)(layer * blockZ);
+                  const int zc = qMin((int)blockZ, m_depth - z0);
+                  readDepthBlock(*arr, z0, zc, buf.data());
+
+                  const size_t ne = (size_t)zc * n;
+                  if (isFloat)
+                    {
+                      const float* p = (const float*)buf.data();
+                      for (size_t i = 0; i < ne; ++i)
+                        {
+                          float v = p[i];
+                          if (std::isnan(v)) v = 0;
+                          float fidx = (range > 0) ? (v - omin) / range : 0.0f;
+                          fidx = qBound(0.0f, fidx, 1.0f);
+                          h[(int)(fidx * histMax)]++;
+                        }
+                    }
+                  else // _Int
+                    {
+                      const int* p = (const int*)buf.data();
+                      for (size_t i = 0; i < ne; ++i)
+                        {
+                          float v = (float)p[i];
+                          float fidx = (range > 0) ? (v - omin) / range : 0.0f;
+                          fidx = qBound(0.0f, fidx, 1.0f);
+                          h[(int)(fidx * histMax)]++;
+                        }
+                    }
+                  done.fetch_add(zc, std::memory_order_relaxed);
+                }
+            });
+        }
+
+      while (done.load(std::memory_order_relaxed) < m_depth)
+        {
+          progress.setValue((int)(100.0 *
+            (double)done.load(std::memory_order_relaxed) / (double)m_depth));
+          qApp->processEvents();
+          QThread::msleep(20);
+        }
+      for (size_t t = 0; t < pool.size(); ++t)
+        pool[t].join();
+
+      for (qint64 v = 0; v < binCount; ++v)
+        {
+          uint total = 0;
+          for (int t = 0; t < nthreads; ++t)
+            total += (uint)local[(size_t)t][(size_t)v];
+          m_histogram[(int)v] = total;
+        }
+
+      progress.setValue(100);
+      qApp->processEvents();
+      return;
+    }
+
+  // ---- integer types: direct bin indexing ----
+  const bool is16 = (m_voxelType == _UShort || m_voxelType == _Short);
+  const qint64 bin = is16 ? 65536 : 256;
   const size_t binSize = (size_t)bin;
+  const long indexShift = (m_voxelType == _Char) ? 128
+                        : (m_voxelType == _Short) ? 32768
+                        : 0;
 
   QProgressDialog progress("Scanning Zarr volume",
                            QString(),
@@ -443,93 +786,78 @@ ZarrPlugin::generateHistogram()
   for (qint64 i = 0; i < bin; ++i)
     m_histogram.append(0);
 
-  const qint64 chunkZ = m_chunkShape.size() > 0 ? (qint64)m_chunkShape[0] : 1;
-  const qint64 chunkY = m_chunkShape.size() > 1 ? (qint64)m_chunkShape[1] : 1;
-  const qint64 chunkX = m_chunkShape.size() > 2 ? (qint64)m_chunkShape[2] : 1;
+  std::vector<std::vector<qint64> > local(
+    (size_t)nthreads, std::vector<qint64>(binSize, 0));
+  std::atomic<qint64> next(0);
+  std::atomic<qint64> done(0);
 
-  const qint64 nkz = (m_depth  + chunkZ - 1) / chunkZ;
-  const qint64 nky = (m_width  + chunkY - 1) / chunkY;
-  const qint64 nkx = (m_height + chunkX - 1) / chunkX;
-  const qint64 total = nkz * nky * nkx;
-  if (total <= 0)
-    return;
-
-  // Parallel scan: the chunks are shared across a bounded set of workers and
-  // each worker accumulates into its own histogram (merged below), so the
-  // binning stays parallel.  libzarr documents its core as single-threaded
-  // by design ("implementations are not required to be thread-safe"), so the
-  // actual reads/decompression are serialized with readMutex; the aggregation
-  // on the decoded bytes still overlaps it.  min/max are recovered from the
-  // merged bins (smallest/largest bin with a non-zero count).
-  const int nthreads = qMin(8, qBound(1, QThread::idealThreadCount(), (int)total));
-  std::mutex readMutex;
-  std::atomic<int> next(0);
-  std::atomic<int> done(0);
-
-  std::vector<std::vector<qint64> > hists((size_t)nthreads,
-                                          std::vector<qint64>(binSize, 0));
-
-  std::vector<std::thread> workers;
-  workers.reserve((size_t)nthreads);
+  std::vector<std::thread> pool;
+  pool.reserve((size_t)nthreads);
   for (int t = 0; t < nthreads; ++t)
     {
-      workers.emplace_back([&, t]()
+      pool.emplace_back([&, t]()
         {
-          qint64* h = hists[(size_t)t].data();
+          std::shared_ptr<zarr::Array> arr;
+          try { arr = openArrayReader(); }
+          catch (const std::exception&) { return; }
+
+          std::vector<uchar> buf((size_t)(blockZ * planeBytes64));
+          qint64* h = local[(size_t)t].data();
           for (;;)
             {
-              const int c = next.fetch_add(1);
-              if (c >= total)
+              const qint64 layer = next.fetch_add(1);
+              if (layer >= nlayers)
                 break;
 
-              const qint64 cc = c;
-              QByteArray chunk;
-              {
-                std::lock_guard<std::mutex> lock(readMutex);
-                if (!readChunk((int)(cc / (nky * nkx)),
-                               (int)((cc / nkx) % nky),
-                               (int)(cc % nkx), chunk))
-                  {
-                    done.fetch_add(1);
-                    continue;
-                  }
-              }
+              const int z0 = (int)(layer * blockZ);
+              const int zc = qMin((int)blockZ, m_depth - z0);
+              readDepthBlock(*arr, z0, zc, buf.data());
 
-              const unsigned char* p =
-                (const unsigned char*)chunk.constData();
-              const qint64 nbytes = (qint64)chunk.size();
-              if (ushort)
+              const size_t ne = (size_t)zc * n;
+              if (m_voxelType == _UShort)
                 {
-                  const unsigned short* sp = (const unsigned short*)p;
-                  const size_t n = (size_t)(nbytes / 2);
-                  for (size_t i = 0; i < n; ++i)
-                    h[sp[i]]++;
+                  const unsigned short* sp = (const unsigned short*)buf.data();
+                  for (size_t i = 0; i < ne; ++i)
+                    h[(size_t)sp[i]]++;
                 }
-              else
+              else if (m_voxelType == _Short)
                 {
-                  for (qint64 i = 0; i < nbytes; ++i)
-                    h[p[i]]++;
+                  const short* sp = (const short*)buf.data();
+                  for (size_t i = 0; i < ne; ++i)
+                    h[(size_t)((long)sp[i] + 32768)]++;
                 }
-              done.fetch_add(1);
+              else if (m_voxelType == _UChar)
+                {
+                  const unsigned char* cp = (const unsigned char*)buf.data();
+                  for (size_t i = 0; i < ne; ++i)
+                    h[(size_t)cp[i]]++;
+                }
+              else // _Char
+                {
+                  const signed char* cp = (const signed char*)buf.data();
+                  for (size_t i = 0; i < ne; ++i)
+                    h[(size_t)((long)cp[i] + 128)]++;
+                }
+              done.fetch_add(zc, std::memory_order_relaxed);
             }
         });
     }
 
-  while (done != total)
+  while (done.load(std::memory_order_relaxed) < m_depth)
     {
-      progress.setValue((int)(100.0 * (double)done.load() /
-                              (double)total));
+      progress.setValue((int)(100.0 *
+        (double)done.load(std::memory_order_relaxed) / (double)m_depth));
       qApp->processEvents();
-      QThread::msleep(10);
+      QThread::msleep(20);
     }
-  for (size_t t = 0; t < workers.size(); ++t)
-    workers[t].join();
+  for (size_t t = 0; t < pool.size(); ++t)
+    pool[t].join();
 
-  // merge the per-thread bins
+  // merge the per-thread buckets
   std::vector<qint64> hist(binSize, 0);
-  for (size_t t = 0; t < hists.size(); ++t)
+  for (int t = 0; t < nthreads; ++t)
     for (size_t v = 0; v < binSize; ++v)
-      hist[v] += hists[t][v];
+      hist[v] += local[(size_t)t][v];
 
   int minv = -1, maxv = -1;
   for (size_t v = 0; v < binSize; ++v)
@@ -552,11 +880,11 @@ ZarrPlugin::generateHistogram()
     }
 
   // prefer the range given by the store metadata (data_min_max) when
-  // present, since a scan-based min includes fabric padding zeros.
+  // present.
   if (!m_haveDataMinMax)
     {
-      m_rawMin = minv;
-      m_rawMax = maxv;
+      m_rawMin = (float)(minv - indexShift);
+      m_rawMax = (float)(maxv - indexShift);
     }
 
   progress.setValue(100);
@@ -621,8 +949,28 @@ ZarrPlugin::rawValue(int d, int w, int h)
       return v;
     }
 
-  if (m_voxelType == _UShort)
+  if (m_voxelType == _Float)
+    {
+      float f;
+      memcpy(&f, tmp, 4);
+      v = QVariant((double)f);
+    }
+  else if (m_voxelType == _Int)
+    {
+      int iv;
+      memcpy(&iv, tmp, 4);
+      v = QVariant((int)iv);
+    }
+  else if (m_voxelType == _UShort)
     v = QVariant((uint)((int)tmp[0] | ((int)tmp[1] << 8)));
+  else if (m_voxelType == _Short)
+    {
+      short s;
+      memcpy(&s, tmp, 2);
+      v = QVariant((int)s);
+    }
+  else if (m_voxelType == _Char)
+    v = QVariant((int)(signed char)tmp[0]);
   else
     v = QVariant((uint)tmp[0]);
 

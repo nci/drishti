@@ -206,7 +206,6 @@ HEADERS += launcher.h \
 	   scalebarobject.h \
            shaderfactory.h \
            shaderfactory2.h \
-           shaderfactoryrgb.h \
            splineeditor.h \
            splineeditorwidget.h \
 	   splineinformation.h \
@@ -229,8 +228,6 @@ HEADERS += launcher.h \
 	   volumeinformationwidget.h \
            volumefilemanager.h \
            volumesingle.h \
-	   volumergbbase.h \
-	   volumergb.h \
 	   xmlheaderfunctions.h \
 	   16bit/remaphistogramline.h \
 	   16bit/remaphistogramwidget.h \
@@ -346,7 +343,6 @@ HEADERS += launcher.h \
 	   scalebarobject.cpp \
            shaderfactory.cpp \
            shaderfactory2.cpp \
-           shaderfactoryrgb.cpp \
            splineeditor.cpp \
            splineeditorwidget.cpp \
 	   splineinformation.cpp \
@@ -369,8 +365,6 @@ HEADERS += launcher.h \
 	   volumeinformationwidget.cpp \
            volumefilemanager.cpp \
            volumesingle.cpp \
-	   volumergbbase.cpp \
-	   volumergb.cpp \
 	   xmlheaderfunctions.cpp \
 	   16bit/remaphistogramline.cpp \
 	   16bit/remaphistogramwidget.cpp \

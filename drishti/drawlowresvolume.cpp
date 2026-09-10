@@ -3,7 +3,6 @@
 #include "volume.h"
 #include "staticfunctions.h"
 #include "shaderfactory.h"
-#include "shaderfactoryrgb.h"
 #include "global.h"
 #include "mainwindowui.h"
 
@@ -199,8 +198,6 @@ DrawLowresVolume::load3dTexture()
       if (Global::volumeType() == Global::DoubleVolume) nvol = 2;
       if (Global::volumeType() == Global::TripleVolume) nvol = 3;
       if (Global::volumeType() == Global::QuadVolume) nvol = 4;
-      if (Global::volumeType() == Global::RGBVolume) nvol = 3;
-      if (Global::volumeType() == Global::RGBAVolume) nvol = 4;
 
       int format = GL_RED;
       if (nvol == 2) format = GL_LUMINANCE_ALPHA;
@@ -284,14 +281,9 @@ DrawLowresVolume::createShaders()
   if (Global::volumeType() == Global::QuadVolume) nvol = 4;
   
   // no emissivity in lowres window
-  if (Global::volumeType() == Global::RGBVolume)
-    shaderString = ShaderFactoryRGB::genDefaultShaderString(false, true);
-  else if (Global::volumeType() == Global::RGBAVolume)
-    shaderString = ShaderFactoryRGB::genDefaultShaderString(false, true);
-  else 
-    shaderString = ShaderFactory::genDefaultShaderString((m_Volume->pvlVoxelType(0) > 0), // 16-bit data
-							 false,
-							 nvol);
+  shaderString = ShaderFactory::genDefaultShaderString((m_Volume->pvlVoxelType(0) > 0), // 16-bit data
+						       false,
+						       nvol);
 
   m_progObj = glCreateProgramObjectARB();
   if (! ShaderFactory::loadShader(m_progObj,
@@ -300,11 +292,7 @@ DrawLowresVolume::createShaders()
   m_parm[0] = glGetUniformLocationARB(m_progObj, "lutTex");
   m_parm[1] = glGetUniformLocationARB(m_progObj, "dataTex");
 
-  if (Global::volumeType() != Global::RGBVolume &&
-      Global::volumeType() != Global::RGBAVolume)
-    m_parm[2] = glGetUniformLocationARB(m_progObj, "tfSet");
-  else
-    m_parm[2] = glGetUniformLocationARB(m_progObj, "layerSpacing");
+  m_parm[2] = glGetUniformLocationARB(m_progObj, "tfSet");
 
   m_parm[3] = glGetUniformLocationARB(m_progObj, "delta");
 }
@@ -376,13 +364,6 @@ DrawLowresVolume::draw(float stepsize,
 
       glUniform1iARB(m_parm[0], 0);
       glUniform1iARB(m_parm[1], 1);
-
-      if (Global::volumeType() == Global::RGBVolume ||
-	  Global::volumeType() == Global::RGBAVolume)
-	{
-	  float frc = Global::stepsizeStill();
-	  glUniform1fARB(m_parm[2], frc);
-	}
 
       Vec textureSize = m_Volume->getLowresTextureVolumeSize();
       Vec delta = Vec(1.0/textureSize.x,

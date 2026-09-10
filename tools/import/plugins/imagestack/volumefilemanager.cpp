@@ -155,7 +155,7 @@ VolumeFileManager::getSlice(int ds)
   int d = ds;
   if (m_slice0AtTop) d = (m_depth-1)-ds;
 
-  int bps = m_width*m_height*m_bytesPerVoxel;
+  qint64 bps = m_width*m_height*m_bytesPerVoxel;
   if (!m_slice)
     m_slice = new uchar[bps];
 
@@ -177,7 +177,7 @@ VolumeFileManager::setSlice(int ds, uchar *tmp)
   int d = ds;
   if (m_slice0AtTop) d = (m_depth-1)-ds;
 
-  int bps = m_width*m_height*m_bytesPerVoxel;
+  qint64 bps = m_width*m_height*m_bytesPerVoxel;
   m_slabno = d/m_slabSize;
   m_filename = m_baseFilename +
                QString(".%1").arg(m_slabno+1, 3, 10, QChar('0'));

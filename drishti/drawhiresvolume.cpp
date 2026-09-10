@@ -6,7 +6,6 @@
 #include "matrix.h"
 #include "shaderfactory.h"
 #include "shaderfactory2.h"
-#include "shaderfactoryrgb.h"
 #include "global.h"
 #include "geometryobjects.h"
 #include "lighthandler.h"
@@ -795,7 +794,7 @@ DrawHiresVolume::loadTextureMemory()
       nbytes = 2;
     }
   nbytes *= nvol;
-  
+
   m_textureSlab = m_Volume->getSliceTextureSizeSlabs();
 
 
@@ -978,16 +977,6 @@ DrawHiresVolume::createDefaultShader()
 								m_lightInfo.peelMix,
 								m_amrData);
     }
-  else if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-    shaderString = ShaderFactoryRGB::genDefaultSliceShaderString(m_lightInfo.applyLighting,
-								 m_lightInfo.applyEmissive,
-								 m_crops,
-								 m_lightInfo.peel,
-								 m_lightInfo.peelType,
-								 m_lightInfo.peelMin,
-								 m_lightInfo.peelMax,
-								 m_lightInfo.peelMix);
   else
     {
       int nvol = 1;
@@ -1023,11 +1012,7 @@ DrawHiresVolume::createDefaultShader()
   m_defaultParm[0] = glGetUniformLocationARB(m_defaultShader, "lutTex");
   m_defaultParm[1] = glGetUniformLocationARB(m_defaultShader, "amrTex");
 
-  if (Global::volumeType() != Global::RGBVolume &&
-      Global::volumeType() != Global::RGBAVolume)
-    m_defaultParm[3] = glGetUniformLocationARB(m_defaultShader, "tfSet");
-  else
-    m_defaultParm[3] = glGetUniformLocationARB(m_defaultShader, "layerSpacing");
+  m_defaultParm[3] = glGetUniformLocationARB(m_defaultShader, "tfSet");
 
   m_defaultParm[4] = glGetUniformLocationARB(m_defaultShader, "delta");
   m_defaultParm[5] = glGetUniformLocationARB(m_defaultShader, "eyepos");
@@ -2468,17 +2453,6 @@ DrawHiresVolume::setRenderDefault()
     }
 
 
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    {
-      float frc = Global::stepsizeStill();
-
-      if (Global::allowInterruption())
-	frc = Global::stepsizeDrag() * Global::rrStep();
-
-      glUniform1fARB(m_defaultParm[3], frc);
-    }  
-
   if (m_drawImageType != Enums::DragImage)
     {
       Vec vsize = m_Volume->getSubvolumeTextureSize();
@@ -3133,9 +3107,7 @@ DrawHiresVolume::drawSlicesDefault(Vec pn, Vec minvert, Vec maxvert,
 
 	      if (tfSet[bno] < Global::lutSize())
 		{
-		  if (Global::volumeType() != Global::RGBVolume &&
-		      Global::volumeType() != Global::RGBAVolume)
-		    glUniform1fARB(m_defaultParm[3], tfSetF[bno]);
+		  glUniform1fARB(m_defaultParm[3], tfSetF[bno]);
 		  
 		  glUniform1fARB(m_defaultParm[18], depthcue);
 
@@ -4094,14 +4066,7 @@ DrawHiresVolume::drawPathInViewport(int pathOffset, Vec lpos, float depthcue,
 	  enableTextureUnits();
 	  glUseProgramObjectARB(m_defaultShader);
 
-	  if (Global::volumeType() != Global::RGBVolume &&
-	      Global::volumeType() != Global::RGBAVolume)
-	    glUniform1fARB(parm[3], (float)po[i].viewportTF()/(float)Global::lutSize());
-	  else
-	    {
-	      float frc = Global::stepsizeStill();
-	      glUniform1fARB(parm[3], frc);
-	    }	      
+	  glUniform1fARB(parm[3], (float)po[i].viewportTF()/(float)Global::lutSize());
 
 	  for(int nt=0; nt<maxthick; nt++)
 	    {
@@ -4371,14 +4336,7 @@ DrawHiresVolume::drawClipPlaneInViewport(int clipOffset, Vec lpos, float depthcu
 	  glViewport(vx, vy, vw, vh);
 	  //----------------
 
-	  if (Global::volumeType() != Global::RGBVolume &&
-	      Global::volumeType() != Global::RGBAVolume)
-	    glUniform1fARB(parm[3], (float)clipInfo.tfSet[ic]/(float)Global::lutSize());
-	  else
-	    {
-	      float frc = Global::stepsizeStill();
-	      glUniform1fARB(parm[3], frc);
-	    }	      
+	  glUniform1fARB(parm[3], (float)clipInfo.tfSet[ic]/(float)Global::lutSize());
 
 	  QList<bool> dummyclips;
 	  ViewAlignedPolygon *vap = new ViewAlignedPolygon;
@@ -4579,9 +4537,7 @@ DrawHiresVolume::drawClipPlaneDefault(int s, int layers,
 	{
 	  ViewAlignedPolygon *vap = m_polygon[clipOffset + ic];
 	  
-	  if (Global::volumeType() != Global::RGBVolume &&
-	      Global::volumeType() != Global::RGBAVolume)
-	    glUniform1fARB(m_defaultParm[3], (float)tfset[ic]/(float)Global::lutSize());
+	  glUniform1fARB(m_defaultParm[3], (float)tfset[ic]/(float)Global::lutSize());
 		  
 	  glUniform1fARB(m_defaultParm[18], depthcue);
 	  
@@ -5604,14 +5560,7 @@ DrawHiresVolume::resliceVolume(Vec pos,
 
   GLint *parm = m_defaultParm;
 
-  if (Global::volumeType() != Global::RGBVolume &&
-      Global::volumeType() != Global::RGBAVolume)
-    glUniform1fARB(parm[3], 0.0); // tfset
-  else
-    {
-      float frc = Global::stepsizeStill();
-      glUniform1fARB(parm[3], frc);
-    }	      
+  glUniform1fARB(parm[3], 0.0); // tfset
 
   if (getVolumeSurfaceArea == 0 &&
       Global::interpolationType(Global::TextureInterpolation)) // linear
@@ -6043,20 +5992,11 @@ DrawHiresVolume::resliceUsingPath(int pathIdx, bool fullThickness,
 
   GLint *parm = m_defaultParm;
 
-  if (Global::volumeType() != Global::RGBVolume &&
-      Global::volumeType() != Global::RGBAVolume)
-    {
-      if (po.viewportTF() >= 0 &&
-	  po.viewportTF() < Global::lutSize())
-	glUniform1fARB(parm[3], (float)po.viewportTF()/(float)Global::lutSize());
-      else
-	glUniform1fARB(parm[3], 0.0); // tfset
-    }
+  if (po.viewportTF() >= 0 &&
+      po.viewportTF() < Global::lutSize())
+    glUniform1fARB(parm[3], (float)po.viewportTF()/(float)Global::lutSize());
   else
-    {
-      float frc = Global::stepsizeStill();
-      glUniform1fARB(parm[3], frc);
-    }	      
+    glUniform1fARB(parm[3], 0.0); // tfset
 
   glUniform1fARB(parm[18], 1.0); // depthcue
 
@@ -6328,20 +6268,11 @@ DrawHiresVolume::resliceUsingClipPlane(Vec cpos, Quaternion rot, int thickness,
 
   GLint *parm = m_defaultParm;
 
-  if (Global::volumeType() != Global::RGBVolume &&
-      Global::volumeType() != Global::RGBAVolume)
-    {
-      if (tfSet >= 0 &&
-	  tfSet < Global::lutSize())
-	glUniform1fARB(parm[3], (float)tfSet/(float)Global::lutSize());
-      else
-	glUniform1fARB(parm[3], 0.0); // tfset
-    }
+  if (tfSet >= 0 &&
+      tfSet < Global::lutSize())
+    glUniform1fARB(parm[3], (float)tfSet/(float)Global::lutSize());
   else
-    {
-      float frc = Global::stepsizeStill();
-      glUniform1fARB(parm[3], frc);
-    }	      
+    glUniform1fARB(parm[3], 0.0); // tfset
 
   glUniform1fARB(parm[18], 1.0); // depthcue
 
@@ -6587,10 +6518,6 @@ bool
 DrawHiresVolume::getSaveValue()
 {
   bool saveValue = true;
-
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    saveValue = false;
 
   QStringList items;
   items << "value" << "opacity";

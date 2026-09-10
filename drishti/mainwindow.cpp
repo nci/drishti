@@ -1514,18 +1514,6 @@ MainWindow::checkStateChanged(int i, int j, bool flag)
       else if (j == 4 && flag)
 	m_tfEditor->changeVol(3);
     }
-  else if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-    {
-      if (j == 1 && flag)
-	m_tfEditor->changeVol(0);
-      else if (j == 2 && flag)
-	m_tfEditor->changeVol(1);
-      else if (j == 3 && flag)
-	m_tfEditor->changeVol(2);
-      else if (j == 4 && flag)
-	m_tfEditor->changeVol(3);
-    }
 
 
   updateComposite();
@@ -1580,21 +1568,6 @@ MainWindow::changeTransferFunctionDisplay(int tfnum, QList<bool> on)
 	    }
 	}
       else if (Global::volumeType() == Global::QuadVolume)
-	{
-	  if (on.count() > 3)
-	    {
-	      if (on[0])
-		m_tfEditor->changeVol(0);
-	      else if (on[1])
-		m_tfEditor->changeVol(1);
-	      else if (on[2])
-		m_tfEditor->changeVol(2);
-	      else if (on[3])
-		m_tfEditor->changeVol(3);
-	    }
-	}
-      else if (Global::volumeType() == Global::RGBVolume ||
-	       Global::volumeType() == Global::RGBAVolume)
 	{
 	  if (on.count() > 3)
 	    {
@@ -1796,15 +1769,7 @@ MainWindow::loadSingleVolume(QStringList flnm)
 
   createHiresLowresWindows();
 
-  if (StaticFunctions::checkExtension(flnm[0], ".zarr"))
-    loadVolumeList(flnm, false);
-  else
-    {
-      if (VolumeInformation::checkRGB(flnm[0]))
-	loadVolumeRGB(flnm[0].toUtf8().data());
-      else
-	loadVolumeList(flnm, false);
-    }
+  loadVolumeList(flnm, false);
 
   // reset
   m_bricks->reset();
@@ -2470,15 +2435,7 @@ MainWindow::postLoadVolume()
     }
 
   
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    {
-      Global::setEmptySpaceSkip(false);
-      MainWindowUI::mainWindowUI()->actionEmptySpaceSkip->setChecked(Global::emptySpaceSkip());
-      MainWindowUI::mainWindowUI()->actionEmptySpaceSkip->setDisabled(true);
-    }
-  else
-    MainWindowUI::mainWindowUI()->actionEmptySpaceSkip->setEnabled(true);
+  MainWindowUI::mainWindowUI()->actionEmptySpaceSkip->setEnabled(true);
 
 
   if (Global::volumeType() == Global::DummyVolume)
@@ -2543,54 +2500,6 @@ MainWindow::postLoadVolume()
       Global::setUse1D(true);
       ui.actionSwitch_To1D->setChecked(Global::use1D());
       m_tfContainer->switch1D();
-    }
-}
-
-void
-MainWindow::loadVolumeRGBFromUrls(QList<QUrl> urls)
-{
-  Global::setSaveImageType(Global::NoImage);
-
-  if (urls.count() > 0)
-    {
-      QList<QString> files;
-      for(int i=0; i<urls.count(); i++)
-	files.append(urls[i].toLocalFile());
-
-      loadVolumeRGB(files[0].toUtf8().data());
-    }
-}
-
-void
-MainWindow::loadVolumeRGB(char *flnm)
-{  
-  Global::setSaveImageType(Global::NoImage);
-
-  if (QString(flnm).isEmpty())
-    return;
- 
-  preLoadVolume();
-
-  m_Volume->loadVolumeRGB(flnm, false);
-
-  postLoadVolume();
-
-  QFileInfo f(flnm);
-  Global::setPreviousDirectory(f.absolutePath());
-
-  Global::setVolumeNumber(0);
-
-  QList<int> vsizes;
-  vsizes << 1;
-  emit setVolumes(vsizes);
-  emit refreshVolInfo(0, m_Volume->volInfo(0));
-
-  if (!Global::batchMode())
-    {
-      if (Global::volumeType() == Global::RGBVolume)
-	emit showMessage("RGB Volume loaded", false);
-      else
-	emit showMessage("RGBA Volume loaded", false);
     }
 }
 
@@ -3233,9 +3142,6 @@ MainWindow::loadProject(const char* flnm)
     loadVolume3List(m_volFiles1, m_volFiles2, m_volFiles3, false);
   else if (projectType == Global::QuadVolume)
     loadVolume4List(m_volFiles1, m_volFiles2, m_volFiles3, m_volFiles4, false);
-  else if (projectType == Global::RGBVolume ||
-	   projectType == Global::RGBAVolume)
-    loadVolumeRGB(m_volFiles1[0].toUtf8().data());
 
   m_bricks->reset();
   GeometryObjects::clipplanes()->reset();
@@ -4075,10 +3981,6 @@ MainWindow::saveVolumeIntoProject(const char *flnm, QString dtvfile)
       tn0 = doc.createTextNode("triple");
     else if (Global::volumeType() == Global::QuadVolume)
       tn0 = doc.createTextNode("quad");
-    else if (Global::volumeType() == Global::RGBVolume)
-      tn0 = doc.createTextNode("rgb");
-    else if (Global::volumeType() == Global::RGBAVolume)
-      tn0 = doc.createTextNode("rgba");
     de0.appendChild(tn0);
     topElement.appendChild(de0);
   }
@@ -4268,10 +4170,6 @@ MainWindow::loadVolumeFromProject(const char *flnm)
 	    volType = Global::TripleVolume;
 	  else if (str == "quad")
 	    volType = Global::QuadVolume;
-	  else if (str == "rgb")
-	    volType = Global::RGBVolume;
-	  else if (str == "rgba")
-	    volType = Global::RGBAVolume;
 	  else
 	    {
 	      showMessage(QString("VolumeType : %1 ??").arg(str), true);
@@ -4364,9 +4262,7 @@ MainWindow::changeHistogram(int volnum)
 
   VolumeInformation volInfo;
 
-  if (Global::volumeType() != Global::RGBVolume &&
-      Global::volumeType() != Global::RGBAVolume)
-    VolumeInformation::volInfo(files[vfn], volInfo);
+  VolumeInformation::volInfo(files[vfn], volInfo);
 
   QPolygonF fmap = volInfo.mapping;
   m_tfEditor->setMapping(fmap);
@@ -4438,25 +4334,14 @@ MainWindow::on_actionFlip_ImageZ_triggered()
 void
 MainWindow::on_actionEnable_Mask_triggered()
 {
-  if (Global::volumeType() != Global::RGBVolume &&
-      Global::volumeType() != Global::RGBAVolume)
-    {
-      bool hr = m_Hires->raised();
-      if (hr) m_Viewer->switchDrawVolume();
-
-      Global::setUseMask(!Global::useMask());
-
-      m_Hires->createShaders();
-
-      if (hr) m_Viewer->switchDrawVolume();
-    }
-  else
-    {
-      Global::setUseMask(false);
-      QMessageBox::information(0,
-			       "Error",
-			       "Use of masks allowed only for SingleVolumes");
-    }
+  bool hr = m_Hires->raised();
+  if (hr) m_Viewer->switchDrawVolume();
+  
+  Global::setUseMask(!Global::useMask());
+  
+  m_Hires->createShaders();
+  
+  if (hr) m_Viewer->switchDrawVolume();
 
   ui.actionEnable_Mask->setChecked(Global::useMask());
 }
@@ -4777,16 +4662,6 @@ MainWindow::maskRawVolume()
   QList<Vec> clipPos;
   QList<Vec> clipNormal;
   m_Hires->getClipForMask(clipPos, clipNormal);
-
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    {
-      m_Volume->maskRawVolume(m_Viewer->lookupTable(),
-			      clipPos, clipNormal,
-			      GeometryObjects::crops()->crops(),
-			      GeometryObjects::paths()->paths());
-      return;
-    }
 
   Vec bmin = m_Hires->volumeMin();
   Vec bmax = m_Hires->volumeMax();

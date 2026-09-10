@@ -50,9 +50,7 @@ Volume::setOffsets(int v, float od, float ow, float oh)
 int
 Volume::pvlVoxelType(int vol)
 {
-  if (Global::volumeType() == Global::DummyVolume ||
-      Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
+  if (Global::volumeType() == Global::DummyVolume)
     return 0;
 
   return m_volume[vol]->pvlVoxelType();
@@ -62,9 +60,7 @@ Volume::pvlVoxelType(int vol)
 void
 Volume::closePvlFileManager()
 {
-  if (Global::volumeType() == Global::DummyVolume ||
-      Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
+  if (Global::volumeType() == Global::DummyVolume)
     return;
 
   if (Global::volumeType() == Global::SingleVolume)
@@ -92,9 +88,7 @@ Volume::closePvlFileManager()
 VolumeFileManager*
 Volume::pvlFileManager(int vol)
 {
-  if (Global::volumeType() == Global::DummyVolume ||
-      Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
+  if (Global::volumeType() == Global::DummyVolume)
     return 0;
 
   return m_volume[vol]->pvlFileManager();
@@ -102,9 +96,7 @@ Volume::pvlFileManager(int vol)
 VolumeFileManager*
 Volume::gradFileManager(int vol)
 {
-  if (Global::volumeType() == Global::DummyVolume ||
-      Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
+  if (Global::volumeType() == Global::DummyVolume)
     return 0;
 
   return m_volume[vol]->gradFileManager();
@@ -112,9 +104,7 @@ Volume::gradFileManager(int vol)
 VolumeFileManager*
 Volume::lodFileManager(int vol)
 {
-  if (Global::volumeType() == Global::DummyVolume ||
-      Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
+  if (Global::volumeType() == Global::DummyVolume)
     return 0;
 
   return m_volume[vol]->lodFileManager();
@@ -124,10 +114,6 @@ int
 Volume::timestepNumber(int vol, int n)
 {
   if (Global::volumeType() == Global::DummyVolume)
-    return n;
-
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
     return n;
 
   return m_volume[vol]->timestepNumber(n);
@@ -209,9 +195,6 @@ Volume::startHistogramCalculation()
       m_volume[2]->startHistogramCalculation();
       m_volume[3]->startHistogramCalculation();
     }
-  else if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-      m_volumeRGB->startHistogramCalculation();
 }
 
 void
@@ -240,9 +223,6 @@ Volume::endHistogramCalculation()
       m_volume[2]->endHistogramCalculation();
       m_volume[3]->endHistogramCalculation();
     }
-  else if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-      m_volumeRGB->endHistogramCalculation();
 }
 
 void
@@ -254,9 +234,6 @@ Volume::getColumnsAndRows(int &ncols, int &nrows)
     }
   else if (Global::volumeType() == Global::SingleVolume)
     m_volume[0]->getColumnsAndRows(ncols, nrows);
-  else if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-    m_volumeRGB->getColumnsAndRows(ncols, nrows);
   else
     {
       int nvol = 2;
@@ -299,9 +276,6 @@ void Volume::getSliceTextureSize(int& texX, int& texY)
 
   if (Global::volumeType() == Global::SingleVolume)
     m_volume[0]->getSliceTextureSize(texX, texY);
-  else if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-    m_volumeRGB->getSliceTextureSize(texX, texY);
   else
     {
       int nvol = 2;
@@ -331,11 +305,6 @@ Volume::getDragTextureInfo()
   if (Global::volumeType() == Global::DummyVolume)
     return Vec(1,1,1);
 
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-  return m_volumeRGB->getDragTextureInfo();
-
-
   return m_volume[0]->getDragTextureInfo();
 }
 
@@ -345,13 +314,6 @@ Volume::getDragTextureSize(int &dtexX, int &dtexY)
   if (Global::volumeType() == Global::DummyVolume)
     {
       dtexX = dtexY = 128;
-      return;
-    }
-
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    {
-      m_volumeRGB->getDragTextureSize(dtexX, dtexY);
       return;
     }
 
@@ -370,9 +332,6 @@ Volume::getSliceTextureSizeSlabs()
 
   if (Global::volumeType() == Global::SingleVolume)
     return m_volume[0]->getSliceTextureSizeSlabs();
-  else if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getSliceTextureSizeSlabs();
   else
     {
       int nvol = 2;
@@ -453,13 +412,6 @@ void Volume::forceCreateLowresVolume()
   if (Global::volumeType() == Global::DummyVolume)
     return;
 
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    {
-      m_volumeRGB->createLowresTextureVolume();
-      return;
-    }
-
   m_volume[0]->createLowresTextureVolume();
 
   if (Global::volumeType() == Global::DoubleVolume)
@@ -484,20 +436,12 @@ int* Volume::getLowres1dHistogram(int vol)
   if (Global::volumeType() == Global::DummyVolume)
     return NULL;
 
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getLowres1dHistogram(vol);
-
   return m_volume[vol]->getLowres1dHistogram();
 }
 int* Volume::getLowres2dHistogram(int vol)
 {
   if (Global::volumeType() == Global::DummyVolume)
     return NULL;
-
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getLowres2dHistogram(vol);
 
   return m_volume[vol]->getLowres2dHistogram();
 }
@@ -507,20 +451,12 @@ int* Volume::getSubvolume1dHistogram(int vol)
   if (Global::volumeType() == Global::DummyVolume)
     return NULL;
 
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getSubvolume1dHistogram(vol);
-
   return m_volume[vol]->getSubvolume1dHistogram();
 }
 int* Volume::getSubvolume2dHistogram(int vol)
 {
   if (Global::volumeType() == Global::DummyVolume)
     return NULL;
-
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getSubvolume2dHistogram(vol);
 
   return m_volume[vol]->getSubvolume2dHistogram();
 }
@@ -530,20 +466,12 @@ int* Volume::getDrag1dHistogram(int vol)
   if (Global::volumeType() == Global::DummyVolume)
     return NULL;
 
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getDrag1dHistogram(vol);
-
   return m_volume[vol]->getDrag1dHistogram();
 }
 int* Volume::getDrag2dHistogram(int vol)
 {
   if (Global::volumeType() == Global::DummyVolume)
     return NULL;
-
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getDrag2dHistogram(vol);
 
   return m_volume[vol]->getDrag2dHistogram();
 }
@@ -557,10 +485,6 @@ QList<QString> Volume::volumeFiles(int vol)
       return vf;
     }
 
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->volumeFiles();
-
   return m_volume[vol]->volumeFiles();
 }
 
@@ -568,7 +492,6 @@ Volume::Volume()
 {
   Global::setVolumeType(Global::DummyVolume);
   m_volume.clear();
-  m_volumeRGB = 0;
   m_subvolumeTexture = 0;
   m_dragSubvolumeTexture = 0;
   m_dragTexture = 0;
@@ -604,34 +527,7 @@ Volume::clearVolumes()
     delete m_volume[i];
   m_volume.clear();
 
-  if (m_volumeRGB)
-    delete m_volumeRGB;
-  m_volumeRGB = 0;
-
   Global::setVolumeType(Global::DummyVolume);
-}
-
-bool
-Volume::loadVolumeRGB(const char *flnm, bool redo)
-{
-  clearVolumes();
-
-  bool rgba = VolumeInformation::checkRGBA(flnm);
-
-  if (rgba)
-    Global::setVolumeType(Global::RGBAVolume);
-  else
-    Global::setVolumeType(Global::RGBVolume);
-
-  m_volumeRGB = new VolumeRGB;
-  if (m_volumeRGB->loadVolume(flnm, redo) == false)
-    {
-      delete m_volumeRGB;
-      m_volumeRGB = 0;
-      return false;
-    }
-
-  return true;
 }
 
 bool
@@ -841,9 +737,6 @@ Volume::setRepeatType(QList<bool> rt)
     return;
   if (Global::volumeType() == Global::DummyVolume)
     return;
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return;
 
   for(int i=0; i<qMin(m_volume.count(), rt.count()); i++)
     m_volume[i]->setRepeatType(rt[i]);
@@ -859,10 +752,6 @@ Volume::setRepeatType(int vol, bool rt)
   if (Global::volumeType() == Global::DummyVolume)
     return;
 
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return;
-      
   m_volume[vol]->setRepeatType(rt);
 }
 
@@ -871,27 +760,19 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
 		     int volnum,
 		     bool force)
 {  
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->setSubvolume(boxMin, boxMax,
-				     volnum,
-				     force);
-  else
-    {
-      int bpv = 1;
+  int bpv = 1;
+  
+  int tms = Global::textureMemorySize()-10*Global::actualDragVolSize(); // in Mb
+  int sslevel = StaticFunctions::getSubsamplingLevel(tms,
+						     Global::maxArrayTextureLayers(),
+						     bpv,
+						     boxMin, boxMax);
+  sslevel = qMax(sslevel, Global::lod());
 
-      int tms = Global::textureMemorySize()-10*Global::actualDragVolSize(); // in Mb
-      int sslevel = StaticFunctions::getSubsamplingLevel(tms,
-							 Global::maxArrayTextureLayers(),
-							 bpv,
-							 boxMin, boxMax);
-      sslevel = qMax(sslevel, Global::lod());
-
-      return m_volume[0]->setSubvolume(boxMin, boxMax,
-				       sslevel,
-				       volnum,
-				       force);
-    }
+  return m_volume[0]->setSubvolume(boxMin, boxMax,
+				   sslevel,
+				   volnum,
+				   force);
 }
 
 bool
@@ -998,13 +879,6 @@ Volume::setSubvolume(Vec boxMin, Vec boxMax,
 VolumeInformation
 Volume::volInfo(int vnum, int vol)
 {
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    {
-      Global::setActualVolumeNumber(vnum, 0);
-      return m_volumeRGB->volInfo(vnum);
-    }
-
   if (vol > m_volume.count())
     {
       Global::setActualVolumeNumber(m_volume[0]->actualVolumeNumber(vnum), 0);
@@ -1017,10 +891,6 @@ Volume::volInfo(int vnum, int vol)
 
 Vec Volume::getSubvolumeSize()
 {
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getSubvolumeSize();
-  
   if (Global::volumeType() == Global::SingleVolume ||
       Global::volumeType() == Global::DummyVolume)
     return m_volume[0]->getSubvolumeSize();
@@ -1040,10 +910,6 @@ Vec Volume::getSubvolumeSize()
 
 Vec Volume::getDragSubvolumeTextureSize()
 {
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getDragSubvolumeTextureSize();
-
   if (Global::volumeType() == Global::SingleVolume ||
       Global::volumeType() == Global::DummyVolume)
     return m_volume[0]->getDragSubvolumeTextureSize();
@@ -1062,10 +928,6 @@ Vec Volume::getDragSubvolumeTextureSize()
 
 Vec Volume::getSubvolumeTextureSize()
 {
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getSubvolumeTextureSize();
-
   if (Global::volumeType() == Global::SingleVolume ||
       Global::volumeType() == Global::DummyVolume)
     return m_volume[0]->getSubvolumeTextureSize();
@@ -1087,10 +949,6 @@ int Volume::getSubvolumeSubsamplingLevel()
   if (Global::volumeType() == Global::DummyVolume)
     return 1;
 
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getSubvolumeSubsamplingLevel();
-
   return m_volume[0]->getSubvolumeSubsamplingLevel();
 }
 
@@ -1099,19 +957,11 @@ int Volume::getDragSubvolumeSubsamplingLevel()
   if (Global::volumeType() == Global::DummyVolume)
     return 1;
 
-//  if (Global::volumeType() == Global::RGBVolume ||
-//      Global::volumeType() == Global::RGBAVolume)
-//    return m_volumeRGB->getDragSubvolumeSubsamplingLevel();
-
   return m_volume[0]->getDragSubvolumeSubsamplingLevel();
 }
 
 Vec Volume::getFullVolumeSize()
 {
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getFullVolumeSize();
-
   if (Global::volumeType() == Global::SingleVolume ||
       Global::volumeType() == Global::DummyVolume)
    return m_volume[0]->getFullVolumeSize();
@@ -1144,11 +994,6 @@ uchar* Volume::getDragSubvolumeTexture()
   // single volume
   if (Global::volumeType() == Global::SingleVolume)
     return m_volume[0]->getDragSubvolumeTexture();
-
-  // rgb volume
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getDragSubvolumeTexture();
 
   // multiple volumes
   int nvol = 0;
@@ -1188,7 +1033,7 @@ Volume::allocSlabs(int nZSlices)
     return;
 
   int nvol = 0;
-  if (Global::volumeType() < Global::RGBAVolume)
+  if (Global::volumeType() <= Global::QuadVolume)
     {
       nvol = 1;
       m_volume[0]->allocSlabs(nZSlices);
@@ -1204,8 +1049,7 @@ Volume::allocSlabs(int nZSlices)
       nvol = 3;
       m_volume[2]->allocSlabs(nZSlices);
     }
-  if (Global::volumeType() == Global::QuadVolume &&
-      Global::volumeType() == Global::RGBAVolume)
+  if (Global::volumeType() == Global::QuadVolume)
     {
       nvol = 4;
       m_volume[3]->allocSlabs(nZSlices);
@@ -1237,19 +1081,10 @@ Volume::getSubvolumeTextureSlab(int startZSlice, int endZSlice)
 {
   if (Global::volumeType() == Global::DummyVolume)
     return 0;
-
     
-  Vec vsize;
-  vsize = m_volume[0]->getSubvolumeTextureSize();
-  
   // single volume
   if (Global::volumeType() == Global::SingleVolume)
     return m_volume[0]->getSlab(startZSlice, endZSlice);
-
-  // rgb volume
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getSubvolume();
 
   // multiple volumes
   int nvol = 0;
@@ -1259,7 +1094,9 @@ Volume::getSubvolumeTextureSlab(int startZSlice, int endZSlice)
 
   if (nvol < 1) return 0;
 
-
+  Vec vsize;
+  vsize = m_volume[0]->getSubvolumeTextureSize();
+  
   qint64 nx,ny,nz;
   nx = vsize.x;
   ny = vsize.y;
@@ -1297,10 +1134,6 @@ Volume::getSubvolumeTextureSlab(int startZSlice, int endZSlice)
 
 Vec Volume::getLowresVolumeSize()
 {
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getLowresVolumeSize();
-
   if (Global::volumeType() == Global::SingleVolume ||
       Global::volumeType() == Global::DummyVolume)
     return m_volume[0]->getLowresVolumeSize();
@@ -1321,10 +1154,6 @@ Vec Volume::getLowresVolumeSize()
 
 Vec Volume::getLowresTextureVolumeSize()
 {
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getLowresTextureVolumeSize();
-
   if (Global::volumeType() == Global::SingleVolume ||
       Global::volumeType() == Global::DummyVolume)
     return m_volume[0]->getLowresTextureVolumeSize();
@@ -1357,9 +1186,6 @@ uchar* Volume::getLowresTextureVolume()
 {
   if (Global::volumeType() == Global::DummyVolume)
     return 0;
-  else if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-    return m_volumeRGB->getLowresTextureVolume();
   else if (Global::volumeType() == Global::SingleVolume)
     return m_volume[0]->getLowresTextureVolume();
 
@@ -1476,11 +1302,6 @@ Volume::saveVolume(uchar *lut,
 			    clipPos, clipNormal,
 			    crops,
 			    paths);
-  else if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-    m_volumeRGB->saveOpacityVolume(lut,
-				   clipPos, clipNormal,
-				   crops);
   else
     QMessageBox::critical(0, "Error",
 			  "Save Opacity Volume possible only for single volumes");
@@ -1498,11 +1319,6 @@ Volume::maskRawVolume(uchar *lut,
 				 clipPos, clipNormal,
 				 crops,
 				 paths);
-  else if (Global::volumeType() == Global::RGBVolume ||
-	   Global::volumeType() == Global::RGBAVolume)
-    m_volumeRGB->maskRawVolume(lut,
-			       clipPos, clipNormal,
-			       crops);
   else
     QMessageBox::critical(0, "Error",
 			  "Save masked raw volume possible only for single volumes");

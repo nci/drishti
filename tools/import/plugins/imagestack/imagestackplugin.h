@@ -65,7 +65,8 @@ class ImageStackPlugin : public QObject, VolInterface
   void savePvlHeader(QString,
 		     int, int, int,
 		     QString,
-		     int);
+		     int,
+		     QString);
 
   void saveTrimmedRGB(QString,
 		      int, int, int, int, int, int);

@@ -2,7 +2,6 @@
 #define VOLUME_H
 
 #include "volumesingle.h"
-#include "volumergb.h"
 
 class Volume : public QObject
 {
@@ -30,7 +29,6 @@ class Volume : public QObject
   VolumeFileManager* gradFileManager(int);
   VolumeFileManager* lodFileManager(int);
 
-  bool loadVolumeRGB(const char*, bool);
   bool loadDummyVolume(int, int, int);
   bool loadVolume(QList<QString>, bool);
   bool loadVolume(QList<QString>,
@@ -155,8 +153,6 @@ class Volume : public QObject
 
  private :
   QList<VolumeSingle*> m_volume;
-
-  VolumeRGB* m_volumeRGB;
 
   uchar* m_subvolumeTexture;
   uchar* m_dragSubvolumeTexture;

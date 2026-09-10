@@ -393,14 +393,25 @@ void
 ImageStackPlugin::savePvlHeader(QString pvlFilename,
 				int d, int w, int h,
 				QString voxelType,
-				int slabSize)
+				int slabSize,
+				QString rgb)
 {
-  QString xmlfile = pvlFilename;
+  QString xmlfile = pvlFilename + rgb + ".pvl.nc";
 
   QDomDocument doc("Drishti_Header");
 
   QDomElement topElement = doc.createElement("PvlDotNcFileHeader");
   doc.appendChild(topElement);
+
+  {      
+    QString vstr = QFileInfo(pvlFilename + rgb + ".001").fileName();
+    //vstr = fileInfo.fileName();
+    QDomElement de0 = doc.createElement("pvlnames");
+    QDomText tn0;
+    tn0 = doc.createTextNode(QString("%1").arg(vstr));
+    de0.appendChild(tn0);
+    topElement.appendChild(de0);
+  }
 
   {      
     QDomElement de0 = doc.createElement("gridsize");
@@ -508,25 +519,44 @@ ImageStackPlugin::saveTrimmedRGB(QString trimFile,
     tmpA = new uchar[nbytes];
 
 
-  QString voxelType = "RGB";
-  if (saveAlpha) voxelType = "RGBA";
-  
-  //*** max 1Gb per slab
-  int slabSize;
-  slabSize = (1024*1024*1024)/(w*h);
+  //QString voxelType = "RGB";
+  //if (saveAlpha) voxelType = "RGBA";
 
-  savePvlHeader(trimFile,
+  QString voxelType = "unsigned char";
+  
+  int slabSize = d+1;
+  //slabSize = (1024*1024*1024)/(w*h);
+
+  QString pvlfile = trimFile;
+  pvlfile.chop(6);
+
+  savePvlHeader(pvlfile,
 		d, w, h,
 		voxelType,
-		slabSize);			       
+		slabSize,
+		"red");			       
+  savePvlHeader(pvlfile,
+		d, w, h,
+		voxelType,
+		slabSize,
+		"green");			       
+  savePvlHeader(pvlfile,
+		d, w, h,
+		voxelType,
+		slabSize,
+		"blue");
+  if (saveAlpha)
+    savePvlHeader(pvlfile,
+		  d, w, h,
+		  voxelType,
+		  slabSize,
+		  "alpha");
+    
 
   VolumeFileManager rFileManager;
   VolumeFileManager gFileManager;
   VolumeFileManager bFileManager;
   VolumeFileManager aFileManager;
-
-  QString pvlfile = trimFile;
-  pvlfile.chop(6);
 
   QString rFilename = pvlfile + QString("red");
   QString gFilename = pvlfile + QString("green");

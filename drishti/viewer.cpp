@@ -189,13 +189,7 @@ Viewer::reloadData()
   Vec bmin, bmax;
   m_lowresVolume->subvolumeBounds(bmin, bmax);
 
-  if (Global::volumeType() == Global::RGBVolume)
-    m_hiresVolume->updateSubvolume(Global::volumeNumber(),
-				   bmin, bmax, true);
-  else if (Global::volumeType() == Global::RGBAVolume)
-    m_hiresVolume->updateSubvolume(Global::volumeNumber(),
-				   bmin, bmax, true);
-  else if (Global::volumeType() == Global::SingleVolume ||
+  if (Global::volumeType() == Global::SingleVolume ||
 	   Global::volumeType() == Global::DummyVolume)
     m_hiresVolume->updateSubvolume(Global::volumeNumber(),
 				   bmin, bmax, true);
@@ -241,13 +235,7 @@ Viewer::switchToHires()
   Vec bmin, bmax;
   m_lowresVolume->subvolumeBounds(bmin, bmax);
 
-  if (Global::volumeType() == Global::RGBVolume)
-    m_hiresVolume->updateSubvolume(Global::volumeNumber(),
-				   bmin, bmax, true);
-  else if (Global::volumeType() == Global::RGBAVolume)
-    m_hiresVolume->updateSubvolume(Global::volumeNumber(),
-				   bmin, bmax, true);
-  else if (Global::volumeType() == Global::SingleVolume ||
+  if (Global::volumeType() == Global::SingleVolume ||
 	   Global::volumeType() == Global::DummyVolume)
     m_hiresVolume->updateSubvolume(Global::volumeNumber(),
 				   bmin, bmax, true);
@@ -1011,18 +999,14 @@ Viewer::updateLookupTable()
   // check whether emptyspaceskip data structure
   // needs to be reevaluated
   bool prune = false;
-  if (Global::volumeType() != Global::RGBVolume &&
-      Global::volumeType() != Global::RGBAVolume)
+  for (int i=0; i<Global::lutSize()*256*256; i++)
     {
-      for (int i=0; i<Global::lutSize()*256*256; i++)
+      bool pl = m_prevLut[4*i+3] > 0;
+      bool ml = m_lut[4*i+3] > 0;
+      if (pl != ml)
 	{
-	  bool pl = m_prevLut[4*i+3] > 0;
-	  bool ml = m_lut[4*i+3] > 0;
-	  if (pl != ml)
-	    {
-	      prune = true;
-	      break;
-	    }
+	  prune = true;
+	  break;
 	}
     }
   //--------------
@@ -1049,35 +1033,29 @@ Viewer::updateLookupTable()
   lut = new unsigned char[Global::lutSize()*256*256*4];
   memset(lut, 0, Global::lutSize()*256*256*4);      
 
-  if (Global::volumeType() != Global::RGBVolume &&
-      Global::volumeType() != Global::RGBAVolume)
-    {
-      float frc = Global::stepsizeStill();
-      frc = qMax(0.2f, frc);
-
-      for (int i=0; i<Global::lutSize()*256*256; i++)
-	{      
-	  qreal r,g,b,a;
-	  
-	  r = (float)m_lut[4*i+0]/255.0f;
-	  g = (float)m_lut[4*i+1]/255.0f;
-	  b = (float)m_lut[4*i+2]/255.0f;
-	  a = (float)m_lut[4*i+3]/255.0f;	  
-	  
-	  r*=a; g*=a; b*=a;
-	  r = 1-pow((float)(1-r), (float)frc);
-	  g = 1-pow((float)(1-g), (float)frc);
-	  b = 1-pow((float)(1-b), (float)frc);
-	  a = 1-pow((float)(1-a), (float)frc);	  
-	  
-	  lut[4*i+0] = 255*r;
-	  lut[4*i+1] = 255*g;
-	  lut[4*i+2] = 255*b;
-	  lut[4*i+3] = 255*a;
-	}
+  float frc = Global::stepsizeStill();
+  frc = qMax(0.2f, frc);
+  
+  for (int i=0; i<Global::lutSize()*256*256; i++)
+    {      
+      qreal r,g,b,a;
+      
+      r = (float)m_lut[4*i+0]/255.0f;
+      g = (float)m_lut[4*i+1]/255.0f;
+      b = (float)m_lut[4*i+2]/255.0f;
+      a = (float)m_lut[4*i+3]/255.0f;	  
+      
+      r*=a; g*=a; b*=a;
+      r = 1-pow((float)(1-r), (float)frc);
+      g = 1-pow((float)(1-g), (float)frc);
+      b = 1-pow((float)(1-b), (float)frc);
+      a = 1-pow((float)(1-a), (float)frc);	  
+      
+      lut[4*i+0] = 255*r;
+      lut[4*i+1] = 255*g;
+      lut[4*i+2] = 255*b;
+      lut[4*i+3] = 255*a;
     }
-  else 
-    memcpy(lut, m_lut, Global::lutSize()*4*256*256);
 
 
   if (Global::emptySpaceSkip() &&
@@ -1998,8 +1976,6 @@ void
 Viewer::fboToMovieFrame()
 {
   QImage bimg = m_imageBuffer->toImage();
-  //bimg = bimg.mirrored();
-  //bimg = bimg.rgbSwapped();
 
   memcpy(m_movieFrame, bimg.bits(),
 	 4*bimg.width()*bimg.height());     
@@ -2019,8 +1995,6 @@ Viewer::saveMovie()
       else
 	screenToMovieFrame();
 
-      //QImage bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
-      //m_videoEncoder.encodeImage(bimg);
       m_videoEncoder.encodeImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);
     }
   else if (m_imageMode == Enums::StereoImageMode)
@@ -2035,8 +2009,6 @@ Viewer::saveMovie()
       else
 	screenToMovieFrame();
 
-      //QImage bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
-      //m_videoEncoder.encodeImage(bimg);
       m_videoEncoder.encodeImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);
 
       // --- right image
@@ -2049,8 +2021,6 @@ Viewer::saveMovie()
       else
 	screenToMovieFrame();
 
-      //bimg = QImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);          
-      //m_videoEncoderR.encodeImage(bimg);
       m_videoEncoderR.encodeImage(m_movieFrame, m_imageWidth, m_imageHeight, m_imageWidth*4, QImage::Format_ARGB32);
     }
 }
@@ -5046,111 +5016,6 @@ Viewer::processCommand(QString cmd)
 
       emit countIsolatedRegions();
     }
-//  else if (list[0].contains("changesliceorder"))
-//    {
-//      changeSliceOrdering();
-//      return;
-//    }
-//  else if (list[0].contains("reslice") ||
-//	   list[0].contains("rescale"))
-//    {
-//      if (!m_hiresVolume->raised())
-//	{
-//	  QMessageBox::critical(0, "Error", "Cannot apply command in Lowres mode");
-//	  return;
-//	}
-//
-//      float subsample = 1;
-//      int tagvalue = -1;
-//      if (list.size() > 1) subsample = qMax(0.0f, list[1].toFloat(&ok));
-//      if (list.size() > 2) tagvalue = list[2].toInt(&ok);
-//
-//      if (list[0] == "rescale")      
-//	{
-//
-//	  Vec smin = m_lowresVolume->volumeMin();
-//	  Vec smax = m_lowresVolume->volumeMax();
-//	  Vec pos = Vec((smax.x+smin.x)*0.5,(smax.y+smin.y)*0.5,smax.z+10);
-//	  m_hiresVolume->resliceVolume(pos,
-//				       Vec(0,0,-1), Vec(1,0,0), Vec(0,1,0),
-//				       subsample,
-//				       0, tagvalue);
-//	}
-//      else
-//	{
-//	  m_hiresVolume->resliceVolume(camera()->position(),
-//				       camera()->viewDirection(),
-//				       camera()->rightVector(),
-//				       camera()->upVector(),
-//				       subsample,
-//				       0, tagvalue);
-//	}
-//
-//      return;
-//    }
-//  else if ((list[0] == "getvolume" ||
-//	    list[0] == "getsurfacearea") &&
-//	   list.size() <= 2)
-//    {
-//      if (!m_hiresVolume->raised())
-//	{
-//	  QMessageBox::critical(0, "Error", "Cannot apply command in Lowres mode");
-//	  return;
-//	}
-//
-//      int getVolume = 1;
-//      if (list[0] == "getsurfacearea")
-//	getVolume = 2;
-//	      
-//      Vec smin = m_lowresVolume->volumeMin();
-//      Vec smax = m_lowresVolume->volumeMax();
-//      if (list.size() == 1)
-//	{
-//	  Vec pos = Vec((smax.x+smin.x)*0.5,(smax.y+smin.y)*0.5,smax.z+10);
-//	  m_hiresVolume->resliceVolume(pos,
-//				       Vec(0,0,-1), Vec(1,0,0), Vec(0,1,0),
-//				       1,
-//				       getVolume, -1); // use opacity to getVolume/SurfaceArea
-//	}
-//      else
-//	{
-//	  int tag = list[1].toInt(&ok);
-//	  if (ok && tag >= 0 && tag <= 255)
-//	    m_hiresVolume->resliceVolume((smax+smin)*0.5,
-//					 Vec(0,0,1), Vec(1,0,0), Vec(0,1,0),
-//					 1,
-//					 getVolume, tag); // use opacity to getVolume/SurfaceArea
-//	  else
-//	    QMessageBox::critical(0, "Error",
-//				     "Tag value should be between 0 and 255");
-//	}
-//    }
-//  else if (list[0] == "caption")
-//    {
-//      CaptionDialog cd(0,
-//		       "Caption",
-//		       QFont("Helvetica", 15),
-//		       QColor::fromRgbF(1,1,1,1),
-//		       QColor::fromRgbF(1,1,1,1),
-//		       0);
-//      cd.hideAngle(false);
-//      cd.move(QCursor::pos());
-//      if (cd.exec() == QDialog::Accepted)
-//	{
-//	  QString text = cd.text();
-//	  QFont font = cd.font();
-//	  QColor color = cd.color();
-//	  QColor haloColor = cd.haloColor();
-//	  float angle = cd.angle();
-//	  
-//	  CaptionObject co;
-//	  co.set(QPointF(0.5, 0.5),
-//		 text, font,
-//		 color, haloColor,
-//		 angle);
-//	  GeometryObjects::captions()->add(co);
-//	}
-//    }
   else if (list[0] == "search")
     {
       if (list.size() > 1)
@@ -5324,8 +5189,6 @@ Viewer::commandEditor()
       if (Global::volumeType() == Global::DoubleVolume) nbytes *= 2;
       if (Global::volumeType() == Global::TripleVolume) nbytes *= 3;
       if (Global::volumeType() == Global::QuadVolume) nbytes *= 4;
-      if (Global::volumeType() == Global::RGBVolume) nbytes *= 3;
-      if (Global::volumeType() == Global::RGBAVolume) nbytes *= 4;
 
       Vec volSize = m_hiresVolume->volumeSize();
       qint64 vmb = volSize.x*volSize.y*volSize.z;
@@ -5547,8 +5410,6 @@ Viewer::processMorphologicalOperations()
     if (Global::volumeType() == Global::DoubleVolume) nbytes *= 2;
     if (Global::volumeType() == Global::TripleVolume) nbytes *= 3;
     if (Global::volumeType() == Global::QuadVolume) nbytes *= 4;
-    if (Global::volumeType() == Global::RGBVolume) nbytes *= 3;
-    if (Global::volumeType() == Global::RGBAVolume) nbytes *= 4;
 
     Vec volSize = m_hiresVolume->volumeSize();
     qint64 vmb = volSize.x*volSize.y*volSize.z;

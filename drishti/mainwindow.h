@@ -271,14 +271,12 @@ class MainWindow : public QMainWindow
    void loadDummyVolume(int, int, int);
 
    void loadVolumeFromUrls(QList<QUrl>);
-   void loadVolumeRGBFromUrls(QList<QUrl>);
 
    void loadKeyFrames(const char*);
    void saveKeyFrames(const char*);
 
    void loadVolumeList(QList<QString>, bool);
    void loadVolume(QList<QString>);
-   void loadVolumeRGB(char*);
 
    void loadVolume2List(QList<QString>, QList<QString>, bool);
    bool loadVolume2(QList<QString>, QList<QString>);

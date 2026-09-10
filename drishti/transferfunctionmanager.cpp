@@ -432,54 +432,7 @@ TransferFunctionManager::loadDefaultTF()
   for(int i=0; i<cols; i++) on << false;  
 
   QGradientStops stops;
-  if (Global::volumeType() == Global::RGBVolume ||
-      Global::volumeType() == Global::RGBAVolume)
-    {
-      poly.clear();
-      poly << QPointF(0.5, 1.0)
-	   << QPointF(0.5, 0.0);
-      si.setPoints(poly);
-
-      poly.clear();      
-      poly << QPointF(0.5, 0.5)
-	   << QPointF(0.5, 0.5);
-      si.setNormalWidths(poly);
-
-
-      stops.clear();
-      stops << QGradientStop(0, QColor(255, 255, 255, 0))
-	    << QGradientStop(0.5, QColor(255, 255, 255, 200))
-	    << QGradientStop(1, QColor(255, 255, 255, 250));
-      si.setGradientStops(stops);
-
-      for(int i=0; i<cols; i++) on[i] = false;  
-      on[0] = true;
-      si.setOn(on);
-      si.setName("red");
-      m_tfContainer->fromSplineInformation(si);  
-
-      for(int i=0; i<cols; i++) on[i] = false;  
-      on[1] = true;
-      si.setOn(on);
-      si.setName("green");
-      m_tfContainer->fromSplineInformation(si);  
-
-      for(int i=0; i<cols; i++) on[i] = false;  
-      on[2] = true;
-      si.setOn(on);
-      si.setName("blue");
-      m_tfContainer->fromSplineInformation(si);  
-
-      if (Global::volumeType() == Global::RGBAVolume)
-	{
-	  for(int i=0; i<cols; i++) on[i] = false;  
-	  on[3] = true;
-	  si.setOn(on);
-	  si.setName("alpha");
-	  m_tfContainer->fromSplineInformation(si);
-	}
-    }
-  else if (Global::volumeType() != Global::DummyVolume)
+  if (Global::volumeType() != Global::DummyVolume)
     {
       if (Global::volumeType() >= Global::SingleVolume)
 	{

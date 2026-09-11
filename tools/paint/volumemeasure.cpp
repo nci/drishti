@@ -631,7 +631,8 @@ VolumeMeasure::getDistanceToSurface(Vec bmin, Vec bmax, int tag)
   qApp->processEvents();
 
   // generate squared distance transform
-  float *dt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
+  float *dt = BinaryDistanceTransform::binaryEDTsq(Global::mainWindow(),
+						   visibleMask,
 						   mx, my, mz,
 						   true);
   //---------------

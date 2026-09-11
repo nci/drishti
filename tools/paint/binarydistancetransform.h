@@ -7,12 +7,14 @@
 #include <limits>
 #include <memory>
 
+#include <QWidget>
 #include "mybitarray.h"
 
 class BinaryDistanceTransform
 {
  public :
-  static float* binaryEDTsq(MyBitArray&,
+  static float* binaryEDTsq(QWidget*,
+			    MyBitArray&,
 			    const qint64, const qint64, const qint64,
 			    const bool black_border=false,
 			    float* workspace=NULL);

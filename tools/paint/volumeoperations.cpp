@@ -15,6 +15,8 @@
 #include <QStack>
 
 #include <queue>
+#include <vector>
+#include <algorithm>
 
 #include "cc3d.h"
 
@@ -701,7 +703,7 @@ VolumeOperations::resetT(int ds, int ws, int hs,
   //QThreadPool::globalInstance()->setMaxThreadCount(nThreads);
 						   
   // Create a QFutureWatcher and connect signals and slots.
-  progress.setLabelText(QString("Identifying visible region using %1 thread(s)...").arg(nThreads));
+  //progress.setLabelText(QString("Identifying visible region using %1 thread(s)...").arg(nThreads));
   QFutureWatcher<void> futureWatcher;
   QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
   QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
@@ -898,6 +900,7 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
   
   GeometryObjects::crops()->collectCropInfoBeforeCheckCropped();
 
+  //QProgressDialog progress(Global::mainWindow());
   QProgressDialog progress;
 
   if (showProgress)
@@ -1147,11 +1150,11 @@ VolumeOperations::getConnectedRegion(int dr, int wr, int hr,
   MyBitArray bitmask; 
   bitmask.resize(mx*my*mz);
  
-  getConnectedRegionFromBitmask(dr-ds, wr-ws, hr-hs,
-				0, 0, 0,
-				mz-1, my-1, mx-1,
-				cbitmask,
-				bitmask);
+  getConnectedRegionFromBitmaskCC(dr-ds, wr-ws, hr-hs,
+				  0, 0, 0,
+				  mz-1, my-1, mx-1,
+				  cbitmask,
+				  bitmask);
 
   cbitmask = bitmask;
 }
@@ -1175,12 +1178,8 @@ VolumeOperations::getConnectedRegionFromBitmask(int dr, int wr, int hr,
   qint64 my = we-ws+1;
   qint64 mz = de-ds+1;
 
+  qint64 totalVoxels = mz*my*mx;
 
-  auto idx = [=](int x,int y,int z)
-  {
-    return (z-ds)*mx*my + (y-ws)*mx + (x-hs);
-  };
-  
   auto in  = [=](int x,int y,int z)
   {
     return x>=hs && x<=he && y>=ws &&y<=we && z>=ds && z<=de;
@@ -1196,74 +1195,255 @@ VolumeOperations::getConnectedRegionFromBitmask(int dr, int wr, int hr,
 
   cbitmask.fill(false);
 
-  QList<Vec> edges;
-  edges.clear();
-  edges << Vec(dr,wr,hr);
-  qint64 bidx = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
-  cbitmask.setBit(bidx, true);
+  qint64 bidx0 = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
+  cbitmask.setBit(bidx0, true);
+
+  std::queue<Vec> queue;
+  queue.push(Vec(dr,wr,hr));
 
   //------------------------------------------------------
-  // dilate from seed
-  bool done = false;
-  int nd = 0;
-  int pvnd = 0;
-  QList<Vec> tedges;
-  while(!done)
+  // BFS from seed
+  qint64 visited = 1;
+  int lastPct = 0;
+  while(!queue.empty())
     {
-      nd = (nd + 1)%100000;
-      int pnd = 90*(float)nd/(float)100000;
-      if (pnd != pvnd)
+      int pct = (int)(90*visited/totalVoxels);
+      if (pct != lastPct)
 	{
-	  progress.setValue(pnd);
+	  progress.setValue(pct);
 	  qApp->processEvents();
+	  lastPct = pct;
 	}
-      pvnd = pnd;
 
-      tedges.clear();
+      Vec cur = queue.front();
+      queue.pop();
 
-      progress.setLabelText(QString("Identifying connected region %1").arg(edges.count()));
-      qApp->processEvents();
-
-            
-      // find outer boundary to fill
-      for(int e=0; e<edges.count(); e++)
+      for(int i=0; i<6; i++)
 	{
-	  int dx = edges[e].x;
-	  int wx = edges[e].y;
-	  int hx = edges[e].z;
-	  	  
-	  for(int i=0; i<6; i++)
+	  int d2 = cur.x + indices[3*i+0];
+	  int w2 = cur.y + indices[3*i+1];
+	  int h2 = cur.z + indices[3*i+2];
+	  
+	  if (!in(h2, w2, d2)) continue;
+	      
+	  qint64 bidx = (d2-ds)*mx*my + (w2-ws)*mx + (h2-hs);
+	      
+if (vbitmask.testBit(bidx) && !cbitmask.testBit(bidx))
 	    {
-	      int da = indices[3*i+0];
-	      int wa = indices[3*i+1];
-	      int ha = indices[3*i+2];
-	      
-	      int d2 = dx+da;
-	      int w2 = wx+wa;
-	      int h2 = hx+ha;
-	      
-	      if (!in(h2, w2, d2)) continue;
-	      
-	      qint64 bidx = idx(h2, w2, d2);
-	      
-	      if (vbitmask.testBit(bidx) &&
-		 !cbitmask.testBit(bidx))
-		{
-		  cbitmask.setBit(bidx, true);
-		  tedges << Vec(d2,w2,h2);		  
-		}
+	      cbitmask.setBit(bidx, true);
+	      queue.push(Vec(d2,w2,h2));
+	      visited++;
 	    }
 	}
-
-      edges.clear();
-
-      if (tedges.count() > 0)
-	edges = tedges;
-      else
-	done = true;
     }
   //------------------------------------------------------
 }
+
+//------------------------------------------------------
+// parallel connected components approach
+// labels all components in the volume in the first pass,
+// then extracts the component containing the seed voxel
+qint64
+VolumeOperations::_findRoot(qint64 x, std::vector<qint64>& parent)
+{
+  // parent[root] < 0 stores the negated component size
+  if (parent[x] < 0)
+    return x;
+
+  // find root
+  qint64 root = x;
+  while (parent[root] >= 0)
+    root = parent[root];
+
+  // path compression
+  while (parent[x] >= 0)
+    {
+      qint64 next = parent[x];
+      parent[x] = root;
+      x = next;
+    }
+
+  return root;
+}
+
+void
+VolumeOperations::_unionLabels(qint64 a, qint64 b,
+			       std::vector<qint64>& parent)
+{
+  qint64 ra = _findRoot(a, parent);
+  qint64 rb = _findRoot(b, parent);
+  if (ra == rb)
+    return;
+
+  // union by size (parent[root] is negative size)
+  if (parent[ra] > parent[rb])
+    std::swap(ra, rb);
+  parent[ra] += parent[rb];
+  parent[rb] = ra;
+}
+
+void
+VolumeOperations::getConnectedRegionFromBitmaskCC(int dr, int wr, int hr,
+						  int ds, int ws, int hs,
+						  int de, int we, int he,
+						  MyBitArray& vbitmask,
+						  MyBitArray& cbitmask)
+{
+  QProgressDialog progress("Identifying connected region from bitmask",
+			   QString(),
+			   0, 100,
+			   Global::mainWindow(),
+			   Qt::WindowStaysOnTopHint);
+  progress.setMinimumDuration(0);
+
+  qint64 mx = he-hs+1;
+  qint64 my = we-ws+1;
+  qint64 mz = de-ds+1;
+
+  qint64 totalVoxels = mz*my*mx;
+
+  cbitmask.fill(false);
+
+  qint64 bidx0 = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
+  if (!vbitmask.testBit(bidx0))
+    return;
+
+  std::vector<qint64> parent(totalVoxels);
+  std::fill(parent.begin(), parent.end(), -1);
+
+  //------------------------------------------------------
+  // first pass - label connected components via union-find
+  progress.setLabelText("Labeling connected components");
+  qint64 nbits = 0;
+  qint64 ictr = 0;
+  for(int d2=ds; d2<=de; d2++)
+    for(int w2=ws; w2<=we; w2++)
+      for(int h2=hs; h2<=he; h2++)
+	{
+	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	  if (!vbitmask.testBit(bidx))
+	    continue;
+	  nbits++;
+
+	  // right neighbor
+	  if (h2 < he)
+	    {
+	      qint64 bidx2 = bidx+1;
+	      if (vbitmask.testBit(bidx2))
+		_unionLabels(bidx, bidx2, parent);
+	    }
+	  // back neighbor
+	  if (w2 < we)
+	    {
+	      qint64 bidx2 = bidx+mx;
+	      if (vbitmask.testBit(bidx2))
+		_unionLabels(bidx, bidx2, parent);
+	    }
+	  // below neighbor
+	  if (d2 < de)
+	    {
+	      qint64 bidx2 = bidx+mx*my;
+	      if (vbitmask.testBit(bidx2))
+		_unionLabels(bidx, bidx2, parent);
+	    }
+
+	  ictr++;
+	  if ((ictr & 0x3FFFF) == 0) // process events every ~262k voxels
+	    {
+	      progress.setValue((int)(45*ictr/totalVoxels));
+	      qApp->processEvents();
+	    }
+	}
+
+  qint64 root0 = _findRoot(bidx0, parent);
+
+  // flatten the union-find so that the parallel pass is read-only
+  // set voxels map to their (non-negative) root id, unset voxels to -1
+  // self-reference safe: stops at roots whose marker has already been flattened
+  if (nbits > 1)
+    for(qint64 i=0; i<totalVoxels; i++)
+      {
+	if (!vbitmask.testBit(i))
+	  parent[i] = -1;
+	else
+	  {
+	    qint64 root = i;
+	    while (parent[root] >= 0 && parent[root] != root)
+	      root = parent[root];
+	    parent[i] = root;
+	  }
+      }
+
+  //------------------------------------------------------
+  // second pass - mark all voxels belonging to seed component
+  // (parallel across depth slices)
+  if (nbits > 1)
+    {
+      QList<QList<QVariant>> param;
+      for(int d2=ds; d2<=de; d2++)
+	{
+	  QList<QVariant> plist;
+	  plist << QVariant(ds);
+	  plist << QVariant(de);
+	  plist << QVariant(ws);
+	  plist << QVariant(we);
+	  plist << QVariant(hs);
+	  plist << QVariant(he);
+	  plist << QVariant(d2);
+	  plist << QVariant((qint64)root0);
+	  plist << QVariant::fromValue(static_cast<void*>(&vbitmask));
+	  plist << QVariant::fromValue(static_cast<void*>(&cbitmask));
+	  plist << QVariant::fromValue(static_cast<void*>(&parent));
+	  plist << QVariant(mx);
+	  plist << QVariant(my);
+	  param << plist;
+	}
+
+      int nThreads = qMax(1, (int)(QThread::idealThreadCount()));
+      progress.setLabelText(QString("Labeling connected components using %1 thread(s)...").arg(nThreads));
+      QFutureWatcher<void> futureWatcher;
+      QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
+      QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
+      QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
+
+      futureWatcher.setFuture(QtConcurrent::map(param,
+						VolumeOperations::parMarkSeedComponent));
+
+      progress.exec();
+      futureWatcher.waitForFinished();
+    }
+  else
+    cbitmask.setBit(bidx0, true);
+  //------------------------------------------------------
+}
+
+void
+VolumeOperations::parMarkSeedComponent(QList<QVariant> plist)
+{
+  int ds = plist[0].toInt();
+  int de = plist[1].toInt();
+  int ws = plist[2].toInt();
+  int we = plist[3].toInt();
+  int hs = plist[4].toInt();
+  int he = plist[5].toInt();
+  qint64 d2 = plist[6].toLongLong();
+  qint64 root0 = plist[7].toLongLong();
+  MyBitArray *vbitmask = static_cast<MyBitArray*>(plist[8].value<void*>());
+  MyBitArray *cbitmask = static_cast<MyBitArray*>(plist[9].value<void*>());
+  std::vector<qint64> *parent = static_cast<std::vector<qint64>*>(plist[10].value<void*>());
+  qint64 mx = plist[11].toLongLong();
+  qint64 my = plist[12].toLongLong();
+
+  for(qint64 w2=ws; w2<=we; w2++)
+    for(qint64 h2=hs; h2<=he; h2++)
+      {
+	qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
+	if (vbitmask->testBit(bidx) &&
+	    (*parent)[bidx] == root0)
+	  cbitmask->setBit(bidx, true);
+      }
+}
+//---------//---------//---------//
 //---------//---------//---------//
 //---------//---------//---------//
 
@@ -1652,11 +1832,11 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   
   //--------------------------------
   // locate outer region
-  getConnectedRegionFromBitmask(0, 0, 0,
-				0, 0, 0,
-				mz+1, my+1, mx+1,
-				bitmask,
-				cbitmask);
+  getConnectedRegionFromBitmaskCC(0, 0, 0,
+				  0, 0, 0,
+				  mz+1, my+1, mx+1,
+				  bitmask,
+				  cbitmask);
   //--------------------------------
 
 
@@ -1681,7 +1861,8 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   //----------------------------  
     {
       cbitmask.invert();
-      float *dt = BinaryDistanceTransform::binaryEDTsq(cbitmask,
+      float *dt = BinaryDistanceTransform::binaryEDTsq(Global::mainWindow(),
+						       cbitmask,
 						       mx+2, my+2, mz+2,
 						       false);
       for(qint64 d2=0; d2<mz; d2++)
@@ -1777,11 +1958,11 @@ VolumeOperations::poreCharacterization(Vec bmin, Vec bmax,
   //--------------------------------
   // locate outer region
   // externally connected pores along with outer region set to true in externalPores
-  getConnectedRegionFromBitmask(0, 0, 0,
-				0, 0, 0,
-				mz+1, my+1, mx+1,
-				allPores,
-				externalPores);
+  getConnectedRegionFromBitmaskCC(0, 0, 0,
+				  0, 0, 0,
+				  mz+1, my+1, mx+1,
+				  allPores,
+				  externalPores);
   //--------------------------------
 
 
@@ -1822,11 +2003,11 @@ VolumeOperations::poreCharacterization(Vec bmin, Vec bmax,
   
   //--------------------------------
   // locate outer region
-  getConnectedRegionFromBitmask(0, 0, 0,
-				0, 0, 0,
-				mz+1, my+1, mx+1,
-				bitmask,
-				cbitmask);
+  getConnectedRegionFromBitmaskCC(0, 0, 0,
+				  0, 0, 0,
+				  mz+1, my+1, mx+1,
+				  bitmask,
+				  cbitmask);
   if (fringe > 0)
     {
       // dilate the outer region so that we remove the fringe
@@ -1968,6 +2149,7 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
 				 bool showProgress)
 {
   // convert to vdb levelset and dilate
+  //QProgressDialog progress(Global::mainWindow());
   QProgressDialog progress;
 
   if (showProgress)
@@ -1984,7 +2166,8 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
   qApp->processEvents();
 
   // generate squared distance transform
-  float *dt = BinaryDistanceTransform::binaryEDTsq(bitmask,
+  float *dt = BinaryDistanceTransform::binaryEDTsq(Global::mainWindow(),
+						   bitmask,
 						   mx, my, mz,
 						   false);
   
@@ -2570,6 +2753,7 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 
   uchar *lut = Global::lut();
 
+  //QProgressDialog progress(Global::mainWindow());
   QProgressDialog progress;
 
   if (showProgress)
@@ -4605,7 +4789,8 @@ VolumeOperations::distanceTransform(Vec bmin, Vec bmax, int tag,
   qApp->processEvents();
 
   // generate squared distance transform
-  float *dt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
+  float *dt = BinaryDistanceTransform::binaryEDTsq(Global::mainWindow(),
+						   visibleMask,
 						   mx, my, mz,
 						   true);
   
@@ -4690,7 +4875,8 @@ VolumeOperations::localThickness(Vec bmin, Vec bmax, int tag,
 
   
   // generate squared distance transform
-  float *lt = BinaryDistanceTransform::binaryEDTsq(visibleMask,
+  float *lt = BinaryDistanceTransform::binaryEDTsq(Global::mainWindow(),
+						   visibleMask,
 						   mx, my, mz,
 						   true);
 

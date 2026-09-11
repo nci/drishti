@@ -9,6 +9,8 @@
 #include <QGLViewer/vec.h>
 using namespace qglviewer;
 
+#include <vector>
+
 #include "mybitarray.h"
 
 
@@ -336,6 +338,16 @@ class VolumeOperations
 					    int, int, int,
 					    MyBitArray&,
 					    MyBitArray&);
+
+  static void getConnectedRegionFromBitmaskCC(int, int, int,
+					      int, int, int,
+					      int, int, int,
+					      MyBitArray&,
+					      MyBitArray&);
+  static qint64 _findRoot(qint64, std::vector<qint64>&);
+  static void _unionLabels(qint64, qint64,
+			   std::vector<qint64>&);
+  static void parMarkSeedComponent(QList<QVariant>);
 
   static void getRegionConnectedToROI(int, int, int,
 				      int, int, int,

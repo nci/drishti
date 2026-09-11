@@ -1816,7 +1816,6 @@ DrishtiPaint::dropEvent(QDropEvent *event)
       if (data->hasUrls())
 	{
 	  QUrl url = data->urls()[0];
-	  QMessageBox::information(0,"", url.path());
 	  
 	  QFileInfo info(url.toLocalFile());
 	  if (info.exists() && info.isFile())

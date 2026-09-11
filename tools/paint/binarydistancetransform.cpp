@@ -372,7 +372,8 @@ void BinaryDistanceTransform::par_squared_edt_1d_parabolic_y(QList<QVariant> pli
 
 //---------------------------
 float*
-BinaryDistanceTransform::binaryEDTsq(MyBitArray& bitmask, 
+BinaryDistanceTransform::binaryEDTsq(QWidget* parent,
+				     MyBitArray& bitmask, 
 				     const qint64 sx, const qint64 sy, const qint64 sz,
 				     const bool black_border,
 				     float* workspace)
@@ -414,7 +415,7 @@ BinaryDistanceTransform::binaryEDTsq(MyBitArray& bitmask,
     QProgressDialog progress(QString("distance transform yz : %1").arg(sy*sz),
 			     QString(),
 			     0, 100,
-			     0,
+			     parent,
 			     Qt::WindowStaysOnTopHint);
     if (sz > 300)
       {
@@ -461,7 +462,7 @@ BinaryDistanceTransform::binaryEDTsq(MyBitArray& bitmask,
     QProgressDialog progress(QString("distance transform z : %1").arg(sz),
 			     QString(),
 			     0, 100,
-			     0,
+			     parent,
 			     Qt::WindowStaysOnTopHint);
     if (sz > 300)
       {
@@ -505,7 +506,7 @@ BinaryDistanceTransform::binaryEDTsq(MyBitArray& bitmask,
     QProgressDialog progress(QString("distance transform y : %1").arg(sy),
 			     QString(),
 			     0, 100,
-			     0,
+			     parent,
 			     Qt::WindowStaysOnTopHint);
     if (sy > 300)
       {

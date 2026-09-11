@@ -900,14 +900,20 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
   
   GeometryObjects::crops()->collectCropInfoBeforeCheckCropped();
 
+  QProgressDialog progress("Identifying visible region",
+			   QString(),
+			   0, 100,
+			   Global::mainWindow(),
+			   Qt::WindowStaysOnTopHint);
+  //progress.setMinimumDuration(0);
   //QProgressDialog progress(Global::mainWindow());
-  QProgressDialog progress;
+  //QProgressDialog progress;
 
   if (showProgress)
     {
-      progress.setLabelText("Identifying visible region");
+      //progress.setLabelText("Identifying visible region");
       progress.setCancelButton(NULL);
-      progress.setWindowFlags(Qt::WindowStaysOnTopHint);
+      //progress.setWindowFlags(Qt::WindowStaysOnTopHint);
       progress.setMinimumDuration(0);
     }
 
@@ -951,11 +957,11 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
   // Start generation for all values within the range
   futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parVisibleRegionGeneration));
   
-  if (showProgress)
-    {
-      // Display the dialog and start the event loop.
-      progress.exec();
-    }
+  //if (showProgress)
+  //  {
+  //    // Display the dialog and start the event loop.
+  //    progress.exec();
+  //  }
   
   futureWatcher.waitForFinished();
 
@@ -2148,37 +2154,20 @@ VolumeOperations::_dilatebitmask(int nDilate, bool htype,
 				 MyBitArray &bitmask,
 				 bool showProgress)
 {
-  // convert to vdb levelset and dilate
-  //QProgressDialog progress(Global::mainWindow());
-  QProgressDialog progress;
-
-  if (showProgress)
-    {
-      progress.setLabelText(htype?"Dilate":"Erode");
-      progress.setCancelButton(NULL);
-      progress.setWindowFlags(Qt::WindowStaysOnTopHint);
-      progress.setMinimumDuration(0);
-      qApp->processEvents();
-    }
-
-  
-  progress.setValue(50);
-  qApp->processEvents();
-
   // generate squared distance transform
   float *dt = BinaryDistanceTransform::binaryEDTsq(Global::mainWindow(),
 						   bitmask,
 						   mx, my, mz,
-						   false);
-  
-  progress.setValue(75);
-  qApp->processEvents();
+						   false);  
 
-  
   // check distance transform
+  // clears all bit-1 voxels whose nearest bit-0 voxel is within nDilate
+  // qFloor(sqrt(dt)) <= nDilate  <=>  dt < (nDilate+1)^2  for any dt >= 0
+  qint64 lim = (qint64)nDilate+1;
+  float lim2 = (float)(lim*lim);
   for(qint64 idx=0; idx<mx*my*mz; idx++)
     {
-      if (qFloor(sqrt(dt[idx])) <= nDilate)
+      if (dt[idx] < lim2)
 	bitmask.setBit(idx, false);
     }
   
@@ -2753,17 +2742,6 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 
   uchar *lut = Global::lut();
 
-  //QProgressDialog progress(Global::mainWindow());
-  QProgressDialog progress;
-
-  if (showProgress)
-    {
-      progress.setLabelText("Updating voxel structure");
-      progress.setCancelButton(NULL);
-      progress.setWindowFlags(Qt::WindowStaysOnTopHint);
-      progress.setMinimumDuration(0);
-    }
-
   int ds = qMax(0, qFloor(bmin.z));
   int ws = qMax(0, qFloor(bmin.y));
   int hs = qMax(0, qFloor(bmin.x));
@@ -2788,13 +2766,6 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 		   bitmask);
   
 
-  
-  if (showProgress)
-    {
-      progress.setLabelText("Dilate");
-      qApp->processEvents();
-    }
-
 
   bitmask.invert();
   _dilatebitmask(nDilate, true, // dilate opaque region
@@ -2805,10 +2776,11 @@ VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 
 
   
-  if (showProgress)
-    {
-      progress.setLabelText("writing to mask");
-    }
+  QProgressDialog progress("writing to mask",
+			   QString(),
+			   0, 100,
+			   Global::mainWindow(),
+			   Qt::WindowStaysOnTopHint);
   for(qint64 d2=ds; d2<=de; d2++)
     {
       if (showProgress)
@@ -3197,12 +3169,12 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
       }
   }
 
-  QProgressDialog progress("Updating voxel structure",
-			   QString(),
-			   0, 100,
-			   Global::mainWindow(),
-			   Qt::WindowStaysOnTopHint);
-  progress.setMinimumDuration(0);
+//  QProgressDialog progress("Updating voxel structure",
+//			   QString(),
+//			   0, 100,
+//			   Global::mainWindow(),
+//			   Qt::WindowStaysOnTopHint);
+//  progress.setMinimumDuration(0);
 
   int ds = qMax(0, qFloor(bmin.z));
   int ws = qMax(0, qFloor(bmin.y));
@@ -3220,108 +3192,23 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
   bitmask.resize(mx*my*mz);
   bitmask.fill(false);
 
-  MyBitArray cbitmask;
-  cbitmask.resize(mx*my*mz);
-  cbitmask.fill(false);
-
-  int indices[] = {-1, 0, 0,
-		    1, 0, 0,
-		    0,-1, 0,
-		    0, 1, 0,
-		    0, 0,-1,
-		    0, 0, 1};
-
 
   //-------------------------------
   //-------------------------------
   // find connected region before dilation
-  QQueue<Vec> que;
-  que.enqueue(Vec(dr,wr,hr));
-
-  qint64 bidx = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
-  bitmask.setBit(bidx, true);
-  cbitmask.setBit(bidx, true);
-
-  minD = maxD = dr;
-  minW = maxW = wr;
-  minH = maxH = hr;
-
-  int pgstep = 10*m_width*m_height;
-  int prevpgv = 0;
-  int ip=0;
-  while(!que.isEmpty())
-    {
-      ip = (ip+1)%pgstep;
-      int pgval = 99*(float)ip/(float)pgstep;
-      progress.setValue(pgval);
-      if (pgval != prevpgv)
-	{
-	  progress.setLabelText(QString("Updating voxel structure %1").arg(que.count()));
-	  qApp->processEvents();
-	}
-      prevpgv = pgval;
-      
-      Vec dwh = que.dequeue();
-      int dx = qBound(ds, qCeil(dwh.x), de);
-      int wx = qBound(ws, qCeil(dwh.y), we);
-      int hx = qBound(hs, qCeil(dwh.z), he);
-
-      for(int i=0; i<6; i++)
-	{
-	  int da = indices[3*i+0];
-	  int wa = indices[3*i+1];
-	  int ha = indices[3*i+2];
-
-	  qint64 d2 = qBound(ds, dx+da, de);
-	  qint64 w2 = qBound(ws, wx+wa, we);
-	  qint64 h2 = qBound(hs, hx+ha, he);
-
-	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-	  if (!cbitmask.testBit(bidx))
-	    {
-	      cbitmask.setBit(bidx, true);
-
-	      bool clipped = checkClipped(Vec(h2, w2, d2));
-
-	      if (!clipped)
-		{
-		  qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-		  int val = m_volData[idx];
-		  if (m_volDataUS) val = m_volDataUS[idx];
-		    
-		  int mtag = m_maskDataUS[idx];
-
-		  bool opaque =  (lut[4*val+3]*Global::tagColors()[4*mtag+3] > 0);
-		  opaque &= mtag == tag;
-
-		  //-------
-		  if (opaque &&
-		      (minGrad > 0.0 || maxGrad < 1.0))
-		    {
-		      float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
-								 m_depth, m_width, m_height,
-								 m_volData, m_volDataUS);
-		      		      
-		      if (gradMag < minGrad || gradMag > maxGrad)
-			opaque = false;
-		    }
-		  //-------
-
-		  if (opaque)
-		    {
-		      bitmask.setBit(bidx, true);
-		      que.enqueue(Vec(d2,w2,h2)); 
-		    }
-		}
-	    }
-	}
-    }
+  // (region predicate scan is parallelized inside getVisibleRegion)
+  getConnectedRegion(dr, wr, hr,
+		     ds, ws, hs,
+		     de, we, he,
+		     tag, false,
+		     bitmask,
+		     gradType, minGrad, maxGrad);
   //-------------------------------
   //-------------------------------
 
   
-  progress.setLabelText("Dilate");
-  qApp->processEvents();
+//  progress.setLabelText("Dilate");
+//  qApp->processEvents();
 
 
 
@@ -3348,7 +3235,7 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
   minH = hs;
   maxH = he;
 
-  return;
+  QMessageBox::information(Global::mainWindow(), "", "Done");
 }
 
 void
@@ -3399,8 +3286,6 @@ VolumeOperations::erodeAll(Vec bmin, Vec bmax,
   qApp->processEvents();
 
 
-  
-
   //========================
 
   // copy bitmask into cbitmask
@@ -3428,6 +3313,8 @@ VolumeOperations::erodeAll(Vec bmin, Vec bmax,
 	      } // test bitmask 
 	  } // loop over h
     } // loop over d
+  progress.setValue(100);
+  qApp->processEvents();
   
   minD = ds;
   maxD = de;
@@ -3435,6 +3322,8 @@ VolumeOperations::erodeAll(Vec bmin, Vec bmax,
   maxW = we;
   minH = hs;
   maxH = he;
+
+  QMessageBox::information(Global::mainWindow(), "", "Done");
 }
 
 
@@ -3507,96 +3396,14 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
   cbitmask.resize(mx*my*mz);
   cbitmask.fill(false);
 
-  int indices[] = {-1, 0, 0,
-		   1, 0, 0,
-		   0,-1, 0,
-		   0, 1, 0,
-		   0, 0,-1,
-		   0, 0, 1};
-
   // find connected region before erosion
-
-  QQueue<Vec> que;
-  que.enqueue(Vec(dr,wr,hr));
-
-  qint64 bidx = (dr-ds)*mx*my+(wr-ws)*mx+(hr-hs);
-  bitmask.setBit(bidx, true);
-  cbitmask.setBit(bidx, true);
-
-  minD = maxD = dr;
-  minW = maxW = wr;
-  minH = maxH = hr;
-
-  int pgstep = 10*m_width*m_height;
-  int prevpgv = 0;
-  int ip=0;
-  while(!que.isEmpty())
-    {
-      ip = (ip+1)%pgstep;
-      int pgval = 99*(float)ip/(float)pgstep;
-      progress.setValue(pgval);
-      if (pgval != prevpgv)
-	{
-	  progress.setLabelText(QString("Updating voxel structure %1").arg(que.count()));
-	  qApp->processEvents();
-	}
-      prevpgv = pgval;
-      
-      Vec dwh = que.dequeue();
-      int dx = qBound(ds, qCeil(dwh.x), de);
-      int wx = qBound(ws, qCeil(dwh.y), we);
-      int hx = qBound(hs, qCeil(dwh.z), he);
-
-      for(int i=0; i<6; i++)
-	{
-	  int da = indices[3*i+0];
-	  int wa = indices[3*i+1];
-	  int ha = indices[3*i+2];
-
-	  qint64 d2 = qBound(ds, dx+da, de);
-	  qint64 w2 = qBound(ws, wx+wa, we);
-	  qint64 h2 = qBound(hs, hx+ha, he);
-
-	  qint64 bidx = (d2-ds)*mx*my+(w2-ws)*mx+(h2-hs);
-	  if (!cbitmask.testBit(bidx))
-	    {
-	      cbitmask.setBit(bidx, true);
-	      qint64 idx = d2*m_width*m_height + w2*m_height + h2;
-	      int val = m_volData[idx];
-	      if (m_volDataUS) val = m_volDataUS[idx];
-
-	      //-------
-	      bool opaque = true;
-
-	      bool clipped = checkClipped(Vec(h2, w2, d2));
-	      
-	      if (!clipped &&
-		  (minGrad > 0.0 || maxGrad < 1.0))
-		{
-		  float gradMag = VolumeOperations::calcGrad(gradType, d2, w2, h2,
-							     m_depth, m_width, m_height,
-							     m_volData, m_volDataUS);
-		  
-		  if (gradMag < minGrad || gradMag > maxGrad)
-		    opaque = false;
-		}
-	      //-------
-	      
-	      int mtag = m_maskDataUS[idx];
-	      if (opaque && lut[4*val+3] > 0 && mtag == tag)
-		{
-		  bitmask.setBit(bidx, true);
-		  que.enqueue(Vec(d2,w2,h2)); 
-		  minD = qMin(minD, (int)d2);
-		  maxD = qMax(maxD, (int)d2);
-		  minW = qMin(minW, (int)w2);
-		  maxW = qMax(maxW, (int)w2);
-		  minH = qMin(minH, (int)h2);
-		  maxH = qMax(maxH, (int)h2);
-		}
-	    }
-	}
-    }
+  // (region predicate scan is parallelized inside getVisibleRegion)
+  getConnectedRegion(dr, wr, hr,
+		     ds, ws, hs,
+		     de, we, he,
+		     tag, false,
+		     bitmask,
+		     gradType, minGrad, maxGrad);
 
   progress.setLabelText("Erode");
   qApp->processEvents();
@@ -3629,6 +3436,8 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
 	      } // test bitmask 
 	  } // loop over h
     } // loop over d
+  progress.setValue(100);
+  qApp->processEvents();
   
   minD = ds;
   maxD = de;
@@ -3636,6 +3445,8 @@ VolumeOperations::erodeConnected(int dr, int wr, int hr,
   maxW = we;
   minH = hs;
   maxH = he;
+
+  QMessageBox::information(Global::mainWindow(), "", "Done");
 }
 
 void

@@ -1992,7 +1992,11 @@ MainWindow::dragEnterEvent(QDragEnterEvent *event)
       if (md->hasUrls())
 	{
 	  QList<QUrl> urls = md->urls();
-	  if (StaticFunctions::checkURLs(urls, ".pvl.nc"))
+	  if (StaticFunctions::checkExtension(urls[0].toLocalFile(), ".zarr"))
+	    {
+	      event->acceptProposedAction();
+	    }
+	  else if (StaticFunctions::checkURLs(urls, ".pvl.nc"))
 	    {
 	      event->acceptProposedAction();
 	    }
@@ -2086,10 +2090,19 @@ MainWindow::dropEvent(QDropEvent *event)
 	{
 	  QUrl url = data->urls()[0];
 	  QFileInfo info(url.toLocalFile());
-	  if (info.exists() && info.isFile())
+	  if (info.exists() && info.isDir() &&
+	      StaticFunctions::checkExtension(url.toLocalFile(), ".zarr"))
 	    {
-	      if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc") ||
-		  StaticFunctions::checkExtension(url.toLocalFile(), ".zarr"))
+	      QStringList flist;
+	      QList<QUrl> urls = data->urls();
+	      for(int i=0; i<urls.count(); i++)
+		flist.append(urls[i].toLocalFile());
+	      
+	      loadSingleVolume(flist);
+	    }
+	  else if (info.exists() && info.isFile())
+	    {
+	      if (StaticFunctions::checkExtension(url.toLocalFile(), ".pvl.nc"))
 		{
 		  QStringList flist;
 		  QList<QUrl> urls = data->urls();

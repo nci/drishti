@@ -905,15 +905,9 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
 			   0, 100,
 			   Global::mainWindow(),
 			   Qt::WindowStaysOnTopHint);
-  //progress.setMinimumDuration(0);
-  //QProgressDialog progress(Global::mainWindow());
-  //QProgressDialog progress;
-
   if (showProgress)
     {
-      //progress.setLabelText("Identifying visible region");
       progress.setCancelButton(NULL);
-      //progress.setWindowFlags(Qt::WindowStaysOnTopHint);
       progress.setMinimumDuration(0);
     }
 
@@ -956,13 +950,7 @@ VolumeOperations::getVisibleRegion(int ds, int ws, int hs,
   
   // Start generation for all values within the range
   futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parVisibleRegionGeneration));
-  
-  //if (showProgress)
-  //  {
-  //    // Display the dialog and start the event loop.
-  //    progress.exec();
-  //  }
-  
+    
   futureWatcher.waitForFinished();
 
   m_visibilityMap = cbitmask;
@@ -1234,7 +1222,7 @@ VolumeOperations::getConnectedRegionFromBitmask(int dr, int wr, int hr,
 	      
 	  qint64 bidx = (d2-ds)*mx*my + (w2-ws)*mx + (h2-hs);
 	      
-if (vbitmask.testBit(bidx) && !cbitmask.testBit(bidx))
+	  if (vbitmask.testBit(bidx) && !cbitmask.testBit(bidx))
 	    {
 	      cbitmask.setBit(bidx, true);
 	      queue.push(Vec(d2,w2,h2));
@@ -1818,17 +1806,6 @@ VolumeOperations::shrinkwrap(Vec bmin, Vec bmax, int tag,
   //--------------------------------
   // add border so that identifying outer region becomes easier
   MyBitArray bitmask;    
-//  bitmask.resize((mx+2)*(my+2)*(mz+2));
-//  bitmask.fill(true);
-//  for(int d=0; d<mz; d++)
-//  for(int w=0; w<my; w++)
-//  for(int h=0; h<mx; h++)
-//    {
-//      qint64 bidx = d*mx*my + w*mx + h;
-//      qint64 bidx2 = (d+1)*(mx+2)*(my+2) + (w+1)*(mx+2) + (h+1);
-//      if (!cbitmask.testBit(bidx))
-//	bitmask.setBit(bidx2, false);
-//    }
   padBitmask(bitmask, cbitmask,
 	     mx, my, mz,
 	     true, 1);
@@ -2671,63 +2648,6 @@ VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
 }
 
 
-//void
-//VolumeOperations::dilateAllTags(Vec bmin, Vec bmax,
-//				int nDilate,
-//				int& minD, int& maxD,
-//				int& minW, int& maxW,
-//				int& minH, int& maxH,
-//				int gradType, float minGrad, float maxGrad)
-//{
-//  QProgressDialog progress("Dilating all labels",
-//			   QString(),
-//			   0, 100,
-//			   Global::mainWindow(),
-//			   Qt::WindowStaysOnTopHint);
-//  progress.setMinimumDuration(0);
-//
-//  
-//  int ds = qMax(0, (int)bmin.z);
-//  int ws = qMax(0, (int)bmin.y);
-//  int hs = qMax(0, (int)bmin.x);
-//
-//  int de = qMin((int)bmax.z, m_depth-1);
-//  int we = qMin((int)bmax.y, m_width-1);
-//  int he = qMin((int)bmax.x, m_height-1);
-//
-//  qint64 mx = he-hs+1;
-//  qint64 my = we-ws+1;
-//  qint64 mz = de-ds+1;
-//
-//  QList<int> ut;
-//  for(qint64 d=ds; d<=de; d++)
-//    for(qint64 w=ws; w<=we; w++)
-//      for(qint64 h=hs; h<=he; h++)
-//	{
-//	  qint64 idx = ((qint64)d)*m_width*m_height + ((qint64)w)*m_height + h;
-//	  if (m_maskData[idx] > 0 && !ut.contains(m_maskData[idx]))
-//	    ut << m_maskData[idx]; 
-//	}
-//
-//  QMessageBox::information(Global::mainWindow(), "Labels", QString("Total labels : %1").arg(ut.count()));
-//  for(int u=0; u<nDilate; u++)
-//    {
-//      for(int i=0; i<ut.count(); i++)
-//	{
-//	  progress.setValue(100*(float)i/(float)ut.count());
-//	  qApp->processEvents();
-//	  dilateAll(bmin, bmax, ut[i],
-//		    1,
-//		    minD, maxD,
-//		    minW, maxW,
-//		    minH, maxH,
-//		    false,
-//		    gradType, minGrad, maxGrad,
-//		    false);
-//	}
-//    }
-//}
-
 void
 VolumeOperations::dilateAll(Vec bmin, Vec bmax, int tag,
 			    int nDilate,
@@ -3169,13 +3089,6 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
       }
   }
 
-//  QProgressDialog progress("Updating voxel structure",
-//			   QString(),
-//			   0, 100,
-//			   Global::mainWindow(),
-//			   Qt::WindowStaysOnTopHint);
-//  progress.setMinimumDuration(0);
-
   int ds = qMax(0, qFloor(bmin.z));
   int ws = qMax(0, qFloor(bmin.y));
   int hs = qMax(0, qFloor(bmin.x));
@@ -3205,11 +3118,6 @@ VolumeOperations::dilateConnected(int dr, int wr, int hr,
 		     gradType, minGrad, maxGrad);
   //-------------------------------
   //-------------------------------
-
-  
-//  progress.setLabelText("Dilate");
-//  qApp->processEvents();
-
 
 
   bitmask.invert();
@@ -4873,28 +4781,7 @@ VolumeOperations::distDilate(float *vol, float *out,
     }
 						     
   QFutureWatcher<void> futureWatcher;
-
-//  QProgressDialog progress(QString("Distance dilation %1 of %2").arg(r).arg(maxLT),
-//			   QString(),
-//			   0, 100,
-//			   Global::mainWindow(),
-//			   Qt::WindowStaysOnTopHint);
-//  if (mz > 300)
-//    {
-//      progress.setMinimumDuration(0);
-//      QObject::connect(&futureWatcher, &QFutureWatcher<void>::finished, &progress, &QProgressDialog::reset);
-//      QObject::connect(&progress, &QProgressDialog::canceled, &futureWatcher, &QFutureWatcher<void>::cancel);
-//      QObject::connect(&futureWatcher,  &QFutureWatcher<void>::progressRangeChanged, &progress, &QProgressDialog::setRange);
-//      QObject::connect(&futureWatcher, &QFutureWatcher<void>::progressValueChanged,  &progress, &QProgressDialog::setValue);
-//    }
-  
   futureWatcher.setFuture(QtConcurrent::map(param, VolumeOperations::parDistDilate));
-  
-  
-//  // Display the dialog and start the event loop.
-//  if (mz > 300)
-//    progress.exec();
-  
   futureWatcher.waitForFinished();
 }
 
@@ -4974,78 +4861,6 @@ VolumeOperations::parDistDilate(QList<QVariant> plist)
       }
 }
     
-
-
-//void
-//VolumeOperations::seqDistDilate(float *vol, float *out,
-//			     qint64 mx, qint64 my, qint64 mz )
-//{
-//  // displacement indices
-//  float index[26][3] = {{ 0, -1,  0},
-//			{ 0,  1,  0},
-//			{-1,  0,  0},
-//			{ 1,  0,  0},
-//			{ 0,  0, -1},
-//			{ 0,  0,  1},
-//			
-//			{ 0, -1, -1},
-//			{ 0, -1,  1},
-//			{ 0,  1, -1},
-//			{ 0,  1,  1},
-//			{-1,  0, -1},
-//			{-1,  0,  1},
-//			{ 1,  0, -1},
-//			{ 1,  0,  1},
-//			{-1, -1,  0},
-//			{-1,  1,  0},
-//			{ 1, -1,  0},
-//			{ 1,  1,  0},
-//			
-//			{ 1,  1,  1},
-//			{ 1, -1,  1},
-//			{ 1, -1, -1},
-//			{ 1,  1, -1},
-//			{-1,  1,  1},
-//			{-1, -1,  1},
-//			{-1, -1, -1},
-//			{-1,  1, -1}};
-// 		      
-//
-//  // weights
-//  float q632 = qSqrt(6)+qSqrt(3)+qSqrt(2);
-//  float W[3] = {qSqrt(6)/q632, qSqrt(3)/q632, qSqrt(2)/q632};
-//  
-//
-//  int ise[4] = {0, 6, 18, 26};
-//    
-//  memset(out, 0, mx*my*mz*sizeof(float));
-//
-//  for(int d=0; d<mz-1; d++)
-//    for(int w=0; w<my-1; w++)
-//      for(int h=0; h<mx-1; h++)
-//	for(int iter=0; iter<3; iter++)
-//	  {
-//	    qint64 idx = d*mx*my + w*mx + h;
-//	    float v = vol[idx];
-//	    for (int i=ise[iter]; i<ise[iter+1]; i++)
-//	      {
-//		int d1 = d + index[i][0];
-//		int w1 = w + index[i][1];
-//		int h1 = h + index[i][2];
-//		
-//		d1 = qBound(0, d1, (int)mz-1);
-//		w1 = qBound(0, w1, (int)my-1);
-//		h1 = qBound(0, h1, (int)mx-1);
-//		
-//		qint64 idx1 = d1*mx*my + w1*mx + h1;
-//		
-//		v = qMax(v, vol[idx1]);
-//	      }
-//	    out[idx] += W[iter] * v;
-//	  }
-//
-//}
-
 
 void
 VolumeOperations::upscaleMask(ushort *lmask, int lrd, int lrw, int lrh)

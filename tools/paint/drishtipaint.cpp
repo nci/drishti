@@ -1798,6 +1798,12 @@ DrishtiPaint::dragEnterEvent(QDragEnterEvent *event)
 	{
 	  QList<QUrl> urls = data->urls();
 
+	  if (StaticFunctions::checkExtension(urls[0].toLocalFile(), ".zarr"))
+	    {
+	      event->acceptProposedAction();
+	      return;
+	    }
+
 	  if (StaticFunctions::checkURLs(urls, ".pvl.nc") ||
 	      StaticFunctions::checkURLs(urls, ".xml") ||
 	      StaticFunctions::checkURLs(urls, ".curves") ||
@@ -1818,7 +1824,13 @@ DrishtiPaint::dropEvent(QDropEvent *event)
 	  QUrl url = data->urls()[0];
 	  
 	  QFileInfo info(url.toLocalFile());
-	  if (info.exists() && info.isFile())
+	  if (info.exists() && info.isDir() &&
+	      StaticFunctions::checkExtension(url.toLocalFile(), ".zarr"))
+	    {
+	      QString flnm = (data->urls())[0].toLocalFile();
+	      setFile(flnm);
+	    }
+	  else if (info.exists() && info.isFile())
 	    {
 	      if (StaticFunctions::checkExtension(url.toLocalFile(), ".curves"))
 		{

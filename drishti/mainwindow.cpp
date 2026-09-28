@@ -1336,7 +1336,8 @@ MainWindow::on_actionSave_ImageSequence_triggered()
 
   Global::disableViewerUpdate();
 
-  QSize imgSize = StaticFunctions::getImageSize(m_Viewer->size().width(),
+  QSize imgSize = StaticFunctions::getImageSize(this,
+						m_Viewer->size().width(),
 						m_Viewer->size().height());
 
   //m_Viewer->setImageSize(imgSize.width(), imgSize.height());
@@ -1359,7 +1360,7 @@ MainWindow::on_actionSave_ImageSequence_triggered()
 	{
 	  if (imgSize.width() != imgSize.height())
 	    {
-	      QMessageBox::critical(0, "Error",
+	      QMessageBox::critical(this, "Error",
 				    QString("Current image size is %1x%2.\nSquare image size required for cubic images.").\
 				    arg(imgSize.width()).\
 				    arg(imgSize.height()));
@@ -1410,7 +1411,8 @@ MainWindow::on_actionSave_Movie_triggered()
 
   Global::disableViewerUpdate();
 
-  QSize imgSize = StaticFunctions::getImageSize(m_Viewer->size().width(),
+  QSize imgSize = StaticFunctions::getImageSize(this,
+						m_Viewer->size().width(),
 						m_Viewer->size().height());
 
   m_Viewer->setImageSize(imgSize.width(), imgSize.height());
@@ -1474,7 +1476,8 @@ MainWindow::on_actionImage_Size_triggered()
   int woff = size().width() - m_Viewer->size().width();
   int hoff = size().height() - m_Viewer->size().height();
   
-  QSize imgSize = StaticFunctions::getImageSize(m_Viewer->size().width(),
+  QSize imgSize = StaticFunctions::getImageSize(this,
+						m_Viewer->size().width(),
 						m_Viewer->size().height());
   int w = imgSize.width() + woff;
   int h = imgSize.height() + hoff;

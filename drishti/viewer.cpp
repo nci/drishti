@@ -3789,7 +3789,7 @@ Viewer::keyPressEvent(QKeyEvent *event)
 	      return;
 	    }
 
-	  CaptionDialog cd(0,
+	  CaptionDialog cd(this,
 			   "Caption",
 			   QFont("Helvetica", 15),
 			   QColor::fromRgbF(1,1,1,1),
@@ -3872,10 +3872,11 @@ Viewer::keyPressEvent(QKeyEvent *event)
 void
 Viewer::grabScreenShot()
 {  
-  QSize imgSize = StaticFunctions::getImageSize(size().width(),size().height());
+  QSize imgSize = StaticFunctions::getImageSize(this,
+						size().width(),size().height());
 
   QString flnm;
-  flnm = QFileDialog::getSaveFileName(0,
+  flnm = QFileDialog::getSaveFileName(this,
 				      "Save snapshot",
 				      Global::previousDirectory(),
        "Image Files (*.png *.tif *.bmp *.jpg *.ppm *.xbm *.xpm)");
@@ -3891,7 +3892,7 @@ Viewer::grabScreenShot()
   items << "Pano Image";
   bool ok;
   QString str;
-  str = QInputDialog::getItem(0,
+  str = QInputDialog::getItem(this,
 			      "Image Type",
 			      "Image Type",
 			      items,
@@ -4157,7 +4158,7 @@ Viewer::processCommand(QString cmd)
       else
 	{
 	  QString flnm;
-	  flnm = QFileDialog::getExistingDirectory(0,
+	  flnm = QFileDialog::getExistingDirectory(this,
 						   "Select Directory to save all temporary files",
 						   Global::previousDirectory(),
 						   QFileDialog::ShowDirsOnly |
@@ -4523,7 +4524,7 @@ Viewer::processCommand(QString cmd)
 	   list[0]== "loadpoint")
     {
       QString flnm;
-      flnm = QFileDialog::getOpenFileName(0,
+      flnm = QFileDialog::getOpenFileName(this,
 					  "Load points file",
 					  Global::previousDirectory(),
 					  "Files (*.*)");
@@ -4537,7 +4538,7 @@ Viewer::processCommand(QString cmd)
 	   list[0]== "loadbarepoint")
     {
       QString flnm;
-      flnm = QFileDialog::getOpenFileName(0,
+      flnm = QFileDialog::getOpenFileName(this,
 					  "Load points file",
 					  Global::previousDirectory(),
 					  "Files (*.*)");
@@ -4593,7 +4594,7 @@ Viewer::processCommand(QString cmd)
 	   list[0]== "savepoint")
     {
       QString flnm;
-      flnm = QFileDialog::getSaveFileName(0,
+      flnm = QFileDialog::getSaveFileName(this,
 					  "Save points to text file",
 					  Global::previousDirectory(),
 					  "Files (*.*)");
@@ -4607,7 +4608,7 @@ Viewer::processCommand(QString cmd)
 	   list[0]== "savepath")
     {
       QString flnm;
-      flnm = QFileDialog::getSaveFileName(0,
+      flnm = QFileDialog::getSaveFileName(this,
 					  "Save all paths to text file",
 					  Global::previousDirectory(),
 					  "Files (*.*)");
@@ -4632,7 +4633,7 @@ Viewer::processCommand(QString cmd)
   else if (list[0]== "loadimage")
     {
       QString flnm;
-      flnm = QFileDialog::getOpenFileName(0,
+      flnm = QFileDialog::getOpenFileName(this,
 					  "Load background image",
 					  Global::previousDirectory(),
             "Image Files (*.png *.tif *.bmp *.jpg *.ppm *.xbm *.xpm)");
@@ -4656,7 +4657,7 @@ Viewer::processCommand(QString cmd)
   else if (list[0]== "loadpath")
     {
       QString flnm;
-      flnm = QFileDialog::getOpenFileName(0,
+      flnm = QFileDialog::getOpenFileName(this,
 					  "Load points file for path",
 					  Global::previousDirectory(),
 					  "Files (*.*)");
@@ -4669,7 +4670,7 @@ Viewer::processCommand(QString cmd)
   else if (list[0]== "loadpathgroup")
     {
       QString flnm;
-      flnm = QFileDialog::getOpenFileName(0,
+      flnm = QFileDialog::getOpenFileName(this,
 					  "Load points file for path",
 					  Global::previousDirectory(),
 					  "Files (*.*)");
@@ -4682,7 +4683,7 @@ Viewer::processCommand(QString cmd)
   else if (list[0]== "loadvector")
     {
       QString flnm;
-      flnm = QFileDialog::getOpenFileName(0,
+      flnm = QFileDialog::getOpenFileName(this,
 					  "Load file for vector field",
 					  Global::previousDirectory(),
 					  "Files (*.*)");
@@ -4768,7 +4769,7 @@ Viewer::processCommand(QString cmd)
   else if (list[0]== "loadgrid")
     {
       QString flnm;
-      flnm = QFileDialog::getOpenFileName(0,
+      flnm = QFileDialog::getOpenFileName(this,
 					  "Load file for grid",
 					  Global::previousDirectory(),
 					  "Files (*.*)");
@@ -5519,7 +5520,7 @@ Viewer::handleMorphologicalOperations(QStringList list)
       //------
       {      
 	QString pflnm;
-	pflnm = QFileDialog::getSaveFileName(0,
+	pflnm = QFileDialog::getSaveFileName(this,
 					     "Save histogram to text file ?",
 					     Global::previousDirectory(),
 					     "Files (*.txt)");

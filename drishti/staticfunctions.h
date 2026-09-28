@@ -91,7 +91,7 @@ class StaticFunctions
 
   static bool getClip(Vec, QList<Vec>, QList<Vec>);
 
-  static QSize getImageSize(int, int);
+  static QSize getImageSize(QWidget*, int, int);
 
   static float remapKeyframe(int, float);
   static float easeIn(float);

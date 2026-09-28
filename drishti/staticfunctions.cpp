@@ -1174,7 +1174,7 @@ StaticFunctions::getClip(Vec po,
 }
 
 QSize
-StaticFunctions::getImageSize(int width, int height)
+StaticFunctions::getImageSize(QWidget* parent, int width, int height)
 {
   QSize imgSize = QSize(width, height);
 
@@ -1199,7 +1199,7 @@ StaticFunctions::getImageSize(int width, int height)
 
   bool ok;
   QString str;
-  str = QInputDialog::getItem(0,
+  str = QInputDialog::getItem(parent,
 			      "Image size",
 			      "Image Size",
 			      items,

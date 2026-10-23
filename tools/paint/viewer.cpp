@@ -959,42 +959,45 @@ Viewer::commandEditor()
   vlist.clear();
   QString mesg;
 
-  mesg += "Subvolume Bounds :\n";
-  mesg += QString("LOD : %1\n").arg(m_sslevel);
-
-  mesg += QString("%1 %2 %3\n%4 %5 %6\n").			\
-    arg(m_minHSlice).arg(m_minWSlice).arg(m_minDSlice).		\
-    arg(m_maxHSlice).arg(m_maxWSlice).arg(m_maxDSlice);
-
-  Vec vs = Global::voxelScaling();
-  mesg += QString("Voxel Size (%1) : %2 %3 %4\n").	\
-    arg(Global::voxelUnit()).arg(vs.x).arg(vs.y).arg(vs.z);
-
-  vs = Global::relativeVoxelScaling();
-  mesg += QString("Relative Voxel Scaling : %1 %2 %3\n").	\
-    arg(vs.x).arg(vs.y).arg(vs.z);
-    
-  int d, w, h;
-  bool gothit = getCoordUnderPointer(d, w, h);
-  if (gothit)
+  if (m_volPtr)
     {
-      int val;
-      if (Global::bytesPerVoxel() == 1)
-	val = m_volPtr[((qint64)d)*m_width*m_height + w*m_height + h];
-      else
-	val = m_volPtrUS[((qint64)d)*m_width*m_height + w*m_height + h];
+      mesg += "Subvolume Bounds :\n";
+      mesg += QString("LOD : %1\n").arg(m_sslevel);
 
-      int tag = m_maskPtrUS[((qint64)d)*m_width*m_height + w*m_height + h];
-      
-      mesg += "\nPoint Information\n";
-      mesg += QString("Coordinate : %1 %2 %3\n").arg(h).arg(w).arg(d);
-      mesg += QString("Voxel value : %1\n").arg(val);
-      mesg += QString("Tag value : %1\n").arg(tag);
-      int op = Global::lut()[4*val+3]*Global::tagColors()[4*tag+3];
-      mesg += QString("Visible : %1\n").arg(op>0);
+      mesg += QString("%1 %2 %3\n%4 %5 %6\n").			\
+	arg(m_minHSlice).arg(m_minWSlice).arg(m_minDSlice).	\
+	arg(m_maxHSlice).arg(m_maxWSlice).arg(m_maxDSlice);
+
+      Vec vs = Global::voxelScaling();
+      mesg += QString("Voxel Size (%1) : %2 %3 %4\n").		\
+	arg(Global::voxelUnit()).arg(vs.x).arg(vs.y).arg(vs.z);
+
+      vs = Global::relativeVoxelScaling();
+      mesg += QString("Relative Voxel Scaling : %1 %2 %3\n").	\
+	arg(vs.x).arg(vs.y).arg(vs.z);
+    
+      int d, w, h;
+      bool gothit = getCoordUnderPointer(d, w, h);
+      if (gothit)
+	{
+	  int val;
+	  if (Global::bytesPerVoxel() == 1)
+	    val = m_volPtr[((qint64)d)*m_width*m_height + w*m_height + h];
+	  else
+	    val = m_volPtrUS[((qint64)d)*m_width*m_height + w*m_height + h];
+	  
+	  int tag = m_maskPtrUS[((qint64)d)*m_width*m_height + w*m_height + h];
+	  
+	  mesg += "\nPoint Information\n";
+	  mesg += QString("Coordinate : %1 %2 %3\n").arg(h).arg(w).arg(d);
+	  mesg += QString("Voxel value : %1\n").arg(val);
+	  mesg += QString("Tag value : %1\n").arg(tag);
+	  int op = Global::lut()[4*val+3]*Global::tagColors()[4*tag+3];
+	  mesg += QString("Visible : %1\n").arg(op>0);
+	}
+      else
+	mesg += "\nNo point found under the pointer.";
     }
-  else
-    mesg += "\nNo point found under the pointer.";
   
   vlist << mesg;
 
@@ -1025,6 +1028,9 @@ Viewer::commandEditor()
 void
 Viewer::processCommand(QString cmd)
 {
+  if (!m_volPtr)
+    return;
+
   cout << "Processing command - " << cmd.toLatin1().data() << "\n";
 
   bool ok;
@@ -1688,6 +1694,8 @@ Viewer::processCommand(QString cmd)
       emit modifyOriginalVolume(bmin, bmax, val);
       return;
     }
+
+  cout << "*** DO NOT UNDERSTAND  - " << cmd.toLatin1().data() << " ***\n\n";
 
 }
 

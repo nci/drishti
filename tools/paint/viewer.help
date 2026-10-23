@@ -18,6 +18,14 @@ Currently active label is always displayed on the top left of the 3D viewer pane
 #end
 
 #begin
+script
+script <function_name>
+
+Invoke the function named <function_name> from the python script.
+
+#end
+
+#begin
 labelsused
 
 Show the labels that are in use.

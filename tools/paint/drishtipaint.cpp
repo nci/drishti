@@ -4795,14 +4795,18 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 	    {
 	      if (bitmask.testBit((dd-ds)*dm2 + (ww-ws)*dm + (hh-hs)))
 		{
-		  maskDataUS[dd*m_width*m_height + ww*m_height + hh] = tag;
+		  bool clipped = VolumeOperations::checkClipped(Vec(hh, ww, dd));
+		  if (!clipped)
+		    {
+		      maskDataUS[dd*m_width*m_height + ww*m_height + hh] = tag;
 
-		  minD = qMin(minD, (int)dd);
-		  maxD = qMax(maxD, (int)dd);
-		  minW = qMin(minW, (int)ww);
-		  maxW = qMax(maxW, (int)ww);
-		  minH = qMin(minH, (int)hh);
-		  maxH = qMax(maxH, (int)hh);
+		      minD = qMin(minD, (int)dd);
+		      maxD = qMax(maxD, (int)dd);
+		      minW = qMin(minW, (int)ww);
+		      maxW = qMax(maxW, (int)ww);
+		      minH = qMin(minH, (int)hh);
+		      maxH = qMax(maxH, (int)hh);
+		    }
 		}
 	    }
     }
@@ -4825,7 +4829,9 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 	  qint64 w0 = seeds[i].y;
 	  qint64 d0 = seeds[i].z;
 
-	  maskDataUS[d0*m_width*m_height + w0*m_height + h0] = tag;
+	  bool clipped = VolumeOperations::checkClipped(Vec(h0, w0, d0));
+	  if (!clipped)
+	    maskDataUS[d0*m_width*m_height + w0*m_height + h0] = tag;
 
 	  bitmask.setBit((d0-ds)*dm2 + (w0-ws)*dm + (h0-hs), false);
 	  stack.push(Vec(d0, w0, h0));
@@ -4853,7 +4859,9 @@ DrishtiPaint::paint3D(Vec bmin, Vec bmax,
 		{
 		  bitmask.setBit(bidx, false);
 
-		  maskDataUS[d2*m_width*m_height + w2*m_height + h2] = tag;
+		  bool clipped = VolumeOperations::checkClipped(Vec(h2, w2, d2));
+		  if (!clipped)
+		    maskDataUS[d2*m_width*m_height + w2*m_height + h2] = tag;
 
 		  stack.push(Vec(d2,w2,h2));
 		  

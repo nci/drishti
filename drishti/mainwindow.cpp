@@ -1272,6 +1272,10 @@ MainWindow::on_actionAbout_triggered()
   mesg += "Website :\nhttps://github.com/nci/drishti\n\n";
   mesg += "Drishti User Group :\nhttps://groups.google.com/group/drishti-user-group\n\n";
   mesg += "YouTube :\nhttps://www.youtube.com/user/900acl/videos?sort=dd&flow=list&page=1&view=1\n";
+  mesg += "\n";
+  mesg += "Contributions -\n";
+  mesg += "Jing LU (IVPP, Beijing) for the concept behind Drishti Mesh and for extensive testing of the software.\n";
+    
 
   QMessageBox::information(0, "Drishti", mesg);
 }

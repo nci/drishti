@@ -57,6 +57,9 @@ http://nci.org.au/systems-services/scientific-visualisation/visualisation-servic
 by Julia Behnsen, University of Liverpool 
 https://datanywhere.liv.ac.uk/?linkid=KZi4zr6VWWV/R+cA7OjSmYRTYv/iF7PSuIDODS6ncAGbVD1en/7ZcA -->
 
+## Acknowledgements
+Jing LU contributed to the ideas, feedback and performance testing of surface visualization module.
+
 ## Basics of Drishti
 by Bailey Lovett<br>
 http://www.scribd.com/doc/191007517/The-Basics-of-Drishti-A-Free-To-Download-Volume-Exploration-Presentation-Tool
@@ -68,9 +71,6 @@ https://www.youtube.com/user/900acl/playlists
 https://www.youtube.com/watch?v=pd9azHTGaB4
 <br>
 https://www.youtube.com/playlist?list=PLvCBlNTgzwb9OrBO20JGFl4aEaBA8TZZI
-
-## Acknowledgements
-Jing LU contributed to the unit and performance testing of surface visualization module.
 
 ## Drishti around the world
 Usage of Drishti by [researchers around the world ](https://github.com/AjayLimaye/drishti/wiki/Usage-of-Drishti-around-the-world)
